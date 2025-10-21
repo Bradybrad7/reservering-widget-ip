@@ -10,7 +10,10 @@ import type {
   AddOns,
   BookingRules,
   EventType,
-  MerchandiseItem
+  MerchandiseItem,
+  WizardConfig,
+  EventTypesConfig,
+  TextCustomization
 } from '../types';
 import { apiService } from '../services/apiService';
 
@@ -53,6 +56,9 @@ interface AdminState {
   pricing: Pricing | null;
   addOns: AddOns | null;
   bookingRules: BookingRules | null;
+  wizardConfig: WizardConfig | null;
+  eventTypesConfig: EventTypesConfig | null;
+  textCustomization: TextCustomization | null;
   
   // Merchandise
   merchandiseItems: MerchandiseItem[];
@@ -105,6 +111,9 @@ interface AdminActions {
   updatePricing: (pricing: Partial<Pricing>) => Promise<boolean>;
   updateAddOns: (addOns: Partial<AddOns>) => Promise<boolean>;
   updateBookingRules: (rules: Partial<BookingRules>) => Promise<boolean>;
+  updateWizardConfig: (config: WizardConfig) => Promise<boolean>;
+  updateEventTypesConfig: (config: EventTypesConfig) => Promise<boolean>;
+  updateTextCustomization: (texts: TextCustomization) => Promise<boolean>;
   
   // Merchandise
   loadMerchandise: () => Promise<void>;
@@ -165,6 +174,9 @@ export const useAdminStore = create<AdminStore>()(
     pricing: null,
     addOns: null,
     bookingRules: null,
+    wizardConfig: null,
+    eventTypesConfig: null,
+    textCustomization: null,
     
     merchandiseItems: [],
     isLoadingMerchandise: false,
@@ -450,6 +462,24 @@ export const useAdminStore = create<AdminStore>()(
             bookingRules: response.data.bookingRules
           });
         }
+        
+        // Load wizard config
+        const wizardResponse = await apiService.getWizardConfig();
+        if (wizardResponse.success && wizardResponse.data) {
+          set({ wizardConfig: wizardResponse.data });
+        }
+        
+        // Load event types config
+        const eventTypesResponse = await apiService.getEventTypesConfig();
+        if (eventTypesResponse.success && eventTypesResponse.data) {
+          set({ eventTypesConfig: eventTypesResponse.data });
+        }
+        
+        // Load text customization
+        const textResponse = await apiService.getTextCustomization();
+        if (textResponse.success && textResponse.data) {
+          set({ textCustomization: textResponse.data });
+        }
       } catch (error) {
         console.error('Failed to load config:', error);
       }
@@ -517,6 +547,57 @@ export const useAdminStore = create<AdminStore>()(
         return false;
       } catch (error) {
         console.error('Failed to update booking rules:', error);
+        return false;
+      } finally {
+        set({ isSubmitting: false });
+      }
+    },
+
+    updateWizardConfig: async (config: WizardConfig) => {
+      set({ isSubmitting: true });
+      try {
+        const response = await apiService.updateWizardConfig(config);
+        if (response.success) {
+          set({ wizardConfig: config });
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Failed to update wizard config:', error);
+        return false;
+      } finally {
+        set({ isSubmitting: false });
+      }
+    },
+
+    updateEventTypesConfig: async (config: EventTypesConfig) => {
+      set({ isSubmitting: true });
+      try {
+        const response = await apiService.updateEventTypesConfig(config);
+        if (response.success) {
+          set({ eventTypesConfig: config });
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Failed to update event types config:', error);
+        return false;
+      } finally {
+        set({ isSubmitting: false });
+      }
+    },
+
+    updateTextCustomization: async (texts: TextCustomization) => {
+      set({ isSubmitting: true });
+      try {
+        const response = await apiService.updateTextCustomization(texts);
+        if (response.success) {
+          set({ textCustomization: texts });
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Failed to update text customization:', error);
         return false;
       } finally {
         set({ isSubmitting: false });

@@ -2,13 +2,13 @@ import React from 'react';
 
 /**
  * 🎭 Unified Button Component
- * Design System v2.0 - Dark Theatre Theme
+ * Design System v3.0 - Zwart/Donkerrood/Goud Theme
  * 
  * Variants:
- * - primary: Gold background (main CTAs)
- * - secondary: Gold border, transparent bg (secondary actions)
+ * - primary: Goud background (main CTAs) - zwarte tekst
+ * - secondary: Donkerrood background (secondary actions) - lichte tekst
  * - ghost: Transparent, minimal styling (cancel, back)
- * - danger: Red background (destructive actions)
+ * - danger: Donkerrood background (destructive actions)
  * 
  * Sizes:
  * - sm: Small buttons (32px height)
@@ -46,31 +46,34 @@ const Button: React.FC<ButtonProps> = ({
     inline-flex items-center justify-center gap-2
     font-semibold rounded-lg
     transition-all duration-200
-    focus:outline-none focus:ring-2 focus:ring-primary-500/40
+    focus:outline-none focus:ring-2 focus:ring-primary-500/60 focus:ring-offset-2 focus:ring-offset-bg-base
     disabled:opacity-50 disabled:cursor-not-allowed
   `;
 
-  // Variant styles
+  // Variant styles - Zwart/Donkerrood/Goud
   const variantStyles = {
     primary: `
       bg-primary-500 hover:bg-primary-600 active:bg-primary-700
-      text-neutral-950 font-semibold
-      shadow-md hover:shadow-gold
+      text-neutral-950 font-bold
+      shadow-gold hover:shadow-gold-glow
+      border border-primary-600
     `,
     secondary: `
-      border-2 border-primary-500 hover:border-primary-500/40 active:border-primary-700
-      text-primary-500 hover:text-primary-400 active:text-primary-600
-      bg-transparent hover:bg-primary-500/10
+      bg-secondary-500 hover:bg-secondary-600 active:bg-secondary-700
+      text-text-primary font-semibold
+      shadow-md hover:shadow-red-glow
+      border border-secondary-600
     `,
     ghost: `
       text-text-secondary hover:text-primary-500
       bg-transparent hover:bg-bg-hover
-      border border-transparent
+      border border-transparent hover:border-border-default
     `,
     danger: `
-      bg-error-500 hover:bg-error-600 active:bg-error-700
-      text-white font-semibold
-      shadow-md hover:shadow-lg
+      bg-danger-500 hover:bg-danger-600 active:bg-danger-700
+      text-text-primary font-semibold
+      shadow-md hover:shadow-red-glow
+      border border-danger-600
     `,
   };
 

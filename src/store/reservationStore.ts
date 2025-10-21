@@ -14,8 +14,7 @@ import type {
   Salutation,
   Arrangement,
   StepKey,
-  WizardConfig,
-  WizardStep
+  WizardConfig
 } from '../types';
 import { apiService } from '../services/apiService';
 import { priceService } from '../services/priceService';
@@ -164,6 +163,17 @@ export const useReservationStore = create<ReservationStore>()(
     // Actions
     loadEvents: async () => {
       set({ isLoading: true });
+      
+      // Load wizard config from API
+      try {
+        const wizardResponse = await apiService.getWizardConfig();
+        if (wizardResponse.success && wizardResponse.data) {
+          set({ wizardConfig: wizardResponse.data });
+        }
+      } catch (error) {
+        console.error('Failed to load wizard config:', error);
+      }
+      
       try {
         const response = await apiService.getEvents();
         if (response.success && response.data) {
@@ -381,7 +391,9 @@ export const useReservationStore = create<ReservationStore>()(
     },
 
     goToNextStep: () => {
-      const { currentStep, wizardConfig, formData, isFormValid } = get();
+      const { currentStep, wizardConfig, formData, isFormValid, selectedEvent } = get();
+      
+      console.log('🚀 goToNextStep from:', currentStep, 'selectedEvent:', selectedEvent?.id);
       
       // Get enabled steps in order
       const enabledSteps = wizardConfig.steps
@@ -402,8 +414,11 @@ export const useReservationStore = create<ReservationStore>()(
             console.warn('Invalid number of persons');
             return;
           }
-          // Go to arrangement step
-          set({ currentStep: 'arrangement' });
+          // Go to next enabled step
+          const nextAfterPersons = enabledSteps[currentIndex + 1];
+          if (nextAfterPersons) {
+            set({ currentStep: nextAfterPersons.key });
+          }
           break;
           
         case 'arrangement':
@@ -412,7 +427,7 @@ export const useReservationStore = create<ReservationStore>()(
             console.warn('No arrangement selected');
             return;
           }
-          // Find next enabled step (addons or skip to next)
+          // Find next enabled step
           const nextAfterArrangement = enabledSteps[currentIndex + 1];
           if (nextAfterArrangement) {
             set({ currentStep: nextAfterArrangement.key });
@@ -428,14 +443,20 @@ export const useReservationStore = create<ReservationStore>()(
           break;
           
         case 'merchandise':
-          // Merchandise is optional, proceed to form
-          set({ currentStep: 'form' });
+          // Merchandise is optional, proceed to next enabled step
+          const nextAfterMerchandise = enabledSteps[currentIndex + 1];
+          if (nextAfterMerchandise) {
+            set({ currentStep: nextAfterMerchandise.key });
+          }
           break;
           
         case 'form':
-          // Validate form before proceeding to summary
+          // Validate form before proceeding to next enabled step
           if (isFormValid) {
-            set({ currentStep: 'summary' });
+            const nextAfterForm = enabledSteps[currentIndex + 1];
+            if (nextAfterForm) {
+              set({ currentStep: nextAfterForm.key });
+            }
           } else {
             console.warn('Form is not valid');
           }
@@ -457,11 +478,13 @@ export const useReservationStore = create<ReservationStore>()(
           break;
       }
       
-      console.log('📍 New step:', get().currentStep);
+      const newState = get();
+      console.log('📍 New step:', newState.currentStep, 'selectedEvent:', newState.selectedEvent?.id);
     },
 
     goToPreviousStep: () => {
-      const { currentStep, wizardConfig } = get();
+      const { currentStep, wizardConfig, selectedEvent } = get();
+      console.log('⬅️ goToPreviousStep from:', currentStep, 'selectedEvent:', selectedEvent?.id);
       
       // Get enabled steps in order
       const enabledSteps = wizardConfig.steps

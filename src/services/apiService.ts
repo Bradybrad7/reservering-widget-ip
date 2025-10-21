@@ -1,6 +1,5 @@
 import type {
   Event,
-  EventType,
   Availability,
   Reservation,
   CustomerFormData,
@@ -11,10 +10,11 @@ import type {
   Pricing,
   AddOns,
   BookingRules,
-  MerchandiseItem
+  MerchandiseItem,
+  WizardConfig,
+  EventTypesConfig,
+  TextCustomization
 } from '../types';
-import { addDays } from 'date-fns';
-import { eventTypeConfig } from '../config/defaults';
 import { localStorageService } from './localStorageService';
 import { checkReservationLimit } from './rateLimiter';
 import { calculatePrice } from './priceService';
@@ -791,6 +791,128 @@ export const apiService = {
       return {
         success: false,
         error: 'Failed to update booking rules'
+      };
+    }
+  },
+
+  // Wizard Configuration
+  async getWizardConfig(): Promise<ApiResponse<WizardConfig>> {
+    await delay(200);
+    
+    try {
+      let config = localStorageService.getWizardConfig();
+      if (!config) {
+        const { getDefaultWizardConfig } = await import('../config/defaults');
+        config = getDefaultWizardConfig();
+      }
+      
+      return {
+        success: true,
+        data: config
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to get wizard config'
+      };
+    }
+  },
+
+  async updateWizardConfig(config: WizardConfig): Promise<ApiResponse<WizardConfig>> {
+    await delay(300);
+    
+    try {
+      localStorageService.saveWizardConfig(config);
+      
+      return {
+        success: true,
+        data: config,
+        message: 'Wizard configuration updated successfully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to update wizard config'
+      };
+    }
+  },
+
+  // Event Types Configuration
+  async getEventTypesConfig(): Promise<ApiResponse<EventTypesConfig>> {
+    await delay(200);
+    
+    try {
+      let config = localStorageService.getEventTypesConfig();
+      if (!config) {
+        const { getDefaultEventTypesConfig } = await import('../config/defaults');
+        config = getDefaultEventTypesConfig();
+      }
+      
+      return {
+        success: true,
+        data: config
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to get event types config'
+      };
+    }
+  },
+
+  async updateEventTypesConfig(config: EventTypesConfig): Promise<ApiResponse<EventTypesConfig>> {
+    await delay(300);
+    
+    try {
+      localStorageService.saveEventTypesConfig(config);
+      
+      return {
+        success: true,
+        data: config,
+        message: 'Event types configuration updated successfully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to update event types config'
+      };
+    }
+  },
+
+  // Text Customization
+  async getTextCustomization(): Promise<ApiResponse<TextCustomization>> {
+    await delay(200);
+    
+    try {
+      const texts = localStorageService.getTextCustomization() || {};
+      
+      return {
+        success: true,
+        data: texts
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to get text customization'
+      };
+    }
+  },
+
+  async updateTextCustomization(texts: TextCustomization): Promise<ApiResponse<TextCustomization>> {
+    await delay(300);
+    
+    try {
+      localStorageService.saveTextCustomization(texts);
+      
+      return {
+        success: true,
+        data: texts,
+        message: 'Text customization updated successfully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to update text customization'
       };
     }
   },

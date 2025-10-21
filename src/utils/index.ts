@@ -1,10 +1,70 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import type { EventType } from '../types';
+import { nl } from '../config/defaults';
+import { localStorageService } from '../services/localStorageService';
 
 // Utility function for combining classes
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+/**
+ * Get text from customization or fallback to default
+ * @param key - The text key (e.g., 'calendar.title', 'summary.reserve')
+ * @param defaultText - Fallback text if key not found
+ * @returns The customized or default text
+ */
+export function getText(key: string, defaultText?: string): string {
+  // Try to get custom text
+  const customTexts = localStorageService.getTextCustomization();
+  
+  if (customTexts && customTexts[key]) {
+    return customTexts[key];
+  }
+  
+  // Try to get from default nl object
+  const keys = key.split('.');
+  let value: any = nl;
+  
+  for (const k of keys) {
+    if (value && typeof value === 'object' && k in value) {
+      value = value[k];
+    } else {
+      value = undefined;
+      break;
+    }
+  }
+  
+  if (typeof value === 'string') {
+    return value;
+  }
+  
+  // Return provided default or key itself
+  return defaultText || key;
+}
+
+/**
+ * Get all available text keys from nl object for customization UI
+ */
+export function getAllTextKeys(): Array<{ key: string; value: string; category: string }> {
+  const keys: Array<{ key: string; value: string; category: string }> = [];
+  
+  const traverse = (obj: any, prefix = '', category = '') => {
+    for (const [key, value] of Object.entries(obj)) {
+      const fullKey = prefix ? `${prefix}.${key}` : key;
+      const cat = category || key;
+      
+      if (typeof value === 'string') {
+        keys.push({ key: fullKey, value, category: cat });
+      } else if (typeof value === 'object' && value !== null) {
+        traverse(value, fullKey, cat);
+      }
+    }
+  };
+  
+  traverse(nl);
+  return keys;
 }
 
 // ✨ NEW: Sanitize user input to prevent XSS attacks

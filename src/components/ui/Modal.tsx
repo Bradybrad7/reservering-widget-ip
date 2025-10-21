@@ -2,11 +2,11 @@ import React, { useEffect } from 'react';
 
 /**
  * 🎭 Unified Modal Component
- * Design System v2.0 - Dark Theatre Theme
+ * Design System v3.0 - Zwart/Donkerrood/Goud Theme
  * 
  * Features:
- * - Dark overlay with blur effect
- * - Centered modal dialog
+ * - Donkere overlay met blur effect
+ * - Centered modal dialog met gouden border
  * - Optional header, footer with actions
  * - ESC key to close
  * - Click outside to close (optional)
@@ -85,7 +85,7 @@ const Modal: React.FC<ModalProps> = ({
     >
       <div
         className={`
-          bg-bg-modal border-2 border-border-strong rounded-2xl
+          bg-bg-modal border-2 border-primary-500/20 rounded-2xl
           ${sizeStyles[size]} w-full
           shadow-modal animate-scale-in
           max-h-[90vh] overflow-hidden
@@ -94,16 +94,16 @@ const Modal: React.FC<ModalProps> = ({
       >
         {/* Header */}
         {(title || showCloseButton) && (
-          <div className="border-b border-border-default px-6 py-4 flex items-center justify-between flex-shrink-0">
+          <div className="border-b border-border-default px-6 py-4 flex items-center justify-between flex-shrink-0 bg-bg-elevated/50">
             {title && (
-              <h2 className="text-text-primary font-bold text-2xl">
+              <h2 className="text-text-primary font-bold text-2xl font-display">
                 {title}
               </h2>
             )}
             {showCloseButton && (
               <button
                 onClick={onClose}
-                className="text-text-muted hover:text-text-primary
+                className="text-text-muted hover:text-primary-500
                          transition-colors p-1 rounded-lg hover:bg-bg-hover"
                 aria-label="Close modal"
               >

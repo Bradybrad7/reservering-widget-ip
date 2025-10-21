@@ -32,13 +32,13 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
       <div className={cn('card-theatre p-8 rounded-2xl animate-fade-in', className)}>
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 bg-gold-gradient rounded-xl flex items-center justify-center shadow-gold">
-            <Calculator className="w-6 h-6 text-white" />
+            <Calculator className="w-6 h-6 text-neutral-950" />
           </div>
-          <h2 className="text-2xl font-bold text-neutral-100 text-shadow">{nl.summary.title}</h2>
+          <h2 className="text-2xl font-bold text-text-primary font-display">{nl.summary.title}</h2>
         </div>
-        <div className="text-center py-12 bg-neutral-800/30 rounded-xl border-2 border-dashed border-neutral-600">
-          <p className="text-dark-200 font-semibold mb-2">Nog geen datum geselecteerd</p>
-          <p className="text-sm text-dark-400">Kies eerst een datum in de kalender</p>
+        <div className="text-center py-12 bg-surface/30 rounded-xl border-2 border-dashed border-border-default">
+          <p className="text-text-secondary font-semibold mb-2">Nog geen datum geselecteerd</p>
+          <p className="text-sm text-text-muted">Kies eerst een datum in de kalender</p>
         </div>
       </div>
     );
@@ -51,24 +51,24 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
   const renderEventInfo = () => (
     <div className="space-y-3">
       <div className="flex items-start space-x-3">
-        <CalendarIcon className="w-5 h-5 text-gold-400 mt-1" />
+        <CalendarIcon className="w-5 h-5 text-primary-500 mt-1" />
         <div>
-          <p className="font-semibold text-neutral-100">
+          <p className="font-semibold text-text-primary">
             {formatDate(selectedEvent.date)}
           </p>
-          <p className="text-sm text-neutral-400">
+          <p className="text-sm text-text-muted">
             {getEventTypeName(selectedEvent.type)}
           </p>
         </div>
       </div>
 
       <div className="flex items-center space-x-3">
-        <Clock className="w-5 h-5 text-gold-400" />
+        <Clock className="w-5 h-5 text-primary-500" />
         <div>
-          <p className="text-sm text-neutral-200">
+          <p className="text-sm text-text-secondary">
             Deuren: {formatTime(selectedEvent.doorsOpen)}
           </p>
-          <p className="text-sm text-neutral-200">
+          <p className="text-sm text-text-secondary">
             Show: {formatTime(selectedEvent.startsAt)} - {formatTime(selectedEvent.endsAt)}
           </p>
         </div>
@@ -76,8 +76,8 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
 
       {formData.numberOfPersons && (
         <div className="flex items-center space-x-3">
-          <Users className="w-5 h-5 text-gold-400" />
-          <p className="text-sm text-neutral-100">
+          <Users className="w-5 h-5 text-primary-500" />
+          <p className="text-sm text-text-primary">
             {formData.numberOfPersons} {formData.numberOfPersons === 1 ? 'persoon' : 'personen'}
           </p>
         </div>
@@ -85,8 +85,8 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
 
       {formData.arrangement && (
         <div className="flex items-center space-x-3">
-          <CreditCard className="w-5 h-5 text-gold-400" />
-          <p className="text-sm text-neutral-100">
+          <CreditCard className="w-5 h-5 text-primary-500" />
+          <p className="text-sm text-text-primary">
             {nl.arrangements[formData.arrangement]}
           </p>
         </div>
@@ -97,8 +97,8 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
   const renderPriceBreakdown = () => {
     if (!priceCalculation) {
       return (
-        <div className="text-center py-4 text-dark-500">
-          <Calculator className="w-8 h-8 mx-auto mb-2 text-dark-400" />
+        <div className="text-center py-4 text-text-muted">
+          <Calculator className="w-8 h-8 mx-auto mb-2 text-text-disabled" />
           <p>{nl.summary.calculating}</p>
         </div>
       );
@@ -113,69 +113,69 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
           <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gold-500/50 to-transparent"></div>
         </div>
 
-        {/* Main arrangement - Dark Mode */}
-        <div className="flex justify-between items-center p-3 bg-gradient-to-br from-gold-500/20 to-gold-600/10 rounded-lg border border-gold-400/30 backdrop-blur-sm">
+        {/* Main arrangement - Zwart/Goud */}
+        <div className="flex justify-between items-center p-3 bg-gradient-to-br from-primary-500/15 to-primary-600/10 rounded-lg border border-primary-500/30 backdrop-blur-sm">
           <div className="flex-1">
-            <p className="text-sm font-semibold text-neutral-100">
+            <p className="text-sm font-semibold text-text-primary">
               {nl.arrangements[priceCalculation.breakdown.arrangement.type]}
             </p>
-            <p className="text-xs text-neutral-400">
+            <p className="text-xs text-text-muted">
               {priceCalculation.breakdown.arrangement.persons} × {formatCurrency(priceCalculation.breakdown.arrangement.pricePerPerson)}
             </p>
           </div>
-          <p className="font-bold text-gold-400 text-lg">
+          <p className="font-bold text-primary-500 text-lg">
             {formatCurrency(priceCalculation.breakdown.arrangement.total)}
           </p>
         </div>
 
-        {/* Pre-drink - Dark Mode */}
+        {/* Pre-drink - Zwart/Goud */}
         {priceCalculation.breakdown.preDrink && (
-          <div className="flex justify-between items-center p-3 bg-gradient-to-br from-blue-500/20 to-blue-600/10 rounded-lg border border-blue-400/30 backdrop-blur-sm">
+          <div className="flex justify-between items-center p-3 bg-gradient-to-br from-info-500/15 to-info-600/10 rounded-lg border border-info-400/30 backdrop-blur-sm">
             <div className="flex-1">
-              <p className="text-sm font-semibold text-neutral-100 flex items-center gap-2">
+              <p className="text-sm font-semibold text-text-primary flex items-center gap-2">
                 🍹 {nl.summary.preDrink}
               </p>
-              <p className="text-xs text-neutral-400">
+              <p className="text-xs text-text-muted">
                 {priceCalculation.breakdown.preDrink.persons} × {formatCurrency(priceCalculation.breakdown.preDrink.pricePerPerson)}
               </p>
             </div>
-            <p className="font-bold text-blue-300">
+            <p className="font-bold text-info-300">
               {formatCurrency(priceCalculation.breakdown.preDrink.total)}
             </p>
           </div>
         )}
 
-        {/* After party - Dark Mode */}
+        {/* After party - Zwart/Goud */}
         {priceCalculation.breakdown.afterParty && (
-          <div className="flex justify-between items-center p-3 bg-gradient-to-br from-purple-500/20 to-purple-600/10 rounded-lg border border-purple-400/30 backdrop-blur-sm">
+          <div className="flex justify-between items-center p-3 bg-gradient-to-br from-secondary-500/15 to-secondary-600/10 rounded-lg border border-secondary-400/30 backdrop-blur-sm">
             <div className="flex-1">
-              <p className="text-sm font-semibold text-neutral-100 flex items-center gap-2">
+              <p className="text-sm font-semibold text-text-primary flex items-center gap-2">
                 🎉 {nl.summary.afterParty}
               </p>
-              <p className="text-xs text-neutral-400">
+              <p className="text-xs text-text-muted">
                 {priceCalculation.breakdown.afterParty.persons} × {formatCurrency(priceCalculation.breakdown.afterParty.pricePerPerson)}
               </p>
             </div>
-            <p className="font-bold text-purple-300">
+            <p className="font-bold text-secondary-400">
               {formatCurrency(priceCalculation.breakdown.afterParty.total)}
             </p>
           </div>
         )}
 
-        {/* Merchandise - Dark Mode */}
+        {/* Merchandise */}
         {priceCalculation.breakdown.merchandise && priceCalculation.breakdown.merchandise.items.length > 0 && (
-          <div className="pt-3 border-t border-gold-500/30">
-            <p className="text-sm font-semibold text-neutral-100 mb-2">Merchandise</p>
+          <div className="pt-3 border-t border-primary-500/20">
+            <p className="text-sm font-semibold text-text-primary mb-2">Merchandise</p>
             <div className="space-y-2 pl-2">
               {priceCalculation.breakdown.merchandise.items.map((item) => (
                 <div key={item.id} className="flex justify-between items-center">
                   <div className="flex-1">
-                    <p className="text-sm text-neutral-200">{item.name}</p>
-                    <p className="text-xs text-neutral-400">
+                    <p className="text-sm text-text-secondary">{item.name}</p>
+                    <p className="text-xs text-text-muted">
                       {item.quantity} × {formatCurrency(item.price)}
                     </p>
                   </div>
-                  <p className="font-medium text-neutral-100">
+                  <p className="font-medium text-text-primary">
                     {formatCurrency(item.total)}
                   </p>
                 </div>
@@ -184,27 +184,27 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
           </div>
         )}
 
-        {/* Total - Enhanced Dark Mode with Glow */}
-        <div className="mt-6 p-6 bg-gold-gradient rounded-2xl border-2 border-gold-500/50 shadow-gold-glow">
+        {/* Total - Enhanced Goud Glow */}
+        <div className="mt-6 p-6 bg-gold-gradient rounded-2xl border-2 border-primary-500/50 shadow-gold-glow">
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-sm font-semibold text-white/90 mb-1 flex items-center gap-2">
+              <p className="text-sm font-semibold text-neutral-950/90 mb-1 flex items-center gap-2">
                 <span className="text-2xl">💰</span>
                 {nl.summary.total}
               </p>
-              <p className="text-xs text-white/70 font-medium">Inclusief BTW</p>
+              <p className="text-xs text-neutral-800 font-medium">Inclusief BTW</p>
             </div>
             <div className="text-right">
-              <p className="text-4xl font-black text-white drop-shadow-lg">
+              <p className="text-4xl font-black text-neutral-950 drop-shadow-lg">
                 {formatCurrency(priceCalculation.totalPrice)}
               </p>
             </div>
           </div>
           
-          {/* Savings Badge - Dark Mode */}
+          {/* Savings Badge */}
           {priceCalculation.breakdown.arrangement.persons >= 50 && (
-            <div className="mt-2 pt-2 border-t border-white/20">
-              <p className="text-xs text-green-300 font-semibold flex items-center gap-1">
+            <div className="mt-2 pt-2 border-t border-neutral-800/20">
+              <p className="text-xs text-success-700 font-semibold flex items-center gap-1">
                 <span>✨</span>
                 <span>Groepskorting toegepast voor grote groep!</span>
               </p>
@@ -276,37 +276,37 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
         {renderPriceBreakdown()}
       </div>
 
-      {/* Waitlist Warning - Dark Mode */}
+      {/* Waitlist Warning - Donkerrood */}
       {isEventFull && (
-        <div className="mb-4 p-4 bg-red-500/20 border-2 border-red-500/40 rounded-lg backdrop-blur-sm">
-          <p className="text-sm font-medium text-red-300 mb-1">
+        <div className="mb-4 p-4 bg-danger-500/15 border-2 border-danger-500/40 rounded-lg backdrop-blur-sm">
+          <p className="text-sm font-medium text-danger-400 mb-1">
             ⚠️ Deze datum is vol
           </p>
-          <p className="text-xs text-red-200">
+          <p className="text-xs text-text-secondary">
             U kunt zich aanmelden voor de wachtlijst. We nemen contact met u op als er een plek vrijkomt.
           </p>
         </div>
       )}
 
-      {/* Reserve/Continue Button - Dark Mode Optimized */}
+      {/* Reserve/Continue Button - Zwart/Goud/Donkerrood */}
       <button
         onClick={handleReserve}
         disabled={!isReadyToReserve() || isSubmitting}
         className={cn(
           'w-full py-4 px-6 rounded-xl font-bold transition-all duration-300 text-lg',
-          'focus-gold flex items-center justify-center gap-2',
+          'focus:outline-none focus:ring-2 focus:ring-primary-500/60 flex items-center justify-center gap-2',
           'relative overflow-hidden',
           {
-            'bg-gold-gradient text-white hover:shadow-gold-glow hover:scale-105 active:scale-100': isReadyToReserve() && !isSubmitting && !isEventFull,
-            'bg-gradient-to-r from-red-500 to-red-600 text-white hover:shadow-gold hover:from-red-600 hover:to-red-700': isReadyToReserve() && !isSubmitting && isEventFull,
-            'bg-dark-800/50 text-dark-500 cursor-not-allowed border border-dark-700': !isReadyToReserve() || isSubmitting
+            'bg-gold-gradient text-neutral-950 hover:shadow-gold-glow hover:scale-105 active:scale-100 border border-primary-600': isReadyToReserve() && !isSubmitting && !isEventFull,
+            'bg-red-gradient text-text-primary hover:shadow-red-glow hover:scale-105 border border-danger-600': isReadyToReserve() && !isSubmitting && isEventFull,
+            'bg-neutral-900/50 text-text-disabled cursor-not-allowed border border-neutral-800': !isReadyToReserve() || isSubmitting
           }
         )}
         aria-label={isSubmitting ? 'Bezig met opslaan' : onReserve ? 'Reservering bevestigen' : 'Naar volgende stap'}
       >
         {isSubmitting ? (
           <div className="flex items-center justify-center space-x-2">
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
             <span>{nl.saving}</span>
           </div>
         ) : (
@@ -333,16 +333,16 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
         )}
       </button>
 
-      {/* Helper text - Dark Mode */}
+      {/* Helper text */}
       {!isReadyToReserve() && !isSubmitting && (
-        <p className="mt-3 text-xs text-center text-gold-400 animate-pulse">
+        <p className="mt-3 text-xs text-center text-primary-500 animate-pulse">
           Vul alle verplichte velden in om te kunnen reserveren
         </p>
       )}
 
-      {/* Disclaimer - Dark Mode */}
-      <div className="mt-6 pt-4 border-t border-gold-500/30">
-        <p className="text-xs text-dark-300 text-center leading-relaxed">
+      {/* Disclaimer */}
+      <div className="mt-6 pt-4 border-t border-primary-500/20">
+        <p className="text-xs text-text-muted text-center leading-relaxed">
           Alle prijzen zijn inclusief BTW. Na verzending ontvangt u binnen een week een bevestiging per e-mail. 
           Betaling vindt plaats na bevestiging.
         </p>

@@ -103,25 +103,25 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
     const availability = event ? eventAvailability[event.id] : null;
 
     return cn(
-      'min-h-[110px] w-full p-3 text-left rounded-xl border-2 transition-all duration-300 focus-gold group',
+      'min-h-[110px] w-full p-3 text-left rounded-xl border-2 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary-500/60 group',
       {
-        // Active event - dark mode
-        'bg-neutral-800/50 border-dark-700 hover:border-primary-500/30 hover:shadow-gold hover:scale-[1.02] hover:-translate-y-1 cursor-pointer backdrop-blur-sm': 
+        // Active event - Zwart/Goud
+        'bg-surface/50 border-border-default hover:border-primary-500/40 hover:shadow-gold hover:scale-[1.02] hover:-translate-y-1 cursor-pointer backdrop-blur-sm': 
           isCurrentMonth && event && event.isActive,
-        // Not current month - dark mode
-        'bg-dark-900/30 border-dark-800 text-dark-600': 
+        // Not current month
+        'bg-base/30 border-neutral-900 text-text-disabled opacity-50': 
           !isCurrentMonth,
-        // Today indicator - dark mode
-        'bg-gold-500/20 border-gold-400 ring-2 ring-gold-400/50 shadow-gold': 
+        // Today indicator - Goud
+        'bg-primary-500/15 border-primary-500/60 ring-2 ring-primary-500/40 shadow-gold': 
           isDateToday && isCurrentMonth && !isSelected,
         // Selected event - enhanced gold glow
-        'bg-gold-gradient border-gold-500 text-white shadow-gold-glow scale-105 -translate-y-1': 
+        'bg-gold-gradient border-primary-500 text-neutral-950 font-bold shadow-gold-glow scale-105 -translate-y-1': 
           isSelected,
-        // Empty date - dark mode
-        'bg-dark-900/20 border-dark-800': 
+        // Empty date
+        'bg-elevated/20 border-border-subtle': 
           isCurrentMonth && !event,
-        // Disabled/closed - dark mode
-        'opacity-40 cursor-not-allowed hover:scale-100 hover:translate-y-0 bg-dark-900/40': 
+        // Disabled/closed
+        'opacity-40 cursor-not-allowed hover:scale-100 hover:translate-y-0 bg-base/40': 
           event && (!event.isActive || availability?.bookingStatus === 'closed')
       }
     );
@@ -131,19 +131,19 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
     <div className="flex items-center justify-between mb-8">
       <button
         onClick={() => navigateMonth('prev')}
-        className="group p-3 rounded-xl bg-neutral-800/50 hover:bg-dark-850 text-dark-200 hover:text-gold-400 focus-gold transition-all duration-300 border-2 border-dark-700 hover:border-gold-500/50 shadow-sm hover:shadow-gold backdrop-blur-sm"
+        className="group p-3 rounded-xl bg-surface/50 hover:bg-bg-hover text-text-secondary hover:text-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/60 transition-all duration-300 border-2 border-border-default hover:border-primary-500/50 shadow-sm hover:shadow-gold backdrop-blur-sm"
         aria-label={nl.calendar.prevMonth}
       >
         <ChevronLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
       </button>
       
-      <h2 className="text-2xl font-bold text-neutral-100 tracking-tight text-shadow">
+      <h2 className="text-2xl font-bold text-text-primary tracking-tight font-display">
         {formatDate(currentMonth, 'nl-NL').split(' ').slice(1).join(' ')}
       </h2>
       
       <button
         onClick={() => navigateMonth('next')}
-        className="group p-3 rounded-xl bg-neutral-800/50 hover:bg-dark-850 text-dark-200 hover:text-gold-400 focus-gold transition-all duration-300 border-2 border-dark-700 hover:border-gold-500/50 shadow-sm hover:shadow-gold backdrop-blur-sm"
+        className="group p-3 rounded-xl bg-surface/50 hover:bg-bg-hover text-text-secondary hover:text-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/60 transition-all duration-300 border-2 border-border-default hover:border-primary-500/50 shadow-sm hover:shadow-gold backdrop-blur-sm"
         aria-label={nl.calendar.nextMonth}
       >
         <ChevronRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
@@ -159,8 +159,8 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
           className={cn(
             "text-center text-sm font-bold py-3 rounded-lg backdrop-blur-sm",
             {
-              'text-gold-400 bg-gold-500/20 border border-gold-500/30': index >= 5, // Weekend
-              'text-dark-200 bg-neutral-800/30 border border-dark-700': index < 5    // Weekdays
+              'text-primary-500 bg-primary-500/15 border border-primary-500/30': index >= 5, // Weekend - Goud
+              'text-text-secondary bg-surface/30 border border-border-subtle': index < 5    // Weekdays
             }
           )}
         >
@@ -202,19 +202,19 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
               {event && isInCurrentMonth(date, currentMonth) && (
                 <div className="space-y-1">
                   <div className={cn("text-xs font-medium", {
-                    'text-neutral-200 group-hover:text-gold-300': !selectedEvent || event.id !== selectedEvent.id,
-                    'text-white': selectedEvent && event.id === selectedEvent.id
+                    'text-text-primary group-hover:text-primary-400': !selectedEvent || event.id !== selectedEvent.id,
+                    'text-neutral-950 font-bold': selectedEvent && event.id === selectedEvent.id
                   })}>
                     {nl.eventTypes[event.type]}
                   </div>
                   <div className={cn("text-xs", {
-                    'text-dark-300 group-hover:text-dark-200': !selectedEvent || event.id !== selectedEvent.id,
-                    'text-white/90': selectedEvent && event.id === selectedEvent.id
+                    'text-text-muted group-hover:text-text-secondary': !selectedEvent || event.id !== selectedEvent.id,
+                    'text-neutral-800': selectedEvent && event.id === selectedEvent.id
                   })}>
                     {formatTime(event.startsAt)}
                   </div>
                   
-                  {/* Visual Capacity Indicator - Status-based (Available/Limited/Full) */}
+                  {/* Visual Capacity Indicator - Zwart/Goud/Donkerrood theme */}
                   {availability && event.capacity !== undefined && (
                     <div className="mt-2">
                       {(() => {
@@ -229,13 +229,13 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
                         
                         if (confirmedOccupancy < 75) {
                           statusLabel = 'Beschikbaar';
-                          statusColor = 'text-green-400';
+                          statusColor = 'text-success-400';
                         } else if (confirmedOccupancy < 100) {
                           statusLabel = 'Beperkt beschikbaar';
-                          statusColor = 'text-orange-400';
+                          statusColor = 'text-secondary-400'; // Donkerrood/oranje
                         } else {
                           statusLabel = 'Vol - Aanvraag mogelijk';
-                          statusColor = 'text-red-400';
+                          statusColor = 'text-danger-500'; // Donkerrood
                         }
                         
                         return (
@@ -247,16 +247,16 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
                               </span>
                             </div>
                             {showBar && (
-                              <div className="w-full h-1.5 bg-dark-800/50 rounded-full overflow-hidden shadow-inner-dark">
+                              <div className="w-full h-1.5 bg-neutral-900/80 rounded-full overflow-hidden shadow-inner-dark">
                                 <div 
                                   className={cn(
                                     'h-full transition-all rounded-full',
                                     {
-                                      'bg-gradient-to-r from-green-400 to-green-500 shadow-sm': 
+                                      'bg-gradient-to-r from-success-400 to-success-500 shadow-sm': 
                                         confirmedOccupancy < 75,
-                                      'bg-gradient-to-r from-yellow-400 to-orange-400 shadow-sm': 
+                                      'bg-gradient-to-r from-warning-500 to-secondary-400 shadow-sm': 
                                         confirmedOccupancy >= 75 && confirmedOccupancy < 100,
-                                      'bg-gradient-to-r from-red-400 to-red-500 shadow-sm': 
+                                      'bg-gradient-to-r from-danger-500 to-secondary-600 shadow-sm': 
                                         confirmedOccupancy >= 100
                                     }
                                   )}

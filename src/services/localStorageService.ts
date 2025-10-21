@@ -10,7 +10,7 @@
  * - Backup & Restore
  */
 
-import type { Event, Reservation, GlobalConfig, Pricing, AddOns, BookingRules, MerchandiseItem } from '../types';
+import type { Event, Reservation, GlobalConfig, Pricing, AddOns, BookingRules, MerchandiseItem, WizardConfig, EventTypesConfig, TextCustomization } from '../types';
 import { defaultConfig, defaultPricing, defaultAddOns, defaultBookingRules } from '../config/defaults';
 
 const STORAGE_VERSION = '1.0.0';
@@ -24,6 +24,9 @@ const KEYS = {
   ADDONS: 'ip_addons',
   BOOKING_RULES: 'ip_booking_rules',
   MERCHANDISE: 'ip_merchandise',
+  WIZARD_CONFIG: 'ip_wizard_config',
+  EVENT_TYPES_CONFIG: 'ip_event_types_config',
+  TEXT_CUSTOMIZATION: 'ip_text_customization',
   VERSION: 'ip_storage_version',
   LAST_BACKUP: 'ip_last_backup',
   EVENT_ID_COUNTER: 'ip_event_counter',
@@ -571,6 +574,58 @@ class LocalStorageService {
     localStorage.setItem(KEYS.PRICING, JSON.stringify(defaultPricing));
     localStorage.setItem(KEYS.ADDONS, JSON.stringify(defaultAddOns));
     localStorage.setItem(KEYS.BOOKING_RULES, JSON.stringify(defaultBookingRules));
+  }
+
+  // ============================================
+  // WIZARD CONFIGURATION
+  // ============================================
+
+  getWizardConfig(): WizardConfig | null {
+    const data = localStorage.getItem(KEYS.WIZARD_CONFIG);
+    return data ? JSON.parse(data) : null;
+  }
+
+  saveWizardConfig(config: WizardConfig): void {
+    localStorage.setItem(KEYS.WIZARD_CONFIG, JSON.stringify(config));
+  }
+
+  resetWizardConfig(): void {
+    localStorage.removeItem(KEYS.WIZARD_CONFIG);
+  }
+
+  // ============================================
+  // EVENT TYPES CONFIGURATION
+  // ============================================
+
+  getEventTypesConfig(): EventTypesConfig | null {
+    const data = localStorage.getItem(KEYS.EVENT_TYPES_CONFIG);
+    if (!data) return null;
+    return JSON.parse(data);
+  }
+
+  saveEventTypesConfig(config: EventTypesConfig): void {
+    localStorage.setItem(KEYS.EVENT_TYPES_CONFIG, JSON.stringify(config));
+  }
+
+  resetEventTypesConfig(): void {
+    localStorage.removeItem(KEYS.EVENT_TYPES_CONFIG);
+  }
+
+  // ============================================
+  // TEXT CUSTOMIZATION
+  // ============================================
+
+  getTextCustomization(): TextCustomization | null {
+    const data = localStorage.getItem(KEYS.TEXT_CUSTOMIZATION);
+    return data ? JSON.parse(data) : null;
+  }
+
+  saveTextCustomization(texts: TextCustomization): void {
+    localStorage.setItem(KEYS.TEXT_CUSTOMIZATION, JSON.stringify(texts));
+  }
+
+  resetTextCustomization(): void {
+    localStorage.removeItem(KEYS.TEXT_CUSTOMIZATION);
   }
 
   resetAll(): void {

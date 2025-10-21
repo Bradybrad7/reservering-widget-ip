@@ -6,13 +6,16 @@ import {
   Calendar,
   Save,
   RotateCcw,
-  CheckCircle
+  CheckCircle,
+  List,
+  Tag,
+  Languages
 } from 'lucide-react';
 import { useAdminStore } from '../../store/adminStore';
-import { cn } from '../../utils';
-import type { Pricing, AddOns, BookingRules, GlobalConfig } from '../../types';
+import { cn, getAllTextKeys } from '../../utils';
+import type { Pricing, AddOns, BookingRules, GlobalConfig, WizardConfig, EventTypesConfig, TextCustomization } from '../../types';
 
-type ConfigSection = 'pricing' | 'addons' | 'booking' | 'general';
+type ConfigSection = 'pricing' | 'addons' | 'booking' | 'general' | 'wizard' | 'eventTypes' | 'texts';
 
 export const ConfigManager: React.FC = () => {
   const {
@@ -20,12 +23,18 @@ export const ConfigManager: React.FC = () => {
     pricing,
     addOns,
     bookingRules,
+    wizardConfig,
+    eventTypesConfig,
+    textCustomization,
     isSubmitting,
     loadConfig,
     updateConfig,
     updatePricing,
     updateAddOns,
-    updateBookingRules
+    updateBookingRules,
+    updateWizardConfig,
+    updateEventTypesConfig,
+    updateTextCustomization
   } = useAdminStore();
 
   const [activeSection, setActiveSection] = useState<ConfigSection>('pricing');
@@ -37,6 +46,9 @@ export const ConfigManager: React.FC = () => {
   const [localAddOns, setLocalAddOns] = useState<AddOns | null>(null);
   const [localBookingRules, setLocalBookingRules] = useState<BookingRules | null>(null);
   const [localConfig, setLocalConfig] = useState<GlobalConfig | null>(null);
+  const [localWizardConfig, setLocalWizardConfig] = useState<WizardConfig | null>(null);
+  const [localEventTypesConfig, setLocalEventTypesConfig] = useState<EventTypesConfig | null>(null);
+  const [localTextCustomization, setLocalTextCustomization] = useState<TextCustomization | null>(null);
 
   useEffect(() => {
     loadConfig();
@@ -47,7 +59,10 @@ export const ConfigManager: React.FC = () => {
     if (addOns) setLocalAddOns(addOns);
     if (bookingRules) setLocalBookingRules(bookingRules);
     if (config) setLocalConfig(config);
-  }, [pricing, addOns, bookingRules, config]);
+    if (wizardConfig) setLocalWizardConfig(wizardConfig);
+    if (eventTypesConfig) setLocalEventTypesConfig(eventTypesConfig);
+    if (textCustomization !== null) setLocalTextCustomization(textCustomization);
+  }, [pricing, addOns, bookingRules, config, wizardConfig, eventTypesConfig, textCustomization]);
 
   const handleSave = async () => {
     let success = false;
@@ -65,6 +80,15 @@ export const ConfigManager: React.FC = () => {
       case 'general':
         if (localConfig) success = await updateConfig(localConfig);
         break;
+      case 'wizard':
+        if (localWizardConfig) success = await updateWizardConfig(localWizardConfig);
+        break;
+      case 'eventTypes':
+        if (localEventTypesConfig) success = await updateEventTypesConfig(localEventTypesConfig);
+        break;
+      case 'texts':
+        if (localTextCustomization) success = await updateTextCustomization(localTextCustomization);
+        break;
     }
 
     if (success) {
@@ -79,6 +103,9 @@ export const ConfigManager: React.FC = () => {
     if (addOns) setLocalAddOns(addOns);
     if (bookingRules) setLocalBookingRules(bookingRules);
     if (config) setLocalConfig(config);
+    if (wizardConfig) setLocalWizardConfig(wizardConfig);
+    if (eventTypesConfig) setLocalEventTypesConfig(eventTypesConfig);
+    if (textCustomization) setLocalTextCustomization(textCustomization);
     setHasChanges(false);
   };
 
@@ -86,6 +113,9 @@ export const ConfigManager: React.FC = () => {
     { id: 'pricing' as ConfigSection, label: 'Prijzen', icon: DollarSign },
     { id: 'addons' as ConfigSection, label: 'Add-ons', icon: Package },
     { id: 'booking' as ConfigSection, label: 'Boekingsregels', icon: Calendar },
+    { id: 'wizard' as ConfigSection, label: 'Wizard Stappen', icon: List },
+    { id: 'eventTypes' as ConfigSection, label: 'Event Types', icon: Tag },
+    { id: 'texts' as ConfigSection, label: 'Teksten', icon: Languages },
     { id: 'general' as ConfigSection, label: 'Algemeen', icon: Settings }
   ];
 
@@ -550,6 +580,310 @@ export const ConfigManager: React.FC = () => {
                   className="w-full px-3 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Wizard Configuration Section */}
+        {activeSection === 'wizard' && localWizardConfig && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-neutral-100">
+                  Wizard Stappen Configuratie
+                </h3>
+                <p className="text-sm text-dark-600 mt-1">
+                  Schakel stappen in/uit en wijzig de volgorde van de wizard
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {localWizardConfig.steps
+                .sort((a, b) => a.order - b.order)
+                .map((step) => (
+                  <div
+                    key={step.key}
+                    className={cn(
+                      'flex items-center justify-between p-4 rounded-lg border transition-all',
+                      step.enabled 
+                        ? 'bg-dark-800/30 border-gold-500/30' 
+                        : 'bg-dark-900/20 border-dark-700'
+                    )}
+                  >
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id={`wizard-${step.key}`}
+                          checked={step.enabled}
+                          disabled={step.required}
+                          onChange={(e) => {
+                            setLocalWizardConfig({
+                              ...localWizardConfig,
+                              steps: localWizardConfig.steps.map(s =>
+                                s.key === step.key
+                                  ? { ...s, enabled: e.target.checked }
+                                  : s
+                              )
+                            });
+                            setHasChanges(true);
+                          }}
+                          className="w-5 h-5 text-gold-500 border-dark-600 rounded focus:ring-gold-500"
+                        />
+                        <label
+                          htmlFor={`wizard-${step.key}`}
+                          className={cn(
+                            'font-medium cursor-pointer',
+                            step.enabled ? 'text-neutral-100' : 'text-dark-600'
+                          )}
+                        >
+                          {step.label}
+                        </label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-dark-600">
+                          Order: {step.order}
+                        </span>
+                        {step.required && (
+                          <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded">
+                            Verplicht
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-sm text-dark-600">
+                      {step.key}
+                    </div>
+                  </div>
+                ))}
+            </div>
+
+            <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+              <p className="text-sm text-blue-300">
+                💡 <strong>Tip:</strong> Stappen zoals 'calendar', 'form' en 'summary' zijn verplicht en kunnen niet worden uitgeschakeld. 
+                Optionele stappen zoals 'addons' en 'merchandise' kunnen naar wens worden in- of uitgeschakeld.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Event Types Configuration Section */}
+        {activeSection === 'eventTypes' && localEventTypesConfig && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-neutral-100">
+                  Event Types Configuratie
+                </h3>
+                <p className="text-sm text-dark-600 mt-1">
+                  Beheer event types, tijden en beschrijvingen
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {localEventTypesConfig.types.map((eventType, index) => (
+                <div
+                  key={eventType.key}
+                  className="border border-dark-700 rounded-lg p-4 space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id={`event-type-${eventType.key}`}
+                        checked={eventType.enabled}
+                        onChange={(e) => {
+                          const newTypes = [...localEventTypesConfig.types];
+                          newTypes[index] = { ...eventType, enabled: e.target.checked };
+                          setLocalEventTypesConfig({ types: newTypes });
+                          setHasChanges(true);
+                        }}
+                        className="w-5 h-5 text-gold-500 border-dark-600 rounded focus:ring-gold-500"
+                      />
+                      <label
+                        htmlFor={`event-type-${eventType.key}`}
+                        className="font-medium text-neutral-100"
+                      >
+                        {eventType.name}
+                      </label>
+                      <span className="text-xs text-dark-600 bg-dark-800 px-2 py-1 rounded">
+                        {eventType.key}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 ml-8">
+                    <div>
+                      <label className="block text-sm font-medium text-dark-600 mb-1">
+                        Naam
+                      </label>
+                      <input
+                        type="text"
+                        value={eventType.name}
+                        onChange={(e) => {
+                          const newTypes = [...localEventTypesConfig.types];
+                          newTypes[index] = { ...eventType, name: e.target.value };
+                          setLocalEventTypesConfig({ types: newTypes });
+                          setHasChanges(true);
+                        }}
+                        className="w-full px-3 py-2 bg-dark-900 border border-dark-600 rounded-lg text-neutral-100 focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-dark-600 mb-1">
+                        Beschrijving
+                      </label>
+                      <input
+                        type="text"
+                        value={eventType.description}
+                        onChange={(e) => {
+                          const newTypes = [...localEventTypesConfig.types];
+                          newTypes[index] = { ...eventType, description: e.target.value };
+                          setLocalEventTypesConfig({ types: newTypes });
+                          setHasChanges(true);
+                        }}
+                        className="w-full px-3 py-2 bg-dark-900 border border-dark-600 rounded-lg text-neutral-100 focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-dark-600 mb-1">
+                        Deuren Open
+                      </label>
+                      <input
+                        type="time"
+                        value={eventType.defaultTimes.doorsOpen}
+                        onChange={(e) => {
+                          const newTypes = [...localEventTypesConfig.types];
+                          newTypes[index] = {
+                            ...eventType,
+                            defaultTimes: { ...eventType.defaultTimes, doorsOpen: e.target.value }
+                          };
+                          setLocalEventTypesConfig({ types: newTypes });
+                          setHasChanges(true);
+                        }}
+                        className="w-full px-3 py-2 bg-dark-900 border border-dark-600 rounded-lg text-neutral-100 focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-dark-600 mb-1">
+                        Start Tijd
+                      </label>
+                      <input
+                        type="time"
+                        value={eventType.defaultTimes.startsAt}
+                        onChange={(e) => {
+                          const newTypes = [...localEventTypesConfig.types];
+                          newTypes[index] = {
+                            ...eventType,
+                            defaultTimes: { ...eventType.defaultTimes, startsAt: e.target.value }
+                          };
+                          setLocalEventTypesConfig({ types: newTypes });
+                          setHasChanges(true);
+                        }}
+                        className="w-full px-3 py-2 bg-dark-900 border border-dark-600 rounded-lg text-neutral-100 focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-dark-600 mb-1">
+                        Eind Tijd
+                      </label>
+                      <input
+                        type="time"
+                        value={eventType.defaultTimes.endsAt}
+                        onChange={(e) => {
+                          const newTypes = [...localEventTypesConfig.types];
+                          newTypes[index] = {
+                            ...eventType,
+                            defaultTimes: { ...eventType.defaultTimes, endsAt: e.target.value }
+                          };
+                          setLocalEventTypesConfig({ types: newTypes });
+                          setHasChanges(true);
+                        }}
+                        className="w-full px-3 py-2 bg-dark-900 border border-dark-600 rounded-lg text-neutral-100 focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Text Customization Section */}
+        {activeSection === 'texts' && localTextCustomization !== null && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-neutral-100">
+                  Tekst Aanpassingen
+                </h3>
+                <p className="text-sm text-dark-600 mt-1">
+                  Pas UI-teksten aan voor personalisatie
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4 max-h-[600px] overflow-y-auto">
+              {getAllTextKeys()
+                .filter(({ category }) => ['calendar', 'summary', 'form', 'validation'].includes(category))
+                .map(({ key, value, category }) => (
+                  <div key={key} className="border border-dark-700 rounded-lg p-3">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1">
+                        <label className="block text-sm font-medium text-dark-600 mb-1">
+                          <span className="text-xs bg-dark-800 px-2 py-1 rounded mr-2">
+                            {category}
+                          </span>
+                          {key}
+                        </label>
+                        <input
+                          type="text"
+                          placeholder={value}
+                          value={localTextCustomization[key] || ''}
+                          onChange={(e) => {
+                            setLocalTextCustomization({
+                              ...localTextCustomization,
+                              [key]: e.target.value
+                            });
+                            setHasChanges(true);
+                          }}
+                          className="w-full px-3 py-2 bg-dark-900 border border-dark-600 rounded-lg text-neutral-100 placeholder-dark-600 focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+                        />
+                        {!localTextCustomization[key] && (
+                          <p className="text-xs text-dark-600 mt-1">
+                            Standaard: "{value}"
+                          </p>
+                        )}
+                      </div>
+                      {localTextCustomization[key] && (
+                        <button
+                          onClick={() => {
+                            const newTexts = { ...localTextCustomization };
+                            delete newTexts[key];
+                            setLocalTextCustomization(newTexts);
+                            setHasChanges(true);
+                          }}
+                          className="mt-6 px-2 py-1 text-xs text-red-400 hover:text-red-300 transition-colors"
+                        >
+                          Reset
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+            </div>
+
+            <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+              <p className="text-sm text-blue-300">
+                💡 <strong>Tip:</strong> Laat een veld leeg om de standaardtekst te gebruiken. 
+                Aangepaste teksten worden direct toegepast in de reserveringswidget.
+              </p>
             </div>
           </div>
         )}

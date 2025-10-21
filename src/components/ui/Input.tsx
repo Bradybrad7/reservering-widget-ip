@@ -2,7 +2,7 @@ import React from 'react';
 
 /**
  * 🎭 Unified Input Component
- * Design System v2.0 - Dark Theatre Theme
+ * Design System v3.0 - Zwart/Donkerrood/Goud Theme
  * 
  * Supports:
  * - Text, email, number, tel, password inputs
@@ -50,21 +50,21 @@ const Input: React.FC<InputProps> = (props) => {
     disabled,
   } = props;
 
-  // Base input styles
+  // Base input styles - Zwart/Goud theme
   const baseStyles = `
-    bg-bg-input text-text-secondary
+    bg-bg-input text-text-primary
     border-2 rounded-lg
     px-4 py-3
     transition-all duration-200
     outline-none
-    placeholder:text-text-disabled
+    placeholder:text-text-muted
     disabled:opacity-50 disabled:cursor-not-allowed
   `;
 
-  // Border color based on state
+  // Border color based on state - Goud focus
   const borderStyles = error
-    ? 'border-error-500 focus:border-error-500 focus:ring-2 focus:ring-error-500/20'
-    : 'border-border-default focus:border-border-focus focus:ring-2 focus:ring-primary-500/20';
+    ? 'border-error-500 focus:border-error-500 focus:ring-2 focus:ring-error-500/30'
+    : 'border-border-default focus:border-border-focus focus:ring-2 focus:ring-primary-500/30 focus:shadow-gold';
 
   // Width style
   const widthStyle = fullWidth ? 'w-full' : '';

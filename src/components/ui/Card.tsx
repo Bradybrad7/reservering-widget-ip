@@ -2,16 +2,16 @@ import React from 'react';
 
 /**
  * 🎭 Unified Card Component
- * Design System v2.0 - Dark Theatre Theme
+ * Design System v3.0 - Zwart/Donkerrood/Goud Theme
  * 
  * Variants:
- * - default: Standard card with solid background
- * - theatre: Glassmorphism card with gold border (signature style)
- * - elevated: Floating card with stronger shadow
+ * - default: Standard card met donkere achtergrond
+ * - theatre: Glassmorphism card met gouden border (signature style)
+ * - elevated: Floating card met sterkere shadow en goud accent
  * 
  * Features:
  * - Optional header, footer sections
- * - Hover effects
+ * - Hover effects met gouden glow
  * - Click handlers for interactive cards
  */
 
@@ -42,24 +42,24 @@ const Card: React.FC<CardProps> = ({
     transition-all duration-200
   `;
 
-  // Variant styles
+  // Variant styles - Zwart/Goud theme
   const variantStyles = {
     default: `
-      bg-bg-card
+      bg-bg-surface
       border border-border-default
-      ${hoverable ? 'hover:border-border-strong hover:shadow-md' : ''}
+      ${hoverable ? 'hover:border-border-strong hover:shadow-subtle' : ''}
     `,
     theatre: `
-      bg-neutral-800/50 backdrop-blur-sm
-      border border-gold-500/20
+      bg-surface/50 backdrop-blur-sm
+      border border-primary-500/15
       shadow-card
       ${hoverable ? 'hover:border-primary-500/30 hover:shadow-gold' : ''}
     `,
     elevated: `
       bg-bg-elevated
-      border border-border-default
+      border border-primary-500/20
       shadow-lifted
-      ${hoverable ? 'hover:shadow-gold-glow hover:-translate-y-0.5' : ''}
+      ${hoverable ? 'hover:shadow-gold-glow hover:-translate-y-1 hover:border-primary-500/30' : ''}
     `,
   };
 

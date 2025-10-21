@@ -104,6 +104,24 @@ export interface BookingRules {
   defaultCapacity: number; // Default capacity for new events (e.g., 230)
 }
 
+// Event Type Configuration
+export interface EventTypeConfig {
+  key: EventType;
+  name: string;
+  description: string;
+  defaultTimes: {
+    doorsOpen: string;
+    startsAt: string;
+    endsAt: string;
+  };
+  days: string[];
+  enabled: boolean;
+}
+
+export interface EventTypesConfig {
+  types: EventTypeConfig[];
+}
+
 // Wizard configuration
 export interface WizardStep {
   key: StepKey;
@@ -115,6 +133,11 @@ export interface WizardStep {
 
 export interface WizardConfig {
   steps: WizardStep[];
+}
+
+// Text Customization
+export interface TextCustomization {
+  [key: string]: string;
 }
 
 // Customer form data

@@ -24,13 +24,31 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
     formData,
     formErrors,
     eventAvailability,
-    updateFormData
+    updateFormData,
+    goToPreviousStep
   } = useReservationStore();
+
+  // Debug logging
+  React.useEffect(() => {
+    console.log('📝 ReservationForm rendered, selectedEvent:', selectedEvent?.id);
+  }, [selectedEvent]);
 
   if (!selectedEvent) {
     return (
-      <div className={cn('p-6 text-center text-dark-500', className)}>
-        Selecteer eerst een datum in de kalender
+      <div className={cn('p-6 text-center', className)}>
+        <div className="max-w-md mx-auto space-y-4">
+          <div className="text-5xl">📅</div>
+          <h3 className="text-xl font-bold text-white">Geen datum geselecteerd</h3>
+          <p className="text-text-muted">
+            Ga terug naar de kalender om een datum te selecteren voor uw reservering.
+          </p>
+          <button
+            onClick={goToPreviousStep}
+            className="mt-4 px-6 py-3 bg-gold-500 hover:bg-gold-600 text-white rounded-lg font-medium transition-colors"
+          >
+            ← Terug naar kalender
+          </button>
+        </div>
       </div>
     );
   }
@@ -97,10 +115,10 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
 
     return (
       <div className="group">
-        <label className="flex items-center gap-2 text-sm font-bold text-neutral-200 mb-2">
-          {icon && <span className="w-5 h-5 text-gold-400">{icon}</span>}
+        <label className="flex items-center gap-2 text-sm font-bold text-text-secondary mb-2">
+          {icon && <span className="w-5 h-5 text-primary-500">{icon}</span>}
           <span>{label}</span>
-          {required && <span className="text-red-400">*</span>}
+          {required && <span className="text-danger-400">*</span>}
         </label>
         
         <div className="relative">
@@ -111,11 +129,11 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
             onBlur={handleBlur}
             placeholder={placeholder}
             className={cn(
-              'w-full px-4 py-3.5 pr-12 border-2 rounded-xl transition-all duration-300 font-medium text-neutral-100 placeholder:text-dark-500 bg-neutral-800/50 backdrop-blur-sm shadow-sm',
+              'w-full px-4 py-3.5 pr-12 border-2 rounded-xl transition-all duration-300 font-medium text-text-primary placeholder:text-text-disabled bg-bg-input backdrop-blur-sm shadow-sm',
               {
-                'border-red-400/50 bg-red-500/10 focus-gold focus:border-red-400': showError,
-                'border-green-400/50 bg-green-500/10 focus-gold focus:border-green-400 shadow-md': showSuccess,
-                'border-dark-700 focus-gold focus:border-gold-400 group-hover:border-dark-600': !showError && !showSuccess
+                'border-danger-500/50 bg-danger-500/10 focus-gold focus:border-danger-500': showError,
+                'border-success-400/50 bg-success-500/10 focus-gold focus:border-success-400 shadow-md': showSuccess,
+                'border-border-default focus-gold focus:border-primary-500 group-hover:border-border-strong': !showError && !showSuccess
               }
             )}
             aria-describedby={showError ? `${field}-error` : undefined}
@@ -124,7 +142,7 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
           {/* Success Checkmark - Dark Mode */}
           {showSuccess && (
             <div className="absolute right-4 top-1/2 -translate-y-1/2 animate-scale-in">
-              <div className="w-7 h-7 bg-green-500 rounded-full flex items-center justify-center shadow-md">
+              <div className="w-7 h-7 bg-success-500 rounded-full flex items-center justify-center shadow-md">
                 <Check className="w-4 h-4 text-white" strokeWidth={3} />
               </div>
             </div>
@@ -133,19 +151,19 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
           {/* Error Icon - Dark Mode */}
           {showError && (
             <div className="absolute right-4 top-1/2 -translate-y-1/2 animate-scale-in">
-              <span className="w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">!</span>
+              <span className="w-5 h-5 rounded-full bg-danger-500 text-white text-xs flex items-center justify-center font-bold">!</span>
             </div>
           )}
         </div>
         
         {showError && (
-          <p id={`${field}-error`} className="mt-2 text-sm text-red-400 flex items-center space-x-1 animate-fade-in">
+          <p id={`${field}-error`} className="mt-2 text-sm text-danger-400 flex items-center space-x-1 animate-fade-in">
             <span>{showError}</span>
           </p>
         )}
         
         {showSuccess && (
-          <p className="mt-2 text-sm text-green-400 flex items-center space-x-1 animate-fade-in">
+          <p className="mt-2 text-sm text-success-400 flex items-center space-x-1 animate-fade-in">
             <Check className="w-4 h-4" />
             <span>Looks good!</span>
           </p>
@@ -162,31 +180,31 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
     required = false
   ) => (
     <div>
-      <label className="block text-sm font-semibold text-gold-400 mb-3">
+      <label className="block text-sm font-semibold text-text-secondary mb-3">
         {icon && <span className="inline-flex items-center space-x-2">{icon}<span>{label}</span></span>}
         {!icon && label}
-        {required && <span className="text-red-400 ml-1">*</span>}
+        {required && <span className="text-danger-400 ml-1">*</span>}
       </label>
       
       <select
         value={(formData[field] as string) || ''}
         onChange={(e) => handleInputChange(field, e.target.value)}
         className={cn(
-          'w-full px-4 py-3 bg-neutral-800/50 border-2 border-dark-700 rounded-xl text-dark-50',
-          'focus:outline-none focus:ring-2 focus:ring-gold-400/50 focus:border-gold-400',
-          'transition-all duration-300 backdrop-blur-sm shadow-inner-dark',
-          formErrors[field as string] ? 'border-red-400/50 bg-red-400/5' : ''
+          'w-full px-4 py-3 bg-bg-input border-2 border-border-default rounded-xl text-text-primary',
+          'focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500',
+          'transition-all duration-300 backdrop-blur-sm shadow-sm',
+          formErrors[field as string] ? 'border-danger-500/50 bg-danger-500/10' : ''
         )}
       >
         {options.map((option) => (
-          <option key={option.value} value={option.value} className="bg-dark-800 text-neutral-100">
+          <option key={option.value} value={option.value} className="bg-bg-elevated text-text-primary">
             {option.label}
           </option>
         ))}
       </select>
       
       {formErrors[field as string] && (
-        <p className="mt-1 text-sm text-red-400">
+        <p className="mt-1 text-sm text-danger-400">
           {formErrors[field as string]}
         </p>
       )}
@@ -202,10 +220,10 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
     required = false
   ) => (
     <div>
-      <label className="block text-sm font-semibold text-gold-400 mb-3">
+      <label className="block text-sm font-semibold text-text-secondary mb-3">
         {icon && <span className="inline-flex items-center space-x-2">{icon}<span>{label}</span></span>}
         {!icon && label}
-        {required && <span className="text-red-400 ml-1">*</span>}
+        {required && <span className="text-danger-400 ml-1">*</span>}
       </label>
       
       <input
@@ -215,15 +233,15 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
         value={(formData[field] as number) || 1}
         onChange={(e) => handleInputChange(field, parseInt(e.target.value) || 0)}
         className={cn(
-          'w-full px-4 py-3 bg-neutral-800/50 border-2 border-dark-700 rounded-xl text-dark-50',
-          'focus:outline-none focus:ring-2 focus:ring-gold-400/50 focus:border-gold-400',
-          'transition-all duration-300 backdrop-blur-sm shadow-inner-dark',
-          formErrors[field as string] ? 'border-red-400/50 bg-red-400/5' : ''
+          'w-full px-4 py-3 bg-bg-input border-2 border-border-default rounded-xl text-text-primary',
+          'focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500',
+          'transition-all duration-300 backdrop-blur-sm shadow-sm',
+          formErrors[field as string] ? 'border-danger-500/50 bg-danger-500/10' : ''
         )}
       />
       
       {formErrors[field as string] && (
-        <p className="mt-1 text-sm text-red-400">
+        <p className="mt-1 text-sm text-danger-400">
           {formErrors[field as string]}
         </p>
       )}
@@ -244,14 +262,14 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
         checked={formData[field] as boolean || false}
         onChange={(e) => handleInputChange(field, e.target.checked)}
         className={cn(
-          'mt-1 h-5 w-5 rounded border-2 border-dark-700 bg-neutral-800/50',
-          'text-gold-500 focus:ring-2 focus:ring-gold-400/50 focus:ring-offset-0',
+          'mt-1 h-5 w-5 rounded border-2 border-border-default bg-bg-input',
+          'text-primary-500 focus:ring-2 focus:ring-primary-500/50 focus:ring-offset-0',
           'transition-all duration-300 cursor-pointer',
-          formErrors[field as string] ? 'border-red-400/50' : ''
+          formErrors[field as string] ? 'border-danger-500/50' : ''
         )}
       />
       
-      <label htmlFor={field as string} className="text-sm text-neutral-200 cursor-pointer">
+      <label htmlFor={field as string} className="text-sm text-text-secondary cursor-pointer">
         {label}
         {linkText && linkUrl && (
           <>
@@ -260,18 +278,18 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
               href={linkUrl} 
               target="_blank" 
               rel="noopener noreferrer"
-              className="text-gold-400 hover:text-gold-300 underline transition-colors"
+              className="text-primary-500 hover:text-primary-400 underline transition-colors"
             >
               {linkText}
             </a>
           </>
         )}
-        {required && <span className="text-red-400 ml-1">*</span>}
+        {required && <span className="text-danger-400 ml-1">*</span>}
       </label>
       
       {formErrors[field as string] && (
         <div className="mt-1">
-          <p className="text-sm text-red-400">
+          <p className="text-sm text-danger-400">
             {formErrors[field as string]}
           </p>
         </div>
@@ -285,11 +303,11 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
       <div className="card-theatre p-8 rounded-2xl shadow-lifted">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 bg-gold-gradient rounded-xl flex items-center justify-center shadow-gold">
-            <User className="w-6 h-6 text-white" />
+            <User className="w-6 h-6 text-neutral-950" />
           </div>
-          <h2 className="text-2xl font-bold text-neutral-100 text-shadow flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-text-primary text-shadow flex items-center gap-2">
             Bedrijfsgegevens
-            <span className="text-base font-normal text-dark-400">(optioneel)</span>
+            <span className="text-base font-normal text-text-muted">(optioneel)</span>
           </h2>
         </div>
         
@@ -332,12 +350,12 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
       {/* Address - Dark Mode */}
       <div className="card-theatre p-8 rounded-2xl shadow-lifted">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-            <MapPin className="w-6 h-6 text-white" />
+          <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-warning-500 rounded-xl flex items-center justify-center shadow-gold">
+            <MapPin className="w-6 h-6 text-neutral-950" />
           </div>
-          <h2 className="text-2xl font-bold text-neutral-100 text-shadow flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-text-primary text-shadow flex items-center gap-2">
             Adresgegevens
-            <span className="text-base font-normal text-dark-400">(optioneel)</span>
+            <span className="text-base font-normal text-text-muted">(optioneel)</span>
           </h2>
         </div>
         
@@ -404,10 +422,10 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
       {/* 📞 Contact Information met glassmorphism */}
       <div className="card-theatre p-8 rounded-2xl">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center shadow-gold">
+          <div className="w-12 h-12 bg-gradient-to-br from-success-400 to-success-600 rounded-xl flex items-center justify-center shadow-gold">
             <Phone className="w-6 h-6 text-white" />
           </div>
-          <h2 className="text-2xl font-bold text-neutral-100 text-shadow">
+          <h2 className="text-2xl font-bold text-text-primary text-shadow">
             Contactgegevens
           </h2>
         </div>
@@ -415,16 +433,16 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
         {renderFormGroup([
           // Phone with country code
           <div key="phone-field" className="group">
-            <label className="flex items-center gap-2 text-sm font-semibold text-gold-400 mb-3">
-              <Phone className="w-5 h-5 text-gold-400" />
+            <label className="flex items-center gap-2 text-sm font-semibold text-text-secondary mb-3">
+              <Phone className="w-5 h-5 text-primary-500" />
               <span>{nl.form.phone.label}</span>
-              <span className="text-red-400">*</span>
+              <span className="text-danger-400">*</span>
             </label>
             <div className="flex gap-2">
               <select
                 value={formData.phoneCountryCode || '+31'}
                 onChange={(e) => handleInputChange('phoneCountryCode', e.target.value)}
-                className="w-32 px-3 py-3.5 border-2 rounded-xl border-dark-700 bg-neutral-800/50 focus:ring-2 focus:ring-gold-400/50 focus:border-gold-400 font-medium text-neutral-100 transition-all duration-300 shadow-inner-dark backdrop-blur-sm"
+                className="w-32 px-3 py-3.5 border-2 rounded-xl border-border-default bg-bg-input focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 font-medium text-text-primary transition-all duration-300 shadow-sm backdrop-blur-sm"
               >
                 <option value="+31">🇳🇱 +31</option>
                 <option value="+32">🇧🇪 +32</option>
@@ -546,10 +564,10 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
 
       {/* Comments */}
       <div className="card-theatre p-6">
-        <h2 className="text-xl font-bold text-neutral-100 mb-6 flex items-center space-x-3 text-shadow">
-          <MessageSquare className="w-6 h-6 text-gold-400" />
+        <h2 className="text-xl font-bold text-text-primary mb-6 flex items-center space-x-3 text-shadow">
+          <MessageSquare className="w-6 h-6 text-primary-500" />
           <span>{nl.form.comments.label}</span>
-          <span className="text-sm font-normal text-neutral-400">({nl.optional})</span>
+          <span className="text-sm font-normal text-text-muted">({nl.optional})</span>
         </h2>
         
         <textarea
@@ -557,14 +575,14 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
           onChange={(e) => handleInputChange('comments', e.target.value)}
           placeholder={nl.form.comments.placeholder}
           rows={4}
-          className="w-full px-4 py-3 bg-neutral-800/50 border-2 border-dark-700 rounded-xl text-neutral-100 placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-gold-400/50 focus:border-gold-400 transition-all duration-300 backdrop-blur-sm shadow-inner-dark resize-none"
+          className="w-full px-4 py-3 bg-bg-input border-2 border-border-default rounded-xl text-text-primary placeholder-text-disabled focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all duration-300 backdrop-blur-sm shadow-sm resize-none"
         />
       </div>
 
       {/* Agreements */}
       <div className="card-theatre p-6">
-        <h2 className="text-xl font-bold text-neutral-100 mb-6 flex items-center space-x-3 text-shadow">
-          <CheckCircle className="w-6 h-6 text-gold-400" />
+        <h2 className="text-xl font-bold text-text-primary mb-6 flex items-center space-x-3 text-shadow">
+          <CheckCircle className="w-6 h-6 text-primary-500" />
           <span>Akkoord</span>
         </h2>
         
@@ -596,12 +614,12 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
           className={cn(
             'group relative px-12 py-5 rounded-2xl font-bold text-lg transition-all duration-300 overflow-hidden',
             formData.acceptTerms
-              ? 'bg-gradient-to-r from-gold-500 via-gold-600 to-gold-500 text-white hover:scale-105 shadow-gold-glow hover:shadow-gold animate-pulse-gold'
-              : 'bg-dark-800/50 text-dark-500 cursor-not-allowed opacity-60 border-2 border-dark-700'
+              ? 'bg-gold-gradient text-neutral-950 hover:scale-105 shadow-gold-glow hover:shadow-gold animate-pulse-gold'
+              : 'bg-bg-elevated text-text-disabled cursor-not-allowed opacity-60 border-2 border-border-default'
           )}
         >
           {formData.acceptTerms && (
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+            <div className="absolute inset-0 bg-gold-shimmer animate-shimmer" />
           )}
           <span className="relative flex items-center gap-3">
             Doorgaan naar Overzicht

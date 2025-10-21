@@ -3,7 +3,9 @@ import type {
   Pricing, 
   AddOns, 
   BookingRules, 
-  EventType
+  EventType,
+  EventTypesConfig,
+  WizardConfig
 } from '../types';
 
 // Default configuration
@@ -173,6 +175,88 @@ export const eventTypeConfig = {
     days: []
   }
 } as const;
+
+// Default Event Types Configuration
+export const getDefaultEventTypesConfig = (): EventTypesConfig => ({
+  types: [
+    {
+      key: 'REGULAR',
+      name: 'Reguliere Show',
+      description: 'Standaard comedy show',
+      defaultTimes: {
+        doorsOpen: '19:00',
+        startsAt: '20:00',
+        endsAt: '22:30'
+      },
+      days: ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'],
+      enabled: true
+    },
+    {
+      key: 'MATINEE',
+      name: 'Matinee',
+      description: 'Middagvoorstelling (14:00–18:00)',
+      defaultTimes: {
+        doorsOpen: '13:30',
+        startsAt: '14:00',
+        endsAt: '18:00'
+      },
+      days: ['zondag'],
+      enabled: true
+    },
+    {
+      key: 'CARE_HEROES',
+      name: 'Zorgzame Helden',
+      description: 'Speciale voorstelling voor zorgmedewerkers',
+      defaultTimes: {
+        doorsOpen: '19:00',
+        startsAt: '20:00',
+        endsAt: '22:30'
+      },
+      days: ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag'],
+      enabled: true
+    },
+    {
+      key: 'REQUEST',
+      name: 'Op Aanvraag',
+      description: 'Beperkte beschikbaarheid, neem contact op',
+      defaultTimes: {
+        doorsOpen: '19:00',
+        startsAt: '20:00',
+        endsAt: '22:30'
+      },
+      days: [],
+      enabled: true
+    },
+    {
+      key: 'UNAVAILABLE',
+      name: 'Niet Beschikbaar',
+      description: 'Geen voorstelling op deze datum',
+      defaultTimes: {
+        doorsOpen: '00:00',
+        startsAt: '00:00',
+        endsAt: '00:00'
+      },
+      days: [],
+      enabled: true
+    }
+  ]
+});
+
+// Default Wizard Configuration
+export const getDefaultWizardConfig = (): WizardConfig => ({
+  steps: [
+    { key: 'calendar', label: 'Datum', enabled: true, order: 1, required: true },
+    { key: 'persons', label: 'Personen', enabled: true, order: 2, required: true },
+    { key: 'arrangement', label: 'Arrangement', enabled: true, order: 3, required: true },
+    { key: 'addons', label: 'Borrel', enabled: true, order: 4, required: false },
+    { key: 'merchandise', label: 'Merchandise', enabled: true, order: 5, required: false },
+    { key: 'form', label: 'Gegevens', enabled: true, order: 6, required: true },
+    { key: 'summary', label: 'Bevestigen', enabled: true, order: 7, required: true },
+    { key: 'success', label: 'Voltooid', enabled: true, order: 8, required: true },
+    { key: 'waitlistPrompt', label: 'Wachtlijst', enabled: true, order: 9, required: false },
+    { key: 'waitlistSuccess', label: 'Wachtlijst Bevestigd', enabled: true, order: 10, required: false }
+  ]
+});
 
 // Dutch translations and copy
 export const nl = {
