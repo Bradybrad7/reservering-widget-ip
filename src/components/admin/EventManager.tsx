@@ -329,7 +329,7 @@ export const EventManager: React.FC = () => {
           <table className="w-full">
             <thead className="bg-neutral-100 border-b border-dark-200">
               <tr>
-                <th className="px-4 py-3 text-left">
+                <th className="px-3 py-2 text-left">
                   <input
                     type="checkbox"
                     checked={selectedEvents.length === filteredEvents.length && filteredEvents.length > 0}
@@ -337,30 +337,30 @@ export const EventManager: React.FC = () => {
                     className="w-4 h-4 text-primary-500 border-dark-300 rounded focus:ring-primary-500"
                   />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-dark-500 uppercase tracking-wider">
+                <th className="px-4 py-2 text-left text-xs font-medium text-dark-500 uppercase tracking-wider">
                   Datum
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-dark-500 uppercase tracking-wider">
+                <th className="px-4 py-2 text-left text-xs font-medium text-dark-500 uppercase tracking-wider">
                   Type
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-dark-500 uppercase tracking-wider">
+                <th className="px-4 py-2 text-left text-xs font-medium text-dark-500 uppercase tracking-wider">
                   Tijden
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-dark-500 uppercase tracking-wider">
+                <th className="px-4 py-2 text-left text-xs font-medium text-dark-500 uppercase tracking-wider">
                   Capaciteit
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-dark-500 uppercase tracking-wider">
+                <th className="px-4 py-2 text-left text-xs font-medium text-dark-500 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-dark-500 uppercase tracking-wider">
+                <th className="px-4 py-2 text-right text-xs font-medium text-dark-500 uppercase tracking-wider">
                   Acties
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-neutral-800/50 divide-y divide-dark-200">
+            <tbody className="bg-neutral-800/50 divide-y divide-dark-200 text-sm">
               {isLoadingEvents ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-dark-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-dark-500">
                     <div className="flex items-center justify-center">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold-500"></div>
                     </div>
@@ -368,14 +368,14 @@ export const EventManager: React.FC = () => {
                 </tr>
               ) : filteredEvents.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-dark-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-dark-500">
                     Geen evenementen gevonden
                   </td>
                 </tr>
               ) : (
                 filteredEvents.map((event) => (
                   <tr key={event.id} className="hover:bg-neutral-100 transition-colors">
-                    <td className="px-4 py-4">
+                    <td className="px-3 py-2">
                       <input
                         type="checkbox"
                         checked={selectedEvents.includes(event.id)}
@@ -383,7 +383,7 @@ export const EventManager: React.FC = () => {
                         className="w-4 h-4 text-primary-500 border-dark-300 rounded focus:ring-primary-500"
                       />
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-2 whitespace-nowrap">
                       <div className="flex items-center">
                         <CalendarIcon className="w-4 h-4 text-dark-400 mr-2" />
                         <span className="text-sm font-medium text-white">
@@ -391,7 +391,7 @@ export const EventManager: React.FC = () => {
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-2 whitespace-nowrap">
                       <span className={cn(
                         'px-2 py-1 text-xs font-medium rounded-full',
                         event.type === 'REGULAR' && 'bg-blue-100 text-blue-800',
@@ -403,20 +403,20 @@ export const EventManager: React.FC = () => {
                         {nl.eventTypes[event.type]}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-2 whitespace-nowrap">
                       <div className="flex items-center text-sm text-neutral-100">
                         <Clock className="w-4 h-4 mr-1" />
                         {formatTime(event.startsAt)} - {formatTime(event.endsAt)}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-2 whitespace-nowrap">
                       <div className="flex items-center text-sm">
                         <Users className="w-4 h-4 mr-1 text-dark-400" />
                         <span className="font-medium">{event.remainingCapacity}</span>
                         <span className="text-dark-500">/{event.capacity}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-2 whitespace-nowrap">
                       {event.isActive ? (
                         <span className="flex items-center text-sm text-green-600">
                           <ToggleRight className="w-5 h-5 mr-1" />
@@ -429,7 +429,7 @@ export const EventManager: React.FC = () => {
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium">
                       <button
                         onClick={() => handleEdit(event)}
                         className="text-primary-500 hover:text-gold-900 mr-3"

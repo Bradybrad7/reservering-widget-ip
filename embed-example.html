@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inspiration Point - Online Reserveren</title>
+    <meta name="description" content="Reserveer nu online bij Inspiration Point Comedy Theater. Kies je datum, aantal personen en arrangement.">
+    
+    <!-- SEO & Social Media -->
+    <meta property="og:title" content="Inspiration Point - Online Reserveren">
+    <meta property="og:description" content="Reserveer nu online bij Inspiration Point Comedy Theater">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    
+    <!-- Widget CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/inspiration-point-reservation-widget@1.0.0/dist/style.css">
+    
+    <!-- Custom Styles -->
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+            color: #ffffff;
+            min-height: 100vh;
+        }
+
+        /* Header Styling */
+        .site-header {
+            background: linear-gradient(90deg, #1a1a1a 0%, #0d0d0d 100%);
+            border-bottom: 3px solid #d4af37;
+            padding: 20px 0;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #d4af37;
+            text-shadow: 0 2px 10px rgba(212, 175, 55, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-nav {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .header-nav a {
+            color: #e0e0e0;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            padding: 8px 16px;
+            border-radius: 8px;
+        }
+
+        .header-nav a:hover {
+            color: #d4af37;
+            background: rgba(212, 175, 55, 0.1);
+        }
+
+        /* Widget Container */
+        #inspiration-point-widget-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px 20px;
+            min-height: calc(100vh - 200px);
+        }
+
+        /* Footer */
+        .site-footer {
+            background: #0d0d0d;
+            border-top: 2px solid #d4af37;
+            padding: 30px 20px;
+            margin-top: 50px;
+            text-align: center;
+        }
+
+        .footer-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            color: #999;
+        }
+
+        .footer-content p {
+            margin: 10px 0;
+        }
+
+        .footer-content a {
+            color: #d4af37;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .footer-content a:hover {
+            color: #f0c84a;
+        }
+
+        /* Loading State */
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 400px;
+            gap: 20px;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(212, 175, 55, 0.2);
+            border-top-color: #d4af37;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #d4af37;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .logo {
+                font-size: 22px;
+            }
+
+            .header-nav {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .header-nav a {
+                padding: 6px 12px;
+                font-size: 14px;
+            }
+
+            #inspiration-point-widget-container {
+                padding: 20px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="site-header">
+        <div class="header-content">
+            <div class="logo">
+                🎭 Inspiration Point
+            </div>
+            <nav class="header-nav">
+                <a href="/">Home</a>
+                <a href="/agenda">Agenda</a>
+                <a href="/reserveren" class="active">Reserveren</a>
+                <a href="/contact">Contact</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Widget Container -->
+    <main>
+        <div id="inspiration-point-widget-container">
+            <!-- Loading State -->
+            <div class="loading">
+                <div class="spinner"></div>
+                <p class="loading-text">Widget wordt geladen...</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="footer-content">
+            <p><strong>Inspiration Point Comedy Theater</strong></p>
+            <p>📍 Amsterdam, Nederland | 📞 +31 20 123 4567</p>
+            <p>📧 <a href="mailto:info@inspirationpoint.nl">info@inspirationpoint.nl</a></p>
+            <p style="margin-top: 20px; font-size: 14px;">
+                &copy; 2025 Inspiration Point. Alle rechten voorbehouden. | 
+                <a href="/privacy">Privacy</a> | 
+                <a href="/algemene-voorwaarden">Algemene Voorwaarden</a>
+            </p>
+        </div>
+    </footer>
+
+    <!-- React & ReactDOM via CDN -->
+    <script crossorigin src="https://unpkg.com/react@19/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@19/umd/react-dom.production.min.js"></script>
+    
+    <!-- Widget Script -->
+    <script src="https://unpkg.com/inspiration-point-reservation-widget@1.0.0/dist/reservation-widget.umd.js"></script>
+    
+    <!-- Google Analytics (Optioneel) -->
+    <!-- <script async src="https://www.googletagmanager.com/gtag/js?id=GA_MEASUREMENT_ID"></script> -->
+    <script>
+        // Google Analytics Setup (Uncomment if needed)
+        // window.dataLayer = window.dataLayer || [];
+        // function gtag(){dataLayer.push(arguments);}
+        // gtag('js', new Date());
+        // gtag('config', 'GA_MEASUREMENT_ID');
+    </script>
+    
+    <!-- Widget Initialization -->
+    <script>
+        (function() {
+            'use strict';
+
+            // Debug mode (set to false in production)
+            const DEBUG = true;
+
+            function log(...args) {
+                if (DEBUG) console.log('[Widget]', ...args);
+            }
+
+            function error(...args) {
+                console.error('[Widget Error]', ...args);
+            }
+
+            // Wait for DOM to be fully loaded
+            function initWidget() {
+                log('Initializing widget...');
+
+                // Check if required libraries are loaded
+                if (typeof React === 'undefined') {
+                    error('React is not loaded. Check script tags.');
+                    return;
+                }
+
+                if (typeof ReactDOM === 'undefined') {
+                    error('ReactDOM is not loaded. Check script tags.');
+                    return;
+                }
+
+                if (typeof window.ReservationWidget === 'undefined') {
+                    error('ReservationWidget is not loaded. Check script tags.');
+                    return;
+                }
+
+                // Get container
+                const container = document.getElementById('inspiration-point-widget-container');
+                if (!container) {
+                    error('Container element not found.');
+                    return;
+                }
+
+                log('All dependencies loaded successfully');
+
+                // Widget Configuration
+                const config = {
+                    // API Settings - Gebruik je eigen API endpoint
+                    apiEndpoint: 'https://api.inspirationpoint.nl/v1',
+                    
+                    // Theme Settings
+                    theme: {
+                        primaryColor: '#d4af37',    // Goud
+                        darkMode: true
+                    },
+                    
+                    // Localization
+                    locale: 'nl-NL',
+                    currency: 'EUR',
+                    
+                    // Optional: Override default pricing
+                    // pricing: {
+                    //     arrangements: {
+                    //         basic: 27.50,
+                    //         standard: 35.00,
+                    //         premium: 45.00,
+                    //         vip: 60.00
+                    //     }
+                    // },
+                    
+                    // Feature Flags
+                    features: {
+                        enableMerchandise: true,
+                        enableAddOns: true,
+                        enableWaitlist: true,
+                        enableDraftSaving: true
+                    }
+                };
+
+                // Callback when reservation is completed
+                function handleReservationComplete(reservation) {
+                    log('Reservation completed:', reservation);
+
+                    // Send to Google Analytics (if configured)
+                    if (typeof gtag !== 'undefined') {
+                        gtag('event', 'purchase', {
+                            transaction_id: reservation.id,
+                            value: reservation.totalPrice,
+                            currency: 'EUR',
+                            items: [{
+                                item_id: reservation.arrangement,
+                                item_name: reservation.arrangementName || reservation.arrangement,
+                                price: reservation.totalPrice,
+                                quantity: reservation.numberOfPersons
+                            }]
+                        });
+                        log('Sent to Google Analytics');
+                    }
+
+                    // Optional: Send to your own backend
+                    // fetch('/api/track-reservation', {
+                    //     method: 'POST',
+                    //     headers: { 'Content-Type': 'application/json' },
+                    //     body: JSON.stringify(reservation)
+                    // }).then(response => log('Tracked in backend'))
+                    //   .catch(err => error('Failed to track:', err));
+
+                    // Optional: Redirect to thank you page
+                    // setTimeout(() => {
+                    //     window.location.href = '/bedankt?id=' + reservation.id;
+                    // }, 2000);
+                }
+
+                // Render the widget
+                try {
+                    log('Rendering widget...');
+                    const root = ReactDOM.createRoot(container);
+                    root.render(
+                        React.createElement(window.ReservationWidget.default, {
+                            config: config,
+                            onReservationComplete: handleReservationComplete,
+                            className: 'inspiration-point-widget'
+                        })
+                    );
+                    log('Widget rendered successfully');
+                } catch (err) {
+                    error('Failed to render widget:', err);
+                    container.innerHTML = `
+                        <div style="padding: 40px; text-align: center; color: #ff6b6b;">
+                            <h2>⚠️ Widget kon niet worden geladen</h2>
+                            <p>Er is een fout opgetreden. Probeer de pagina te verversen.</p>
+                            <pre style="margin-top: 20px; text-align: left; background: #2a2a2a; padding: 15px; border-radius: 8px; overflow: auto;">
+${err.message}
+                            </pre>
+                        </div>
+                    `;
+                }
+            }
+
+            // Initialize when DOM is ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initWidget);
+            } else {
+                initWidget();
+            }
+        })();
+    </script>
+
+    <!-- Optional: Facebook Pixel -->
+    <!-- Add your Facebook Pixel code here if needed -->
+
+    <!-- Optional: Hotjar or other analytics -->
+    <!-- Add your tracking scripts here -->
+</body>
+</html>

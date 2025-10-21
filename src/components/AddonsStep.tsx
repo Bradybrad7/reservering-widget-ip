@@ -83,16 +83,16 @@ export const AddonsStep: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div className="text-center space-y-2">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gold-500/20 border-2 border-gold-400/50 mb-4">
-          <Wine className="w-8 h-8 text-gold-400" />
+        <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gold-500/20 border-2 border-gold-400/50 mb-3">
+          <Wine className="w-7 h-7 text-gold-400" />
         </div>
-        <h2 className="text-3xl font-bold text-neutral-100 text-shadow">
+        <h2 className="text-2xl md:text-3xl font-bold text-neutral-100 text-shadow">
           Borrels (Optioneel)
         </h2>
-        <p className="text-dark-200 text-lg">
+        <p className="text-dark-200 text-base md:text-lg">
           Maak uw avond compleet met een voor- of naborrel
         </p>
       </div>

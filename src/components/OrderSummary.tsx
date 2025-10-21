@@ -29,15 +29,15 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
 
   if (!selectedEvent) {
     return (
-      <div className={cn('card-theatre p-8 rounded-2xl animate-fade-in', className)}>
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 bg-gold-gradient rounded-xl flex items-center justify-center shadow-gold">
-            <Calculator className="w-6 h-6 text-neutral-950" />
+      <div className={cn('card-theatre p-4 rounded-2xl animate-fade-in', className)}>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-10 h-10 bg-gold-gradient rounded-xl flex items-center justify-center shadow-gold">
+            <Calculator className="w-5 h-5 text-neutral-950" />
           </div>
-          <h2 className="text-2xl font-bold text-text-primary font-display">{nl.summary.title}</h2>
+          <h2 className="text-xl font-bold text-text-primary font-display">{nl.summary.title}</h2>
         </div>
-        <div className="text-center py-12 bg-surface/30 rounded-xl border-2 border-dashed border-border-default">
-          <p className="text-text-secondary font-semibold mb-2">Nog geen datum geselecteerd</p>
+        <div className="text-center py-6 bg-surface/30 rounded-xl border-2 border-dashed border-border-default">
+          <p className="text-text-secondary font-semibold mb-1">Nog geen datum geselecteerd</p>
           <p className="text-sm text-text-muted">Kies eerst een datum in de kalender</p>
         </div>
       </div>
@@ -49,14 +49,14 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
   };
 
   const renderEventInfo = () => (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="flex items-start space-x-3">
-        <CalendarIcon className="w-5 h-5 text-primary-500 mt-1" />
+        <CalendarIcon className="w-5 h-5 text-primary-500 mt-0.5" />
         <div>
-          <p className="font-semibold text-text-primary">
+          <p className="font-semibold text-text-primary text-sm">
             {formatDate(selectedEvent.date)}
           </p>
-          <p className="text-sm text-text-muted">
+          <p className="text-xs text-text-muted">
             {getEventTypeName(selectedEvent.type)}
           </p>
         </div>
@@ -65,10 +65,10 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
       <div className="flex items-center space-x-3">
         <Clock className="w-5 h-5 text-primary-500" />
         <div>
-          <p className="text-sm text-text-secondary">
+          <p className="text-xs text-text-secondary">
             Deuren: {formatTime(selectedEvent.doorsOpen)}
           </p>
-          <p className="text-sm text-text-secondary">
+          <p className="text-xs text-text-secondary">
             Show: {formatTime(selectedEvent.startsAt)} - {formatTime(selectedEvent.endsAt)}
           </p>
         </div>
@@ -77,7 +77,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
       {formData.numberOfPersons && (
         <div className="flex items-center space-x-3">
           <Users className="w-5 h-5 text-primary-500" />
-          <p className="text-sm text-text-primary">
+          <p className="text-xs text-text-primary">
             {formData.numberOfPersons} {formData.numberOfPersons === 1 ? 'persoon' : 'personen'}
           </p>
         </div>
@@ -86,7 +86,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
       {formData.arrangement && (
         <div className="flex items-center space-x-3">
           <CreditCard className="w-5 h-5 text-primary-500" />
-          <p className="text-sm text-text-primary">
+          <p className="text-xs text-text-primary">
             {nl.arrangements[formData.arrangement]}
           </p>
         </div>
@@ -97,49 +97,49 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
   const renderPriceBreakdown = () => {
     if (!priceCalculation) {
       return (
-        <div className="text-center py-4 text-text-muted">
+        <div className="text-center py-3 text-text-muted">
           <Calculator className="w-8 h-8 mx-auto mb-2 text-text-disabled" />
-          <p>{nl.summary.calculating}</p>
+          <p className="text-sm">{nl.summary.calculating}</p>
         </div>
       );
     }
 
     return (
-      <div className="space-y-3">
+      <div className="space-y-2">
         {/* Section Header - Dark Mode */}
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-2 mb-1">
           <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gold-500/50 to-transparent"></div>
           <span className="text-xs font-semibold text-gold-400 uppercase tracking-wider">Prijsopbouw</span>
           <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gold-500/50 to-transparent"></div>
         </div>
 
         {/* Main arrangement - Zwart/Goud */}
-        <div className="flex justify-between items-center p-3 bg-gradient-to-br from-primary-500/15 to-primary-600/10 rounded-lg border border-primary-500/30 backdrop-blur-sm">
+        <div className="flex justify-between items-center p-2 bg-gradient-to-br from-primary-500/15 to-primary-600/10 rounded-lg border border-primary-500/30 backdrop-blur-sm">
           <div className="flex-1">
-            <p className="text-sm font-semibold text-text-primary">
+            <p className="text-xs font-semibold text-text-primary">
               {nl.arrangements[priceCalculation.breakdown.arrangement.type]}
             </p>
-            <p className="text-xs text-text-muted">
+            <p className="text-[10px] text-text-muted">
               {priceCalculation.breakdown.arrangement.persons} × {formatCurrency(priceCalculation.breakdown.arrangement.pricePerPerson)}
             </p>
           </div>
-          <p className="font-bold text-primary-500 text-lg">
+          <p className="font-bold text-primary-500 text-base">
             {formatCurrency(priceCalculation.breakdown.arrangement.total)}
           </p>
         </div>
 
         {/* Pre-drink - Zwart/Goud */}
         {priceCalculation.breakdown.preDrink && (
-          <div className="flex justify-between items-center p-3 bg-gradient-to-br from-info-500/15 to-info-600/10 rounded-lg border border-info-400/30 backdrop-blur-sm">
+          <div className="flex justify-between items-center p-2 bg-gradient-to-br from-info-500/15 to-info-600/10 rounded-lg border border-info-400/30 backdrop-blur-sm">
             <div className="flex-1">
-              <p className="text-sm font-semibold text-text-primary flex items-center gap-2">
+              <p className="text-xs font-semibold text-text-primary flex items-center gap-2">
                 🍹 {nl.summary.preDrink}
               </p>
-              <p className="text-xs text-text-muted">
+              <p className="text-[10px] text-text-muted">
                 {priceCalculation.breakdown.preDrink.persons} × {formatCurrency(priceCalculation.breakdown.preDrink.pricePerPerson)}
               </p>
             </div>
-            <p className="font-bold text-info-300">
+            <p className="font-bold text-info-300 text-sm">
               {formatCurrency(priceCalculation.breakdown.preDrink.total)}
             </p>
           </div>
@@ -147,16 +147,16 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
 
         {/* After party - Zwart/Goud */}
         {priceCalculation.breakdown.afterParty && (
-          <div className="flex justify-between items-center p-3 bg-gradient-to-br from-secondary-500/15 to-secondary-600/10 rounded-lg border border-secondary-400/30 backdrop-blur-sm">
+          <div className="flex justify-between items-center p-2 bg-gradient-to-br from-secondary-500/15 to-secondary-600/10 rounded-lg border border-secondary-400/30 backdrop-blur-sm">
             <div className="flex-1">
-              <p className="text-sm font-semibold text-text-primary flex items-center gap-2">
+              <p className="text-xs font-semibold text-text-primary flex items-center gap-2">
                 🎉 {nl.summary.afterParty}
               </p>
-              <p className="text-xs text-text-muted">
+              <p className="text-[10px] text-text-muted">
                 {priceCalculation.breakdown.afterParty.persons} × {formatCurrency(priceCalculation.breakdown.afterParty.pricePerPerson)}
               </p>
             </div>
-            <p className="font-bold text-secondary-400">
+            <p className="font-bold text-secondary-400 text-sm">
               {formatCurrency(priceCalculation.breakdown.afterParty.total)}
             </p>
           </div>
@@ -164,18 +164,18 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
 
         {/* Merchandise */}
         {priceCalculation.breakdown.merchandise && priceCalculation.breakdown.merchandise.items.length > 0 && (
-          <div className="pt-3 border-t border-primary-500/20">
-            <p className="text-sm font-semibold text-text-primary mb-2">Merchandise</p>
-            <div className="space-y-2 pl-2">
+          <div className="pt-2 border-t border-primary-500/20">
+            <p className="text-sm font-semibold text-text-primary mb-1.5">Merchandise</p>
+            <div className="space-y-1.5 pl-2">
               {priceCalculation.breakdown.merchandise.items.map((item) => (
                 <div key={item.id} className="flex justify-between items-center">
                   <div className="flex-1">
-                    <p className="text-sm text-text-secondary">{item.name}</p>
-                    <p className="text-xs text-text-muted">
+                    <p className="text-xs text-text-secondary">{item.name}</p>
+                    <p className="text-[10px] text-text-muted">
                       {item.quantity} × {formatCurrency(item.price)}
                     </p>
                   </div>
-                  <p className="font-medium text-text-primary">
+                  <p className="font-medium text-text-primary text-sm">
                     {formatCurrency(item.total)}
                   </p>
                 </div>
@@ -185,17 +185,17 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
         )}
 
         {/* Total - Enhanced Goud Glow */}
-        <div className="mt-6 p-6 bg-gold-gradient rounded-2xl border-2 border-primary-500/50 shadow-gold-glow">
+        <div className="mt-4 p-4 bg-gold-gradient rounded-2xl border-2 border-primary-500/50 shadow-gold-glow">
           <div className="flex justify-between items-center">
             <div>
               <p className="text-sm font-semibold text-neutral-950/90 mb-1 flex items-center gap-2">
-                <span className="text-2xl">💰</span>
+                <span className="text-xl">💰</span>
                 {nl.summary.total}
               </p>
               <p className="text-xs text-neutral-800 font-medium">Inclusief BTW</p>
             </div>
             <div className="text-right">
-              <p className="text-4xl font-black text-neutral-950 drop-shadow-lg">
+              <p className="text-3xl md:text-4xl font-black text-neutral-950 drop-shadow-lg">
                 {formatCurrency(priceCalculation.totalPrice)}
               </p>
             </div>

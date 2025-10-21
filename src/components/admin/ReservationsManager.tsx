@@ -353,66 +353,66 @@ export const ReservationsManager: React.FC = () => {
       {/* Reservations Table */}
       <div className="card-theatre overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full text-sm">
             <thead className="bg-gold-50 border-b-2 border-gold-300">
               <tr>
-                <th className="text-left py-4 px-6 font-semibold text-white">ID</th>
-                <th className="text-left py-4 px-6 font-semibold text-white">Datum</th>
-                <th className="text-left py-4 px-6 font-semibold text-white">Bedrijf</th>
-                <th className="text-left py-4 px-6 font-semibold text-white">Contact</th>
-                <th className="text-left py-4 px-6 font-semibold text-white">Personen</th>
-                <th className="text-left py-4 px-6 font-semibold text-white">Totaal</th>
-                <th className="text-left py-4 px-6 font-semibold text-white">Status</th>
-                <th className="text-left py-4 px-6 font-semibold text-white">Acties</th>
+                <th className="text-left py-2 px-4 font-semibold text-white text-xs">ID</th>
+                <th className="text-left py-2 px-4 font-semibold text-white text-xs">Datum</th>
+                <th className="text-left py-2 px-4 font-semibold text-white text-xs">Bedrijf</th>
+                <th className="text-left py-2 px-4 font-semibold text-white text-xs">Contact</th>
+                <th className="text-left py-2 px-4 font-semibold text-white text-xs">Personen</th>
+                <th className="text-left py-2 px-4 font-semibold text-white text-xs">Totaal</th>
+                <th className="text-left py-2 px-4 font-semibold text-white text-xs">Status</th>
+                <th className="text-left py-2 px-4 font-semibold text-white text-xs">Acties</th>
               </tr>
             </thead>
             <tbody>
               {filteredReservations.map((reservation) => (
                 <tr key={reservation.id} className="border-b border-gold-100 hover:bg-gold-50/30 transition-colors">
-                  <td className="py-4 px-6">
-                    <span className="font-mono text-sm text-neutral-200">{reservation.id.slice(0, 8)}</span>
+                  <td className="py-2 px-4">
+                    <span className="font-mono text-xs text-neutral-200">{reservation.id.slice(0, 8)}</span>
                   </td>
-                  <td className="py-4 px-6">
+                  <td className="py-2 px-4">
                     {reservation.event ? (
                       <div>
-                        <p className="font-medium text-white">{formatDate(reservation.event.date)}</p>
-                        <p className="text-sm text-neutral-100">{formatTime(reservation.event.startsAt)}</p>
+                        <p className="font-medium text-white text-sm">{formatDate(reservation.event.date)}</p>
+                        <p className="text-xs text-neutral-100">{formatTime(reservation.event.startsAt)}</p>
                       </div>
                     ) : (
                       <span className="text-dark-500">N/A</span>
                     )}
                   </td>
-                  <td className="py-4 px-6">
+                  <td className="py-2 px-4">
                     <div>
-                      <p className="font-medium text-white">{reservation.companyName}</p>
-                      <p className="text-sm text-neutral-100">{reservation.contactPerson}</p>
+                      <p className="font-medium text-white text-sm">{reservation.companyName}</p>
+                      <p className="text-xs text-neutral-100">{reservation.contactPerson}</p>
                     </div>
                   </td>
-                  <td className="py-4 px-6">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Mail className="w-4 h-4 text-dark-500" />
+                  <td className="py-2 px-4">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <Mail className="w-3 h-3 text-dark-500" />
                         <span className="text-neutral-200">{reservation.email}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="w-4 h-4 text-dark-500" />
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <Phone className="w-3 h-3 text-dark-500" />
                         <span className="text-neutral-200">{reservation.phone}</span>
                       </div>
                     </div>
                   </td>
-                  <td className="py-4 px-6">
+                  <td className="py-2 px-4">
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4 text-primary-500" />
                       <span className="font-medium text-white">{reservation.numberOfPersons}</span>
                     </div>
                   </td>
-                  <td className="py-4 px-6">
-                    <span className="font-bold text-primary-500">{formatCurrency(reservation.totalPrice)}</span>
+                  <td className="py-2 px-4">
+                    <span className="font-bold text-primary-500 text-sm">{formatCurrency(reservation.totalPrice)}</span>
                   </td>
-                  <td className="py-4 px-6">
+                  <td className="py-2 px-4">
                     {getStatusBadge(reservation.status, reservation.requestedOverCapacity)}
                   </td>
-                  <td className="py-4 px-6">
+                  <td className="py-2 px-4">
                     <div className="flex gap-2">
                       {/* Pending reservation actions */}
                       {reservation.status === 'pending' && (

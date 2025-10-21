@@ -199,14 +199,14 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
             onBack={goToPreviousStep}
             sidebar={<OrderSummary onReserve={handleReserve} />}
           >
-            <div className="card-theatre rounded-2xl border border-gold-400/20 p-6 md:p-8 shadow-lifted">
-              <h2 className="text-2xl font-bold text-neutral-100 mb-4 text-shadow">Controleer uw gegevens</h2>
-              <p className="text-dark-200 mb-6">
+            <div className="card-theatre rounded-2xl border border-gold-400/20 p-4 md:p-6 shadow-lifted">
+              <h2 className="text-2xl font-bold text-neutral-100 mb-3 text-shadow">Controleer uw gegevens</h2>
+              <p className="text-dark-200 mb-4">
                 Controleer hieronder uw reserveringsgegevens voordat u bevestigt.
               </p>
               
               {/* Show summary of form data */}
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {selectedEvent && (
                   <div className="p-5 bg-gradient-to-br from-gold-500/20 to-gold-600/10 border border-gold-400/30 rounded-xl backdrop-blur-sm">
                     <h3 className="font-bold text-gold-400 mb-2 flex items-center gap-2">
@@ -263,7 +263,7 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
   };
 
   return (
-    <div className={cn('w-full max-w-7xl mx-auto p-6', className)}>
+    <div className={cn('w-full max-w-7xl mx-auto p-4 md:p-6', className)}>
       {/* Step Indicator */}
       {currentStep !== 'success' && (
         <StepIndicator

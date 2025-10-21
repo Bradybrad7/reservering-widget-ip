@@ -103,7 +103,7 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
     const availability = event ? eventAvailability[event.id] : null;
 
     return cn(
-      'min-h-[110px] w-full p-3 text-left rounded-xl border-2 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary-500/60 group',
+      'min-h-[80px] md:min-h-[90px] w-full p-2 text-left rounded-xl border-2 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary-500/60 group',
       {
         // Active event - Zwart/Goud
         'bg-surface/50 border-border-default hover:border-primary-500/40 hover:shadow-gold hover:scale-[1.02] hover:-translate-y-1 cursor-pointer backdrop-blur-sm': 
@@ -128,22 +128,22 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
   }, [currentMonth, selectedEvent, eventAvailability]);
 
   const renderMonthNavigation = () => (
-    <div className="flex items-center justify-between mb-8">
+    <div className="flex items-center justify-between mb-4">
       <button
         onClick={() => navigateMonth('prev')}
-        className="group p-3 rounded-xl bg-surface/50 hover:bg-bg-hover text-text-secondary hover:text-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/60 transition-all duration-300 border-2 border-border-default hover:border-primary-500/50 shadow-sm hover:shadow-gold backdrop-blur-sm"
+        className="group p-2 rounded-xl bg-surface/50 hover:bg-bg-hover text-text-secondary hover:text-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/60 transition-all duration-300 border-2 border-border-default hover:border-primary-500/50 shadow-sm hover:shadow-gold backdrop-blur-sm"
         aria-label={nl.calendar.prevMonth}
       >
         <ChevronLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
       </button>
       
-      <h2 className="text-2xl font-bold text-text-primary tracking-tight font-display">
+      <h2 className="text-xl md:text-2xl font-bold text-text-primary tracking-tight font-display">
         {formatDate(currentMonth, 'nl-NL').split(' ').slice(1).join(' ')}
       </h2>
       
       <button
         onClick={() => navigateMonth('next')}
-        className="group p-3 rounded-xl bg-surface/50 hover:bg-bg-hover text-text-secondary hover:text-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/60 transition-all duration-300 border-2 border-border-default hover:border-primary-500/50 shadow-sm hover:shadow-gold backdrop-blur-sm"
+        className="group p-2 rounded-xl bg-surface/50 hover:bg-bg-hover text-text-secondary hover:text-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/60 transition-all duration-300 border-2 border-border-default hover:border-primary-500/50 shadow-sm hover:shadow-gold backdrop-blur-sm"
         aria-label={nl.calendar.nextMonth}
       >
         <ChevronRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
@@ -152,12 +152,12 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
   );
 
   const renderWeekHeaders = () => (
-    <div className="grid grid-cols-7 gap-2 mb-4">
+    <div className="grid grid-cols-7 gap-2 mb-2">
       {['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'].map((day, index) => (
         <div 
           key={day} 
           className={cn(
-            "text-center text-sm font-bold py-3 rounded-lg backdrop-blur-sm",
+            "text-center text-xs font-bold py-1.5 rounded-lg backdrop-blur-sm",
             {
               'text-primary-500 bg-primary-500/15 border border-primary-500/30': index >= 5, // Weekend - Goud
               'text-text-secondary bg-surface/30 border border-border-subtle': index < 5    // Weekdays
@@ -281,9 +281,9 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
   };
 
   const renderLegend = () => (
-    <div className="mt-6 card-theatre rounded-xl p-4 border border-gold-400/20 shadow-lifted">
-      <h3 className="text-sm font-semibold text-neutral-100 mb-3">Legenda</h3>
-      <div className="grid grid-cols-2 gap-3 text-xs">
+    <div className="mt-4 card-theatre rounded-xl p-3 border border-gold-400/20 shadow-lifted">
+      <h3 className="text-xs md:text-sm font-semibold text-neutral-100 mb-2">Legenda</h3>
+      <div className="grid grid-cols-2 gap-2 text-xs">
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 bg-gold-gradient rounded-full shadow-gold" />
           <span className="text-neutral-300">Geselecteerd</span>
@@ -295,20 +295,20 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
       </div>
       
       {/* Capacity Bar Legend - Dark Mode */}
-      <div className="mt-4 pt-4 border-t border-gold-500/30">
+      <div className="mt-3 pt-3 border-t border-gold-500/30">
         <h4 className="text-xs font-semibold text-neutral-200 mb-2">Beschikbaarheid:</h4>
-        <div className="grid grid-cols-1 gap-2 text-xs">
+        <div className="grid grid-cols-1 gap-1.5 text-xs">
           <div className="flex items-center gap-2">
             <div className="w-8 h-1.5 bg-gradient-to-r from-green-400 to-green-500 rounded-full shadow-sm" />
-            <span className="text-neutral-400">Beschikbaar (&lt;75% bezet)</span>
+            <span className="text-neutral-200">Beschikbaar (&lt;75% bezet)</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-8 h-1.5 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full shadow-sm" />
-            <span className="text-neutral-400">Beperkt (75-99% bezet)</span>
+            <span className="text-neutral-200">Beperkt (75-99% bezet)</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-8 h-1.5 bg-gradient-to-r from-red-400 to-red-500 rounded-full shadow-sm" />
-            <span className="text-neutral-400">Vol - Aanvraag mogelijk</span>
+            <span className="text-neutral-200">Vol - Aanvraag mogelijk</span>
           </div>
         </div>
       </div>
@@ -321,12 +321,12 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
 
   return (
     <>
-      <div className="card-theatre p-6 md:p-8 rounded-2xl animate-fade-in shadow-lifted">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 bg-gold-gradient rounded-xl flex items-center justify-center shadow-gold">
-            <span className="text-2xl">📅</span>
+      <div className="card-theatre p-4 md:p-6 rounded-2xl animate-fade-in shadow-lifted">
+        <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-5">
+          <div className="w-8 h-8 md:w-10 md:h-10 bg-gold-gradient rounded-xl flex items-center justify-center shadow-gold">
+            <span className="text-xl md:text-2xl">📅</span>
           </div>
-          <h2 className="text-2xl font-bold text-neutral-100 text-shadow">
+          <h2 className="text-xl md:text-2xl font-bold text-neutral-100 text-shadow">
             Kies een datum
           </h2>
         </div>
@@ -338,7 +338,7 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
         {isLoading ? (
           <div className="grid grid-cols-7 gap-2">
             {Array.from({ length: 35 }).map((_, i) => (
-              <div key={i} className="min-h-[110px] w-full p-3 rounded-xl border-2 border-dark-800 bg-dark-900/30 backdrop-blur-sm">
+              <div key={i} className="min-h-[90px] w-full p-2 rounded-xl border-2 border-dark-800 bg-dark-900/30 backdrop-blur-sm">
                 <div className="animate-pulse space-y-2">
                   <div className="h-5 w-8 bg-dark-700 rounded shimmer"></div>
                   <div className="h-3 w-full bg-dark-800 rounded shimmer"></div>
@@ -353,8 +353,8 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
             {renderCalendarGrid()}
             
             {currentMonthEvents.length === 0 && (
-              <div className="text-center py-12 text-dark-300 bg-neutral-800/30 rounded-xl border-2 border-dashed border-dark-700 mt-4 backdrop-blur-sm">
-                <p className="text-lg font-semibold mb-1 text-neutral-300">Geen evenementen deze maand</p>
+              <div className="text-center py-8 text-dark-300 bg-neutral-800/30 rounded-xl border-2 border-dashed border-dark-700 mt-3 backdrop-blur-sm">
+                <p className="text-base md:text-lg font-semibold mb-1 text-neutral-300">Geen evenementen deze maand</p>
                 <p className="text-sm">Probeer een andere maand te selecteren</p>
               </div>
             )}

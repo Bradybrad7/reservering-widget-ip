@@ -61,7 +61,7 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
   };
 
   const renderFormGroup = (children: React.ReactNode, className?: string) => (
-    <div className={cn('space-y-4', className)}>
+    <div className={cn('space-y-3', className)}>
       {children}
     </div>
   );
@@ -298,16 +298,16 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
   );
 
   return (
-    <div className={cn('space-y-8 animate-fade-in', className)}>
+    <div className={cn('space-y-4 animate-fade-in', className)}>
       {/* Company Information - Dark Mode */}
-      <div className="card-theatre p-8 rounded-2xl shadow-lifted">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 bg-gold-gradient rounded-xl flex items-center justify-center shadow-gold">
-            <User className="w-6 h-6 text-neutral-950" />
+      <div className="card-theatre p-4 rounded-2xl shadow-lifted">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-10 h-10 bg-gold-gradient rounded-xl flex items-center justify-center shadow-gold">
+            <User className="w-5 h-5 text-neutral-950" />
           </div>
-          <h2 className="text-2xl font-bold text-text-primary text-shadow flex items-center gap-2">
+          <h2 className="text-lg md:text-xl font-bold text-text-primary text-shadow flex items-center gap-2">
             Bedrijfsgegevens
-            <span className="text-base font-normal text-text-muted">(optioneel)</span>
+            <span className="text-sm font-normal text-text-muted">(optioneel)</span>
           </h2>
         </div>
         
@@ -322,7 +322,7 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
             validateCompanyName
           ),
           
-          <div key="contact-row" className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div key="contact-row" className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
             {renderSelectField(
               nl.form.salutation.label,
               'salutation',
@@ -348,19 +348,19 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
       </div>
 
       {/* Address - Dark Mode */}
-      <div className="card-theatre p-8 rounded-2xl shadow-lifted">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-warning-500 rounded-xl flex items-center justify-center shadow-gold">
-            <MapPin className="w-6 h-6 text-neutral-950" />
+      <div className="card-theatre p-4 rounded-2xl shadow-lifted">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-warning-500 rounded-xl flex items-center justify-center shadow-gold">
+            <MapPin className="w-5 h-5 text-neutral-950" />
           </div>
-          <h2 className="text-2xl font-bold text-text-primary text-shadow flex items-center gap-2">
+          <h2 className="text-lg md:text-xl font-bold text-text-primary text-shadow flex items-center gap-2">
             Adresgegevens
-            <span className="text-base font-normal text-text-muted">(optioneel)</span>
+            <span className="text-sm font-normal text-text-muted">(optioneel)</span>
           </h2>
         </div>
         
         {renderFormGroup([
-          <div key="address-row" className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div key="address-row" className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4">
             <div className="md:col-span-3">
               {renderInputField(
                 nl.form.address.label,
@@ -378,7 +378,7 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
             )}
           </div>,
           
-          <div key="postal-row" className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div key="postal-row" className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
             {renderInputField(
               nl.form.postalCode.label,
               'postalCode',
@@ -420,12 +420,12 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
       </div>
 
       {/* 📞 Contact Information met glassmorphism */}
-      <div className="card-theatre p-8 rounded-2xl">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 bg-gradient-to-br from-success-400 to-success-600 rounded-xl flex items-center justify-center shadow-gold">
-            <Phone className="w-6 h-6 text-white" />
+      <div className="card-theatre p-4 rounded-2xl">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-success-400 to-success-600 rounded-xl flex items-center justify-center shadow-gold">
+            <Phone className="w-5 h-5 text-white" />
           </div>
-          <h2 className="text-2xl font-bold text-text-primary text-shadow">
+          <h2 className="text-lg md:text-xl font-bold text-text-primary text-shadow">
             Contactgegevens
           </h2>
         </div>
@@ -433,7 +433,7 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
         {renderFormGroup([
           // Phone with country code
           <div key="phone-field" className="group">
-            <label className="flex items-center gap-2 text-sm font-semibold text-text-secondary mb-3">
+            <label className="flex items-center gap-2 text-sm font-semibold text-text-secondary mb-2">
               <Phone className="w-5 h-5 text-primary-500" />
               <span>{nl.form.phone.label}</span>
               <span className="text-danger-400">*</span>
@@ -442,7 +442,7 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
               <select
                 value={formData.phoneCountryCode || '+31'}
                 onChange={(e) => handleInputChange('phoneCountryCode', e.target.value)}
-                className="w-32 px-3 py-3.5 border-2 rounded-xl border-border-default bg-bg-input focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 font-medium text-text-primary transition-all duration-300 shadow-sm backdrop-blur-sm"
+                className="w-24 md:w-32 px-2 md:px-3 py-3 md:py-3.5 border-2 rounded-xl border-border-default bg-bg-input focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 font-medium text-text-primary transition-all duration-300 shadow-sm backdrop-blur-sm text-sm md:text-base"
               >
                 <option value="+31">🇳🇱 +31</option>
                 <option value="+32">🇧🇪 +32</option>
@@ -484,9 +484,9 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
       </div>
 
       {/* Booking Details */}
-      <div className="card-theatre p-6">
-        <h2 className="text-xl font-bold text-neutral-100 mb-6 flex items-center space-x-3 text-shadow">
-          <Users className="w-6 h-6 text-gold-400" />
+      <div className="card-theatre p-4 md:p-5 rounded-2xl shadow-lifted">
+        <h2 className="text-lg md:text-xl font-bold text-neutral-100 mb-4 md:mb-5 flex items-center space-x-2 md:space-x-3 text-shadow">
+          <Users className="w-5 h-5 md:w-6 md:h-6 text-gold-400" />
           <span>Reserveringsdetails</span>
         </h2>
         

@@ -79,19 +79,19 @@ const Card: React.FC<CardProps> = ({
     <div className={cardClasses} onClick={onClick}>
       {/* Header */}
       {header && (
-        <div className="border-b border-border-subtle px-6 py-4">
+        <div className="border-b border-border-subtle px-4 md:px-5 py-3">
           {header}
         </div>
       )}
 
       {/* Content */}
-      <div className="p-6">
+      <div className="p-4 md:p-5">
         {children}
       </div>
 
       {/* Footer */}
       {footer && (
-        <div className="border-t border-border-subtle px-6 py-4">
+        <div className="border-t border-border-subtle px-4 md:px-5 py-3">
           {footer}
         </div>
       )}

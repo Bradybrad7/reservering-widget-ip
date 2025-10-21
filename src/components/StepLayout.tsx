@@ -30,12 +30,12 @@ export const StepLayout = memo<StepLayoutProps>(({
   className
 }) => {
   return (
-    <div className={cn('space-y-6', className)}>
+    <div className={cn('space-y-4', className)}>
       {/* Back Button */}
       {showBackButton && onBack && (
         <button
           onClick={onBack}
-          className="group flex items-center gap-2 px-5 py-2.5 rounded-xl text-dark-200 hover:text-gold-400 transition-all duration-300 font-semibold bg-neutral-800/50 hover:bg-dark-850 border-2 border-dark-700 hover:border-gold-500/50 shadow-sm hover:shadow-gold focus-gold"
+          className="group flex items-center gap-2 px-4 py-2 rounded-xl text-dark-200 hover:text-gold-400 transition-all duration-300 font-semibold bg-neutral-800/50 hover:bg-dark-850 border-2 border-dark-700 hover:border-gold-500/50 shadow-sm hover:shadow-gold focus-gold"
           aria-label={backButtonLabel}
         >
           <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
@@ -44,7 +44,7 @@ export const StepLayout = memo<StepLayoutProps>(({
       )}
 
       {/* Main Grid Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Main Content Area */}
         <div className="lg:col-span-2">
           {children}

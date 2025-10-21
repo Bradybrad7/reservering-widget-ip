@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reserveren - Inspiration Point</title>
+    
+    <!-- Widget CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/inspiration-point-reservation-widget@1.0.0/dist/style.css">
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #0a0a0a;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        
+        #widget-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <!-- Widget Container -->
+    <div id="widget-container"></div>
+
+    <!-- Dependencies -->
+    <script crossorigin src="https://unpkg.com/react@19/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@19/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/inspiration-point-reservation-widget@1.0.0/dist/reservation-widget.umd.js"></script>
+    
+    <!-- Initialize Widget -->
+    <script>
+        const container = document.getElementById('widget-container');
+        const root = ReactDOM.createRoot(container);
+        
+        root.render(
+            React.createElement(window.ReservationWidget.default, {
+                config: {
+                    apiEndpoint: 'https://api.inspirationpoint.nl/v1',
+                    theme: { primaryColor: '#d4af37', darkMode: true },
+                    locale: 'nl-NL',
+                    currency: 'EUR'
+                },
+                onReservationComplete: (reservation) => {
+                    console.log('Reservering voltooid:', reservation);
+                    // Jouw custom code hier
+                }
+            })
+        );
+    </script>
+</body>
+</html>

@@ -61,10 +61,10 @@ export const StepIndicator = memo<StepIndicatorProps>(({
   const currentStepIndex = steps.findIndex(step => step.key === currentStep);
 
   return (
-    <div className={cn('mb-8 animate-fade-in', className)}>
+    <div className={cn('mb-6 animate-fade-in', className)}>
       <nav
         aria-label="Reserveringsproces"
-        className="card-theatre rounded-3xl shadow-lifted border border-gold-400/20 p-6 md:p-8"
+        className="card-theatre rounded-3xl shadow-lifted border border-gold-400/20 p-4 md:p-6"
       >
         <ol className="flex items-center justify-between max-w-3xl mx-auto">
           {steps.map((step, index) => {
@@ -76,15 +76,15 @@ export const StepIndicator = memo<StepIndicatorProps>(({
 
             return (
               <React.Fragment key={step.key}>
-                <li className="flex flex-col items-center space-y-2 transition-smooth group flex-shrink-0">
+                <li className="flex flex-col items-center space-y-1.5 transition-smooth group flex-shrink-0">
                   {/* Step Circle */}
                   <div
                     className={cn(
-                      'w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center font-bold transition-all duration-300 relative',
+                      'w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center font-bold transition-all duration-300 relative',
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-dark-950',
                       {
                         // Current step - bright gold with glow
-                        'bg-gold-gradient shadow-gold-glow scale-110': isCurrentStep,
+                        'bg-gold-gradient shadow-gold-glow scale-110 ring-4 ring-gold-500/30': isCurrentStep,
                         // Completed steps - solid gold
                         'bg-gradient-to-br from-gold-500 to-gold-600 shadow-md': isCompleted && !isCurrentStep,
                         // Past steps
@@ -98,13 +98,13 @@ export const StepIndicator = memo<StepIndicatorProps>(({
                   >
                     {/* Animated glow for current step */}
                     {isCurrentStep && (
-                      <div className="absolute inset-0 rounded-2xl bg-gold-400 opacity-20 animate-pulse-gold" />
+                      <div className="absolute inset-0 rounded-2xl bg-gold-400 opacity-30 animate-pulse-gold" />
                     )}
 
                     {/* Icon or checkmark */}
                     {isCompleted && !isCurrentStep ? (
                       <svg
-                        className="w-6 h-6 relative z-10 text-white"
+                        className="w-5 h-5 md:w-6 md:h-6 relative z-10 text-white"
                         fill="currentColor"
                         viewBox="0 0 20 20"
                         aria-hidden="true"
@@ -129,7 +129,7 @@ export const StepIndicator = memo<StepIndicatorProps>(({
                   {/* Step Label */}
                   <span
                     className={cn(
-                      'text-xs md:text-sm font-bold transition-all duration-300 text-center whitespace-nowrap',
+                      'text-xs font-bold transition-all duration-300 text-center whitespace-nowrap',
                       {
                         'text-gold-400 scale-105 text-shadow-gold': isCurrentStep,
                         'text-dark-50': isCompleted && !isCurrentStep,
@@ -145,7 +145,7 @@ export const StepIndicator = memo<StepIndicatorProps>(({
                 {/* Progress Bar */}
                 {index < steps.length - 1 && (
                   <div
-                    className="flex-1 mx-2 md:mx-4 min-w-[40px] md:min-w-[60px]"
+                    className="flex-1 mx-1.5 md:mx-3 min-w-[30px] md:min-w-[50px]"
                     aria-hidden="true"
                   >
                     <div className="h-1 bg-dark-800/50 rounded-full overflow-hidden shadow-inner-dark">
