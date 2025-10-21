@@ -1,0 +1,376 @@
+/* Print Stylesheet for Reservations
+ * 
+ * Optimizes the layout for printing reservation confirmations,
+ * invoices, and reports
+ */
+
+@media print {
+  /* Hide unnecessary elements */
+  .no-print,
+  nav,
+  header,
+  footer,
+  button,
+  .navigation,
+  .sidebar,
+  .admin-menu,
+  .breadcrumb,
+  .toast,
+  .modal-overlay {
+    display: none !important;
+  }
+
+  /* Reset page styling */
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12pt;
+    line-height: 1.5;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Container adjustments */
+  .print-container,
+  .reservation-summary,
+  .invoice,
+  .report {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 20px;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Page breaks */
+  .page-break {
+    page-break-after: always;
+  }
+
+  .avoid-break {
+    page-break-inside: avoid;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+    page-break-inside: avoid;
+  }
+
+  table {
+    page-break-inside: avoid;
+  }
+
+  /* Typography */
+  h1 {
+    font-size: 24pt;
+    margin-bottom: 10pt;
+  }
+
+  h2 {
+    font-size: 18pt;
+    margin-bottom: 8pt;
+  }
+
+  h3 {
+    font-size: 14pt;
+    margin-bottom: 6pt;
+  }
+
+  /* Links */
+  a {
+    text-decoration: none;
+    color: black !important;
+  }
+
+  a[href]:after {
+    content: " (" attr(href) ")";
+    font-size: 90%;
+  }
+
+  /* Hide link URLs for internal links */
+  a[href^="#"]:after,
+  a[href^="/"]:after {
+    content: "";
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10pt 0;
+  }
+
+  th, td {
+    padding: 8pt;
+    border: 1pt solid #ddd;
+    text-align: left;
+  }
+
+  th {
+    background-color: #f5f5f5 !important;
+    font-weight: bold;
+  }
+
+  /* Reservation Summary */
+  .reservation-details {
+    margin: 20pt 0;
+    padding: 15pt;
+    border: 2pt solid #D4AF37;
+    background: #fafafa !important;
+  }
+
+  .reservation-details h3 {
+    color: #D4AF37 !important;
+    border-bottom: 1pt solid #D4AF37;
+    padding-bottom: 5pt;
+    margin-bottom: 10pt;
+  }
+
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5pt 0;
+    border-bottom: 1pt solid #eee;
+  }
+
+  .detail-label {
+    font-weight: bold;
+  }
+
+  /* Invoice specific */
+  .invoice-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20pt;
+    padding-bottom: 10pt;
+    border-bottom: 2pt solid #D4AF37;
+  }
+
+  .invoice-logo {
+    max-width: 150pt;
+    height: auto;
+  }
+
+  .invoice-number {
+    font-size: 14pt;
+    font-weight: bold;
+    color: #D4AF37 !important;
+  }
+
+  .invoice-total {
+    font-size: 16pt;
+    font-weight: bold;
+    text-align: right;
+    padding: 10pt;
+    background: #f9f9f9 !important;
+    border: 2pt solid #D4AF37;
+    margin-top: 10pt;
+  }
+
+  /* QR Code */
+  .qr-code {
+    max-width: 100pt;
+    height: auto;
+  }
+
+  /* Status badges */
+  .status-badge {
+    display: inline-block;
+    padding: 5pt 10pt;
+    border: 1pt solid;
+    border-radius: 3pt;
+    font-weight: bold;
+  }
+
+  .status-confirmed {
+    border-color: #28a745;
+    color: #28a745 !important;
+  }
+
+  .status-pending {
+    border-color: #ffc107;
+    color: #ffc107 !important;
+  }
+
+  .status-cancelled {
+    border-color: #dc3545;
+    color: #dc3545 !important;
+  }
+
+  /* Remove shadows and gradients */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    background-image: none !important;
+  }
+
+  /* Ensure colors are print-friendly */
+  .bg-gold-500,
+  .bg-gold-600,
+  .bg-dark-900 {
+    background: white !important;
+    color: black !important;
+    border: 1pt solid #D4AF37 !important;
+  }
+
+  /* Footer on every page */
+  @page {
+    margin: 2cm;
+    
+    @bottom-center {
+      content: "Pagina " counter(page) " van " counter(pages);
+      font-size: 10pt;
+      color: #666;
+    }
+  }
+
+  /* Report-specific styling */
+  .report-header {
+    margin-bottom: 20pt;
+    border-bottom: 2pt solid #D4AF37;
+  }
+
+  .report-title {
+    font-size: 20pt;
+    font-weight: bold;
+    margin-bottom: 5pt;
+  }
+
+  .report-date {
+    font-size: 10pt;
+    color: #666;
+  }
+
+  .stat-card {
+    padding: 10pt;
+    border: 1pt solid #ddd;
+    margin: 5pt 0;
+  }
+
+  .chart {
+    /* Charts should be converted to tables for printing */
+    display: none;
+  }
+
+  .chart + .chart-table {
+    display: table !important;
+  }
+
+  /* Customer info */
+  .customer-info {
+    margin: 15pt 0;
+    padding: 10pt;
+    border-left: 3pt solid #D4AF37;
+    background: #f9f9f9 !important;
+  }
+
+  /* Event details */
+  .event-details {
+    margin: 15pt 0;
+    padding: 15pt;
+    border: 1pt solid #ddd;
+  }
+
+  .event-date {
+    font-size: 14pt;
+    font-weight: bold;
+    color: #D4AF37 !important;
+  }
+
+  /* Terms and conditions */
+  .terms {
+    margin-top: 20pt;
+    padding-top: 10pt;
+    border-top: 1pt solid #ddd;
+    font-size: 9pt;
+    color: #666;
+  }
+
+  /* Signature line */
+  .signature-line {
+    margin-top: 40pt;
+    padding-top: 10pt;
+    border-top: 1pt solid #333;
+    width: 200pt;
+  }
+
+  /* Hide interactive elements */
+  input[type="checkbox"],
+  input[type="radio"],
+  select,
+  textarea {
+    border: 1pt solid #999 !important;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  input[type="checkbox"]:checked:after {
+    content: "✓";
+    display: block;
+    text-align: center;
+  }
+
+  /* Optimize images */
+  img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  /* Barcode */
+  .barcode {
+    max-width: 200pt;
+    height: auto;
+    margin: 10pt 0;
+  }
+}
+
+/* Print utility classes */
+@media print {
+  .print-only {
+    display: block !important;
+  }
+
+  .screen-only {
+    display: none !important;
+  }
+
+  .print-landscape {
+    size: landscape;
+  }
+
+  .print-portrait {
+    size: portrait;
+  }
+}
+
+/* Additional print-specific content */
+@media print {
+  /* Add "Copy" watermark for duplicates */
+  .duplicate:before {
+    content: "KOPIE";
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-45deg);
+    font-size: 100pt;
+    opacity: 0.1;
+    z-index: -1;
+  }
+
+  /* Add "PAID" stamp for confirmed */
+  .invoice.paid:after {
+    content: "BETAALD";
+    position: absolute;
+    top: 20%;
+    right: 10%;
+    padding: 10pt 20pt;
+    border: 3pt solid #28a745;
+    color: #28a745;
+    font-size: 24pt;
+    font-weight: bold;
+    transform: rotate(-15deg);
+    opacity: 0.7;
+  }
+}

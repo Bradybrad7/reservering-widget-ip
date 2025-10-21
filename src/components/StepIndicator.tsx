@@ -1,0 +1,173 @@
+import React, { memo } from 'react';
+import { Calendar, Gift, FileText, CheckCircle } from 'lucide-react';
+import { cn } from '../utils';
+
+export type StepKey = 'calendar' | 'extras' | 'form' | 'summary';
+
+export interface Step {
+  key: StepKey;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  completed: boolean;
+}
+
+interface StepIndicatorProps {
+  currentStep: StepKey;
+  selectedEvent: boolean;
+  className?: string;
+}
+
+/**
+ * StepIndicator Component
+ * 
+ * Displays progress through the reservation flow with:
+ * - Visual indicators for each step
+ * - Progress bars between steps
+ * - Accessible keyboard navigation
+ * - Dark mode optimized styling
+ */
+export const StepIndicator = memo<StepIndicatorProps>(({
+  currentStep,
+  selectedEvent,
+  className
+}) => {
+  const steps: Step[] = [
+    {
+      key: 'calendar',
+      label: 'Datum',
+      icon: Calendar,
+      completed: selectedEvent
+    },
+    {
+      key: 'extras',
+      label: "Extra's",
+      icon: Gift,
+      completed: currentStep === 'form' || currentStep === 'summary'
+    },
+    {
+      key: 'form',
+      label: 'Gegevens',
+      icon: FileText,
+      completed: currentStep === 'summary'
+    },
+    {
+      key: 'summary',
+      label: 'Bevestigen',
+      icon: CheckCircle,
+      completed: false
+    }
+  ];
+
+  const currentStepIndex = steps.findIndex(step => step.key === currentStep);
+
+  return (
+    <div className={cn('mb-8 animate-fade-in', className)}>
+      <nav
+        aria-label="Reserveringsproces"
+        className="card-theatre rounded-3xl shadow-lifted border border-gold-400/20 p-6 md:p-8"
+      >
+        <ol className="flex items-center justify-between max-w-3xl mx-auto">
+          {steps.map((step, index) => {
+            const Icon = step.icon;
+            const isCurrentStep = currentStep === step.key;
+            const isCompleted = step.completed;
+            const isPast = index < currentStepIndex;
+            const isUpcoming = index > currentStepIndex;
+
+            return (
+              <React.Fragment key={step.key}>
+                <li className="flex flex-col items-center space-y-2 transition-smooth group flex-shrink-0">
+                  {/* Step Circle */}
+                  <div
+                    className={cn(
+                      'w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center font-bold transition-all duration-300 relative',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-dark-950',
+                      {
+                        // Current step - bright gold with glow
+                        'bg-gold-gradient shadow-gold-glow scale-110': isCurrentStep,
+                        // Completed steps - solid gold
+                        'bg-gradient-to-br from-gold-500 to-gold-600 shadow-md': isCompleted && !isCurrentStep,
+                        // Past steps
+                        'bg-gradient-to-br from-gold-600/80 to-gold-700/80': isPast && !isCompleted,
+                        // Upcoming steps - muted
+                        'bg-dark-800/50 border-2 border-dark-700 group-hover:bg-dark-800 group-hover:border-dark-600': isUpcoming
+                      }
+                    )}
+                    role="img"
+                    aria-label={`${step.label}${isCurrentStep ? ' - Huidige stap' : ''}${isCompleted ? ' - Voltooid' : ''}`}
+                  >
+                    {/* Animated glow for current step */}
+                    {isCurrentStep && (
+                      <div className="absolute inset-0 rounded-2xl bg-gold-400 opacity-20 animate-pulse-gold" />
+                    )}
+
+                    {/* Icon or checkmark */}
+                    {isCompleted && !isCurrentStep ? (
+                      <svg
+                        className="w-6 h-6 relative z-10 text-white"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                        aria-hidden="true"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    ) : (
+                      <Icon
+                        className={cn('w-5 h-5 md:w-6 md:h-6 relative z-10', {
+                          'text-white': isCurrentStep || isCompleted || isPast,
+                          'text-dark-500': isUpcoming
+                        })}
+                        aria-hidden="true"
+                      />
+                    )}
+                  </div>
+
+                  {/* Step Label */}
+                  <span
+                    className={cn(
+                      'text-xs md:text-sm font-bold transition-all duration-300 text-center whitespace-nowrap',
+                      {
+                        'text-gold-400 scale-105 text-shadow-gold': isCurrentStep,
+                        'text-dark-50': isCompleted && !isCurrentStep,
+                        'text-dark-200': isPast && !isCompleted,
+                        'text-dark-500 group-hover:text-dark-400': isUpcoming
+                      }
+                    )}
+                  >
+                    {step.label}
+                  </span>
+                </li>
+
+                {/* Progress Bar */}
+                {index < steps.length - 1 && (
+                  <div
+                    className="flex-1 mx-2 md:mx-4 min-w-[40px] md:min-w-[60px]"
+                    aria-hidden="true"
+                  >
+                    <div className="h-1 bg-dark-800/50 rounded-full overflow-hidden shadow-inner-dark">
+                      <div
+                        className={cn(
+                          'h-full bg-gold-gradient transition-all duration-500 ease-out rounded-full',
+                          {
+                            'w-full shadow-gold': steps[index + 1].completed || currentStep === steps[index + 1].key,
+                            'w-0': !steps[index + 1].completed && currentStep !== steps[index + 1].key
+                          }
+                        )}
+                      />
+                    </div>
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </ol>
+      </nav>
+    </div>
+  );
+});
+
+StepIndicator.displayName = 'StepIndicator';
