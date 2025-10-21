@@ -83,6 +83,9 @@ interface AdminActions {
   loadReservations: () => Promise<void>;
   loadReservationsByEvent: (eventId: string) => Promise<void>;
   updateReservationStatus: (reservationId: string, status: Reservation['status']) => Promise<boolean>;
+  confirmReservation: (reservationId: string) => Promise<boolean>;
+  rejectReservation: (reservationId: string) => Promise<boolean>;
+  moveToWaitlist: (reservationId: string) => Promise<boolean>;
   deleteReservation: (reservationId: string) => Promise<boolean>;
   selectReservation: (reservation: Reservation | null) => void;
   
@@ -304,6 +307,61 @@ export const useAdminStore = create<AdminStore>()(
         return false;
       } catch (error) {
         console.error('Failed to update reservation status:', error);
+        return false;
+      } finally {
+        set({ isSubmitting: false });
+      }
+    },
+
+    confirmReservation: async (reservationId: string) => {
+      set({ isSubmitting: true });
+      try {
+        const response = await apiService.confirmReservation(reservationId);
+        if (response.success) {
+          await get().loadReservations();
+          await get().loadStats();
+          await get().loadEvents(); // Refresh events to update capacity
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Failed to confirm reservation:', error);
+        return false;
+      } finally {
+        set({ isSubmitting: false });
+      }
+    },
+
+    rejectReservation: async (reservationId: string) => {
+      set({ isSubmitting: true });
+      try {
+        const response = await apiService.rejectReservation(reservationId);
+        if (response.success) {
+          await get().loadReservations();
+          await get().loadStats();
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Failed to reject reservation:', error);
+        return false;
+      } finally {
+        set({ isSubmitting: false });
+      }
+    },
+
+    moveToWaitlist: async (reservationId: string) => {
+      set({ isSubmitting: true });
+      try {
+        const response = await apiService.moveToWaitlist(reservationId);
+        if (response.success) {
+          await get().loadReservations();
+          await get().loadStats();
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Failed to move to waitlist:', error);
         return false;
       } finally {
         set({ isSubmitting: false });

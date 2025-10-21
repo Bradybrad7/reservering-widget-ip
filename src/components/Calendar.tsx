@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, memo, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Users, X } from 'lucide-react';
+import React, { useEffect, useCallback, memo, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, Users } from 'lucide-react';
 import type { Event } from '../types';
 import { useReservationStore } from '../store/reservationStore';
 import { 
@@ -24,16 +24,12 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
     currentMonth,
     eventAvailability,
     isLoading,
+    bookingRules,
     loadEventsForMonth,
     selectEvent,
     setCurrentMonth,
-    loadEventAvailability,
-    updateFormData
+    loadEventAvailability
   } = useReservationStore();
-
-  const [showPersonsModal, setShowPersonsModal] = useState(false);
-  const [selectedEventForModal, setSelectedEventForModal] = useState<Event | null>(null);
-  const [numberOfPersons, setNumberOfPersons] = useState(25);
 
   // Load events when month changes
   useEffect(() => {
@@ -65,19 +61,11 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
 
   const handleDateClick = useCallback((_date: Date, event?: Event) => {
     if (event && event.isActive) {
-      setSelectedEventForModal(event);
-      setShowPersonsModal(true);
+      // Direct selection - availability check is handled in selectEvent
+      selectEvent(event);
+      onDateSelect?.(event);
     }
-  }, []);
-
-  const handleConfirmPersons = useCallback(() => {
-    if (selectedEventForModal && numberOfPersons >= 1) {
-      updateFormData({ numberOfPersons });
-      selectEvent(selectedEventForModal);
-      onDateSelect?.(selectedEventForModal);
-      setShowPersonsModal(false);
-    }
-  }, [selectedEventForModal, numberOfPersons, updateFormData, selectEvent, onDateSelect]);
+  }, [selectEvent, onDateSelect]);
 
   const handleKeyDown = useCallback((
     e: React.KeyboardEvent, 
@@ -226,41 +214,61 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
                     {formatTime(event.startsAt)}
                   </div>
                   
-                  {/* Visual Capacity Indicator - Dark Mode */}
-                  {availability && event.remainingCapacity !== undefined && (
+                  {/* Visual Capacity Indicator - Status-based (Available/Limited/Full) */}
+                  {availability && event.capacity !== undefined && (
                     <div className="mt-2">
-                      <div className="flex items-center gap-1 mb-1">
-                        <Users className={cn("w-3 h-3", {
-                          'text-dark-400': !selectedEvent || event.id !== selectedEvent.id,
-                          'text-white/80': selectedEvent && event.id === selectedEvent.id
-                        })} />
-                        <span className={cn("text-[10px] font-medium", {
-                          'text-dark-300': !selectedEvent || event.id !== selectedEvent.id,
-                          'text-white/90': selectedEvent && event.id === selectedEvent.id
-                        })}>
-                          {availability.remainingCapacity} plaatsen
-                        </span>
-                      </div>
-                      <div className="w-full h-1.5 bg-dark-800/50 rounded-full overflow-hidden shadow-inner-dark">
-                        <div 
-                          className={cn(
-                            'h-full transition-all rounded-full',
-                            {
-                              'bg-gradient-to-r from-green-400 to-green-500 shadow-sm': 
-                                availability.remainingCapacity > 50,
-                              'bg-gradient-to-r from-yellow-400 to-orange-400 shadow-sm': 
-                                availability.remainingCapacity > 10 && availability.remainingCapacity <= 50,
-                              'bg-gradient-to-r from-red-400 to-red-500 shadow-sm': 
-                                availability.remainingCapacity <= 10 && availability.remainingCapacity > 0,
-                              'bg-dark-700': 
-                                availability.remainingCapacity === 0
-                            }
-                          )}
-                          style={{ 
-                            width: `${Math.min(100, (availability.remainingCapacity / event.capacity) * 100)}%` 
-                          }}
-                        />
-                      </div>
+                      {(() => {
+                        // Calculate occupancy percentage based on CONFIRMED bookings
+                        const confirmedOccupancy = event.remainingCapacity !== undefined 
+                          ? ((event.capacity - event.remainingCapacity) / event.capacity) * 100
+                          : 0;
+                        
+                        let statusLabel = '';
+                        let statusColor = '';
+                        let showBar = true;
+                        
+                        if (confirmedOccupancy < 75) {
+                          statusLabel = 'Beschikbaar';
+                          statusColor = 'text-green-400';
+                        } else if (confirmedOccupancy < 100) {
+                          statusLabel = 'Beperkt beschikbaar';
+                          statusColor = 'text-orange-400';
+                        } else {
+                          statusLabel = 'Vol - Aanvraag mogelijk';
+                          statusColor = 'text-red-400';
+                        }
+                        
+                        return (
+                          <>
+                            <div className="flex items-center gap-1 mb-1">
+                              <Users className={cn("w-3 h-3", statusColor)} />
+                              <span className={cn("text-[10px] font-medium", statusColor)}>
+                                {statusLabel}
+                              </span>
+                            </div>
+                            {showBar && (
+                              <div className="w-full h-1.5 bg-dark-800/50 rounded-full overflow-hidden shadow-inner-dark">
+                                <div 
+                                  className={cn(
+                                    'h-full transition-all rounded-full',
+                                    {
+                                      'bg-gradient-to-r from-green-400 to-green-500 shadow-sm': 
+                                        confirmedOccupancy < 75,
+                                      'bg-gradient-to-r from-yellow-400 to-orange-400 shadow-sm': 
+                                        confirmedOccupancy >= 75 && confirmedOccupancy < 100,
+                                      'bg-gradient-to-r from-red-400 to-red-500 shadow-sm': 
+                                        confirmedOccupancy >= 100
+                                    }
+                                  )}
+                                  style={{ 
+                                    width: `${Math.min(100, confirmedOccupancy)}%` 
+                                  }}
+                                />
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
@@ -289,22 +297,18 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
       {/* Capacity Bar Legend - Dark Mode */}
       <div className="mt-4 pt-4 border-t border-gold-500/30">
         <h4 className="text-xs font-semibold text-neutral-200 mb-2">Beschikbaarheid:</h4>
-        <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="grid grid-cols-1 gap-2 text-xs">
           <div className="flex items-center gap-2">
             <div className="w-8 h-1.5 bg-gradient-to-r from-green-400 to-green-500 rounded-full shadow-sm" />
-            <span className="text-neutral-400">Ruim beschikbaar</span>
+            <span className="text-neutral-400">Beschikbaar (&lt;75% bezet)</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-8 h-1.5 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full shadow-sm" />
-            <span className="text-neutral-400">Beperkt</span>
+            <span className="text-neutral-400">Beperkt (75-99% bezet)</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-8 h-1.5 bg-gradient-to-r from-red-400 to-red-500 rounded-full shadow-sm" />
-            <span className="text-neutral-400">Bijna vol</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-1.5 bg-dark-700 rounded-full" />
-            <span className="text-neutral-400">Uitverkocht</span>
+            <span className="text-neutral-400">Vol - Aanvraag mogelijk</span>
           </div>
         </div>
       </div>
@@ -360,88 +364,6 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
         {renderLegend()}
       </div>
 
-      {/* 💫 Modal voor aantal personen met glassmorphism */}
-      {showPersonsModal && selectedEventForModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="card-theatre rounded-2xl shadow-2xl max-w-md w-full border-2 border-gold-300 animate-scale-in">
-            {/* Header - Dark Mode */}
-            <div className="flex items-center justify-between p-6 border-b-2 border-gold-500/30 bg-gradient-to-r from-gold-500/20 to-gold-600/10 backdrop-blur-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gold-gradient rounded-xl flex items-center justify-center shadow-gold">
-                  <Users className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-neutral-100 text-shadow">Aantal personen</h3>
-                  <p className="text-sm text-dark-300 font-medium">
-                    {formatDate(selectedEventForModal.date)}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowPersonsModal(false)}
-                className="p-2 hover:bg-gold-500/20 rounded-xl transition-all duration-300 group focus-gold"
-                aria-label="Sluiten"
-              >
-                <X className="w-5 h-5 text-dark-300 group-hover:text-gold-400 group-hover:rotate-90 transition-transform" />
-              </button>
-            </div>
-
-            {/* Content - Dark Mode */}
-            <div className="p-6 space-y-4">
-              <div>
-                <label htmlFor="numberOfPersons" className="block text-sm font-medium text-neutral-200 mb-3">
-                  Hoeveel personen komen er?
-                </label>
-                <input
-                  id="numberOfPersons"
-                  type="number"
-                  min="1"
-                  max="300"
-                  value={numberOfPersons}
-                  onChange={(e) => setNumberOfPersons(Math.max(1, Math.min(300, parseInt(e.target.value) || 1)))}
-                  className="w-full text-center text-3xl font-bold text-neutral-100 bg-neutral-800/50 border-2 border-gold-500/30 rounded-lg py-4 focus-gold transition-all backdrop-blur-sm"
-                  placeholder="Aantal personen"
-                  autoFocus
-                />
-                <p className="text-xs text-dark-400 mt-2 text-center">
-                  Minimaal 1 persoon, maximaal 300 personen
-                </p>
-              </div>
-
-              {/* Waitlist Warning - Dark Mode */}
-              {eventAvailability[selectedEventForModal.id]?.remainingCapacity === 0 && (
-                <div className="p-4 bg-red-500/20 border-2 border-red-500/40 rounded-lg backdrop-blur-sm">
-                  <p className="text-sm font-medium text-red-300 mb-2">
-                    Deze datum is vol
-                  </p>
-                  <p className="text-sm text-red-200">
-                    U kunt zich aanmelden voor de wachtlijst. We nemen contact met u op als er een plek vrijkomt.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Footer - Dark Mode */}
-            <div className="flex gap-3 p-6 border-t border-gold-500/30 bg-neutral-800/30 backdrop-blur-sm">
-              <button
-                onClick={() => setShowPersonsModal(false)}
-                className="flex-1 py-3 px-6 bg-neutral-800/50 border-2 border-dark-700 text-dark-200 rounded-lg font-medium hover:bg-dark-850 hover:border-dark-600 hover:text-neutral-200 transition-colors focus-gold"
-              >
-                Annuleren
-              </button>
-              <button
-                onClick={handleConfirmPersons}
-                disabled={numberOfPersons < 1}
-                className="flex-1 py-3 px-6 bg-gold-gradient text-white rounded-lg font-medium hover:shadow-gold-glow transition-all disabled:opacity-50 disabled:cursor-not-allowed focus-gold"
-              >
-                {eventAvailability[selectedEventForModal.id]?.remainingCapacity === 0 
-                  ? 'Aanmelden wachtlijst' 
-                  : 'Doorgaan'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 });

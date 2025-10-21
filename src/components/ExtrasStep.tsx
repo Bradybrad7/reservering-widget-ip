@@ -13,7 +13,6 @@ export const ExtrasStep: React.FC = memo(() => {
     updateFormData, 
     selectedEvent,
     addOns,
-    formErrors,
     goToNextStep 
   } = useReservationStore();
 
@@ -39,18 +38,17 @@ export const ExtrasStep: React.FC = memo(() => {
   // Memoize handlers for better performance
   const handleAddOnChange = useCallback((
     addOnType: 'preDrink' | 'afterParty',
-    field: 'enabled' | 'quantity',
-    value: boolean | number
+    enabled: boolean
   ) => {
-    const currentAddOn = formData[addOnType] || { enabled: false, quantity: 0 };
+    // Borrels zijn altijd voor het hele aantal personen
+    const quantity = enabled ? (formData.numberOfPersons || 0) : 0;
     updateFormData({
       [addOnType]: {
-        ...currentAddOn,
-        [field]: value,
-        ...(field === 'enabled' && !value ? { quantity: 0 } : {})
+        enabled,
+        quantity
       }
     });
-  }, [formData, updateFormData]);
+  }, [formData.numberOfPersons, updateFormData]);
 
   const handleMerchandiseQuantity = useCallback((itemId: string, quantity: number) => {
     const existingIndex = selectedMerchandise.findIndex(m => m.itemId === itemId);
@@ -162,86 +160,76 @@ export const ExtrasStep: React.FC = memo(() => {
 
               {/* Pre-drink - Dark Mode */}
               <div className="bg-gold-500/20 border-2 border-gold-400/30 rounded-xl p-6 transition-all duration-300 hover:shadow-gold hover:border-primary-500/30/50 backdrop-blur-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 flex-1">
                     <div className="w-12 h-12 bg-gold-gradient rounded-xl flex items-center justify-center shadow-gold">
                       <Wine className="w-6 h-6 text-white" />
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <label className="flex items-center space-x-3 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={formData.preDrink?.enabled || false}
-                          onChange={(e) => handleAddOnChange('preDrink', 'enabled', e.target.checked)}
+                          onChange={(e) => handleAddOnChange('preDrink', e.target.checked)}
                           disabled={(formData.numberOfPersons || 0) < 25}
                           className="h-5 w-5 text-gold-400 border-gold-500 rounded focus-gold disabled:opacity-50 disabled:cursor-not-allowed bg-neutral-800"
                         />
                         <span className="font-bold text-lg text-neutral-100">{nl.form.preDrink.label}</span>
                       </label>
                       <p className="text-sm text-dark-300 ml-8">{nl.form.preDrink.description}</p>
+                      {formData.preDrink?.enabled && (
+                        <div className="ml-8 mt-2">
+                          <p className="text-sm font-bold text-gold-400">
+                            Voor {formData.numberOfPersons} personen (hele boeking)
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
+                  {formData.preDrink?.enabled && (
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-gold-400">€{addOns.preDrink.pricePerPerson * (formData.numberOfPersons || 0)}</p>
+                      <p className="text-xs text-dark-300">totaal</p>
+                    </div>
+                  )}
                 </div>
-                
-                {formData.preDrink?.enabled && (
-                  <div className="ml-14 mt-4 animate-slide-in">
-                    <label className="block text-sm font-bold text-neutral-200 mb-3">
-                      {nl.form.preDrink.quantity}
-                    </label>
-                    <input
-                      type="number"
-                      min={addOns.preDrink.minPersons}
-                      value={formData.preDrink.quantity || addOns.preDrink.minPersons}
-                      onChange={(e) => handleAddOnChange('preDrink', 'quantity', parseInt(e.target.value) || 0)}
-                      className="w-32 px-4 py-3 bg-neutral-800/50 border-2 border-gold-500/30 rounded-xl focus-gold font-semibold text-neutral-100 backdrop-blur-sm"
-                    />
-                    {formErrors.preDrink && (
-                      <p className="mt-2 text-sm text-red-400 font-semibold">{formErrors.preDrink}</p>
-                    )}
-                  </div>
-                )}
               </div>
 
               {/* After Party - Dark Mode */}
               <div className="bg-red-500/20 border-2 border-red-400/30 rounded-xl p-6 transition-all duration-300 hover:shadow-gold hover:border-red-400/50 backdrop-blur-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 flex-1">
                     <div className="w-12 h-12 bg-gradient-to-br from-red-400 to-red-600 rounded-xl flex items-center justify-center shadow-md">
                       <PartyPopper className="w-6 h-6 text-white" />
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <label className="flex items-center space-x-3 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={formData.afterParty?.enabled || false}
-                          onChange={(e) => handleAddOnChange('afterParty', 'enabled', e.target.checked)}
+                          onChange={(e) => handleAddOnChange('afterParty', e.target.checked)}
                           disabled={(formData.numberOfPersons || 0) < 25}
                           className="h-5 w-5 text-red-400 border-red-500 rounded focus-gold disabled:opacity-50 disabled:cursor-not-allowed bg-neutral-800"
                         />
                         <span className="font-bold text-lg text-neutral-100">{nl.form.afterParty.label}</span>
                       </label>
                       <p className="text-sm text-dark-300 ml-8">{nl.form.afterParty.description}</p>
+                      {formData.afterParty?.enabled && (
+                        <div className="ml-8 mt-2">
+                          <p className="text-sm font-bold text-red-400">
+                            Voor {formData.numberOfPersons} personen (hele boeking)
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
+                  {formData.afterParty?.enabled && (
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-red-400">€{addOns.afterParty.pricePerPerson * (formData.numberOfPersons || 0)}</p>
+                      <p className="text-xs text-dark-300">totaal</p>
+                    </div>
+                  )}
                 </div>
-                
-                {formData.afterParty?.enabled && (
-                  <div className="ml-14 mt-4 animate-slide-in">
-                    <label className="block text-sm font-bold text-neutral-200 mb-3">
-                      {nl.form.afterParty.quantity}
-                    </label>
-                    <input
-                      type="number"
-                      min={addOns.afterParty.minPersons}
-                      value={formData.afterParty.quantity || addOns.afterParty.minPersons}
-                      onChange={(e) => handleAddOnChange('afterParty', 'quantity', parseInt(e.target.value) || 0)}
-                      className="w-32 px-4 py-3 bg-neutral-800/50 border-2 border-red-500/30 rounded-xl focus-gold font-semibold text-neutral-100 backdrop-blur-sm"
-                    />
-                    {formErrors.afterParty && (
-                      <p className="mt-2 text-sm text-red-400 font-semibold">{formErrors.afterParty}</p>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
           )}

@@ -9,7 +9,11 @@ import { cn } from '../utils';
 
 // Lazy load heavy components for better initial load performance
 const Calendar = lazy(() => import('./Calendar'));
-const ExtrasStep = lazy(() => import('./ExtrasStep').then(module => ({ default: module.ExtrasStep })));
+const PersonsStep = lazy(() => import('./PersonsStep'));
+const ArrangementStep = lazy(() => import('./ArrangementStep'));
+const AddonsStep = lazy(() => import('./AddonsStep'));
+const MerchandiseStep = lazy(() => import('./MerchandiseStep'));
+const WaitlistPrompt = lazy(() => import('./WaitlistPrompt'));
 const ReservationForm = lazy(() => import('./ReservationForm'));
 const SuccessPage = lazy(() => import('./SuccessPage'));
 
@@ -123,7 +127,7 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
           </StepLayout>
         );
 
-      case 'extras':
+      case 'persons':
         return (
           <StepLayout
             showBackButton={showBackButton}
@@ -131,7 +135,46 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
             sidebar={<OrderSummary />}
           >
             <Suspense fallback={<LoadingFallback />}>
-              <ExtrasStep />
+              <PersonsStep />
+            </Suspense>
+          </StepLayout>
+        );
+
+      case 'arrangement':
+        return (
+          <StepLayout
+            showBackButton={showBackButton}
+            onBack={goToPreviousStep}
+            sidebar={<OrderSummary />}
+          >
+            <Suspense fallback={<LoadingFallback />}>
+              <ArrangementStep />
+            </Suspense>
+          </StepLayout>
+        );
+
+      case 'addons':
+        return (
+          <StepLayout
+            showBackButton={showBackButton}
+            onBack={goToPreviousStep}
+            sidebar={<OrderSummary />}
+          >
+            <Suspense fallback={<LoadingFallback />}>
+              <AddonsStep />
+            </Suspense>
+          </StepLayout>
+        );
+
+      case 'merchandise':
+        return (
+          <StepLayout
+            showBackButton={showBackButton}
+            onBack={goToPreviousStep}
+            sidebar={<OrderSummary />}
+          >
+            <Suspense fallback={<LoadingFallback />}>
+              <MerchandiseStep />
             </Suspense>
           </StepLayout>
         );
@@ -194,7 +237,20 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
           </StepLayout>
         );
 
+      case 'waitlistPrompt':
+        return (
+          <StepLayout
+            showBackButton={showBackButton}
+            onBack={goToPreviousStep}
+          >
+            <Suspense fallback={<LoadingFallback />}>
+              <WaitlistPrompt />
+            </Suspense>
+          </StepLayout>
+        );
+
       case 'success':
+      case 'waitlistSuccess':
         return (
           <Suspense fallback={<LoadingFallback />}>
             <SuccessPage onNewReservation={() => setCurrentStep('calendar')} />

@@ -116,7 +116,8 @@ export const defaultBookingRules: BookingRules = {
   defaultOpenDaysBefore: 120,
   defaultCutoffHoursBefore: 72,
   softCapacityWarningPercent: 90,
-  enableWaitlist: true
+  enableWaitlist: true,
+  defaultCapacity: 230 // Default capacity for new events
 } as const;
 
 // Event type definitions and show times

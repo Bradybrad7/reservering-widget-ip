@@ -60,6 +60,8 @@ const SuccessPage: React.FC<SuccessPageProps> = ({ className, onNewReservation }
   };
 
   const isWaitlist = completedReservation.status === 'waitlist' || completedReservation.isWaitlist;
+  const isPending = completedReservation.status === 'pending';
+  const requestedOverCapacity = completedReservation.requestedOverCapacity || false;
 
   return (
     <div className={cn('max-w-3xl mx-auto animate-fade-in', className)}>
@@ -67,8 +69,10 @@ const SuccessPage: React.FC<SuccessPageProps> = ({ className, onNewReservation }
       <div className={cn(
         "border-2 rounded-3xl p-8 mb-8 relative overflow-hidden shadow-gold-glow backdrop-blur-sm",
         isWaitlist 
-          ? "bg-gradient-to-br from-red-500/20 to-orange-500/10 border-red-400/30" 
-          : "bg-gradient-to-br from-gold-500/30 via-yellow-500/20 to-gold-500/20 border-gold-400/50"
+          ? "bg-gradient-to-br from-red-500/20 to-orange-500/10 border-red-400/30"
+          : isPending && requestedOverCapacity
+          ? "bg-gradient-to-br from-orange-500/20 to-yellow-500/10 border-orange-400/30"
+          : "bg-gradient-to-br from-blue-500/20 to-indigo-500/10 border-blue-400/30"
       )}>
         {/* Decorative Background Glow */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-gold-400/20 to-transparent rounded-full blur-3xl"></div>
@@ -79,8 +83,10 @@ const SuccessPage: React.FC<SuccessPageProps> = ({ className, onNewReservation }
             <div className={cn(
               "w-16 h-16 rounded-2xl flex items-center justify-center shadow-gold-glow animate-scale-in",
               isWaitlist 
-                ? "bg-gradient-to-br from-red-400 to-red-600" 
-                : "bg-gold-gradient"
+                ? "bg-gradient-to-br from-red-400 to-red-600"
+                : isPending && requestedOverCapacity
+                ? "bg-gradient-to-br from-orange-400 to-orange-600"
+                : "bg-gradient-to-br from-blue-400 to-blue-600"
             )}>
               <CheckCircle className="w-10 h-10 text-white" strokeWidth={2.5} />
             </div>
@@ -89,20 +95,26 @@ const SuccessPage: React.FC<SuccessPageProps> = ({ className, onNewReservation }
                 "text-3xl md:text-4xl font-black mb-2 text-shadow",
                 isWaitlist ? "text-red-300" : "text-neutral-100"
               )}>
-                {isWaitlist ? '🔔 Wachtlijst Aanmelding' : '✅ Reservering Gelukt!'}
+                {isWaitlist 
+                  ? '🔔 Wachtlijst Aanmelding' 
+                  : isPending 
+                  ? '📋 Aanvraag Ontvangen!' 
+                  : '✅ Reservering Gelukt!'}
               </h1>
               <div className="flex items-center gap-2">
                 <span className={cn(
                   "text-sm font-semibold",
-                  isWaitlist ? "text-red-300" : "text-gold-400"
+                  isWaitlist ? "text-red-300" : isPending ? "text-blue-300" : "text-gold-400"
                 )}>
-                  {isWaitlist ? 'Wachtlijstnummer' : 'Reserveringsnummer'}:
+                  {isWaitlist ? 'Wachtlijstnummer' : 'Aanvraagnummer'}:
                 </span>
                 <span className={cn(
                   "text-lg font-black px-3 py-1 rounded-lg shadow-md",
                   isWaitlist 
-                    ? "bg-red-600 text-white" 
-                    : "bg-gradient-to-r from-gold-500 to-gold-600 text-white"
+                    ? "bg-red-600 text-white"
+                    : isPending && requestedOverCapacity
+                    ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white"
+                    : "bg-gradient-to-r from-blue-500 to-blue-600 text-white"
                 )}>
                   {completedReservation.id}
                 </span>
@@ -112,14 +124,52 @@ const SuccessPage: React.FC<SuccessPageProps> = ({ className, onNewReservation }
           
           <div className="card-theatre rounded-2xl p-6 shadow-lifted">
             <p className={cn(
-              "text-lg leading-relaxed font-medium",
+              "text-lg leading-relaxed font-medium mb-4",
               isWaitlist ? "text-red-300" : "text-neutral-200"
             )}>
               {isWaitlist 
                 ? '🎭 Bedankt voor uw aanmelding op de wachtlijst! Deze datum is momenteel volledig volgeboekt. We nemen contact met u op zodra er een plek vrijkomt. U ontvangt binnenkort een bevestiging per e-mail.'
+                : isPending
+                ? '🎭 Bedankt voor uw aanvraag! We hebben uw reservering ontvangen met status "In Afwachting".'
                 : nl.successPage.message
               }
             </p>
+            
+            {isPending && (
+              <div className={cn(
+                "p-4 rounded-xl border-2 mt-4",
+                requestedOverCapacity
+                  ? "bg-orange-500/10 border-orange-400/30"
+                  : "bg-blue-500/10 border-blue-400/30"
+              )}>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-400/20 flex items-center justify-center mt-0.5">
+                    <span className="text-blue-300 text-xs font-bold">ℹ️</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-neutral-100 mb-2">
+                      📅 Volgende stappen:
+                    </p>
+                    <ul className="space-y-2 text-sm text-neutral-300">
+                      <li className="flex items-start gap-2">
+                        <span className="text-gold-400 mt-0.5">•</span>
+                        <span>U ontvangt binnen <strong className="text-neutral-100">2 werkdagen</strong> bericht over de definitieve bevestiging van uw reservering.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-gold-400 mt-0.5">•</span>
+                        <span>Een bevestigingsmail is verzonden naar <strong className="text-neutral-100">{completedReservation.email}</strong>.</span>
+                      </li>
+                      {requestedOverCapacity && (
+                        <li className="flex items-start gap-2">
+                          <span className="text-orange-400 mt-0.5">⚠️</span>
+                          <span className="text-orange-200">Uw aanvraag betreft meer personen dan direct beschikbaar. We doen ons best om aan uw wens te voldoen.</span>
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

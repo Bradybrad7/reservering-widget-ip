@@ -28,9 +28,11 @@ export const ReservationsManager: React.FC = () => {
   const [filteredReservations, setFilteredReservations] = useState<Reservation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'confirmed' | 'pending' | 'waitlist' | 'cancelled'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'confirmed' | 'pending' | 'waitlist' | 'cancelled' | 'rejected'>('all');
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [processingReservation, setProcessingReservation] = useState<Reservation | null>(null);
 
   useEffect(() => {
     loadReservations();
@@ -108,25 +110,122 @@ export const ReservationsManager: React.FC = () => {
     }
   };
 
-  const getStatusBadge = (status: Reservation['status']) => {
+  const handleConfirmReservation = async (reservation: Reservation) => {
+    setProcessingReservation(reservation);
+    
+    // Get event details to check capacity
+    const eventResponse = await apiService.getEvent(reservation.eventId);
+    if (!eventResponse.success || !eventResponse.data) {
+      alert('Kon event details niet laden');
+      return;
+    }
+
+    const event = eventResponse.data;
+    const reservationsResponse = await apiService.getReservationsByEvent(event.id);
+    const allReservations = reservationsResponse.data || [];
+    
+    const confirmedBookings = allReservations.filter(r => r.status === 'confirmed');
+    const currentConfirmedTotal = confirmedBookings.reduce((sum, r) => sum + r.numberOfPersons, 0);
+    const newTotal = currentConfirmedTotal + reservation.numberOfPersons;
+    
+    // Check if confirming will exceed capacity
+    if (newTotal > event.capacity) {
+      const overCapacity = newTotal - event.capacity;
+      if (!confirm(
+        `⚠️ WAARSCHUWING: Bevestigen overschrijdt capaciteit!\n\n` +
+        `Huidige bevestigde bezetting: ${currentConfirmedTotal} personen\n` +
+        `Deze reservering: ${reservation.numberOfPersons} personen\n` +
+        `Nieuwe totaal: ${newTotal} personen\n` +
+        `Event capaciteit: ${event.capacity} personen\n` +
+        `Overschrijding: ${overCapacity} personen\n\n` +
+        `Weet je zeker dat je wilt doorgaan?`
+      )) {
+        setProcessingReservation(null);
+        return;
+      }
+    }
+    
+    // Confirm the reservation
+    const response = await apiService.confirmReservation(reservation.id);
+    if (response.success) {
+      alert('✅ Reservering bevestigd! Klant ontvangt een bevestigingsmail.');
+      await loadReservations();
+    } else {
+      alert(`❌ Fout bij bevestigen: ${response.error || 'Onbekende fout'}`);
+    }
+    
+    setProcessingReservation(null);
+  };
+
+  const handleRejectReservation = async (reservation: Reservation) => {
+    if (!confirm(
+      `Weet je zeker dat je deze reservering wilt afwijzen?\n\n` +
+      `Bedrijf: ${reservation.companyName}\n` +
+      `Personen: ${reservation.numberOfPersons}\n` +
+      `Email: ${reservation.email}\n\n` +
+      `De klant ontvangt een afwijzingsmail.`
+    )) {
+      return;
+    }
+
+    const response = await apiService.rejectReservation(reservation.id);
+    if (response.success) {
+      alert('✅ Reservering afgewezen. Klant ontvangt een afwijzingsmail.');
+      await loadReservations();
+    } else {
+      alert(`❌ Fout bij afwijzen: ${response.error || 'Onbekende fout'}`);
+    }
+  };
+
+  const handleMoveToWaitlist = async (reservation: Reservation) => {
+    if (!confirm(
+      `Deze reservering op wachtlijst plaatsen?\n\n` +
+      `Bedrijf: ${reservation.companyName}\n` +
+      `Personen: ${reservation.numberOfPersons}\n\n` +
+      `De klant ontvangt een wachtlijst notificatie.`
+    )) {
+      return;
+    }
+
+    const response = await apiService.moveToWaitlist(reservation.id);
+    if (response.success) {
+      alert('✅ Reservering verplaatst naar wachtlijst.');
+      await loadReservations();
+    } else {
+      alert(`❌ Fout: ${response.error || 'Onbekende fout'}`);
+    }
+  };
+
+  const getStatusBadge = (status: Reservation['status'], requestedOverCapacity?: boolean) => {
     const styles = {
       confirmed: 'bg-green-100 text-green-800 border-green-300',
-      pending: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-      waitlist: 'bg-orange-100 text-orange-800 border-orange-300',
-      cancelled: 'bg-red-100 text-red-800 border-red-300'
-    };
+      pending: requestedOverCapacity 
+        ? 'bg-orange-100 text-orange-800 border-orange-300'
+        : 'bg-yellow-100 text-yellow-800 border-yellow-300',
+      waitlist: 'bg-purple-100 text-purple-800 border-purple-300',
+      cancelled: 'bg-red-100 text-red-800 border-red-300',
+      rejected: 'bg-gray-100 text-gray-800 border-gray-300',
+      request: 'bg-blue-100 text-blue-800 border-blue-300'
+    } as const;
 
     const labels = {
       confirmed: 'Bevestigd',
       pending: 'In Afwachting',
       waitlist: 'Wachtlijst',
-      cancelled: 'Geannuleerd'
-    };
+      cancelled: 'Geannuleerd',
+      rejected: 'Afgewezen',
+      request: 'Aanvraag'
+    } as const;
 
     return (
-      <span className={cn('px-3 py-1 rounded-full text-xs font-medium border-2', styles[status])}>
-        {labels[status]}
-      </span>
+      <div className="flex items-center gap-2">
+        <span className={cn('px-3 py-1 rounded-full text-xs font-medium border-2', styles[status])}>
+          {labels[status]}
+        </span>
+        {requestedOverCapacity && status === 'pending' && (
+          <span className="text-xs text-orange-500 font-medium">⚠️ Boven capaciteit</span>
+        )}
+      </div>
     );
   };
 
@@ -311,10 +410,38 @@ export const ReservationsManager: React.FC = () => {
                     <span className="font-bold text-primary-500">{formatCurrency(reservation.totalPrice)}</span>
                   </td>
                   <td className="py-4 px-6">
-                    {getStatusBadge(reservation.status)}
+                    {getStatusBadge(reservation.status, reservation.requestedOverCapacity)}
                   </td>
                   <td className="py-4 px-6">
                     <div className="flex gap-2">
+                      {/* Pending reservation actions */}
+                      {reservation.status === 'pending' && (
+                        <>
+                          <button
+                            onClick={() => handleConfirmReservation(reservation)}
+                            className="p-2 hover:bg-green-100 rounded-lg text-green-600 transition-colors"
+                            title="Bevestig reservering"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleRejectReservation(reservation)}
+                            className="p-2 hover:bg-red-100 rounded-lg text-red-600 transition-colors"
+                            title="Afwijzen"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleMoveToWaitlist(reservation)}
+                            className="p-2 hover:bg-orange-100 rounded-lg text-orange-600 transition-colors"
+                            title="Naar wachtlijst"
+                          >
+                            <AlertCircle className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                      
+                      {/* View details - always available */}
                       <button
                         onClick={() => handleViewDetails(reservation)}
                         className="p-2 hover:bg-gold-100 rounded-lg text-primary-500 transition-colors"
@@ -322,13 +449,17 @@ export const ReservationsManager: React.FC = () => {
                       >
                         <Eye className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => handleDelete(reservation.id)}
-                        className="p-2 hover:bg-red-100 rounded-lg text-red-600 transition-colors"
-                        title="Verwijder"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      
+                      {/* Delete - only for cancelled/rejected */}
+                      {(reservation.status === 'cancelled' || reservation.status === 'rejected') && (
+                        <button
+                          onClick={() => handleDelete(reservation.id)}
+                          className="p-2 hover:bg-red-100 rounded-lg text-red-600 transition-colors"
+                          title="Verwijder"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

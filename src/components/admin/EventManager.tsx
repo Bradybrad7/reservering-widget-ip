@@ -37,6 +37,12 @@ export const EventManager: React.FC = () => {
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [eventBookingStats, setEventBookingStats] = useState<{
+    confirmedTotal: number;
+    pendingTotal: number;
+    confirmedCount: number;
+    pendingCount: number;
+  } | null>(null);
   const [formData, setFormData] = useState<Omit<Event, 'id'>>({
     date: new Date(),
     doorsOpen: '19:00',
@@ -59,6 +65,7 @@ export const EventManager: React.FC = () => {
 
   const handleCreate = () => {
     setEditingEvent(null);
+    setEventBookingStats(null);
     setFormData({
       date: new Date(),
       doorsOpen: '19:00',
@@ -92,7 +99,26 @@ export const EventManager: React.FC = () => {
       notes: event.notes,
       isActive: event.isActive
     });
+    
+    // Load booking statistics
+    loadEventBookingStats(event.id);
     setShowModal(true);
+  };
+
+  const loadEventBookingStats = async (eventId: string) => {
+    const reservationsResponse = await apiService.getReservationsByEvent(eventId);
+    const reservations = reservationsResponse.data || [];
+    const confirmedBookings = reservations.filter(r => r.status === 'confirmed');
+    const pendingBookings = reservations.filter(r => r.status === 'pending');
+    const confirmedTotal = confirmedBookings.reduce((sum, r) => sum + r.numberOfPersons, 0);
+    const pendingTotal = pendingBookings.reduce((sum, r) => sum + r.numberOfPersons, 0);
+    
+    setEventBookingStats({
+      confirmedTotal,
+      pendingTotal,
+      confirmedCount: confirmedBookings.length,
+      pendingCount: pendingBookings.length
+    });
   };
 
   const handleDelete = async (event: Event) => {
@@ -513,32 +539,55 @@ export const EventManager: React.FC = () => {
                 </div>
               </div>
 
-              {/* Capacity */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Capacity - Enhanced with booking info */}
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-neutral-100 mb-1">
-                    Capaciteit *
+                    Capaciteit * <span className="text-dark-400 text-xs font-normal">(Max aantal personen)</span>
                   </label>
                   <input
                     type="number"
                     required
                     min="1"
+                    max="500"
                     value={formData.capacity}
                     onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) })}
                     className="w-full px-3 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-neutral-100 mb-1">
-                    Resterende Capaciteit
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.remainingCapacity || 0}
-                    onChange={(e) => setFormData({ ...formData, remainingCapacity: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  />
+                  
+                  {/* Show booking statistics for existing events */}
+                  {editingEvent && eventBookingStats && (
+                    <div className="mt-3 p-3 bg-blue-500/10 border border-blue-400/30 rounded-lg space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-neutral-200 font-medium">Bevestigde bezetting:</span>
+                        <span className="text-green-400 font-bold">
+                          {eventBookingStats.confirmedTotal} / {formData.capacity} 
+                          <span className="text-xs ml-1">({eventBookingStats.confirmedCount} reserv.)</span>
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-neutral-200 font-medium">Aanvragen (pending):</span>
+                        <span className="text-orange-400 font-bold">
+                          + {eventBookingStats.pendingTotal} ({eventBookingStats.pendingCount})
+                        </span>
+                      </div>
+                      {eventBookingStats.confirmedTotal > formData.capacity && (
+                        <div className="pt-2 border-t border-orange-500/30">
+                          <p className="text-xs text-orange-300 flex items-center gap-1">
+                            <span>⚠️</span>
+                            <span>Event is overbezet! Capaciteit is overschreden.</span>
+                          </p>
+                        </div>
+                      )}
+                      {eventBookingStats.confirmedTotal < formData.capacity && eventBookingStats.pendingTotal > 0 && (
+                        <div className="pt-2 border-t border-blue-500/30">
+                          <p className="text-xs text-blue-300">
+                            💡 {formData.capacity - eventBookingStats.confirmedTotal} plaatsen beschikbaar voor bevestiging
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

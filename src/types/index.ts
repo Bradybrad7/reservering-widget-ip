@@ -4,6 +4,19 @@ export type Arrangement = 'BWF' | 'BWFM';
 export type DayType = 'weekday' | 'weekend' | 'matinee' | 'careHeroes';
 export type Salutation = 'Dhr' | 'Mevr' | '';
 
+// Wizard step types
+export type StepKey = 
+  | 'calendar' 
+  | 'persons' 
+  | 'arrangement' 
+  | 'addons' 
+  | 'merchandise' 
+  | 'form' 
+  | 'summary' 
+  | 'success'
+  | 'waitlistPrompt'
+  | 'waitlistSuccess';
+
 // Event interface
 export interface Event {
   id: string;
@@ -88,6 +101,20 @@ export interface BookingRules {
   defaultCutoffHoursBefore: number;
   softCapacityWarningPercent: number;
   enableWaitlist: boolean;
+  defaultCapacity: number; // Default capacity for new events (e.g., 230)
+}
+
+// Wizard configuration
+export interface WizardStep {
+  key: StepKey;
+  label: string;
+  enabled: boolean;
+  order: number;
+  required: boolean; // calendar, form, summary are always required
+}
+
+export interface WizardConfig {
+  steps: WizardStep[];
 }
 
 // Customer form data
@@ -141,8 +168,9 @@ export interface Reservation extends CustomerFormData {
   eventId: string;
   eventDate: Date;
   totalPrice: number;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'request' | 'waitlist';
+  status: 'pending' | 'confirmed' | 'cancelled' | 'rejected' | 'request' | 'waitlist';
   isWaitlist?: boolean;
+  requestedOverCapacity?: boolean; // TRUE if booking was made when exceeding available capacity
   createdAt: Date;
   updatedAt: Date;
 }

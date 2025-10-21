@@ -252,7 +252,7 @@ export const apiService = {
       const existingReservations = mockDB.getReservationsByEvent(eventId);
       const duplicate = existingReservations.find(
         r => r.email.toLowerCase() === formData.email.toLowerCase() && 
-             r.status !== 'cancelled'
+             r.status !== 'cancelled' && r.status !== 'rejected'
       );
       
       if (duplicate) {
@@ -264,48 +264,50 @@ export const apiService = {
 
       const { available } = isEventAvailable(event);
       
-      // Check if event is full and should go to waitlist
-      const isEventFull = event.remainingCapacity !== undefined && event.remainingCapacity === 0;
-      const isWaitlist = isEventFull && event.type !== 'REQUEST';
-      
-      // Allow waitlist registrations even when event is full
-      if (!available && !isWaitlist && event.type !== 'REQUEST') {
-        return {
-          success: false,
-          error: 'Event is no longer available'
-        };
+      // Allow bookings even when event is full - all bookings are pending
+      if (!available && event.type !== 'REQUEST') {
+        // Only block if booking is completely closed (not just full)
+        if (available === false && event.type === 'UNAVAILABLE') {
+          return {
+            success: false,
+            error: 'Event is no longer available'
+          };
+        }
       }
 
       // ✨ Calculate total price using price service
       const priceCalculation = calculatePrice(event, formData);
       
-      // Create reservation
+      // ✨ NEW: Determine if booking is over current available capacity
+      const currentRemaining = event.remainingCapacity ?? 0;
+      const requestedOverCapacity = formData.numberOfPersons > currentRemaining;
+      
+      // ✨ CHANGED: ALL reservations start as 'pending' and require admin approval
       const reservation: Reservation = {
         ...formData,
         id: `res-${Date.now()}`,
         eventId,
         eventDate: event.date,
         totalPrice: priceCalculation.totalPrice,
-        status: isWaitlist ? 'waitlist' : (event.type === 'REQUEST' ? 'request' : 'pending'),
-        isWaitlist: isWaitlist,
+        status: 'pending', // Always pending - admin must confirm
+        requestedOverCapacity, // Flag for admin review
+        isWaitlist: false, // Deprecated in favor of status management
         createdAt: new Date(),
         updatedAt: new Date()
       };
 
       mockDB.addReservation(reservation);
 
-      // ✨ NEW: Update event capacity in real-time
-      if (event.remainingCapacity !== undefined && !isWaitlist) {
-        const newCapacity = Math.max(0, event.remainingCapacity - formData.numberOfPersons);
-        mockDB.updateEvent(eventId, { 
-          remainingCapacity: newCapacity 
-        });
-      }
+      // ✨ IMPORTANT: Do NOT modify remainingCapacity when submitting pending reservation
+      // Capacity is only updated when admin CONFIRMS the reservation
+      // This prevents capacity from being blocked by unconfirmed bookings
 
       return {
         success: true,
         data: reservation,
-        message: 'Reservation submitted successfully'
+        message: requestedOverCapacity 
+          ? 'Uw aanvraag is ontvangen en wordt beoordeeld' 
+          : 'Uw reservering is in behandeling'
       };
     } catch (error) {
       return {
@@ -522,6 +524,162 @@ export const apiService = {
       return {
         success: false,
         error: 'Failed to delete reservation'
+      };
+    }
+  },
+
+  // ✨ NEW: Confirm pending reservation (updates capacity)
+  async confirmReservation(reservationId: string): Promise<ApiResponse<Reservation>> {
+    await delay(300);
+    
+    try {
+      const reservations = mockDB.getReservations();
+      const reservation = reservations.find(r => r.id === reservationId);
+      
+      if (!reservation) {
+        return {
+          success: false,
+          error: 'Reservation not found'
+        };
+      }
+
+      if (reservation.status !== 'pending') {
+        return {
+          success: false,
+          error: 'Only pending reservations can be confirmed'
+        };
+      }
+
+      const event = mockDB.getEventById(reservation.eventId);
+      if (!event) {
+        return {
+          success: false,
+          error: 'Associated event not found'
+        };
+      }
+
+      // Update reservation status to confirmed
+      const updated = localStorageService.updateReservation(reservationId, {
+        status: 'confirmed',
+        updatedAt: new Date()
+      });
+
+      if (!updated) {
+        return {
+          success: false,
+          error: 'Failed to update reservation'
+        };
+      }
+
+      // ✨ UPDATE EVENT CAPACITY - subtract from remainingCapacity
+      const currentRemaining = event.remainingCapacity ?? event.capacity;
+      const newRemaining = Math.max(0, currentRemaining - reservation.numberOfPersons);
+      
+      mockDB.updateEvent(event.id, {
+        remainingCapacity: newRemaining
+      });
+
+      // TODO: Send confirmation email
+      console.log(`✅ Reservation ${reservationId} confirmed. Capacity updated: ${currentRemaining} -> ${newRemaining}`);
+
+      return {
+        success: true,
+        data: { ...reservation, status: 'confirmed' as const },
+        message: 'Reservation confirmed successfully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to confirm reservation'
+      };
+    }
+  },
+
+  // ✨ NEW: Reject pending reservation (no capacity change)
+  async rejectReservation(reservationId: string): Promise<ApiResponse<Reservation>> {
+    await delay(300);
+    
+    try {
+      const reservations = mockDB.getReservations();
+      const reservation = reservations.find(r => r.id === reservationId);
+      
+      if (!reservation) {
+        return {
+          success: false,
+          error: 'Reservation not found'
+        };
+      }
+
+      // Update reservation status to rejected
+      const updated = localStorageService.updateReservation(reservationId, {
+        status: 'rejected',
+        updatedAt: new Date()
+      });
+
+      if (!updated) {
+        return {
+          success: false,
+          error: 'Failed to update reservation'
+        };
+      }
+
+      // TODO: Send rejection email
+      console.log(`❌ Reservation ${reservationId} rejected.`);
+
+      return {
+        success: true,
+        data: { ...reservation, status: 'rejected' as const },
+        message: 'Reservation rejected successfully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to reject reservation'
+      };
+    }
+  },
+
+  // ✨ NEW: Move reservation to waitlist
+  async moveToWaitlist(reservationId: string): Promise<ApiResponse<Reservation>> {
+    await delay(300);
+    
+    try {
+      const reservations = mockDB.getReservations();
+      const reservation = reservations.find(r => r.id === reservationId);
+      
+      if (!reservation) {
+        return {
+          success: false,
+          error: 'Reservation not found'
+        };
+      }
+
+      // Update reservation status to waitlist
+      const updated = localStorageService.updateReservation(reservationId, {
+        status: 'waitlist',
+        isWaitlist: true,
+        updatedAt: new Date()
+      });
+
+      if (!updated) {
+        return {
+          success: false,
+          error: 'Failed to update reservation'
+        };
+      }
+
+      // TODO: Send waitlist email
+      console.log(`⏳ Reservation ${reservationId} moved to waitlist.`);
+
+      return {
+        success: true,
+        data: { ...reservation, status: 'waitlist' as const, isWaitlist: true },
+        message: 'Reservation moved to waitlist'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to move to waitlist'
       };
     }
   },

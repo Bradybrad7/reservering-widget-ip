@@ -1,8 +1,8 @@
-import React, { memo } from 'react';
-import { Calendar, Gift, FileText, CheckCircle } from 'lucide-react';
+import React, { memo, useMemo } from 'react';
+import { Calendar, Users, Sparkles, Wine, ShoppingBag, FileText, CheckCircle } from 'lucide-react';
 import { cn } from '../utils';
-
-export type StepKey = 'calendar' | 'extras' | 'form' | 'summary';
+import type { StepKey } from '../types';
+import { useReservationStore } from '../store/reservationStore';
 
 export interface Step {
   key: StepKey;
@@ -31,32 +31,32 @@ export const StepIndicator = memo<StepIndicatorProps>(({
   selectedEvent,
   className
 }) => {
-  const steps: Step[] = [
-    {
-      key: 'calendar',
-      label: 'Datum',
-      icon: Calendar,
-      completed: selectedEvent
-    },
-    {
-      key: 'extras',
-      label: "Extra's",
-      icon: Gift,
-      completed: currentStep === 'form' || currentStep === 'summary'
-    },
-    {
-      key: 'form',
-      label: 'Gegevens',
-      icon: FileText,
-      completed: currentStep === 'summary'
-    },
-    {
-      key: 'summary',
-      label: 'Bevestigen',
-      icon: CheckCircle,
-      completed: false
-    }
-  ];
+  const { wizardConfig } = useReservationStore();
+
+  // Generate steps based on wizard configuration
+  const steps: Step[] = useMemo(() => {
+    const allSteps: Array<{ key: StepKey; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+      { key: 'calendar', label: 'Datum', icon: Calendar },
+      { key: 'persons', label: 'Personen', icon: Users },
+      { key: 'arrangement', label: 'Arrangement', icon: Sparkles },
+      { key: 'addons', label: 'Borrel', icon: Wine },
+      { key: 'merchandise', label: 'Merchandise', icon: ShoppingBag },
+      { key: 'form', label: 'Gegevens', icon: FileText },
+      { key: 'summary', label: 'Bevestigen', icon: CheckCircle }
+    ];
+
+    const currentStepIndex = allSteps.findIndex(s => s.key === currentStep);
+
+    return allSteps
+      .filter(s => {
+        const wizardStep = wizardConfig.steps.find(ws => ws.key === s.key);
+        return wizardStep?.enabled !== false;
+      })
+      .map((s, idx) => ({
+        ...s,
+        completed: idx < currentStepIndex
+      }));
+  }, [currentStep, wizardConfig, selectedEvent]);
 
   const currentStepIndex = steps.findIndex(step => step.key === currentStep);
 

@@ -12,7 +12,10 @@ import type {
   BookingRules,
   FormErrors,
   Salutation,
-  Arrangement
+  Arrangement,
+  StepKey,
+  WizardConfig,
+  WizardStep
 } from '../types';
 import { apiService } from '../services/apiService';
 import { priceService } from '../services/priceService';
@@ -31,10 +34,13 @@ interface ReservationState {
   isFormValid: boolean;
   
   // UI state
-  currentStep: 'calendar' | 'extras' | 'form' | 'summary' | 'success';
+  currentStep: StepKey;
   isLoading: boolean;
   isSubmitting: boolean;
   currentMonth: Date;
+  
+  // Wizard configuration
+  wizardConfig: WizardConfig;
   
   // Price calculation
   priceCalculation: PriceCalculation | null;
@@ -71,12 +77,14 @@ interface ReservationActions {
   
   // Submission
   submitReservation: () => Promise<boolean>;
+  submitWaitlist: () => Promise<boolean>;
   
   // Configuration
   updateConfig: (config: Partial<GlobalConfig>) => void;
   updatePricing: (pricing: Partial<Pricing>) => void;
   updateAddOns: (addOns: Partial<AddOns>) => void;
   updateBookingRules: (rules: Partial<BookingRules>) => void;
+  updateWizardConfig: (config: Partial<WizardConfig>) => void;
   
   // Utility
   calculateCurrentPrice: () => void;
@@ -115,6 +123,22 @@ const initialFormData: Partial<CustomerFormData> = {
   acceptTerms: false
 };
 
+// Default wizard configuration
+const defaultWizardConfig: WizardConfig = {
+  steps: [
+    { key: 'calendar', label: 'Datum', enabled: true, order: 1, required: true },
+    { key: 'persons', label: 'Personen', enabled: true, order: 2, required: true },
+    { key: 'arrangement', label: 'Arrangement', enabled: true, order: 3, required: true },
+    { key: 'addons', label: 'Borrel', enabled: true, order: 4, required: false },
+    { key: 'merchandise', label: 'Merchandise', enabled: true, order: 5, required: false },
+    { key: 'form', label: 'Gegevens', enabled: true, order: 6, required: true },
+    { key: 'summary', label: 'Bevestigen', enabled: true, order: 7, required: true },
+    { key: 'success', label: 'Voltooid', enabled: true, order: 8, required: true },
+    { key: 'waitlistPrompt', label: 'Wachtlijst', enabled: true, order: 9, required: false },
+    { key: 'waitlistSuccess', label: 'Wachtlijst Bevestigd', enabled: true, order: 10, required: false }
+  ]
+};
+
 // Create the store
 export const useReservationStore = create<ReservationStore>()(
   subscribeWithSelector((set, get) => ({
@@ -135,6 +159,7 @@ export const useReservationStore = create<ReservationStore>()(
     pricing: defaultPricing,
     addOns: defaultAddOns,
     bookingRules: defaultBookingRules,
+    wizardConfig: defaultWizardConfig,
 
     // Actions
     loadEvents: async () => {
@@ -188,10 +213,14 @@ export const useReservationStore = create<ReservationStore>()(
     },
 
     selectEvent: async (event: Event) => {
-      set({ selectedEvent: event, currentStep: 'extras' });
+      set({ selectedEvent: event });
       
       // Load availability for the selected event
       await get().loadEventAvailability(event.id);
+      
+      // Altijd doorsturen naar persons step - gebruikers kunnen boeken tot over capaciteit
+      // De datum sluit automatisch als capaciteit overschreden wordt
+      set({ currentStep: 'persons' });
       
       // Calculate initial price
       get().calculateCurrentPrice();
@@ -352,26 +381,79 @@ export const useReservationStore = create<ReservationStore>()(
     },
 
     goToNextStep: () => {
-      const { currentStep, isFormValid } = get();
+      const { currentStep, wizardConfig, formData, isFormValid } = get();
       
+      // Get enabled steps in order
+      const enabledSteps = wizardConfig.steps
+        .filter(s => s.enabled)
+        .sort((a, b) => a.order - b.order);
+      
+      const currentIndex = enabledSteps.findIndex(s => s.key === currentStep);
+      
+      // Special logic for specific steps
       switch (currentStep) {
         case 'calendar':
-          if (get().selectedEvent) {
-            set({ currentStep: 'extras' });
+          // Handled by selectEvent
+          break;
+          
+        case 'persons':
+          // Validate number of persons before proceeding
+          if (!formData.numberOfPersons || formData.numberOfPersons < 1) {
+            console.warn('Invalid number of persons');
+            return;
+          }
+          // Go to arrangement step
+          set({ currentStep: 'arrangement' });
+          break;
+          
+        case 'arrangement':
+          // Validate arrangement is selected
+          if (!formData.arrangement) {
+            console.warn('No arrangement selected');
+            return;
+          }
+          // Find next enabled step (addons or skip to next)
+          const nextAfterArrangement = enabledSteps[currentIndex + 1];
+          if (nextAfterArrangement) {
+            set({ currentStep: nextAfterArrangement.key });
           }
           break;
-        case 'extras':
+          
+        case 'addons':
+          // Addons are optional, proceed to next step
+          const nextAfterAddons = enabledSteps[currentIndex + 1];
+          if (nextAfterAddons) {
+            set({ currentStep: nextAfterAddons.key });
+          }
+          break;
+          
+        case 'merchandise':
+          // Merchandise is optional, proceed to form
           set({ currentStep: 'form' });
           break;
+          
         case 'form':
+          // Validate form before proceeding to summary
           if (isFormValid) {
             set({ currentStep: 'summary' });
+          } else {
+            console.warn('Form is not valid');
           }
           break;
+          
         case 'summary':
-          // This should trigger submission
+          // Summary step triggers submission, not navigation
           break;
+          
+        case 'waitlistPrompt':
+          // Waitlist prompt handles its own submission
+          break;
+          
         default:
+          // Generic navigation to next enabled step
+          if (currentIndex >= 0 && currentIndex < enabledSteps.length - 1) {
+            set({ currentStep: enabledSteps[currentIndex + 1].key });
+          }
           break;
       }
       
@@ -379,23 +461,39 @@ export const useReservationStore = create<ReservationStore>()(
     },
 
     goToPreviousStep: () => {
-      const { currentStep } = get();
+      const { currentStep, wizardConfig } = get();
+      
+      // Get enabled steps in order
+      const enabledSteps = wizardConfig.steps
+        .filter(s => s.enabled)
+        .sort((a, b) => a.order - b.order);
+      
+      const currentIndex = enabledSteps.findIndex(s => s.key === currentStep);
       
       switch (currentStep) {
-        case 'extras':
-          set({ currentStep: 'calendar' });
+        case 'calendar':
+          // Can't go back from calendar
           break;
-        case 'form':
-          set({ currentStep: 'extras' });
+          
+        case 'persons':
+          set({ currentStep: 'calendar', selectedEvent: null });
           break;
-        case 'summary':
-          set({ currentStep: 'form' });
+          
+        case 'waitlistPrompt':
+          set({ currentStep: 'calendar', selectedEvent: null });
           break;
+          
         case 'success':
-          set({ currentStep: 'calendar' });
+        case 'waitlistSuccess':
+          // Reset and go back to calendar
           get().reset();
           break;
+          
         default:
+          // Generic navigation to previous enabled step
+          if (currentIndex > 0) {
+            set({ currentStep: enabledSteps[currentIndex - 1].key });
+          }
           break;
       }
     },
@@ -417,7 +515,7 @@ export const useReservationStore = create<ReservationStore>()(
     },
 
     submitReservation: async () => {
-      const { selectedEvent, formData, isFormValid } = get();
+      const { selectedEvent, formData, isFormValid, eventAvailability } = get();
       
       if (!selectedEvent || !isFormValid) {
         return false;
@@ -426,19 +524,33 @@ export const useReservationStore = create<ReservationStore>()(
       set({ isSubmitting: true });
       
       try {
+        // Check if this should be a waitlist reservation
+        const availability = eventAvailability[selectedEvent.id];
+        const isWaitlistReservation = availability && availability.remainingCapacity <= 0;
+        
         const response = await apiService.submitReservation(formData as CustomerFormData, selectedEvent.id);
         
         if (response.success && response.data) {
-          // Update the reservation with calculated price
+          // Update the reservation with calculated price and status
           const priceCalculation = get().priceCalculation;
           if (priceCalculation) {
             response.data.totalPrice = priceCalculation.totalPrice;
           }
           
+          // Set status based on availability
+          if (isWaitlistReservation) {
+            response.data.status = 'waitlist';
+            response.data.isWaitlist = true;
+          }
+          
           set({ 
             completedReservation: response.data,
-            currentStep: 'success'
+            currentStep: isWaitlistReservation ? 'waitlistSuccess' : 'success'
           });
+          
+          // Clear draft after successful submission
+          get().clearDraft();
+          
           return true;
         } else {
           console.error('Reservation submission failed:', response.error);
@@ -446,6 +558,54 @@ export const useReservationStore = create<ReservationStore>()(
         }
       } catch (error) {
         console.error('Failed to submit reservation:', error);
+        return false;
+      } finally {
+        set({ isSubmitting: false });
+      }
+    },
+
+    submitWaitlist: async () => {
+      const { selectedEvent, formData } = get();
+      
+      if (!selectedEvent) {
+        return false;
+      }
+
+      // For waitlist, we only need basic contact information
+      const minimalData: Partial<CustomerFormData> = {
+        contactPerson: formData.contactPerson,
+        email: formData.email,
+        phone: formData.phone,
+        phoneCountryCode: formData.phoneCountryCode,
+        numberOfPersons: formData.numberOfPersons,
+        arrangement: formData.arrangement,
+        comments: formData.comments
+      };
+
+      set({ isSubmitting: true });
+      
+      try {
+        const response = await apiService.submitReservation(minimalData as CustomerFormData, selectedEvent.id);
+        
+        if (response.success && response.data) {
+          response.data.status = 'waitlist';
+          response.data.isWaitlist = true;
+          
+          set({ 
+            completedReservation: response.data,
+            currentStep: 'waitlistSuccess'
+          });
+          
+          // Clear draft after successful submission
+          get().clearDraft();
+          
+          return true;
+        } else {
+          console.error('Waitlist submission failed:', response.error);
+          return false;
+        }
+      } catch (error) {
+        console.error('Failed to submit waitlist:', error);
         return false;
       } finally {
         set({ isSubmitting: false });
@@ -479,6 +639,12 @@ export const useReservationStore = create<ReservationStore>()(
     updateBookingRules: (rules) => {
       set(state => ({
         bookingRules: { ...state.bookingRules, ...rules }
+      }));
+    },
+
+    updateWizardConfig: (config) => {
+      set(state => ({
+        wizardConfig: { ...state.wizardConfig, ...config }
       }));
     },
 

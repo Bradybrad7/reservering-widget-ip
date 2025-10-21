@@ -290,8 +290,10 @@ class LocalStorageService {
     const filtered = reservations.filter(r => r.id !== reservationId);
     this.saveReservations(filtered);
     
-    // Restore event capacity
-    this.updateEventCapacity(reservation.eventId, reservation.numberOfPersons);
+    // Only restore capacity if the reservation was confirmed
+    if (reservation.status === 'confirmed') {
+      this.updateEventCapacity(reservation.eventId, reservation.numberOfPersons);
+    }
     
     return true;
   }

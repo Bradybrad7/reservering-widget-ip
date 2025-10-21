@@ -326,6 +326,29 @@ export const ConfigManager: React.FC = () => {
             <div className="grid grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-neutral-100 mb-1">
+                  Standaard Capaciteit (nieuwe events)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="500"
+                  value={localBookingRules.defaultCapacity}
+                  onChange={(e) => {
+                    setLocalBookingRules({
+                      ...localBookingRules,
+                      defaultCapacity: parseInt(e.target.value)
+                    });
+                    setHasChanges(true);
+                  }}
+                  className="w-full px-3 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+                <p className="text-xs text-dark-500 mt-1">
+                  Deze capaciteit wordt gebruikt bij het aanmaken van nieuwe evenementen (bijv. 230)
+                </p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-neutral-100 mb-1">
                   Boeking opent (dagen van tevoren)
                 </label>
                 <input
