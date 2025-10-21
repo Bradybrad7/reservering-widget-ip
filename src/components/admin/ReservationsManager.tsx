@@ -16,31 +16,40 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Package
+  Package,
+  Image as ImageIcon
 } from 'lucide-react';
-import type { Reservation } from '../../types';
+import type { Reservation, MerchandiseItem, Event } from '../../types';
 import { apiService } from '../../services/apiService';
 import { formatCurrency, formatDate, formatTime, cn } from '../../utils';
 import { nl } from '../../config/defaults';
+import { ReservationEditModal } from './ReservationEditModal';
 
 export const ReservationsManager: React.FC = () => {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [filteredReservations, setFilteredReservations] = useState<Reservation[]>([]);
+  const [merchandiseItems, setMerchandiseItems] = useState<MerchandiseItem[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'confirmed' | 'pending' | 'waitlist' | 'cancelled' | 'rejected'>('all');
+  const [eventFilter, setEventFilter] = useState<string>('all');
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [processingReservation, setProcessingReservation] = useState<Reservation | null>(null);
+  const [selectedReservations, setSelectedReservations] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadReservations();
+    loadMerchandise();
+    loadEvents();
   }, []);
 
   useEffect(() => {
     filterReservations();
-  }, [reservations, searchTerm, statusFilter]);
+  }, [reservations, searchTerm, statusFilter, eventFilter]);
 
   const loadReservations = async () => {
     setIsLoading(true);
@@ -56,12 +65,39 @@ export const ReservationsManager: React.FC = () => {
     }
   };
 
+  const loadMerchandise = async () => {
+    try {
+      const response = await apiService.getMerchandise();
+      if (response.success && response.data) {
+        setMerchandiseItems(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to load merchandise:', error);
+    }
+  };
+
+  const loadEvents = async () => {
+    try {
+      const response = await apiService.getEvents();
+      if (response.success && response.data) {
+        setEvents(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to load events:', error);
+    }
+  };
+
   const filterReservations = () => {
     let filtered = [...reservations];
 
     // Status filter
     if (statusFilter !== 'all') {
       filtered = filtered.filter(r => r.status === statusFilter);
+    }
+
+    // Event filter
+    if (eventFilter !== 'all') {
+      filtered = filtered.filter(r => r.eventId === eventFilter);
     }
 
     // Search filter
@@ -81,9 +117,105 @@ export const ReservationsManager: React.FC = () => {
     setFilteredReservations(filtered);
   };
 
+  const getMerchandiseItem = (itemId: string): MerchandiseItem | undefined => {
+    return merchandiseItems.find(item => item.id === itemId);
+  };
+
+  const getCategoryLabel = (category: MerchandiseItem['category']) => {
+    const labels = {
+      clothing: 'Kleding',
+      accessories: 'Accessoires',
+      other: 'Overig'
+    };
+    return labels[category] || 'Overig';
+  };
+
+  const getEventForReservation = (eventId: string) => {
+    return events.find(e => e.id === eventId);
+  };
+
   const handleViewDetails = (reservation: Reservation) => {
     setSelectedReservation(reservation);
     setShowDetailModal(true);
+  };
+
+  const handleEditReservation = (reservation: Reservation) => {
+    setSelectedReservation(reservation);
+    setShowEditModal(true);
+  };
+
+  const toggleSelectReservation = (reservationId: string) => {
+    const newSelected = new Set(selectedReservations);
+    if (newSelected.has(reservationId)) {
+      newSelected.delete(reservationId);
+    } else {
+      newSelected.add(reservationId);
+    }
+    setSelectedReservations(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedReservations.size === filteredReservations.length) {
+      setSelectedReservations(new Set());
+    } else {
+      setSelectedReservations(new Set(filteredReservations.map(r => r.id)));
+    }
+  };
+
+  const handleBulkConfirm = async () => {
+    if (selectedReservations.size === 0) return;
+    
+    if (!confirm(`Weet je zeker dat je ${selectedReservations.size} reservering(en) wilt bevestigen?`)) {
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const reservationId of Array.from(selectedReservations)) {
+      try {
+        const response = await apiService.confirmReservation(reservationId);
+        if (response.success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (error) {
+        failCount++;
+      }
+    }
+
+    alert(`✅ ${successCount} reservering(en) bevestigd${failCount > 0 ? `\n❌ ${failCount} mislukt` : ''}`);
+    setSelectedReservations(new Set());
+    await loadReservations();
+  };
+
+  const handleBulkReject = async () => {
+    if (selectedReservations.size === 0) return;
+    
+    if (!confirm(`Weet je zeker dat je ${selectedReservations.size} reservering(en) wilt afwijzen?`)) {
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const reservationId of Array.from(selectedReservations)) {
+      try {
+        const response = await apiService.rejectReservation(reservationId);
+        if (response.success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (error) {
+        failCount++;
+      }
+    }
+
+    alert(`✅ ${successCount} reservering(en) afgewezen${failCount > 0 ? `\n❌ ${failCount} mislukt` : ''}`);
+    setSelectedReservations(new Set());
+    await loadReservations();
   };
 
   const handleUpdateStatus = async (reservationId: string, newStatus: Reservation['status']) => {
@@ -231,18 +363,21 @@ export const ReservationsManager: React.FC = () => {
 
   const exportToCSV = () => {
     const headers = ['ID', 'Datum', 'Bedrijf', 'Contactpersoon', 'Email', 'Telefoon', 'Aantal Personen', 'Arrangement', 'Totaal', 'Status'];
-    const rows = filteredReservations.map(r => [
-      r.id,
-      r.event ? formatDate(r.event.date) : 'N/A',
-      r.companyName,
-      r.contactPerson,
-      r.email,
-      r.phone,
-      r.numberOfPersons.toString(),
-      nl.arrangements[r.arrangement],
-      formatCurrency(r.totalPrice),
-      r.status
-    ]);
+    const rows = filteredReservations.map(r => {
+      const event = getEventForReservation(r.eventId);
+      return [
+        r.id,
+        event ? formatDate(event.date) : 'N/A',
+        r.companyName,
+        r.contactPerson,
+        r.email,
+        r.phone,
+        r.numberOfPersons.toString(),
+        nl.arrangements[r.arrangement],
+        formatCurrency(r.totalPrice),
+        r.status
+      ];
+    });
 
     const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -314,39 +449,89 @@ export const ReservationsManager: React.FC = () => {
 
       {/* Filters */}
       <div className="card-theatre p-6">
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-dark-400" />
-            <input
-              type="text"
-              placeholder="Zoek op bedrijf, contactpersoon, email of ID..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border-2 border-dark-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-400"
-            />
+        <div className="flex flex-col gap-4">
+          {/* Search and filters row */}
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-dark-400" />
+              <input
+                type="text"
+                placeholder="Zoek op bedrijf, contactpersoon, email of ID..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-dark-800 border-2 border-gold-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold-400 focus:border-gold-500"
+              />
+            </div>
+
+            <div className="flex gap-3 flex-wrap">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+                className="px-4 py-3 bg-dark-800 border-2 border-gold-500/20 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-400"
+              >
+                <option value="all">Alle statussen</option>
+                <option value="confirmed">Bevestigd</option>
+                <option value="pending">In Afwachting</option>
+                <option value="waitlist">Wachtlijst</option>
+                <option value="cancelled">Geannuleerd</option>
+                <option value="rejected">Afgewezen</option>
+              </select>
+
+              <select
+                value={eventFilter}
+                onChange={(e) => setEventFilter(e.target.value)}
+                className="px-4 py-3 bg-dark-800 border-2 border-gold-500/20 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-400"
+              >
+                <option value="all">Alle evenementen</option>
+                {events
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                  .slice(0, 20)
+                  .map(event => (
+                    <option key={event.id} value={event.id}>
+                      {formatDate(event.date)} - {nl.eventTypes[event.type]}
+                    </option>
+                  ))}
+              </select>
+
+              <button
+                onClick={exportToCSV}
+                className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all shadow-md"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export CSV</span>
+              </button>
+            </div>
           </div>
 
-          <div className="flex gap-3">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="px-4 py-3 border-2 border-dark-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-400"
-            >
-              <option value="all">Alle statussen</option>
-              <option value="confirmed">Bevestigd</option>
-              <option value="pending">In Afwachting</option>
-              <option value="waitlist">Wachtlijst</option>
-              <option value="cancelled">Geannuleerd</option>
-            </select>
-
-            <button
-              onClick={exportToCSV}
-              className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all"
-            >
-              <Download className="w-4 h-4" />
-              <span>Exporteer CSV</span>
-            </button>
-          </div>
+          {/* Bulk actions row */}
+          {selectedReservations.size > 0 && (
+            <div className="flex items-center gap-4 p-4 bg-gold-500/10 border-2 border-gold-500/30 rounded-lg">
+              <span className="text-white font-medium">
+                {selectedReservations.size} geselecteerd
+              </span>
+              <button
+                onClick={handleBulkConfirm}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                <CheckCircle className="w-4 h-4" />
+                Bevestig selectie
+              </button>
+              <button
+                onClick={handleBulkReject}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                <XCircle className="w-4 h-4" />
+                Wijs af
+              </button>
+              <button
+                onClick={() => setSelectedReservations(new Set())}
+                className="flex items-center gap-2 px-4 py-2 bg-neutral-700 text-white rounded-lg hover:bg-neutral-600 transition-colors ml-auto"
+              >
+                <X className="w-4 h-4" />
+                Annuleer
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -356,6 +541,14 @@ export const ReservationsManager: React.FC = () => {
           <table className="w-full text-sm">
             <thead className="bg-gold-50 border-b-2 border-gold-300">
               <tr>
+                <th className="text-left py-2 px-4 font-semibold text-white text-xs">
+                  <input
+                    type="checkbox"
+                    checked={selectedReservations.size === filteredReservations.length && filteredReservations.length > 0}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded border-gold-300 text-gold-500 focus:ring-gold-500"
+                  />
+                </th>
                 <th className="text-left py-2 px-4 font-semibold text-white text-xs">ID</th>
                 <th className="text-left py-2 px-4 font-semibold text-white text-xs">Datum</th>
                 <th className="text-left py-2 px-4 font-semibold text-white text-xs">Bedrijf</th>
@@ -367,27 +560,37 @@ export const ReservationsManager: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredReservations.map((reservation) => (
-                <tr key={reservation.id} className="border-b border-gold-100 hover:bg-gold-50/30 transition-colors">
-                  <td className="py-2 px-4">
-                    <span className="font-mono text-xs text-neutral-200">{reservation.id.slice(0, 8)}</span>
-                  </td>
-                  <td className="py-2 px-4">
-                    {reservation.event ? (
+              {filteredReservations.map((reservation) => {
+                const event = getEventForReservation(reservation.eventId);
+                return (
+                  <tr key={reservation.id} className="border-b border-gold-100 hover:bg-gold-50/30 transition-colors">
+                    <td className="py-2 px-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedReservations.has(reservation.id)}
+                        onChange={() => toggleSelectReservation(reservation.id)}
+                        className="w-4 h-4 rounded border-gold-300 text-gold-500 focus:ring-gold-500"
+                      />
+                    </td>
+                    <td className="py-2 px-4">
+                      <span className="font-mono text-xs text-neutral-200">{reservation.id.slice(0, 8)}</span>
+                    </td>
+                    <td className="py-2 px-4">
+                      {event ? (
+                        <div>
+                          <p className="font-medium text-white text-sm">{formatDate(event.date)}</p>
+                          <p className="text-xs text-neutral-100">{formatTime(event.startsAt)}</p>
+                        </div>
+                      ) : (
+                        <span className="text-dark-500">N/A</span>
+                      )}
+                    </td>
+                    <td className="py-2 px-4">
                       <div>
-                        <p className="font-medium text-white text-sm">{formatDate(reservation.event.date)}</p>
-                        <p className="text-xs text-neutral-100">{formatTime(reservation.event.startsAt)}</p>
+                        <p className="font-medium text-white text-sm">{reservation.companyName}</p>
+                        <p className="text-xs text-neutral-100">{reservation.contactPerson}</p>
                       </div>
-                    ) : (
-                      <span className="text-dark-500">N/A</span>
-                    )}
-                  </td>
-                  <td className="py-2 px-4">
-                    <div>
-                      <p className="font-medium text-white text-sm">{reservation.companyName}</p>
-                      <p className="text-xs text-neutral-100">{reservation.contactPerson}</p>
-                    </div>
-                  </td>
+                    </td>
                   <td className="py-2 px-4">
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-1.5 text-xs">
@@ -441,6 +644,17 @@ export const ReservationsManager: React.FC = () => {
                         </>
                       )}
                       
+                      {/* Edit - available for all except cancelled/rejected */}
+                      {reservation.status !== 'cancelled' && reservation.status !== 'rejected' && (
+                        <button
+                          onClick={() => handleEditReservation(reservation)}
+                          className="p-2 hover:bg-blue-100 rounded-lg text-blue-600 transition-colors"
+                          title="Bewerk reservering"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                      )}
+                      
                       {/* View details - always available */}
                       <button
                         onClick={() => handleViewDetails(reservation)}
@@ -463,7 +677,8 @@ export const ReservationsManager: React.FC = () => {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -498,34 +713,37 @@ export const ReservationsManager: React.FC = () => {
             {/* Modal Content */}
             <div className="p-6 space-y-6">
               {/* Event Info */}
-              {selectedReservation.event && (
-                <div className="border-2 border-gold-200 rounded-lg p-4 bg-gold-50">
-                  <h3 className="font-semibold text-dark-900 mb-3 flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-primary-500" />
-                    Evenement
-                  </h3>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <p className="text-neutral-100">Datum</p>
-                      <p className="font-medium text-white">{formatDate(selectedReservation.event.date)}</p>
-                    </div>
-                    <div>
-                      <p className="text-neutral-100">Tijd</p>
-                      <p className="font-medium text-white">
-                        {formatTime(selectedReservation.event.startsAt)} - {formatTime(selectedReservation.event.endsAt)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-neutral-100">Type</p>
-                      <p className="font-medium text-white">{nl.eventTypes[selectedReservation.event.type]}</p>
-                    </div>
-                    <div>
-                      <p className="text-neutral-100">Aantal Personen</p>
-                      <p className="font-medium text-white">{selectedReservation.numberOfPersons}</p>
+              {(() => {
+                const event = getEventForReservation(selectedReservation.eventId);
+                return event && (
+                  <div className="border-2 border-gold-200 rounded-lg p-4 bg-gold-50">
+                    <h3 className="font-semibold text-dark-900 mb-3 flex items-center gap-2">
+                      <Calendar className="w-5 h-5 text-primary-500" />
+                      Evenement
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-neutral-100">Datum</p>
+                        <p className="font-medium text-white">{formatDate(event.date)}</p>
+                      </div>
+                      <div>
+                        <p className="text-neutral-100">Tijd</p>
+                        <p className="font-medium text-white">
+                          {formatTime(event.startsAt)} - {formatTime(event.endsAt)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-neutral-100">Type</p>
+                        <p className="font-medium text-white">{nl.eventTypes[event.type]}</p>
+                      </div>
+                      <div>
+                        <p className="text-neutral-100">Aantal Personen</p>
+                        <p className="font-medium text-white">{selectedReservation.numberOfPersons}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Company & Contact Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -592,13 +810,40 @@ export const ReservationsManager: React.FC = () => {
                     <Package className="w-5 h-5 text-primary-500" />
                     Merchandise
                   </h3>
-                  <div className="space-y-2">
-                    {selectedReservation.merchandise.map((item, idx) => (
-                      <div key={idx} className="flex justify-between text-sm">
-                        <span className="text-neutral-200">{item.itemId}</span>
-                        <span className="font-medium text-white">{item.quantity}x</span>
-                      </div>
-                    ))}
+                  <div className="space-y-3">
+                    {selectedReservation.merchandise.map((selection, idx) => {
+                      const item = getMerchandiseItem(selection.itemId);
+                      return (
+                        <div key={idx} className="flex items-center justify-between p-3 bg-dark-800/30 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            {item?.imageUrl && (
+                              <img 
+                                src={item.imageUrl} 
+                                alt={item.name}
+                                className="w-12 h-12 rounded-lg object-cover"
+                              />
+                            )}
+                            {!item?.imageUrl && (
+                              <div className="w-12 h-12 rounded-lg bg-gold-500/20 flex items-center justify-center">
+                                <Package className="w-6 h-6 text-gold-500" />
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-medium text-white">{item?.name || `Item ${selection.itemId}`}</p>
+                              <p className="text-xs text-neutral-300">{item ? getCategoryLabel(item.category) : 'Onbekend'}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-primary-500">{selection.quantity}x</p>
+                            {item && (
+                              <p className="text-xs text-neutral-300">
+                                {formatCurrency(item.price * selection.quantity)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -666,6 +911,22 @@ export const ReservationsManager: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && selectedReservation && (
+        <ReservationEditModal
+          reservation={selectedReservation}
+          event={getEventForReservation(selectedReservation.eventId)}
+          merchandiseItems={merchandiseItems}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedReservation(null);
+          }}
+          onSave={() => {
+            loadReservations();
+          }}
+        />
       )}
     </div>
   );

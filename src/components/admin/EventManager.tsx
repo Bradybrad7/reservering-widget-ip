@@ -410,10 +410,35 @@ export const EventManager: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap">
-                      <div className="flex items-center text-sm">
-                        <Users className="w-4 h-4 mr-1 text-dark-400" />
-                        <span className="font-medium">{event.remainingCapacity}</span>
-                        <span className="text-dark-500">/{event.capacity}</span>
+                      <div className="space-y-1">
+                        <div className="flex items-center text-sm justify-between">
+                          <div className="flex items-center">
+                            <Users className="w-4 h-4 mr-1 text-dark-400" />
+                            <span className="font-medium text-white">{event.capacity - (event.remainingCapacity || 0)}</span>
+                            <span className="text-dark-500">/{event.capacity}</span>
+                          </div>
+                          <span className="text-xs text-neutral-300 ml-2">
+                            {Math.round(((event.capacity - (event.remainingCapacity || 0)) / event.capacity) * 100)}%
+                          </span>
+                        </div>
+                        {/* Capacity Progress Bar */}
+                        <div className="w-full bg-neutral-700 rounded-full h-2 overflow-hidden">
+                          <div
+                            className={cn(
+                              'h-full transition-all duration-300 rounded-full',
+                              ((event.capacity - (event.remainingCapacity || 0)) / event.capacity) >= 0.9
+                                ? 'bg-red-500'
+                                : ((event.capacity - (event.remainingCapacity || 0)) / event.capacity) >= 0.75
+                                ? 'bg-orange-500'
+                                : ((event.capacity - (event.remainingCapacity || 0)) / event.capacity) >= 0.5
+                                ? 'bg-yellow-500'
+                                : 'bg-green-500'
+                            )}
+                            style={{
+                              width: `${Math.min(((event.capacity - (event.remainingCapacity || 0)) / event.capacity) * 100, 100)}%`
+                            }}
+                          />
+                        </div>
                       </div>
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap">

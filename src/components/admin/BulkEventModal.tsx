@@ -108,22 +108,22 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-neutral-800/50 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-neutral-900 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border-2 border-gold-500/30">
         {/* Header */}
-        <div className="sticky top-0 bg-dark-800 border-b border-dark-200 px-6 py-4 flex justify-between items-center">
+        <div className="sticky top-0 bg-gradient-to-r from-dark-900 to-dark-800 border-b-2 border-gold-500/50 px-6 py-4 flex justify-between items-center z-10">
           <div className="flex items-center gap-3">
-            <CalendarIcon className="w-6 h-6 text-primary-500" />
+            <CalendarIcon className="w-6 h-6 text-gold-500" />
             <div>
               <h2 className="text-xl font-bold text-white">Bulk Evenementen Toevoegen</h2>
-              <p className="text-sm text-neutral-100">Selecteer datums in de kalender</p>
+              <p className="text-sm text-gold-300">Selecteer datums in de kalender</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-neutral-200 rounded-lg transition-colors"
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 text-white" />
           </button>
         </div>
 
@@ -140,9 +140,9 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
           )}
 
           {/* Calendar */}
-          <div className="bg-neutral-800/50 border border-dark-200 rounded-lg p-4">
+          <div className="bg-dark-800/80 backdrop-blur-sm border-2 border-gold-500/20 rounded-lg p-6">
             {/* Quick Selection */}
-            <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b border-dark-200">
+            <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b-2 border-gold-500/30">
               <button
                 type="button"
                 onClick={() => {
@@ -161,7 +161,7 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
                     return newDates;
                   });
                 }}
-                className="px-3 py-1.5 text-xs font-medium bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors"
+                className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-md"
               >
                 + Alle Zaterdagen
               </button>
@@ -184,7 +184,7 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
                     return newDates;
                   });
                 }}
-                className="px-3 py-1.5 text-xs font-medium bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
+                className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md"
               >
                 + Alle Vrijdagen
               </button>
@@ -207,7 +207,7 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
                     return newDates;
                   });
                 }}
-                className="px-3 py-1.5 text-xs font-medium bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors"
+                className="px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-md"
               >
                 + Alle Weekends
               </button>
@@ -218,9 +218,9 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
               <button
                 type="button"
                 onClick={previousMonth}
-                className="p-2 hover:bg-neutral-200 rounded-lg transition-colors"
+                className="p-2 hover:bg-gold-500/20 rounded-lg transition-colors"
               >
-                <ChevronLeft className="w-5 h-5 text-neutral-200" />
+                <ChevronLeft className="w-5 h-5 text-gold-400" />
               </button>
               
               <h3 className="text-lg font-semibold text-white">
@@ -230,23 +230,23 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
               <button
                 type="button"
                 onClick={nextMonth}
-                className="p-2 hover:bg-neutral-200 rounded-lg transition-colors"
+                className="p-2 hover:bg-gold-500/20 rounded-lg transition-colors"
               >
-                <ChevronRight className="w-5 h-5 text-neutral-200" />
+                <ChevronRight className="w-5 h-5 text-gold-400" />
               </button>
             </div>
 
             {/* Weekday Headers */}
             <div className="grid grid-cols-7 gap-1 mb-2">
               {['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'].map(day => (
-                <div key={day} className="text-center text-xs font-medium text-dark-500 py-2">
+                <div key={day} className="text-center text-sm font-semibold text-gold-400 py-2">
                   {day}
                 </div>
               ))}
             </div>
 
             {/* Calendar Grid */}
-            <div className="grid grid-cols-7 gap-1">
+            <div className="grid grid-cols-7 gap-2">
               {calendarDays.map((day, index) => {
                 const isSelected = selectedDates.some(d => isSameDay(d, day));
                 const isCurrentMonth = isSameMonth(day, currentMonth);
@@ -260,13 +260,13 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
                     onClick={() => !isPast && toggleDateSelection(day)}
                     disabled={isPast}
                     className={cn(
-                      'aspect-square p-2 rounded-lg text-sm font-medium transition-all',
-                      'hover:bg-gold-50 active:scale-95',
-                      !isCurrentMonth && 'text-dark-300',
-                      isCurrentMonth && !isSelected && !isPast && 'text-dark-900',
-                      isSelected && 'bg-gold-500 text-white hover:bg-gold-600',
-                      isTodayDate && !isSelected && 'border-2 border-gold-500',
-                      isPast && 'cursor-not-allowed opacity-40'
+                      'aspect-square p-2 rounded-lg text-sm font-bold transition-all duration-200',
+                      'hover:scale-110 active:scale-95',
+                      !isCurrentMonth && 'text-neutral-600',
+                      isCurrentMonth && !isSelected && !isPast && 'text-white bg-neutral-700 hover:bg-gold-500/40 hover:shadow-md',
+                      isSelected && 'bg-gradient-to-br from-gold-400 via-gold-500 to-gold-600 text-dark-900 shadow-xl shadow-gold-500/50 ring-2 ring-gold-400 hover:from-gold-500 hover:to-gold-700 hover:shadow-2xl hover:shadow-gold-500/60 scale-110',
+                      isTodayDate && !isSelected && 'ring-2 ring-gold-500/50 ring-offset-2 ring-offset-neutral-800',
+                      isPast && 'cursor-not-allowed opacity-30 bg-neutral-800'
                     )}
                   >
                     {format(day, 'd')}
@@ -277,29 +277,29 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
 
             {/* Selection Info & List */}
             {selectedDates.length > 0 && (
-              <div className="mt-4 space-y-3">
-                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                  <span className="text-sm font-medium text-blue-900">
+              <div className="mt-6 space-y-3">
+                <div className="flex items-center justify-between p-4 bg-gold-500/20 border-2 border-gold-500/50 rounded-lg">
+                  <span className="text-sm font-semibold text-gold-300">
                     {selectedDates.length} datum(s) geselecteerd
                   </span>
                   <button
                     type="button"
                     onClick={clearSelection}
-                    className="text-sm text-blue-700 hover:text-blue-900 font-medium"
+                    className="text-sm text-gold-400 hover:text-gold-300 font-medium underline"
                   >
                     Wis alles
                   </button>
                 </div>
                 
                 {/* Selected Dates List */}
-                <div className="max-h-32 overflow-y-auto bg-neutral-100 rounded-lg p-3">
+                <div className="max-h-32 overflow-y-auto bg-dark-700 rounded-lg p-3 border border-gold-500/30">
                   <div className="flex flex-wrap gap-2">
                     {selectedDates
                       .sort((a, b) => a.getTime() - b.getTime())
                       .map((date, index) => (
                         <div
                           key={index}
-                          className="inline-flex items-center gap-2 px-3 py-1 bg-neutral-800/50 border border-dark-200 rounded-lg text-sm"
+                          className="inline-flex items-center gap-2 px-3 py-1 bg-neutral-700 border border-gold-500/30 rounded-lg text-sm"
                         >
                           <span className="font-medium text-white">
                             {format(date, 'd MMM yyyy', { locale: nlLocale })}
@@ -307,7 +307,7 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
                           <button
                             type="button"
                             onClick={() => toggleDateSelection(date)}
-                            className="text-dark-400 hover:text-red-600 transition-colors"
+                            className="text-neutral-400 hover:text-red-500 transition-colors"
                           >
                             <X className="w-3 h-3" />
                           </button>
@@ -327,7 +327,7 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
             <select
               value={eventType}
               onChange={(e) => setEventType(e.target.value as EventType)}
-              className="w-full px-4 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-border-focus focus:ring-2 focus:ring-primary-500/20"
+              className="w-full px-4 py-2 bg-neutral-800 text-white border border-neutral-600 rounded-lg focus:ring-2 focus:ring-gold-500 focus:border-gold-500 transition-colors"
             >
               <option value="REGULAR">Reguliere Show</option>
               <option value="SPECIAL">Speciale Show</option>
@@ -346,7 +346,7 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
                 value={doorsOpen}
                 onChange={(e) => setDoorsOpen(e.target.value)}
                 required
-                className="w-full px-4 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-border-focus focus:ring-2 focus:ring-primary-500/20"
+                className="w-full px-4 py-2 bg-neutral-800 text-white border border-neutral-600 rounded-lg focus:ring-2 focus:ring-gold-500 focus:border-gold-500 transition-colors"
               />
             </div>
             <div>
@@ -358,7 +358,7 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
                 value={startsAt}
                 onChange={(e) => setStartsAt(e.target.value)}
                 required
-                className="w-full px-4 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-border-focus focus:ring-2 focus:ring-primary-500/20"
+                className="w-full px-4 py-2 bg-neutral-800 text-white border border-neutral-600 rounded-lg focus:ring-2 focus:ring-gold-500 focus:border-gold-500 transition-colors"
               />
             </div>
             <div>
@@ -370,7 +370,7 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
                 value={endsAt}
                 onChange={(e) => setEndsAt(e.target.value)}
                 required
-                className="w-full px-4 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-border-focus focus:ring-2 focus:ring-primary-500/20"
+                className="w-full px-4 py-2 bg-neutral-800 text-white border border-neutral-600 rounded-lg focus:ring-2 focus:ring-gold-500 focus:border-gold-500 transition-colors"
               />
             </div>
           </div>
@@ -386,20 +386,20 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
               onChange={(e) => setCapacity(parseInt(e.target.value))}
               min={1}
               required
-              className="w-full px-4 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-border-focus focus:ring-2 focus:ring-primary-500/20"
+              className="w-full px-4 py-2 bg-neutral-800 text-white border border-neutral-600 rounded-lg focus:ring-2 focus:ring-gold-500 focus:border-gold-500 transition-colors"
             />
           </div>
 
         </form>
 
         {/* Sticky Actions Footer */}
-        <div className="sticky bottom-0 bg-neutral-800/50 border-t border-dark-200 px-6 py-4">
+        <div className="sticky bottom-0 bg-neutral-900 border-t border-gold-500/30 px-6 py-4">
           <div className="flex gap-3">
             <button
               type="button"
               onClick={onClose}
               disabled={isProcessing}
-              className="flex-1 px-6 py-3 bg-neutral-800/50 text-dark-900 border border-dark-300 rounded-lg hover:bg-neutral-100 font-medium transition-colors disabled:opacity-50"
+              className="flex-1 px-6 py-3 bg-neutral-800 text-white border border-neutral-600 rounded-lg hover:bg-neutral-700 font-medium transition-colors disabled:opacity-50"
             >
               Annuleer
             </button>
@@ -407,7 +407,7 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
               type="submit"
               form="bulk-event-form"
               disabled={isProcessing || selectedDates.length === 0}
-              className="flex-1 px-6 py-3 bg-gold-600 text-white rounded-lg hover:bg-gold-700 font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 px-6 py-3 bg-gradient-to-r from-gold-600 to-gold-500 text-white rounded-lg hover:from-gold-700 hover:to-gold-600 font-medium transition-all shadow-lg shadow-gold-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
             >
               <Plus className="w-5 h-5" />
               {isProcessing ? 'Bezig...' : `${selectedDates.length} Events Toevoegen`}

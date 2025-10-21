@@ -503,6 +503,44 @@ export const apiService = {
     }
   },
 
+  async updateReservation(reservationId: string, updates: Partial<Reservation>): Promise<ApiResponse<Reservation>> {
+    await delay(300);
+    
+    try {
+      const success = localStorageService.updateReservation(reservationId, {
+        ...updates,
+        updatedAt: new Date()
+      });
+      
+      if (!success) {
+        return {
+          success: false,
+          error: 'Reservation not found'
+        };
+      }
+      
+      const reservation = localStorageService.getReservations().find(r => r.id === reservationId);
+      
+      if (!reservation) {
+        return {
+          success: false,
+          error: 'Reservation not found after update'
+        };
+      }
+      
+      return {
+        success: true,
+        data: reservation,
+        message: 'Reservation updated successfully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to update reservation'
+      };
+    }
+  },
+
   async deleteReservation(reservationId: string): Promise<ApiResponse<void>> {
     await delay(200);
     
