@@ -1,5 +1,5 @@
-import React, { useCallback } from 'react';
-import { Wine, PartyPopper, Plus, Minus, Info } from 'lucide-react';
+import React, { useCallback, useEffect } from 'react';
+import { Wine, PartyPopper, Info } from 'lucide-react';
 import { useReservationStore } from '../store/reservationStore';
 import Button from './ui/Button';
 import { cn } from '../utils';
@@ -17,6 +17,35 @@ export const AddonsStep: React.FC = () => {
   const preDrinkData = formData.preDrink || { enabled: false, quantity: 0 };
   const afterPartyData = formData.afterParty || { enabled: false, quantity: 0 };
 
+  // Auto-update borrels quantities wanneer numberOfPersons wijzigt
+  useEffect(() => {
+    const updates: any = {};
+    let hasUpdates = false;
+
+    // Update preDrink quantity als enabled (voorborrel is altijd voor heel gezelschap)
+    if (preDrinkData.enabled && preDrinkData.quantity !== formData.numberOfPersons) {
+      updates.preDrink = {
+        enabled: true,
+        quantity: formData.numberOfPersons || 1
+      };
+      hasUpdates = true;
+    }
+
+    // Update afterParty quantity als enabled (naborrel is ook altijd voor heel gezelschap)
+    if (afterPartyData.enabled && afterPartyData.quantity !== formData.numberOfPersons) {
+      updates.afterParty = {
+        enabled: true,
+        quantity: formData.numberOfPersons || 1
+      };
+      hasUpdates = true;
+    }
+
+    if (hasUpdates) {
+      console.log('🔄 Auto-updating borrels to match numberOfPersons:', formData.numberOfPersons, updates);
+      updateFormData(updates);
+    }
+  }, [formData.numberOfPersons, preDrinkData.enabled, preDrinkData.quantity, afterPartyData.enabled, afterPartyData.quantity, updateFormData]);
+
   const handleToggle = useCallback((
     addOnType: 'preDrink' | 'afterParty',
     enabled: boolean
@@ -30,24 +59,6 @@ export const AddonsStep: React.FC = () => {
       }
     });
   }, [formData, updateFormData]);
-
-  const handleQuantityChange = useCallback((
-    addOnType: 'preDrink' | 'afterParty',
-    delta: number
-  ) => {
-    const currentAddOn = formData[addOnType] || { enabled: false, quantity: 0 };
-    const newQuantity = Math.max(0, currentAddOn.quantity + delta);
-    const minPersons = addOns[addOnType].minPersons;
-
-    if (newQuantity >= minPersons || newQuantity === 0) {
-      updateFormData({
-        [addOnType]: {
-          enabled: newQuantity > 0,
-          quantity: newQuantity
-        }
-      });
-    }
-  }, [formData, updateFormData, addOns]);
 
   const handleContinue = () => {
     goToNextStep();
@@ -182,52 +193,27 @@ export const AddonsStep: React.FC = () => {
                   {/* Quantity Controls */}
                   {isEnabled && (
                     <div className="mt-4 p-4 bg-neutral-900/50 rounded-xl border border-dark-700">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-dark-200">
-                          Aantal personen
-                        </span>
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => handleQuantityChange(option.key, -1)}
-                            disabled={quantity <= option.minPersons}
-                            className={cn(
-                              'w-10 h-10 rounded-lg border-2 transition-all duration-300',
-                              'flex items-center justify-center font-bold',
-                              'focus:outline-none focus:ring-2 focus:ring-gold-400/50',
-                              quantity <= option.minPersons
-                                ? 'bg-dark-900/50 border-dark-800 text-dark-600 cursor-not-allowed'
-                                : `bg-neutral-800/50 border-dark-700 ${option.iconColor} hover:scale-110`
-                            )}
-                          >
-                            <Minus className="w-5 h-5" />
-                          </button>
-
-                          <span className="text-2xl font-bold text-neutral-100 min-w-[3rem] text-center">
+                      {/* Borrels zijn altijd voor hele gezelschap - locked quantity */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-dark-200">
+                            Aantal personen
+                          </span>
+                          <span className="text-2xl font-bold text-neutral-100">
                             {quantity}
                           </span>
-
-                          <button
-                            onClick={() => handleQuantityChange(option.key, 1)}
-                            disabled={quantity >= (formData.numberOfPersons || 100)}
-                            className={cn(
-                              'w-10 h-10 rounded-lg border-2 transition-all duration-300',
-                              'flex items-center justify-center font-bold',
-                              'focus:outline-none focus:ring-2 focus:ring-gold-400/50',
-                              quantity >= (formData.numberOfPersons || 100)
-                                ? 'bg-dark-900/50 border-dark-800 text-dark-600 cursor-not-allowed'
-                                : `bg-neutral-800/50 border-dark-700 ${option.iconColor} hover:scale-110`
-                            )}
-                          >
-                            <Plus className="w-5 h-5" />
-                          </button>
                         </div>
-                      </div>
-
-                      <div className="mt-3 flex items-center justify-between text-sm">
-                        <span className="text-dark-300">Totaal</span>
-                        <span className="font-bold text-gold-400">
-                          €{(quantity * option.pricePerPerson).toFixed(2)}
-                        </span>
+                        <div className="p-3 bg-blue-500/20 border border-blue-400/30 rounded-lg">
+                          <p className="text-xs text-blue-300">
+                            ℹ️ {option.key === 'preDrink' ? 'Voorborrel' : 'Naborrel'} is altijd voor het volledige gezelschap
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-dark-300">Totaal</span>
+                          <span className="font-bold text-gold-400">
+                            €{(quantity * option.pricePerPerson).toFixed(2)}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   )}

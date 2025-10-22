@@ -327,6 +327,10 @@ const SuccessPage: React.FC<SuccessPageProps> = ({ className, onNewReservation }
             <span>U ontvangt een automatische bevestiging op het opgegeven e-mailadres</span>
           </li>
           <li className="flex items-start gap-2">
+            <span className="text-warning-400 font-bold">⚠️</span>
+            <span className="text-text-primary"><strong>Let op:</strong> Uw boeking is nog <strong className="text-warning-400">niet bevestigd</strong>. We controleren eerst de beschikbare capaciteit en u ontvangt spoedig een definitieve bevestiging.</span>
+          </li>
+          <li className="flex items-start gap-2">
             <span className="text-primary-500 font-bold">✓</span>
             <span>Binnen een week neemt ons team contact met u op voor de definitieve bevestiging</span>
           </li>
@@ -339,6 +343,25 @@ const SuccessPage: React.FC<SuccessPageProps> = ({ className, onNewReservation }
             <span>Bij vragen kunt u contact opnemen via <a href="mailto:info@inspiration-point.nl" className="font-bold text-primary-400 hover:text-primary-300 underline">info@inspiration-point.nl</a></span>
           </li>
         </ul>
+      </div>
+
+      {/* 📝 Wijzigingsvoorwaarden */}
+      <div className="mt-4 p-6 bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-2 border-blue-500/30 rounded-2xl shadow-lifted backdrop-blur-sm">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl flex items-center justify-center shadow-lifted flex-shrink-0">
+            <span className="text-2xl">📝</span>
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-bold text-blue-400 mb-3">Wijzigings- en Annuleringsvoorwaarden</h3>
+            <p className="text-sm text-text-secondary leading-relaxed">
+              U kunt uw boeking <strong className="text-blue-400">kosteloos wijzigen tot 3 weken (21 dagen) voor de voorstelling</strong>. 
+              Voor vragen over wijzigingen, annuleringen of andere zaken kunt u altijd contact met ons opnemen via{' '}
+              <a href="mailto:info@inspiration-point.nl" className="font-bold text-blue-400 hover:text-blue-300 underline">
+                info@inspiration-point.nl
+              </a>
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Status indicator for request events */}

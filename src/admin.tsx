@@ -1,6 +1,6 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
-import BookingAdmin from './components/BookingAdminNew'
+import BookingAdmin from './components/BookingAdminNew2'
 import { ToastProvider } from './components/Toast'
 import './index.css'
 

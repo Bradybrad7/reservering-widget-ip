@@ -13,7 +13,15 @@ import type {
   MerchandiseItem,
   WizardConfig,
   EventTypesConfig,
-  TextCustomization
+  TextCustomization,
+  CustomerProfile,
+  EventTemplate,
+  PromotionCode,
+  EmailReminderConfig,
+  AdminSection,
+  CommunicationLog,
+  Arrangement,
+  Show
 } from '../types';
 import { apiService } from '../services/apiService';
 
@@ -45,11 +53,13 @@ interface AdminState {
   isLoadingStats: boolean;
   
   // UI state
-  activeSection: 'dashboard' | 'reservations' | 'events' | 'calendar' | 'customers' | 'merchandise' | 'settings';
+  activeSection: AdminSection;
+  breadcrumbs: { label: string; section: AdminSection }[];
   showEventModal: boolean;
   showReservationModal: boolean;
   showConfigModal: boolean;
   isSubmitting: boolean;
+  sidebarCollapsed: boolean;
   
   // Configuration (cached)
   config: GlobalConfig | null;
@@ -64,16 +74,25 @@ interface AdminState {
   merchandiseItems: MerchandiseItem[];
   isLoadingMerchandise: boolean;
   
-  // Customers
-  customers: Array<{
-    email: string;
-    companyName: string;
-    contactPerson: string;
-    totalBookings: number;
-    totalSpent: number;
-    lastBooking: Date;
-  }>;
+  // Customers (CRM)
+  customers: CustomerProfile[];
+  selectedCustomer: CustomerProfile | null;
   isLoadingCustomers: boolean;
+  
+  // Event Templates
+  eventTemplates: EventTemplate[];
+  isLoadingTemplates: boolean;
+  
+  // Promotions
+  promotions: PromotionCode[];
+  isLoadingPromotions: boolean;
+  
+  // Email Reminders
+  emailReminderConfig: EmailReminderConfig | null;
+  
+  // Shows
+  shows: Show[];
+  isLoadingShows: boolean;
 }
 
 interface AdminActions {
@@ -88,12 +107,16 @@ interface AdminActions {
   // Reservation actions
   loadReservations: () => Promise<void>;
   loadReservationsByEvent: (eventId: string) => Promise<void>;
+  updateReservation: (reservationId: string, updates: Partial<Reservation>) => Promise<boolean>;
   updateReservationStatus: (reservationId: string, status: Reservation['status']) => Promise<boolean>;
   confirmReservation: (reservationId: string) => Promise<boolean>;
   rejectReservation: (reservationId: string) => Promise<boolean>;
   moveToWaitlist: (reservationId: string) => Promise<boolean>;
   deleteReservation: (reservationId: string) => Promise<boolean>;
   selectReservation: (reservation: Reservation | null) => void;
+  addCommunicationLog: (reservationId: string, log: Omit<CommunicationLog, 'id' | 'timestamp'>) => Promise<boolean>;
+  updateReservationTags: (reservationId: string, tags: string[]) => Promise<boolean>;
+  bulkUpdateStatus: (reservationIds: string[], status: Reservation['status']) => Promise<boolean>;
   
   // Filter actions
   setEventTypeFilter: (type: EventType | 'all') => void;
@@ -121,11 +144,40 @@ interface AdminActions {
   updateMerchandise: (itemId: string, updates: Partial<MerchandiseItem>) => Promise<boolean>;
   deleteMerchandise: (itemId: string) => Promise<boolean>;
   
-  // Customers
+  // Customers (CRM)
   loadCustomers: () => Promise<void>;
+  loadCustomer: (email: string) => Promise<void>;
+  selectCustomer: (customer: CustomerProfile | null) => void;
+  updateCustomerTags: (email: string, tags: string[]) => Promise<boolean>;
+  updateCustomerNotes: (email: string, notes: string) => Promise<boolean>;
+  
+  // Event Templates
+  loadEventTemplates: () => Promise<void>;
+  createEventTemplate: (template: Omit<EventTemplate, 'id' | 'createdAt'>) => Promise<boolean>;
+  updateEventTemplate: (templateId: string, updates: Partial<EventTemplate>) => Promise<boolean>;
+  deleteEventTemplate: (templateId: string) => Promise<boolean>;
+  createEventFromTemplate: (templateId: string, date: Date) => Promise<boolean>;
+  
+  // Promotions
+  loadPromotions: () => Promise<void>;
+  createPromotion: (promotion: Omit<PromotionCode, 'id' | 'usedCount'>) => Promise<boolean>;
+  updatePromotion: (promotionId: string, updates: Partial<PromotionCode>) => Promise<boolean>;
+  deletePromotion: (promotionId: string) => Promise<boolean>;
+  
+  // Email Reminders
+  loadEmailReminderConfig: () => Promise<void>;
+  updateEmailReminderConfig: (config: EmailReminderConfig) => Promise<boolean>;
+  
+  // Shows
+  loadShows: () => Promise<void>;
+  createShow: (show: Show) => Promise<boolean>;
+  updateShow: (show: Show) => Promise<boolean>;
+  deleteShow: (showId: string) => Promise<boolean>;
   
   // UI actions
-  setActiveSection: (section: AdminState['activeSection']) => void;
+  setActiveSection: (section: AdminSection) => void;
+  setBreadcrumbs: (breadcrumbs: { label: string; section: AdminSection }[]) => void;
+  toggleSidebar: () => void;
   toggleEventModal: () => void;
   toggleReservationModal: () => void;
   toggleConfigModal: () => void;
@@ -164,11 +216,13 @@ export const useAdminStore = create<AdminStore>()(
     stats: null,
     isLoadingStats: false,
     
-    activeSection: 'dashboard',
+    activeSection: 'dashboard' as AdminSection,
+    breadcrumbs: [{ label: 'Dashboard', section: 'dashboard' as AdminSection }],
     showEventModal: false,
     showReservationModal: false,
     showConfigModal: false,
     isSubmitting: false,
+    sidebarCollapsed: false,
     
     config: null,
     pricing: null,
@@ -182,7 +236,19 @@ export const useAdminStore = create<AdminStore>()(
     isLoadingMerchandise: false,
     
     customers: [],
+    selectedCustomer: null,
     isLoadingCustomers: false,
+    
+    eventTemplates: [],
+    isLoadingTemplates: false,
+    
+    promotions: [],
+    isLoadingPromotions: false,
+    
+    emailReminderConfig: null,
+    
+    shows: [],
+    isLoadingShows: false,
 
     // Actions
     loadEvents: async () => {
@@ -307,6 +373,24 @@ export const useAdminStore = create<AdminStore>()(
       }
     },
 
+    updateReservation: async (reservationId: string, updates: Partial<Reservation>) => {
+      set({ isSubmitting: true });
+      try {
+        const response = await apiService.updateReservation(reservationId, updates);
+        if (response.success) {
+          await get().loadReservations();
+          await get().loadStats();
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Failed to update reservation:', error);
+        return false;
+      } finally {
+        set({ isSubmitting: false });
+      }
+    },
+
     updateReservationStatus: async (reservationId: string, status: Reservation['status']) => {
       set({ isSubmitting: true });
       try {
@@ -400,6 +484,78 @@ export const useAdminStore = create<AdminStore>()(
 
     selectReservation: (reservation: Reservation | null) => {
       set({ selectedReservation: reservation });
+    },
+
+    addCommunicationLog: async (reservationId: string, log: Omit<CommunicationLog, 'id' | 'timestamp'>) => {
+      set({ isSubmitting: true });
+      try {
+        // In a real implementation, this would call an API endpoint
+        // For now, we'll update the reservation in local state
+        const { reservations } = get();
+        const updatedReservations = reservations.map(r => {
+          if (r.id === reservationId) {
+            const newLog: CommunicationLog = {
+              ...log,
+              id: `log-${Date.now()}`,
+              timestamp: new Date()
+            };
+            return {
+              ...r,
+              communicationLog: [...(r.communicationLog || []), newLog]
+            };
+          }
+          return r;
+        });
+        set({ reservations: updatedReservations });
+        return true;
+      } catch (error) {
+        console.error('Failed to add communication log:', error);
+        return false;
+      } finally {
+        set({ isSubmitting: false });
+      }
+    },
+
+    updateReservationTags: async (reservationId: string, tags: string[]) => {
+      set({ isSubmitting: true });
+      try {
+        // In a real implementation, this would call an API endpoint
+        const { reservations } = get();
+        const updatedReservations = reservations.map(r => 
+          r.id === reservationId ? { ...r, tags } : r
+        );
+        set({ reservations: updatedReservations });
+        return true;
+      } catch (error) {
+        console.error('Failed to update tags:', error);
+        return false;
+      } finally {
+        set({ isSubmitting: false });
+      }
+    },
+
+    bulkUpdateStatus: async (reservationIds: string[], status: Reservation['status']) => {
+      set({ isSubmitting: true });
+      try {
+        // Process all updates
+        const promises = reservationIds.map(id => 
+          apiService.updateReservationStatus(id, status)
+        );
+        const results = await Promise.all(promises);
+        
+        if (results.every(r => r.success)) {
+          await get().loadReservations();
+          await get().loadStats();
+          await get().loadEvents();
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Failed to bulk update status:', error);
+        return false;
+      } finally {
+        set({ isSubmitting: false });
+      }
     },
 
     setEventTypeFilter: (type: EventType | 'all') => {
@@ -674,7 +830,16 @@ export const useAdminStore = create<AdminStore>()(
       try {
         const response = await apiService.getCustomers();
         if (response.success && response.data) {
-          set({ customers: response.data });
+          // Transform to CustomerProfile format
+          const profiles: CustomerProfile[] = response.data.map(c => ({
+            ...c,
+            firstBooking: c.lastBooking, // TODO: Get from API when available
+            tags: [],
+            reservations: [],
+            averageGroupSize: 0,
+            preferredArrangement: undefined
+          }));
+          set({ customers: profiles });
         }
       } catch (error) {
         console.error('Failed to load customers:', error);
@@ -683,8 +848,322 @@ export const useAdminStore = create<AdminStore>()(
       }
     },
 
-    setActiveSection: (section: AdminState['activeSection']) => {
+    loadCustomer: async (email: string) => {
+      set({ isLoadingCustomers: true });
+      try {
+        // Load full customer profile with all reservations
+        const reservationsResponse = await apiService.getAdminReservations();
+        if (reservationsResponse.success && reservationsResponse.data) {
+          const customerReservations = reservationsResponse.data.filter(r => r.email === email);
+          
+          if (customerReservations.length > 0) {
+            const firstReservation = customerReservations[customerReservations.length - 1];
+            const lastReservation = customerReservations[0];
+            const totalSpent = customerReservations.reduce((sum, r) => sum + r.totalPrice, 0);
+            const totalPersons = customerReservations.reduce((sum, r) => sum + r.numberOfPersons, 0);
+            const arrangementsCount: Record<string, number> = {};
+            
+            customerReservations.forEach(r => {
+              arrangementsCount[r.arrangement] = (arrangementsCount[r.arrangement] || 0) + 1;
+            });
+            
+            const preferredArrangement = Object.entries(arrangementsCount)
+              .sort((a, b) => b[1] - a[1])[0]?.[0] as Arrangement | undefined;
+            
+            const profile: CustomerProfile = {
+              email,
+              companyName: firstReservation.companyName,
+              contactPerson: firstReservation.contactPerson,
+              totalBookings: customerReservations.length,
+              totalSpent,
+              lastBooking: lastReservation.createdAt,
+              firstBooking: firstReservation.createdAt,
+              tags: firstReservation.tags || [],
+              notes: firstReservation.notes,
+              reservations: customerReservations,
+              averageGroupSize: Math.round(totalPersons / customerReservations.length),
+              preferredArrangement
+            };
+            
+            set({ selectedCustomer: profile });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load customer:', error);
+      } finally {
+        set({ isLoadingCustomers: false });
+      }
+    },
+
+    selectCustomer: (customer: CustomerProfile | null) => {
+      set({ selectedCustomer: customer });
+    },
+
+    updateCustomerTags: async (email: string, tags: string[]) => {
+      set({ isSubmitting: true });
+      try {
+        // Update tags for all reservations of this customer
+        const { reservations } = get();
+        const customerReservations = reservations.filter(r => r.email === email);
+        
+        for (const reservation of customerReservations) {
+          await get().updateReservationTags(reservation.id, tags);
+        }
+        
+        // Update customer profile
+        const { customers, selectedCustomer } = get();
+        const updatedCustomers = customers.map(c => 
+          c.email === email ? { ...c, tags } : c
+        );
+        set({ 
+          customers: updatedCustomers,
+          selectedCustomer: selectedCustomer?.email === email ? { ...selectedCustomer, tags } : selectedCustomer
+        });
+        
+        return true;
+      } catch (error) {
+        console.error('Failed to update customer tags:', error);
+        return false;
+      } finally {
+        set({ isSubmitting: false });
+      }
+    },
+
+    updateCustomerNotes: async (email: string, notes: string) => {
+      set({ isSubmitting: true });
+      try {
+        // Update notes in customer profile
+        const { customers, selectedCustomer } = get();
+        const updatedCustomers = customers.map(c => 
+          c.email === email ? { ...c, notes } : c
+        );
+        set({ 
+          customers: updatedCustomers,
+          selectedCustomer: selectedCustomer?.email === email ? { ...selectedCustomer, notes } : selectedCustomer
+        });
+        return true;
+      } catch (error) {
+        console.error('Failed to update customer notes:', error);
+        return false;
+      } finally {
+        set({ isSubmitting: false });
+      }
+    },
+
+    // Event Templates
+    loadEventTemplates: async () => {
+      set({ isLoadingTemplates: true });
+      try {
+        // In a real implementation, this would call an API endpoint
+        // For now, return empty array
+        set({ eventTemplates: [] });
+      } catch (error) {
+        console.error('Failed to load event templates:', error);
+      } finally {
+        set({ isLoadingTemplates: false });
+      }
+    },
+
+    createEventTemplate: async (template: Omit<EventTemplate, 'id' | 'createdAt'>) => {
+      set({ isSubmitting: true });
+      try {
+        const newTemplate: EventTemplate = {
+          ...template,
+          id: `template-${Date.now()}`,
+          createdAt: new Date()
+        };
+        const { eventTemplates } = get();
+        set({ eventTemplates: [...eventTemplates, newTemplate] });
+        return true;
+      } catch (error) {
+        console.error('Failed to create event template:', error);
+        return false;
+      } finally {
+        set({ isSubmitting: false });
+      }
+    },
+
+    updateEventTemplate: async (templateId: string, updates: Partial<EventTemplate>) => {
+      set({ isSubmitting: true });
+      try {
+        const { eventTemplates } = get();
+        const updatedTemplates = eventTemplates.map(t => 
+          t.id === templateId ? { ...t, ...updates } : t
+        );
+        set({ eventTemplates: updatedTemplates });
+        return true;
+      } catch (error) {
+        console.error('Failed to update event template:', error);
+        return false;
+      } finally {
+        set({ isSubmitting: false });
+      }
+    },
+
+    deleteEventTemplate: async (templateId: string) => {
+      set({ isSubmitting: true });
+      try {
+        const { eventTemplates } = get();
+        const updatedTemplates = eventTemplates.filter(t => t.id !== templateId);
+        set({ eventTemplates: updatedTemplates });
+        return true;
+      } catch (error) {
+        console.error('Failed to delete event template:', error);
+        return false;
+      } finally {
+        set({ isSubmitting: false });
+      }
+    },
+
+    createEventFromTemplate: async (templateId: string, date: Date) => {
+      set({ isSubmitting: true });
+      try {
+        const { eventTemplates, shows } = get();
+        const template = eventTemplates.find(t => t.id === templateId);
+        
+        if (!template) {
+          console.error('Template not found');
+          return false;
+        }
+        
+        // Get first active show or first show as default
+        const defaultShow = shows.find(s => s.isActive) || shows[0];
+        if (!defaultShow) {
+          console.error('No shows available - please create a show first');
+          return false;
+        }
+        
+        const event: Omit<Event, 'id'> = {
+          date,
+          doorsOpen: template.doorsOpen,
+          startsAt: template.startsAt,
+          endsAt: template.endsAt,
+          type: template.type,
+          showId: defaultShow.id, // Use default show
+          capacity: template.capacity,
+          remainingCapacity: template.capacity,
+          bookingOpensAt: null,
+          bookingClosesAt: null,
+          allowedArrangements: template.allowedArrangements,
+          customPricing: template.customPricing,
+          notes: template.notes,
+          isActive: true
+        };
+        
+        return await get().createEvent(event);
+      } catch (error) {
+        console.error('Failed to create event from template:', error);
+        return false;
+      } finally {
+        set({ isSubmitting: false });
+      }
+    },
+
+    // Promotions
+    loadPromotions: async () => {
+      set({ isLoadingPromotions: true });
+      try {
+        // In a real implementation, this would call an API endpoint
+        set({ promotions: [] });
+      } catch (error) {
+        console.error('Failed to load promotions:', error);
+      } finally {
+        set({ isLoadingPromotions: false });
+      }
+    },
+
+    createPromotion: async (promotion: Omit<PromotionCode, 'id' | 'usedCount'>) => {
+      set({ isSubmitting: true });
+      try {
+        const newPromotion: PromotionCode = {
+          ...promotion,
+          id: `promo-${Date.now()}`,
+          usedCount: 0
+        };
+        const { promotions } = get();
+        set({ promotions: [...promotions, newPromotion] });
+        return true;
+      } catch (error) {
+        console.error('Failed to create promotion:', error);
+        return false;
+      } finally {
+        set({ isSubmitting: false });
+      }
+    },
+
+    updatePromotion: async (promotionId: string, updates: Partial<PromotionCode>) => {
+      set({ isSubmitting: true });
+      try {
+        const { promotions } = get();
+        const updatedPromotions = promotions.map(p => 
+          p.id === promotionId ? { ...p, ...updates } : p
+        );
+        set({ promotions: updatedPromotions });
+        return true;
+      } catch (error) {
+        console.error('Failed to update promotion:', error);
+        return false;
+      } finally {
+        set({ isSubmitting: false });
+      }
+    },
+
+    deletePromotion: async (promotionId: string) => {
+      set({ isSubmitting: true });
+      try {
+        const { promotions } = get();
+        const updatedPromotions = promotions.filter(p => p.id !== promotionId);
+        set({ promotions: updatedPromotions });
+        return true;
+      } catch (error) {
+        console.error('Failed to delete promotion:', error);
+        return false;
+      } finally {
+        set({ isSubmitting: false });
+      }
+    },
+
+    // Email Reminders
+    loadEmailReminderConfig: async () => {
+      try {
+        // In a real implementation, this would call an API endpoint
+        set({ 
+          emailReminderConfig: {
+            enabled: false,
+            daysBefore: 2,
+            subject: 'Herinnering: Uw reservering bij Inspiration Point',
+            template: '<p>Beste {{contactPerson}},</p><p>Dit is een herinnering voor uw reservering op {{eventDate}}.</p>'
+          }
+        });
+      } catch (error) {
+        console.error('Failed to load email reminder config:', error);
+      }
+    },
+
+    updateEmailReminderConfig: async (config: EmailReminderConfig) => {
+      set({ isSubmitting: true });
+      try {
+        set({ emailReminderConfig: config });
+        return true;
+      } catch (error) {
+        console.error('Failed to update email reminder config:', error);
+        return false;
+      } finally {
+        set({ isSubmitting: false });
+      }
+    },
+
+    // UI Actions
+    setActiveSection: (section: AdminSection) => {
       set({ activeSection: section });
+    },
+
+    setBreadcrumbs: (breadcrumbs: { label: string; section: AdminSection }[]) => {
+      set({ breadcrumbs });
+    },
+
+    toggleSidebar: () => {
+      set(state => ({ sidebarCollapsed: !state.sidebarCollapsed }));
     },
 
     toggleEventModal: () => {
@@ -789,6 +1268,61 @@ export const useAdminStore = create<AdminStore>()(
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+    },
+
+    // Shows actions
+    loadShows: async () => {
+      set({ isLoadingShows: true });
+      try {
+        const response = await apiService.getShows();
+        if (response.success && response.data) {
+          set({ shows: response.data, isLoadingShows: false });
+        } else {
+          set({ shows: [], isLoadingShows: false });
+        }
+      } catch (error) {
+        console.error('Failed to load shows:', error);
+        set({ shows: [], isLoadingShows: false });
+      }
+    },
+
+    createShow: async (show: Show) => {
+      set({ isSubmitting: true });
+      try {
+        await apiService.createShow(show);
+        set({ isSubmitting: false });
+        return true;
+      } catch (error) {
+        console.error('Failed to create show:', error);
+        set({ isSubmitting: false });
+        return false;
+      }
+    },
+
+    updateShow: async (show: Show) => {
+      set({ isSubmitting: true });
+      try {
+        await apiService.updateShow(show);
+        set({ isSubmitting: false });
+        return true;
+      } catch (error) {
+        console.error('Failed to update show:', error);
+        set({ isSubmitting: false });
+        return false;
+      }
+    },
+
+    deleteShow: async (showId: string) => {
+      set({ isSubmitting: true });
+      try {
+        await apiService.deleteShow(showId);
+        set({ isSubmitting: false });
+        return true;
+      } catch (error) {
+        console.error('Failed to delete show:', error);
+        set({ isSubmitting: false });
+        return false;
+      }
     },
 
     reset: () => {

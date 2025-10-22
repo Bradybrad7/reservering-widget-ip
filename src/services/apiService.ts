@@ -13,7 +13,8 @@ import type {
   MerchandiseItem,
   WizardConfig,
   EventTypesConfig,
-  TextCustomization
+  TextCustomization,
+  Show
 } from '../types';
 import { localStorageService } from './localStorageService';
 import { checkReservationLimit } from './rateLimiter';
@@ -366,20 +367,25 @@ export const apiService = {
   async createEvent(event: Omit<Event, 'id'>): Promise<ApiResponse<Event>> {
     await delay(400);
     
+    console.log('🔧 apiService.createEvent called with:', event);
+    
     try {
       const newEvent: Event = {
         ...event,
         id: '' // Will be set by mockDB
       };
       
+      console.log('📝 Adding event to mockDB:', newEvent);
       mockDB.addEvent(newEvent);
       
+      console.log('✅ Event added successfully');
       return {
         success: true,
         data: newEvent,
         message: 'Event created successfully'
       };
     } catch (error) {
+      console.error('❌ Error creating event:', error);
       return {
         success: false,
         error: 'Failed to create event'
@@ -1411,6 +1417,95 @@ export const apiService = {
       return {
         success: false,
         error: 'Failed to import events from CSV'
+      };
+    }
+  },
+
+  // Shows API
+  async getShows(): Promise<ApiResponse<Show[]>> {
+    await delay(200);
+    
+    try {
+      const shows = localStorageService.getShows();
+      
+      return {
+        success: true,
+        data: shows
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to fetch shows'
+      };
+    }
+  },
+
+  async createShow(show: Show): Promise<ApiResponse<Show>> {
+    await delay(300);
+    
+    try {
+      localStorageService.addShow(show);
+      
+      return {
+        success: true,
+        data: show,
+        message: 'Show succesvol aangemaakt'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to create show'
+      };
+    }
+  },
+
+  async updateShow(show: Show): Promise<ApiResponse<Show>> {
+    await delay(300);
+    
+    try {
+      const success = localStorageService.updateShow(show.id, show);
+      
+      if (!success) {
+        return {
+          success: false,
+          error: 'Show not found'
+        };
+      }
+      
+      return {
+        success: true,
+        data: show,
+        message: 'Show succesvol bijgewerkt'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to update show'
+      };
+    }
+  },
+
+  async deleteShow(showId: string): Promise<ApiResponse<void>> {
+    await delay(300);
+    
+    try {
+      const success = localStorageService.deleteShow(showId);
+      
+      if (!success) {
+        return {
+          success: false,
+          error: 'Show not found'
+        };
+      }
+      
+      return {
+        success: true,
+        message: 'Show succesvol verwijderd'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to delete show'
       };
     }
   }

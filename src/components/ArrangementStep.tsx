@@ -9,8 +9,8 @@ import { cn } from '../utils';
 const arrangementOptions = [
   {
     value: 'BWF' as Arrangement,
-    label: 'Standaard',
-    shortLabel: 'BWF',
+    label: 'Standaard Arrangement',
+    shortLabel: 'Standaard',
     description: 'Buffet show met Bier, wijn, fris plus sherry en martini',
     features: [
       'Toegang tot de voorstelling',
@@ -22,8 +22,8 @@ const arrangementOptions = [
   },
   {
     value: 'BWFM' as Arrangement,
-    label: 'Deluxe',
-    shortLabel: 'BWFM',
+    label: 'Deluxe Arrangement',
+    shortLabel: 'Deluxe',
     description: 'Met mix dranken en speciale bieren - slechts €15 per persoon meer voor nog meer genot',
     features: [
       'Alles van Standaard',

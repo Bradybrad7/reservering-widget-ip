@@ -403,6 +403,46 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
             </div>
           </div>
 
+          {/* Dietary Requirements - NEW */}
+          {reservation.dietaryRequirements && (
+            <div className="card-theatre p-4">
+              <label className="flex items-center gap-2 text-sm font-semibold text-white mb-3">
+                <span className="text-xl">🍽️</span>
+                Dieetwensen & Allergieën
+              </label>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  {reservation.dietaryRequirements.vegetarian && (
+                    <div className="px-3 py-2 bg-emerald-500/20 border border-emerald-500/40 rounded-lg text-emerald-300 text-sm flex items-center gap-2">
+                      <span>🥗</span> Vegetarisch
+                    </div>
+                  )}
+                  {reservation.dietaryRequirements.vegan && (
+                    <div className="px-3 py-2 bg-green-500/20 border border-green-500/40 rounded-lg text-green-300 text-sm flex items-center gap-2">
+                      <span>🌱</span> Vegan
+                    </div>
+                  )}
+                  {reservation.dietaryRequirements.glutenFree && (
+                    <div className="px-3 py-2 bg-amber-500/20 border border-amber-500/40 rounded-lg text-amber-300 text-sm flex items-center gap-2">
+                      <span>🌾</span> Glutenvrij
+                    </div>
+                  )}
+                  {reservation.dietaryRequirements.lactoseFree && (
+                    <div className="px-3 py-2 bg-blue-500/20 border border-blue-500/40 rounded-lg text-blue-300 text-sm flex items-center gap-2">
+                      <span>🥛</span> Lactosevrij
+                    </div>
+                  )}
+                </div>
+                {reservation.dietaryRequirements.other && (
+                  <div className="p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                    <p className="text-sm text-orange-200 font-medium mb-1">Overige wensen:</p>
+                    <p className="text-sm text-neutral-300">{reservation.dietaryRequirements.other}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Comments */}
           <div className="card-theatre p-4">
             <label className="block text-sm font-semibold text-white mb-3">Opmerkingen</label>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Calendar as CalendarIcon, Plus, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { 
   startOfMonth, 
@@ -16,6 +16,7 @@ import {
 import { nl as nlLocale } from 'date-fns/locale';
 import type { Event, EventType, Arrangement } from '../../types';
 import apiService from '../../services/apiService';
+import { useAdminStore } from '../../store/adminStore';
 import { cn } from '../../utils';
 
 interface BulkEventModalProps {
@@ -25,6 +26,8 @@ interface BulkEventModalProps {
 }
 
 export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose, onSuccess }) => {
+  const { eventTypesConfig, loadConfig } = useAdminStore();
+  
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   const [eventType, setEventType] = useState<EventType>('REGULAR');
@@ -34,6 +37,24 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
   const [capacity, setCapacity] = useState(230);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Load event types config on mount
+  useEffect(() => {
+    loadConfig();
+  }, [loadConfig]);
+
+  // Get enabled event types
+  const enabledEventTypes = eventTypesConfig?.types.filter(t => t.enabled) || [];
+
+  // Auto-update times when event type changes
+  useEffect(() => {
+    const selectedType = enabledEventTypes.find(t => t.key === eventType);
+    if (selectedType) {
+      setDoorsOpen(selectedType.defaultTimes.doorsOpen);
+      setStartsAt(selectedType.defaultTimes.startsAt);
+      setEndsAt(selectedType.defaultTimes.endsAt);
+    }
+  }, [eventType, enabledEventTypes]);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -329,9 +350,20 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
               onChange={(e) => setEventType(e.target.value as EventType)}
               className="w-full px-4 py-2 bg-neutral-800 text-white border border-neutral-600 rounded-lg focus:ring-2 focus:ring-gold-500 focus:border-gold-500 transition-colors"
             >
-              <option value="REGULAR">Reguliere Show</option>
-              <option value="SPECIAL">Speciale Show</option>
-              <option value="REQUEST">Op Aanvraag</option>
+              {enabledEventTypes.length > 0 ? (
+                enabledEventTypes.map(type => (
+                  <option key={type.key} value={type.key}>
+                    {type.name}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="REGULAR">Reguliere Show</option>
+                  <option value="MATINEE">Matinee</option>
+                  <option value="CARE_HEROES">Zorgzame Helden</option>
+                  <option value="REQUEST">Op Aanvraag</option>
+                </>
+              )}
             </select>
           </div>
 

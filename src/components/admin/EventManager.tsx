@@ -30,7 +30,11 @@ export const EventManager: React.FC = () => {
     deleteEvent,
     setEventTypeFilter,
     setDateRangeFilter,
-    getFilteredEvents
+    getFilteredEvents,
+    eventTypesConfig,
+    loadConfig,
+    shows,
+    loadShows
   } = useAdminStore();
 
   const [showModal, setShowModal] = useState(false);
@@ -49,6 +53,7 @@ export const EventManager: React.FC = () => {
     startsAt: '20:00',
     endsAt: '22:30',
     type: 'REGULAR',
+    showId: '', // Will be set to first show on load
     capacity: 230,
     remainingCapacity: 230,
     bookingOpensAt: null,
@@ -59,19 +64,24 @@ export const EventManager: React.FC = () => {
 
   useEffect(() => {
     loadEvents();
-  }, [loadEvents]);
+    loadConfig();
+    loadShows();
+  }, [loadEvents, loadConfig, loadShows]);
 
   const filteredEvents = getFilteredEvents();
 
   const handleCreate = () => {
     setEditingEvent(null);
     setEventBookingStats(null);
+    // Get first active show or first show as default
+    const defaultShow = shows.find(s => s.isActive) || shows[0];
     setFormData({
       date: new Date(),
       doorsOpen: '19:00',
       startsAt: '20:00',
       endsAt: '22:30',
       type: 'REGULAR',
+      showId: defaultShow?.id || '',
       capacity: 230,
       remainingCapacity: 230,
       bookingOpensAt: null,
@@ -90,6 +100,7 @@ export const EventManager: React.FC = () => {
       startsAt: event.startsAt,
       endsAt: event.endsAt,
       type: event.type,
+      showId: event.showId,
       capacity: event.capacity,
       remainingCapacity: event.remainingCapacity,
       bookingOpensAt: event.bookingOpensAt,
@@ -150,6 +161,8 @@ export const EventManager: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('🔍 handleSubmit called', { formData, editingEvent });
+    
     // ✅ FIX: Valideer capaciteit bij edit
     if (editingEvent) {
       const reservationsResponse = await apiService.getReservationsByEvent(editingEvent.id);
@@ -173,16 +186,23 @@ export const EventManager: React.FC = () => {
       formData.remainingCapacity = formData.capacity - totalBooked;
     }
     
+    console.log('📤 Attempting to save event...', { isEdit: !!editingEvent });
     let success = false;
     if (editingEvent) {
       success = await updateEvent(editingEvent.id, formData);
+      console.log('✏️ Update result:', success);
     } else {
       success = await createEvent(formData);
+      console.log('➕ Create result:', success);
     }
     
     if (success) {
+      console.log('✅ Event saved successfully, closing modal');
       setShowModal(false);
       setEditingEvent(null);
+    } else {
+      console.error('❌ Failed to save event');
+      alert('Er is een fout opgetreden bij het opslaan van het evenement. Controleer de console voor meer details.');
     }
   };
 
@@ -285,7 +305,11 @@ export const EventManager: React.FC = () => {
               className="w-full px-3 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
               <option value="all">Alle types</option>
-              {Object.entries(nl.eventTypes).map(([type, label]) => (
+              {eventTypesConfig?.types.filter(t => t.enabled).map(type => (
+                <option key={type.key} value={type.key}>
+                  {type.name}
+                </option>
+              )) || Object.entries(nl.eventTypes).map(([type, label]) => (
                 <option key={type} value={type}>{label}</option>
               ))}
             </select>
@@ -501,8 +525,16 @@ export const EventManager: React.FC = () => {
                 <input
                   type="date"
                   required
-                  value={formData.date instanceof Date ? formData.date.toISOString().split('T')[0] : ''}
-                  onChange={(e) => setFormData({ ...formData, date: new Date(e.target.value) })}
+                  value={formData.date instanceof Date && !isNaN(formData.date.getTime()) 
+                    ? formData.date.toISOString().split('T')[0] 
+                    : ''
+                  }
+                  onChange={(e) => {
+                    const dateValue = e.target.value;
+                    if (dateValue) {
+                      setFormData({ ...formData, date: new Date(dateValue + 'T12:00:00') });
+                    }
+                  }}
                   className="w-full px-3 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
               </div>
@@ -518,10 +550,39 @@ export const EventManager: React.FC = () => {
                   onChange={(e) => handleTypeChange(e.target.value as EventType)}
                   className="w-full px-3 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
-                  {Object.entries(nl.eventTypes).map(([type, label]) => (
+                  {eventTypesConfig?.types.filter(t => t.enabled).map(type => (
+                    <option key={type.key} value={type.key}>
+                      {type.name}
+                    </option>
+                  )) || Object.entries(nl.eventTypes).map(([type, label]) => (
                     <option key={type} value={type}>{label}</option>
                   ))}
                 </select>
+              </div>
+
+              {/* Show Selection */}
+              <div>
+                <label className="block text-sm font-medium text-neutral-100 mb-1">
+                  Show *
+                </label>
+                <select
+                  required
+                  value={formData.showId}
+                  onChange={(e) => setFormData({ ...formData, showId: e.target.value })}
+                  className="w-full px-3 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  <option value="">Selecteer een show...</option>
+                  {shows.filter(s => s.isActive).map(show => (
+                    <option key={show.id} value={show.id}>
+                      {show.name}
+                    </option>
+                  ))}
+                </select>
+                {shows.length === 0 && (
+                  <p className="text-sm text-yellow-500 mt-1">
+                    ⚠️ Geen shows beschikbaar - maak eerst een show aan in Shows Beheren
+                  </p>
+                )}
               </div>
 
               {/* Times */}
@@ -629,7 +690,7 @@ export const EventManager: React.FC = () => {
                       onChange={() => toggleArrangement('BWF')}
                       className="mr-2"
                     />
-                    <span>Basis Winterfeest (BWF)</span>
+                    <span>Standaard Arrangement</span>
                   </label>
                   <label className="flex items-center">
                     <input
@@ -638,7 +699,7 @@ export const EventManager: React.FC = () => {
                       onChange={() => toggleArrangement('BWFM')}
                       className="mr-2"
                     />
-                    <span>Basis Winterfeest Met (BWFM)</span>
+                    <span>Deluxe Arrangement</span>
                   </label>
                 </div>
               </div>

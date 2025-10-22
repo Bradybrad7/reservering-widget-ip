@@ -17,6 +17,17 @@ export type StepKey =
   | 'waitlistPrompt'
   | 'waitlistSuccess';
 
+// Show interface
+export interface Show {
+  id: string;
+  name: string;
+  description: string;
+  imageUrl?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Event interface
 export interface Event {
   id: string;
@@ -25,6 +36,7 @@ export interface Event {
   startsAt: string;  // HH:MM format
   endsAt: string;    // HH:MM format
   type: EventType;
+  showId: string; // Reference to Show
   capacity: number;
   remainingCapacity?: number;
   bookingOpensAt: Date | null;
@@ -109,6 +121,7 @@ export interface EventTypeConfig {
   key: EventType;
   name: string;
   description: string;
+  color: string; // Hex color code for visual identification
   defaultTimes: {
     doorsOpen: string;
     startsAt: string;
@@ -116,6 +129,7 @@ export interface EventTypeConfig {
   };
   days: string[];
   enabled: boolean;
+  showOnCalendar: boolean; // Whether to display on public calendar
 }
 
 export interface EventTypesConfig {
@@ -138,6 +152,15 @@ export interface WizardConfig {
 // Text Customization
 export interface TextCustomization {
   [key: string]: string;
+}
+
+// Dietary requirements and allergies
+export interface DietaryRequirements {
+  vegetarian: boolean;
+  vegan: boolean;
+  glutenFree: boolean;
+  lactoseFree: boolean;
+  other: string; // Free text for other allergies/requirements
 }
 
 // Customer form data
@@ -179,6 +202,9 @@ export interface CustomerFormData {
   // Special occasion
   partyPerson?: string;
   
+  // Dietary requirements (NEW)
+  dietaryRequirements?: DietaryRequirements;
+  
   // Optional fields
   comments?: string;
   newsletterOptIn: boolean;
@@ -191,11 +217,26 @@ export interface Reservation extends CustomerFormData {
   eventId: string;
   eventDate: Date;
   totalPrice: number;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'rejected' | 'request' | 'waitlist';
+  status: 'pending' | 'confirmed' | 'cancelled' | 'rejected' | 'request' | 'waitlist' | 'checked-in';
   isWaitlist?: boolean;
   requestedOverCapacity?: boolean; // TRUE if booking was made when exceeding available capacity
   createdAt: Date;
   updatedAt: Date;
+  tags?: string[]; // VIP, Corporate, Repeat Customer, etc.
+  communicationLog?: CommunicationLog[];
+  notes?: string; // Admin notes
+  checkedInAt?: Date; // NEW: Check-in timestamp
+  checkedInBy?: string; // NEW: Who performed the check-in
+}
+
+// Communication log for tracking interactions
+export interface CommunicationLog {
+  id: string;
+  timestamp: Date;
+  type: 'email' | 'phone' | 'note' | 'status_change';
+  subject?: string;
+  message: string;
+  author: string; // Admin who made the entry
 }
 
 // Availability response
@@ -281,6 +322,158 @@ export interface AdminStats {
   totalRevenue: number;
   averageGroupSize: number;
   popularArrangement: Arrangement;
+  recentActivity?: {
+    pendingReservations: number;
+    upcomingEvents: number;
+    revenueThisMonth: number;
+    revenueLastMonth: number;
+  };
+}
+
+// Customer profile (CRM)
+export interface CustomerProfile {
+  email: string;
+  companyName: string;
+  contactPerson: string;
+  totalBookings: number;
+  totalSpent: number;
+  lastBooking: Date;
+  firstBooking: Date;
+  tags: string[];
+  notes?: string;
+  reservations: Reservation[];
+  averageGroupSize: number;
+  preferredArrangement?: Arrangement;
+}
+
+// Event Template
+export interface EventTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  type: EventType;
+  doorsOpen: string;
+  startsAt: string;
+  endsAt: string;
+  capacity: number;
+  allowedArrangements: Arrangement[];
+  customPricing?: Partial<Record<Arrangement, number>>;
+  notes?: string;
+  createdAt: Date;
+}
+
+// Promotion/Discount Code
+export interface PromotionCode {
+  id: string;
+  code: string;
+  description: string;
+  type: 'percentage' | 'fixed';
+  value: number; // percentage (0-100) or fixed amount
+  minBookingAmount?: number;
+  maxUses?: number;
+  usedCount: number;
+  validFrom: Date;
+  validUntil: Date;
+  isActive: boolean;
+  applicableTo?: {
+    eventTypes?: EventType[];
+    arrangements?: Arrangement[];
+  };
+}
+
+// Voucher/Gift Card (NEW)
+export interface Voucher {
+  id: string;
+  code: string;
+  type: 'gift_card' | 'discount_code';
+  value: number; // Remaining value for gift cards, discount amount/percentage for codes
+  discountType?: 'percentage' | 'fixed'; // Only for discount codes
+  originalValue: number;
+  isActive: boolean;
+  validFrom: Date;
+  validUntil: Date;
+  usageHistory: VoucherUsage[];
+  createdAt: Date;
+  createdBy: string;
+  notes?: string;
+}
+
+export interface VoucherUsage {
+  reservationId: string;
+  usedAt: Date;
+  amountUsed: number;
+}
+
+// Audit Log Entry (NEW)
+export interface AuditLogEntry {
+  id: string;
+  timestamp: Date;
+  action: 'create' | 'update' | 'delete' | 'status_change' | 'check_in';
+  entityType: 'event' | 'reservation' | 'customer' | 'config' | 'voucher' | 'merchandise';
+  entityId: string;
+  actor: string; // "Admin" or specific user if auth is implemented
+  changes?: {
+    field: string;
+    oldValue: any;
+    newValue: any;
+  }[];
+  description: string;
+}
+
+// Email reminder configuration
+export interface EmailReminderConfig {
+  enabled: boolean;
+  daysBefore: number;
+  subject: string;
+  template: string; // HTML template with placeholders
+}
+
+// Admin navigation types
+export type AdminSection = 
+  | 'dashboard'
+  | 'events-overview'
+  | 'events-shows'
+  | 'events-types'
+  | 'events-calendar'
+  | 'events-templates'
+  | 'reservations-all'
+  | 'reservations-pending'
+  | 'reservations-confirmed'
+  | 'reservations-checkin'
+  | 'customers-overview'
+  | 'customers-detail'
+  | 'products-addons'
+  | 'products-merchandise'
+  | 'products-arrangements'
+  | 'settings-pricing'
+  | 'settings-booking'
+  | 'settings-wizard'
+  | 'settings-texts'
+  | 'settings-general'
+  | 'settings-promotions'
+  | 'settings-vouchers'
+  | 'settings-reminders'
+  | 'system-data'
+  | 'system-health'
+  | 'system-audit'
+  | 'analytics-reports'
+  | 'analytics-dashboard';
+
+export interface NavigationItem {
+  id: AdminSection;
+  label: string;
+  icon: string; // Lucide icon name
+  parent?: string; // Parent group ID
+  order: number;
+}
+
+export interface NavigationGroup {
+  id: string;
+  label: string;
+  icon: string;
+  order: number;
+  items: NavigationItem[];
+  defaultExpanded?: boolean;
 }
 
 // Export types for external use

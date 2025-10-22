@@ -183,7 +183,7 @@ export const FinancialReport: React.FC = () => {
           <div className="space-y-4">
             <div>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium">BWF (Borrel, Show & Buffet)</span>
+                <span className="text-sm font-medium">Standaard Arrangement</span>
                 <span className="text-sm font-bold">{formatCurrency(bwfRevenue)}</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-3">
@@ -197,7 +197,7 @@ export const FinancialReport: React.FC = () => {
 
             <div>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium">BWFM (+ Muziek)</span>
+                <span className="text-sm font-medium">Deluxe Arrangement</span>
                 <span className="text-sm font-bold">{formatCurrency(bwfmRevenue)}</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-3">

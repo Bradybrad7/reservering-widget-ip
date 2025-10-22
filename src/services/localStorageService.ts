@@ -10,7 +10,7 @@
  * - Backup & Restore
  */
 
-import type { Event, Reservation, GlobalConfig, Pricing, AddOns, BookingRules, MerchandiseItem, WizardConfig, EventTypesConfig, TextCustomization } from '../types';
+import type { Event, Reservation, GlobalConfig, Pricing, AddOns, BookingRules, MerchandiseItem, WizardConfig, EventTypesConfig, TextCustomization, Show } from '../types';
 import { defaultConfig, defaultPricing, defaultAddOns, defaultBookingRules } from '../config/defaults';
 
 const STORAGE_VERSION = '1.0.0';
@@ -27,6 +27,7 @@ const KEYS = {
   WIZARD_CONFIG: 'ip_wizard_config',
   EVENT_TYPES_CONFIG: 'ip_event_types_config',
   TEXT_CUSTOMIZATION: 'ip_text_customization',
+  SHOWS: 'ip_shows',
   VERSION: 'ip_storage_version',
   LAST_BACKUP: 'ip_last_backup',
   EVENT_ID_COUNTER: 'ip_event_counter',
@@ -84,6 +85,17 @@ class LocalStorageService {
     localStorage.setItem(KEYS.ADDONS, JSON.stringify(defaultAddOns));
     localStorage.setItem(KEYS.BOOKING_RULES, JSON.stringify(defaultBookingRules));
     localStorage.setItem(KEYS.MERCHANDISE, JSON.stringify([]));
+    localStorage.setItem(KEYS.SHOWS, JSON.stringify([
+      {
+        id: 'show-alles-in-wonderland',
+        name: 'Alles in Wonderland',
+        description: 'Een magische reis door Wonderland',
+        imageUrl: '',
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ]));
     localStorage.setItem(KEYS.EVENT_ID_COUNTER, '1');
     localStorage.setItem(KEYS.RESERVATION_ID_COUNTER, '1');
     localStorage.setItem(KEYS.VERSION, STORAGE_VERSION);
@@ -149,16 +161,21 @@ class LocalStorageService {
   }
 
   addEvent(event: Event): Event {
+    console.log('💾 localStorageService.addEvent called with:', event);
     const events = this.getEvents();
+    console.log('📚 Current events count:', events.length);
     
     // Generate ID if not provided
     if (!event.id || event.id === '') {
       const counter = this.getNextEventId();
       event.id = `event-${counter}`;
+      console.log('🆔 Generated ID:', event.id);
     }
     
     events.push(event);
+    console.log('💿 Saving events, new count:', events.length);
     this.saveEvents(events);
+    console.log('✅ Event saved to localStorage');
     return event;
   }
 
@@ -527,6 +544,10 @@ class LocalStorageService {
     const errors: string[] = [];
     let added = 0;
 
+    // Get first show as default (or create default if none exist)
+    const shows = this.getShows();
+    const defaultShowId = shows.length > 0 ? shows[0].id : 'show-alles-in-wonderland';
+
     // Skip header
     for (let i = 1; i < lines.length; i++) {
       try {
@@ -534,6 +555,7 @@ class LocalStorageService {
         const event: Omit<Event, 'id'> = {
           date: new Date(values[1]),
           type: values[2] as any,
+          showId: defaultShowId, // Use default show for CSV imports
           doorsOpen: values[3],
           startsAt: values[4],
           endsAt: values[5],
@@ -626,6 +648,63 @@ class LocalStorageService {
 
   resetTextCustomization(): void {
     localStorage.removeItem(KEYS.TEXT_CUSTOMIZATION);
+  }
+
+  // ============================================
+  // SHOWS
+  // ============================================
+
+  getShows(): Show[] {
+    const data = localStorage.getItem(KEYS.SHOWS);
+    if (!data) return [];
+    
+    try {
+      const shows = JSON.parse(data);
+      // Parse dates
+      return shows.map((show: any) => ({
+        ...show,
+        createdAt: new Date(show.createdAt),
+        updatedAt: new Date(show.updatedAt)
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  addShow(show: Show): void {
+    const shows = this.getShows();
+    shows.push(show);
+    this.saveShows(shows);
+  }
+
+  updateShow(showId: string, updates: Partial<Show>): boolean {
+    const shows = this.getShows();
+    const index = shows.findIndex(s => s.id === showId);
+    
+    if (index === -1) return false;
+    
+    shows[index] = { ...shows[index], ...updates };
+    this.saveShows(shows);
+    return true;
+  }
+
+  deleteShow(showId: string): boolean {
+    const shows = this.getShows();
+    const filtered = shows.filter(s => s.id !== showId);
+    
+    if (filtered.length === shows.length) return false;
+    
+    this.saveShows(filtered);
+    return true;
+  }
+
+  private saveShows(shows: Show[]): void {
+    localStorage.setItem(KEYS.SHOWS, JSON.stringify(shows));
+  }
+
+  getShowById(showId: string): Show | null {
+    const shows = this.getShows();
+    return shows.find(s => s.id === showId) || null;
   }
 
   resetAll(): void {

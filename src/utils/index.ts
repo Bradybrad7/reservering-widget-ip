@@ -4,6 +4,9 @@ import type { EventType } from '../types';
 import { nl } from '../config/defaults';
 import { localStorageService } from '../services/localStorageService';
 
+// Re-export event color utilities
+export * from './eventColors';
+
 // Utility function for combining classes
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));

@@ -256,31 +256,54 @@ export const ReservationsManager: React.FC = () => {
     const reservationsResponse = await apiService.getReservationsByEvent(event.id);
     const allReservations = reservationsResponse.data || [];
     
+    // Calculate bookings (confirmed + pending)
     const confirmedBookings = allReservations.filter(r => r.status === 'confirmed');
-    const currentConfirmedTotal = confirmedBookings.reduce((sum, r) => sum + r.numberOfPersons, 0);
-    const newTotal = currentConfirmedTotal + reservation.numberOfPersons;
+    const pendingBookings = allReservations.filter(r => r.status === 'pending' && r.id !== reservation.id);
+    
+    const confirmedTotal = confirmedBookings.reduce((sum, r) => sum + r.numberOfPersons, 0);
+    const pendingTotal = pendingBookings.reduce((sum, r) => sum + r.numberOfPersons, 0);
+    const newConfirmedTotal = confirmedTotal + reservation.numberOfPersons;
+    const totalWithAllPending = confirmedTotal + pendingTotal + reservation.numberOfPersons;
+    
+    const remainingAfterConfirm = event.capacity - newConfirmedTotal;
+    
+    // Build capacity overview message
+    let message = `📊 CAPACITEITSOVERZICHT\n\n`;
+    message += `Event: ${formatDate(event.date)}\n`;
+    message += `Totale capaciteit: ${event.capacity} personen\n\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `✅ Bevestigd: ${confirmedTotal} personen (${confirmedBookings.length} reserv.)\n`;
+    message += `⏳ Pending (overig): ${pendingTotal} personen (${pendingBookings.length} reserv.)\n`;
+    message += `➕ Deze boeking: ${reservation.numberOfPersons} personen\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    message += `📌 NA BEVESTIGING:\n`;
+    message += `Bevestigde totaal: ${newConfirmedTotal} / ${event.capacity} personen\n`;
+    message += `Beschikbaar: ${remainingAfterConfirm} plaatsen\n`;
+    message += `Bezetting: ${Math.round((newConfirmedTotal / event.capacity) * 100)}%\n\n`;
     
     // Check if confirming will exceed capacity
-    if (newTotal > event.capacity) {
-      const overCapacity = newTotal - event.capacity;
-      if (!confirm(
-        `⚠️ WAARSCHUWING: Bevestigen overschrijdt capaciteit!\n\n` +
-        `Huidige bevestigde bezetting: ${currentConfirmedTotal} personen\n` +
-        `Deze reservering: ${reservation.numberOfPersons} personen\n` +
-        `Nieuwe totaal: ${newTotal} personen\n` +
-        `Event capaciteit: ${event.capacity} personen\n` +
-        `Overschrijding: ${overCapacity} personen\n\n` +
-        `Weet je zeker dat je wilt doorgaan?`
-      )) {
-        setProcessingReservation(null);
-        return;
-      }
+    if (newConfirmedTotal > event.capacity) {
+      const overCapacity = newConfirmedTotal - event.capacity;
+      message += `⚠️ WAARSCHUWING: OVERBOEKING!\n`;
+      message += `Deze bevestiging overschrijdt de capaciteit met ${overCapacity} personen!\n\n`;
+      message += `Weet je zeker dat je wilt doorgaan?`;
+    } else if (totalWithAllPending > event.capacity) {
+      message += `⚠️ Let op: Inclusief alle pending boekingen (${totalWithAllPending} pers.) wordt capaciteit overschreden.\n\n`;
+      message += `Bevestig deze boeking?`;
+    } else {
+      message += `✅ Voldoende capaciteit beschikbaar.\n\n`;
+      message += `Bevestig deze boeking?`;
+    }
+    
+    if (!confirm(message)) {
+      setProcessingReservation(null);
+      return;
     }
     
     // Confirm the reservation
     const response = await apiService.confirmReservation(reservation.id);
     if (response.success) {
-      alert('✅ Reservering bevestigd! Klant ontvangt een bevestigingsmail.');
+      alert(`✅ Reservering bevestigd!\n\n📧 Klant ontvangt een bevestigingsmail.\n\n📊 Nieuwe bezetting: ${newConfirmedTotal} / ${event.capacity} personen`);
       await loadReservations();
     } else {
       alert(`❌ Fout bij bevestigen: ${response.error || 'Onbekende fout'}`);

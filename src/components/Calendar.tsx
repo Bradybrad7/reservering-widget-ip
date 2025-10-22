@@ -1,14 +1,17 @@
 import React, { useEffect, useCallback, memo, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Event } from '../types';
 import { useReservationStore } from '../store/reservationStore';
+import { useAdminStore } from '../store/adminStore';
 import { 
   getDaysInMonth, 
   isToday, 
   isInCurrentMonth,
   formatDate,
   formatTime,
-  cn 
+  cn,
+  getEventTypeColor,
+  hexToRgba
 } from '../utils';
 import { nl } from '../config/defaults';
 
@@ -24,12 +27,19 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
     currentMonth,
     eventAvailability,
     isLoading,
-    bookingRules,
     loadEventsForMonth,
     selectEvent,
     setCurrentMonth,
     loadEventAvailability
   } = useReservationStore();
+
+  const { shows, loadShows, eventTypesConfig, loadConfig } = useAdminStore();
+
+  // Load shows and config on mount
+  useEffect(() => {
+    loadShows();
+    loadConfig();
+  }, [loadShows, loadConfig]);
 
   // Load events when month changes
   useEffect(() => {
@@ -103,16 +113,16 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
     const availability = event ? eventAvailability[event.id] : null;
 
     return cn(
-      'min-h-[80px] md:min-h-[90px] w-full p-2 text-left rounded-xl border-2 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary-500/60 group',
+      'min-h-[70px] w-full p-2 text-left rounded-lg border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500/60 group',
       {
-        // Active event - Zwart/Goud
-        'bg-surface/50 border-border-default hover:border-primary-500/40 hover:shadow-gold hover:scale-[1.02] hover:-translate-y-1 cursor-pointer backdrop-blur-sm': 
+        // Active event with dynamic color
+        'hover:shadow-md hover:scale-[1.02] cursor-pointer backdrop-blur-sm': 
           isCurrentMonth && event && event.isActive,
         // Not current month
         'bg-base/30 border-neutral-900 text-text-disabled opacity-50': 
           !isCurrentMonth,
-        // Today indicator - Goud
-        'bg-primary-500/15 border-primary-500/60 ring-2 ring-primary-500/40 shadow-gold': 
+        // Today indicator
+        'ring-2 ring-primary-500/40': 
           isDateToday && isCurrentMonth && !isSelected,
         // Selected event - enhanced gold glow
         'bg-gold-gradient border-primary-500 text-neutral-950 font-bold shadow-gold-glow scale-105 -translate-y-1': 
@@ -173,16 +183,42 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
   const renderCalendarGrid = () => {
     // Use memoized values for better performance
     return (
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-1.5">
         {calendarDays.map((date, index) => {
           const event = eventsMap.get(date.toDateString());
           const availability = event ? eventAvailability[event.id] : null;
+          const isCurrentMonth = isInCurrentMonth(date, currentMonth);
+          const isSelected = selectedEvent && event && event.id === selectedEvent.id;
+          
+          // Check if event is fully booked
+          const confirmedOccupancy = event && event.remainingCapacity !== undefined
+            ? ((event.capacity - event.remainingCapacity) / event.capacity) * 100
+            : 0;
+          const isFullyBooked = confirmedOccupancy >= 100;
+          
+          // Get event type color
+          const eventColor = event ? getEventTypeColor(event.type) : null;
+          
+          // Determine background color: red for fully booked, event color otherwise
+          let bgColor = undefined;
+          let borderColor = undefined;
+          
+          if (event && isCurrentMonth && !isSelected) {
+            if (isFullyBooked) {
+              bgColor = 'rgba(185, 28, 28, 0.25)'; // Red for waitlist
+              borderColor = '#991b1b'; // Dark red border
+            } else {
+              bgColor = eventColor ? hexToRgba(eventColor, 0.15) : undefined;
+              borderColor = eventColor || undefined;
+            }
+          }
           
           return (
             <button
               key={index}
               onClick={() => handleDateClick(date, event)}
               onKeyDown={(e) => handleKeyDown(e, date, event)}
+              style={{ backgroundColor: bgColor, borderColor: borderColor }}
               className={getDayClassName(date, event)}
               disabled={!event || !event.isActive || availability?.bookingStatus === 'closed'}
               aria-label={
@@ -191,85 +227,91 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
                   : formatDate(date)
               }
             >
-              <div className={cn("text-sm font-semibold mb-1", {
-                'text-dark-200': !event || !isInCurrentMonth(date, currentMonth),
-                'text-neutral-200 group-hover:text-gold-400': event && isInCurrentMonth(date, currentMonth),
-                'text-white': selectedEvent && event && event.id === selectedEvent.id
+              {/* Dag nummer */}
+              <div className={cn("text-xs font-bold mb-0.5", {
+                'text-dark-400': !event || !isCurrentMonth,
+                'text-neutral-200': event && isCurrentMonth && !isSelected,
+                'text-neutral-950': isSelected
               })}>
                 {date.getDate()}
               </div>
               
-              {event && isInCurrentMonth(date, currentMonth) && (
-                <div className="space-y-1">
-                  <div className={cn("text-xs font-medium", {
-                    'text-text-primary group-hover:text-primary-400': !selectedEvent || event.id !== selectedEvent.id,
-                    'text-neutral-950 font-bold': selectedEvent && event.id === selectedEvent.id
-                  })}>
-                    {nl.eventTypes[event.type]}
-                  </div>
-                  <div className={cn("text-xs", {
-                    'text-text-muted group-hover:text-text-secondary': !selectedEvent || event.id !== selectedEvent.id,
-                    'text-neutral-800': selectedEvent && event.id === selectedEvent.id
+              {event && isCurrentMonth && (
+                <div className="space-y-0.5">
+                  {/* Show naam */}
+                  {(() => {
+                    const show = shows.find(s => s.id === event.showId);
+                    return show ? (
+                      <div 
+                        className={cn("text-[11px] font-bold truncate leading-tight", {
+                          'text-gold-400': !isSelected,
+                          'text-neutral-950': isSelected
+                        })}
+                      >
+                        {show.name}
+                      </div>
+                    ) : null;
+                  })()}
+                  
+                  {/* Event type label - alleen voor speciale evenementen die op kalender getoond moeten worden */}
+                  {(() => {
+                    // Check if event type should be shown on calendar
+                    const eventTypeConfig = eventTypesConfig?.types.find(t => t.key === event.type);
+                    const shouldShowType = event.type !== 'REGULAR' && (eventTypeConfig?.showOnCalendar ?? true);
+                    
+                    if (!shouldShowType) return null;
+                    
+                    return (
+                      <div className="flex items-center gap-1">
+                        {eventColor && (
+                          <div 
+                            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: eventColor }}
+                          />
+                        )}
+                        <div 
+                          className={cn("text-[10px] font-semibold truncate leading-tight", {
+                            'text-neutral-300': !isSelected,
+                            'text-neutral-800': isSelected
+                          })}
+                          style={!isSelected && eventColor ? { color: eventColor } : undefined}
+                        >
+                          {nl.eventTypes[event.type]}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  
+                  {/* Tijd */}
+                  <div className={cn("text-[10px] leading-tight font-medium", {
+                    'text-dark-300': !isSelected,
+                    'text-neutral-800': isSelected
                   })}>
                     {formatTime(event.startsAt)}
                   </div>
                   
-                  {/* Visual Capacity Indicator - Zwart/Goud/Donkerrood theme */}
+                  {/* Wachtlijst status - alleen als vol */}
                   {availability && event.capacity !== undefined && (
-                    <div className="mt-2">
-                      {(() => {
-                        // Calculate occupancy percentage based on CONFIRMED bookings
-                        const confirmedOccupancy = event.remainingCapacity !== undefined 
-                          ? ((event.capacity - event.remainingCapacity) / event.capacity) * 100
-                          : 0;
-                        
-                        let statusLabel = '';
-                        let statusColor = '';
-                        let showBar = true;
-                        
-                        if (confirmedOccupancy < 75) {
-                          statusLabel = 'Beschikbaar';
-                          statusColor = 'text-success-400';
-                        } else if (confirmedOccupancy < 100) {
-                          statusLabel = 'Beperkt beschikbaar';
-                          statusColor = 'text-secondary-400'; // Donkerrood/oranje
-                        } else {
-                          statusLabel = 'Vol - Aanvraag mogelijk';
-                          statusColor = 'text-danger-500'; // Donkerrood
-                        }
-                        
+                    (() => {
+                      const confirmedOccupancy = event.remainingCapacity !== undefined 
+                        ? ((event.capacity - event.remainingCapacity) / event.capacity) * 100
+                        : 0;
+                      
+                      if (confirmedOccupancy >= 100) {
                         return (
-                          <>
-                            <div className="flex items-center gap-1 mb-1">
-                              <Users className={cn("w-3 h-3", statusColor)} />
-                              <span className={cn("text-[10px] font-medium", statusColor)}>
-                                {statusLabel}
-                              </span>
-                            </div>
-                            {showBar && (
-                              <div className="w-full h-1.5 bg-neutral-900/80 rounded-full overflow-hidden shadow-inner-dark">
-                                <div 
-                                  className={cn(
-                                    'h-full transition-all rounded-full',
-                                    {
-                                      'bg-gradient-to-r from-success-400 to-success-500 shadow-sm': 
-                                        confirmedOccupancy < 75,
-                                      'bg-gradient-to-r from-warning-500 to-secondary-400 shadow-sm': 
-                                        confirmedOccupancy >= 75 && confirmedOccupancy < 100,
-                                      'bg-gradient-to-r from-danger-500 to-secondary-600 shadow-sm': 
-                                        confirmedOccupancy >= 100
-                                    }
-                                  )}
-                                  style={{ 
-                                    width: `${Math.min(100, confirmedOccupancy)}%` 
-                                  }}
-                                />
-                              </div>
-                            )}
-                          </>
+                          <div className={cn(
+                            "text-[9px] font-black uppercase tracking-tight leading-tight px-1 py-0.5 rounded mt-0.5",
+                            {
+                              'bg-red-900/80 text-white': !isSelected,
+                              'bg-red-600 text-white': isSelected
+                            }
+                          )}>
+                            WACHTLIJST
+                          </div>
                         );
-                      })()}
-                    </div>
+                      }
+                      return null;
+                    })()
                   )}
                 </div>
               )}

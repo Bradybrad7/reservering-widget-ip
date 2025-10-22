@@ -490,16 +490,37 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
           <span>Reserveringsdetails</span>
         </h2>
         
-        {renderFormGroup([
-          renderNumberField(
-            nl.form.numberOfPersons.label,
-            'numberOfPersons',
-            1,
-            maxPersons,
-            <Users className="w-4 h-4" />,
-            true
-          ),
+        {/* Aantal Personen - Read-only met edit knop */}
+        <div className="mb-4">
+          <label className="block text-sm font-semibold text-text-secondary mb-3">
+            <span className="inline-flex items-center space-x-2">
+              <Users className="w-4 h-4" />
+              <span>{nl.form.numberOfPersons.label}</span>
+            </span>
+            <span className="text-danger-400 ml-1">*</span>
+          </label>
           
+          <div className="flex items-center gap-3">
+            <div className="flex-1 px-4 py-3 bg-neutral-800/50 border-2 border-gold-400/30 rounded-xl text-neutral-100 font-bold text-lg backdrop-blur-sm shadow-inner-dark">
+              {formData.numberOfPersons || 0} {formData.numberOfPersons === 1 ? 'persoon' : 'personen'}
+            </div>
+            
+            <button
+              type="button"
+              onClick={goToPreviousStep}
+              className="px-4 py-3 bg-gradient-to-r from-blue-500/80 to-blue-600/80 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl font-semibold transition-all duration-300 shadow-lifted hover:shadow-gold focus:outline-none focus:ring-2 focus:ring-blue-400/50 whitespace-nowrap"
+            >
+              ✏️ Wijzigen
+            </button>
+          </div>
+          
+          <p className="mt-2 text-xs text-blue-300 flex items-start gap-2">
+            <span>ℹ️</span>
+            <span>Wilt u het aantal personen aanpassen? Klik op "Wijzigen" om terug te gaan naar de vorige stap.</span>
+          </p>
+        </div>
+        
+        {renderFormGroup([
           renderSelectField(
             nl.form.arrangement.label,
             'arrangement',
@@ -516,8 +537,8 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
         <div className="mt-4 p-4 bg-gold-500/10 rounded-lg border border-gold-400/30 backdrop-blur-sm">
           <h4 className="text-sm font-semibold text-gold-400 mb-2">Arrangement informatie:</h4>
           <ul className="text-sm text-neutral-200 space-y-1">
-            <li><strong className="text-gold-400">BWF:</strong> {nl.arrangements.bwfDescription}</li>
-            <li><strong className="text-gold-400">BWFM:</strong> {nl.arrangements.bwfmDescription}</li>
+            <li><strong className="text-gold-400">Standaard:</strong> {nl.arrangements.bwfDescription}</li>
+            <li><strong className="text-gold-400">Deluxe:</strong> {nl.arrangements.bwfmDescription}</li>
           </ul>
         </div>
       </div>
@@ -559,6 +580,116 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
               </div>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Dietary Requirements - NEW */}
+      <div className="card-theatre p-6">
+        <h2 className="text-xl font-bold text-text-primary mb-6 flex items-center space-x-3 text-shadow">
+          <span className="text-2xl">🍽️</span>
+          <span>Dieetwensen & Allergieën</span>
+          <span className="text-sm font-normal text-text-muted">({nl.optional})</span>
+        </h2>
+        
+        <p className="text-text-muted text-sm mb-6">
+          Heeft u of één van uw gasten speciale dieetwensen of allergieën? Laat het ons weten zodat wij 
+          zorgen voor een passend menu.
+        </p>
+
+        <div className="space-y-4">
+          {/* Common dietary requirements as checkboxes */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label className="flex items-center space-x-3 p-4 bg-bg-input border-2 border-border-default rounded-xl cursor-pointer hover:border-primary-500/50 transition-all duration-300">
+              <input
+                type="checkbox"
+                checked={formData.dietaryRequirements?.vegetarian || false}
+                onChange={(e) => handleInputChange('dietaryRequirements', {
+                  ...formData.dietaryRequirements,
+                  vegetarian: e.target.checked
+                })}
+                className="w-5 h-5 text-primary-500 bg-bg-input border-border-default rounded focus:ring-2 focus:ring-primary-500/50"
+              />
+              <span className="text-text-primary font-medium flex items-center gap-2">
+                <span>🥗</span>
+                Vegetarisch
+              </span>
+            </label>
+
+            <label className="flex items-center space-x-3 p-4 bg-bg-input border-2 border-border-default rounded-xl cursor-pointer hover:border-primary-500/50 transition-all duration-300">
+              <input
+                type="checkbox"
+                checked={formData.dietaryRequirements?.vegan || false}
+                onChange={(e) => handleInputChange('dietaryRequirements', {
+                  ...formData.dietaryRequirements,
+                  vegan: e.target.checked
+                })}
+                className="w-5 h-5 text-primary-500 bg-bg-input border-border-default rounded focus:ring-2 focus:ring-primary-500/50"
+              />
+              <span className="text-text-primary font-medium flex items-center gap-2">
+                <span>🌱</span>
+                Vegan
+              </span>
+            </label>
+
+            <label className="flex items-center space-x-3 p-4 bg-bg-input border-2 border-border-default rounded-xl cursor-pointer hover:border-primary-500/50 transition-all duration-300">
+              <input
+                type="checkbox"
+                checked={formData.dietaryRequirements?.glutenFree || false}
+                onChange={(e) => handleInputChange('dietaryRequirements', {
+                  ...formData.dietaryRequirements,
+                  glutenFree: e.target.checked
+                })}
+                className="w-5 h-5 text-primary-500 bg-bg-input border-border-default rounded focus:ring-2 focus:ring-primary-500/50"
+              />
+              <span className="text-text-primary font-medium flex items-center gap-2">
+                <span>🌾</span>
+                Glutenvrij
+              </span>
+            </label>
+
+            <label className="flex items-center space-x-3 p-4 bg-bg-input border-2 border-border-default rounded-xl cursor-pointer hover:border-primary-500/50 transition-all duration-300">
+              <input
+                type="checkbox"
+                checked={formData.dietaryRequirements?.lactoseFree || false}
+                onChange={(e) => handleInputChange('dietaryRequirements', {
+                  ...formData.dietaryRequirements,
+                  lactoseFree: e.target.checked
+                })}
+                className="w-5 h-5 text-primary-500 bg-bg-input border-border-default rounded focus:ring-2 focus:ring-primary-500/50"
+              />
+              <span className="text-text-primary font-medium flex items-center gap-2">
+                <span>🥛</span>
+                Lactosevrij
+              </span>
+            </label>
+          </div>
+
+          {/* Free text field for other requirements */}
+          <div>
+            <label className="block text-sm font-medium text-text-muted mb-2">
+              Overige allergieën of dieetwensen
+            </label>
+            <textarea
+              value={formData.dietaryRequirements?.other || ''}
+              onChange={(e) => handleInputChange('dietaryRequirements', {
+                ...formData.dietaryRequirements,
+                other: e.target.value
+              })}
+              placeholder="Bijv. notenallergie, schaaldierenallergie, specifieke voorkeuren..."
+              rows={3}
+              className="w-full px-4 py-3 bg-bg-input border-2 border-border-default rounded-xl text-text-primary placeholder-text-disabled focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all duration-300 backdrop-blur-sm shadow-sm resize-none"
+            />
+          </div>
+
+          <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+            <p className="text-sm text-amber-200/90 flex items-start gap-2">
+              <span className="text-lg">ℹ️</span>
+              <span>
+                Ons keukenteam doet er alles aan om aan uw wensen te voldoen. Bij ernstige allergieën 
+                adviseren wij u om ook telefonisch contact met ons op te nemen.
+              </span>
+            </p>
+          </div>
         </div>
       </div>
 

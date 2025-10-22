@@ -53,7 +53,26 @@ export const PersonsStep: React.FC = () => {
       return;
     }
 
-    updateFormData({ numberOfPersons: localPersons });
+    // Update aantal personen én update borrels als ze enabled zijn
+    const updates: any = { numberOfPersons: localPersons };
+    
+    // Als voorborrel enabled is, update quantity naar nieuwe aantal personen
+    if (formData.preDrink?.enabled) {
+      updates.preDrink = {
+        ...formData.preDrink,
+        quantity: localPersons
+      };
+    }
+    
+    // Als naborrel enabled is, update quantity naar nieuwe aantal personen
+    if (formData.afterParty?.enabled) {
+      updates.afterParty = {
+        ...formData.afterParty,
+        quantity: localPersons
+      };
+    }
+
+    updateFormData(updates);
     goToNextStep();
   };
 

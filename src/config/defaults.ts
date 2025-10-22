@@ -183,61 +183,71 @@ export const getDefaultEventTypesConfig = (): EventTypesConfig => ({
       key: 'REGULAR',
       name: 'Reguliere Show',
       description: 'Standaard comedy show',
+      color: '#F59E0B', // Amber/Gold
       defaultTimes: {
         doorsOpen: '19:00',
         startsAt: '20:00',
         endsAt: '22:30'
       },
       days: ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'],
-      enabled: true
+      enabled: true,
+      showOnCalendar: false // REGULAR wordt niet getoond (is standaard)
     },
     {
       key: 'MATINEE',
       name: 'Matinee',
       description: 'Middagvoorstelling (14:00–18:00)',
+      color: '#3B82F6', // Blue
       defaultTimes: {
         doorsOpen: '13:30',
         startsAt: '14:00',
         endsAt: '18:00'
       },
       days: ['zondag'],
-      enabled: true
+      enabled: true,
+      showOnCalendar: true // Matinee wel tonen (andere tijd/prijs)
     },
     {
       key: 'CARE_HEROES',
       name: 'Zorgzame Helden',
       description: 'Speciale voorstelling voor zorgmedewerkers',
+      color: '#10B981', // Green
       defaultTimes: {
         doorsOpen: '19:00',
         startsAt: '20:00',
         endsAt: '22:30'
       },
       days: ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag'],
-      enabled: true
+      enabled: true,
+      showOnCalendar: true // Speciale show, wel tonen
     },
     {
       key: 'REQUEST',
       name: 'Op Aanvraag',
       description: 'Beperkte beschikbaarheid, neem contact op',
+      color: '#8B5CF6', // Purple
       defaultTimes: {
         doorsOpen: '19:00',
         startsAt: '20:00',
         endsAt: '22:30'
       },
       days: [],
-      enabled: true
+      enabled: true,
+      showOnCalendar: false // REQUEST niet tonen (op aanvraag)
     },
     {
       key: 'UNAVAILABLE',
       name: 'Niet Beschikbaar',
       description: 'Geen voorstelling op deze datum',
+      color: '#6B7280', // Gray
       defaultTimes: {
         doorsOpen: '00:00',
         startsAt: '00:00',
         endsAt: '00:00'
       },
       days: [],
-      enabled: true
+      enabled: true,
+      showOnCalendar: false // Niet beschikbaar, niet tonen
     }
   ]
 });
@@ -299,8 +309,8 @@ export const nl = {
   
   // Arrangements
   arrangements: {
-    BWF: 'BWF - Bier, Wijn & Fris',
-    BWFM: 'BWFM - Bier, Wijn, Fris & Meer',
+    BWF: 'Standaard Arrangement',
+    BWFM: 'Deluxe Arrangement',
     bwfDescription: 'Bier, wijn, fris, port & Martini',
     bwfmDescription: 'Bier, wijn, fris, sterke drank, speciale bieren en bubbels van het huis'
   },

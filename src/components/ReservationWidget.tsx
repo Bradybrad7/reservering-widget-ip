@@ -35,7 +35,7 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
     setCurrentStep
   } = useReservationStore();
 
-  const { error, success } = useToast();
+  const { error, success, addToast } = useToast();
   const { handleValidationErrors, handleApiError } = useFormErrorHandler();
 
   // Apply custom config on mount
@@ -63,15 +63,26 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
       const draft = store.loadDraftReservation();
       
       if (draft.loaded) {
-        success(
-          'Concept hersteld! 📋', 
-          'We hebben uw eerder ingevulde gegevens teruggeplaatst.'
-        );
+        // Show success toast with action button to start fresh
+        addToast({
+          type: 'success',
+          title: 'Concept hersteld! 📋',
+          message: 'We hebben uw eerder ingevulde gegevens teruggeplaatst.',
+          duration: 10000, // Longer duration so user can see the action button
+          action: {
+            label: 'Nieuw beginnen',
+            onClick: () => {
+              store.clearDraft();
+              store.reset();
+              window.location.reload(); // Reload to start completely fresh
+            }
+          }
+        });
       }
     };
     
     loadInitialData();
-  }, [loadEvents, success, error]);
+  }, [loadEvents, success, error, addToast]);
 
   // Handle reservation completion callback
   useEffect(() => {
