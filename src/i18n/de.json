@@ -1,0 +1,50 @@
+{
+  "common": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "close": "Schließen",
+    "loading": "Laden...",
+    "error": "Etwas ist schief gelaufen",
+    "success": "Erfolgreich gespeichert",
+    "confirm": "Bestätigen",
+    "search": "Suchen..."
+  },
+  "booking": {
+    "title": "Jetzt Buchen",
+    "submit": "Reservierung Bestätigen",
+    "selectDate": "Datum wählen",
+    "selectPersons": "Anzahl der Personen",
+    "selectArrangement": "Arrangement wählen",
+    "addons": "Extras",
+    "merchandise": "Merchandise",
+    "contactInfo": "Kontaktinformationen",
+    "summary": "Übersicht",
+    "success": "Vielen Dank für Ihre Reservierung!",
+    "companyName": "Firmenname",
+    "contactPerson": "Kontaktperson",
+    "email": "E-Mail-Adresse",
+    "phone": "Telefonnummer",
+    "comments": "Anmerkungen"
+  },
+  "admin": {
+    "dashboard": "Dashboard",
+    "events": "Veranstaltungen",
+    "reservations": "Reservierungen",
+    "customers": "Kunden",
+    "settings": "Einstellungen",
+    "analytics": "Analytics",
+    "logout": "Abmelden",
+    "totalRevenue": "Gesamtumsatz",
+    "totalReservations": "Gesamte Reservierungen",
+    "upcomingEvents": "Kommende Events",
+    "capacityUtilization": "Kapazitätsauslastung"
+  },
+  "errors": {
+    "required": "Dieses Feld ist erforderlich",
+    "invalidEmail": "Ungültige E-Mail-Adresse",
+    "invalidPhone": "Ungültige Telefonnummer",
+    "capacityExceeded": "Kapazität überschritten"
+  }
+}

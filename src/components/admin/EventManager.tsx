@@ -440,6 +440,27 @@ export const EventManager: React.FC = () => {
                             <Users className="w-4 h-4 mr-1 text-dark-400" />
                             <span className="font-medium text-white">{event.capacity - (event.remainingCapacity || 0)}</span>
                             <span className="text-dark-500">/{event.capacity}</span>
+                            {/* Check for override indicator */}
+                            {(() => {
+                              const overrideKey = `capacity-override-${event.id}`;
+                              const overrideData = localStorage.getItem(overrideKey);
+                              if (overrideData) {
+                                try {
+                                  const override = JSON.parse(overrideData);
+                                  if (override && override.enabled) {
+                                    return (
+                                      <span 
+                                        className="ml-1 text-xs bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded font-bold border border-blue-500/30"
+                                        title={`Override actief: ${override.capacity} personen`}
+                                      >
+                                        🔧
+                                      </span>
+                                    );
+                                  }
+                                } catch (e) {}
+                              }
+                              return null;
+                            })()}
                           </div>
                           <span className="text-xs text-neutral-300 ml-2">
                             {Math.round(((event.capacity - (event.remainingCapacity || 0)) / event.capacity) * 100)}%

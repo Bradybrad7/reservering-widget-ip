@@ -1,0 +1,50 @@
+{
+  "common": {
+    "save": "Opslaan",
+    "cancel": "Annuleren",
+    "delete": "Verwijderen",
+    "edit": "Bewerken",
+    "close": "Sluiten",
+    "loading": "Laden...",
+    "error": "Er ging iets mis",
+    "success": "Succesvol opgeslagen",
+    "confirm": "Bevestigen",
+    "search": "Zoeken..."
+  },
+  "booking": {
+    "title": "Reserveer Nu",
+    "submit": "Reservering Bevestigen",
+    "selectDate": "Selecteer een datum",
+    "selectPersons": "Aantal personen",
+    "selectArrangement": "Kies arrangement",
+    "addons": "Extra's",
+    "merchandise": "Merchandise",
+    "contactInfo": "Contactgegevens",
+    "summary": "Overzicht",
+    "success": "Bedankt voor uw reservering!",
+    "companyName": "Bedrijfsnaam",
+    "contactPerson": "Contactpersoon",
+    "email": "E-mailadres",
+    "phone": "Telefoonnummer",
+    "comments": "Opmerkingen"
+  },
+  "admin": {
+    "dashboard": "Dashboard",
+    "events": "Evenementen",
+    "reservations": "Reserveringen",
+    "customers": "Klanten",
+    "settings": "Instellingen",
+    "analytics": "Analytics",
+    "logout": "Uitloggen",
+    "totalRevenue": "Totale Omzet",
+    "totalReservations": "Totaal Reserveringen",
+    "upcomingEvents": "Aankomende Events",
+    "capacityUtilization": "Bezettingsgraad"
+  },
+  "errors": {
+    "required": "Dit veld is verplicht",
+    "invalidEmail": "Ongeldig e-mailadres",
+    "invalidPhone": "Ongeldig telefoonnummer",
+    "capacityExceeded": "Capaciteit overschreden"
+  }
+}

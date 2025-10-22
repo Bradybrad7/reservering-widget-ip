@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Calendar as CalendarIcon, Plus, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { 
   startOfMonth, 
@@ -26,7 +26,7 @@ interface BulkEventModalProps {
 }
 
 export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose, onSuccess }) => {
-  const { eventTypesConfig, loadConfig } = useAdminStore();
+  const { eventTypesConfig, loadConfig, events: existingEvents, loadEvents } = useAdminStore();
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
@@ -38,10 +38,11 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load event types config on mount
+  // Load event types config and existing events on mount
   useEffect(() => {
     loadConfig();
-  }, [loadConfig]);
+    loadEvents();
+  }, [loadConfig, loadEvents]);
 
   // Get enabled event types
   const enabledEventTypes = eventTypesConfig?.types.filter(t => t.enabled) || [];
@@ -55,6 +56,33 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
       setEndsAt(selectedType.defaultTimes.endsAt);
     }
   }, [eventType, enabledEventTypes]);
+
+  // Group existing events by date for visualization
+  const eventsByDate = useMemo(() => {
+    const map = new Map<string, Event[]>();
+    existingEvents.forEach(event => {
+      const dateKey = format(new Date(event.date), 'yyyy-MM-dd');
+      const events = map.get(dateKey) || [];
+      events.push(event);
+      map.set(dateKey, events);
+    });
+    return map;
+  }, [existingEvents]);
+
+  // Helper to get event info for a date
+  const getDateEventInfo = (date: Date) => {
+    const dateKey = format(date, 'yyyy-MM-dd');
+    const events = eventsByDate.get(dateKey) || [];
+    return {
+      hasEvents: events.length > 0,
+      count: events.length,
+      hasRegular: events.some(e => e.type === 'REGULAR'),
+      hasMatinee: events.some(e => e.type === 'MATINEE'),
+      hasCareHeroes: events.some(e => e.type === 'CARE_HEROES'),
+      hasInactive: events.some(e => !e.isActive),
+      events
+    };
+  };
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -273,6 +301,7 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
                 const isCurrentMonth = isSameMonth(day, currentMonth);
                 const isPast = day < new Date(new Date().setHours(0, 0, 0, 0));
                 const isTodayDate = isToday(day);
+                const eventInfo = getDateEventInfo(day);
 
                 return (
                   <button
@@ -280,20 +309,74 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
                     type="button"
                     onClick={() => !isPast && toggleDateSelection(day)}
                     disabled={isPast}
+                    title={eventInfo.hasEvents ? `${eventInfo.count} evenement(en) op deze datum` : undefined}
                     className={cn(
-                      'aspect-square p-2 rounded-lg text-sm font-bold transition-all duration-200',
+                      'aspect-square p-2 rounded-lg text-sm font-bold transition-all duration-200 relative',
                       'hover:scale-110 active:scale-95',
                       !isCurrentMonth && 'text-neutral-600',
                       isCurrentMonth && !isSelected && !isPast && 'text-white bg-neutral-700 hover:bg-gold-500/40 hover:shadow-md',
                       isSelected && 'bg-gradient-to-br from-gold-400 via-gold-500 to-gold-600 text-dark-900 shadow-xl shadow-gold-500/50 ring-2 ring-gold-400 hover:from-gold-500 hover:to-gold-700 hover:shadow-2xl hover:shadow-gold-500/60 scale-110',
                       isTodayDate && !isSelected && 'ring-2 ring-gold-500/50 ring-offset-2 ring-offset-neutral-800',
-                      isPast && 'cursor-not-allowed opacity-30 bg-neutral-800'
+                      isPast && 'cursor-not-allowed opacity-30 bg-neutral-800',
+                      eventInfo.hasEvents && !isSelected && 'ring-1 ring-blue-400/50 bg-neutral-700/80'
                     )}
                   >
-                    {format(day, 'd')}
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <span>{format(day, 'd')}</span>
+                      
+                      {/* Event Indicators */}
+                      {eventInfo.hasEvents && isCurrentMonth && (
+                        <div className="flex gap-0.5 mt-1">
+                          {eventInfo.hasRegular && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-blue-400" title="Regulier"></div>
+                          )}
+                          {eventInfo.hasMatinee && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-purple-400" title="Matinee"></div>
+                          )}
+                          {eventInfo.hasCareHeroes && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-green-400" title="Care Heroes"></div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Event Count Badge */}
+                      {eventInfo.count > 1 && isCurrentMonth && (
+                        <div className="absolute top-0.5 right-0.5 bg-blue-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                          {eventInfo.count}
+                        </div>
+                      )}
+                      
+                      {/* Inactive Indicator */}
+                      {eventInfo.hasInactive && isCurrentMonth && (
+                        <div className="absolute bottom-0.5 right-0.5 w-2 h-2 rounded-full bg-red-400/70" title="Bevat inactieve events"></div>
+                      )}
+                    </div>
                   </button>
                 );
               })}
+            </div>
+
+            {/* Legend */}
+            <div className="mt-4 p-3 bg-neutral-800/50 border border-neutral-700 rounded-lg">
+              <div className="text-xs font-semibold text-gold-400 mb-2">Legenda:</div>
+              <div className="grid grid-cols-2 gap-2 text-xs text-neutral-300">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-blue-400"></div>
+                  <span>Regulier evenement</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-purple-400"></div>
+                  <span>Matinee</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                  <span>Care Heroes</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-blue-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">2</div>
+                  <span>Meerdere events</span>
+                </div>
+              </div>
             </div>
 
             {/* Selection Info & List */}
@@ -311,29 +394,62 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
                     Wis alles
                   </button>
                 </div>
+
+                {/* Conflict Warning */}
+                {(() => {
+                  const datesWithEvents = selectedDates.filter(date => getDateEventInfo(date).hasEvents);
+                  if (datesWithEvents.length > 0) {
+                    return (
+                      <div className="p-3 bg-amber-500/20 border border-amber-500/50 rounded-lg flex items-start gap-3">
+                        <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                        <div className="text-sm">
+                          <p className="font-semibold text-amber-300 mb-1">Let op: Bestaande evenementen</p>
+                          <p className="text-amber-200/80">
+                            {datesWithEvents.length} van de geselecteerde datum(s) heeft al evenement(en). 
+                            Deze worden toegevoegd als extra evenement op dezelfde datum.
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
                 
                 {/* Selected Dates List */}
                 <div className="max-h-32 overflow-y-auto bg-dark-700 rounded-lg p-3 border border-gold-500/30">
                   <div className="flex flex-wrap gap-2">
                     {selectedDates
                       .sort((a, b) => a.getTime() - b.getTime())
-                      .map((date, index) => (
-                        <div
-                          key={index}
-                          className="inline-flex items-center gap-2 px-3 py-1 bg-neutral-700 border border-gold-500/30 rounded-lg text-sm"
-                        >
-                          <span className="font-medium text-white">
-                            {format(date, 'd MMM yyyy', { locale: nlLocale })}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => toggleDateSelection(date)}
-                            className="text-neutral-400 hover:text-red-500 transition-colors"
+                      .map((date, index) => {
+                        const eventInfo = getDateEventInfo(date);
+                        return (
+                          <div
+                            key={index}
+                            className={cn(
+                              "inline-flex items-center gap-2 px-3 py-1 rounded-lg text-sm",
+                              eventInfo.hasEvents 
+                                ? "bg-amber-500/20 border border-amber-500/50" 
+                                : "bg-neutral-700 border border-gold-500/30"
+                            )}
                           >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
+                            <span className="font-medium text-white">
+                              {format(date, 'd MMM yyyy', { locale: nlLocale })}
+                            </span>
+                            {eventInfo.hasEvents && (
+                              <span className="text-xs bg-amber-500 text-white px-1.5 py-0.5 rounded font-bold">
+                                +{eventInfo.count}
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => toggleDateSelection(date)}
+                              className="text-neutral-400 hover:text-red-500 transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        );
+                      })}
                   </div>
                 </div>
               </div>

@@ -6,12 +6,10 @@ import {
   Package,
   Wine,
   PartyPopper,
-  Calendar,
-  DollarSign,
   AlertTriangle
 } from 'lucide-react';
 import type { Reservation, MerchandiseItem, Event, Arrangement } from '../../types';
-import { formatCurrency, formatDate, formatTime, cn } from '../../utils';
+import { formatCurrency, formatDate, cn } from '../../utils';
 import { nl } from '../../config/defaults';
 import { priceService } from '../../services/priceService';
 import { apiService } from '../../services/apiService';

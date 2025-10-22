@@ -33,6 +33,8 @@ import {
 import { cn } from '../../utils';
 import type { AdminSection, NavigationGroup } from '../../types';
 import { useAdminStore } from '../../store/adminStore';
+import { GlobalSearch } from './GlobalSearch';
+import { LanguageSelector } from '../ui/LanguageSelector';
 
 interface AdminLayoutNewProps {
   children: React.ReactNode;
@@ -120,8 +122,9 @@ const navigationGroups: NavigationGroup[] = [
     order: 7,
     items: [
       { id: 'system-data', label: 'Data Beheer', icon: 'Database', order: 1 },
-      { id: 'system-health', label: 'Data Health', icon: 'ActivitySquare', order: 2 },
-      { id: 'system-audit', label: 'Audit Log', icon: 'ScrollText', order: 3 }
+      { id: 'system-capacity', label: 'Capaciteit Override', icon: 'Users', order: 2 },
+      { id: 'system-health', label: 'Data Health', icon: 'ActivitySquare', order: 3 },
+      { id: 'system-audit', label: 'Audit Log', icon: 'ScrollText', order: 4 }
     ]
   },
   {
@@ -352,9 +355,20 @@ export const AdminLayoutNew: React.FC<AdminLayoutNewProps> = ({ children }) => {
                 </div>
               </div>
 
-              {/* Quick Actions - Desktop Only */}
-              <div className="hidden md:flex items-center gap-2">
-                <div className="text-right text-sm text-neutral-400">
+              {/* Search and Actions */}
+              <div className="hidden md:flex items-center gap-3">
+                {/* Global Search */}
+                <div className="w-96">
+                  <GlobalSearch onNavigate={(section) => {
+                    setActiveSection(section as AdminSection);
+                  }} />
+                </div>
+
+                {/* Language Selector */}
+                <LanguageSelector />
+
+                {/* User Info */}
+                <div className="text-right text-sm text-neutral-400 pl-3 border-l border-neutral-700">
                   <div className="font-medium text-white">Admin</div>
                   <div>Laatste login: Vandaag</div>
                 </div>

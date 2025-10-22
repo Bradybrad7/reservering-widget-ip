@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { CheckCircle, XCircle, Mail, Download, Calendar, Tag, Clock } from 'lucide-react';
 import type { Reservation } from '../../types';
 
 interface BulkActionsProps {
@@ -8,6 +9,10 @@ interface BulkActionsProps {
   onBulkConfirm: (ids: string[]) => Promise<void>;
   onBulkCancel: (ids: string[]) => Promise<void>;
   onBulkSendEmail: (ids: string[]) => Promise<void>;
+  onBulkExport?: (ids: string[]) => Promise<void>;
+  onBulkReschedule?: (ids: string[], newEventId: string) => Promise<void>;
+  onBulkAddTag?: (ids: string[], tag: string) => Promise<void>;
+  onBulkWaitlist?: (ids: string[]) => Promise<void>;
 }
 
 export const BulkActions: React.FC<BulkActionsProps> = ({
@@ -17,8 +22,13 @@ export const BulkActions: React.FC<BulkActionsProps> = ({
   onBulkConfirm,
   onBulkCancel,
   onBulkSendEmail,
+  onBulkExport,
+  onBulkReschedule,
+  onBulkAddTag,
+  onBulkWaitlist
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showMoreActions, setShowMoreActions] = useState(false);
 
   if (selectedIds.length === 0) {
     return null;
@@ -60,8 +70,8 @@ export const BulkActions: React.FC<BulkActionsProps> = ({
             disabled={isProcessing}
             className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span>✅</span>
-            <span className="font-medium">Bevestig Allen</span>
+            <CheckCircle className="w-4 h-4" />
+            <span className="font-medium">Bevestig</span>
           </button>
 
           <button
@@ -69,8 +79,8 @@ export const BulkActions: React.FC<BulkActionsProps> = ({
             disabled={isProcessing}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span>📧</span>
-            <span className="font-medium">Stuur Email</span>
+            <Mail className="w-4 h-4" />
+            <span className="font-medium">Email</span>
           </button>
 
           <button
@@ -78,9 +88,84 @@ export const BulkActions: React.FC<BulkActionsProps> = ({
             disabled={isProcessing}
             className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span>❌</span>
+            <XCircle className="w-4 h-4" />
             <span className="font-medium">Annuleer</span>
           </button>
+
+          {/* More Actions Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowMoreActions(!showMoreActions)}
+              className="px-4 py-2 bg-neutral-700 hover:bg-neutral-600 rounded transition-colors flex items-center gap-2"
+            >
+              <span className="font-medium">Meer acties</span>
+              <span className={`transform transition-transform ${showMoreActions ? 'rotate-180' : ''}`}>▼</span>
+            </button>
+
+            {showMoreActions && (
+              <div className="absolute bottom-full mb-2 right-0 w-56 bg-neutral-800 rounded-lg shadow-xl border border-neutral-700 z-50">
+                {onBulkExport && (
+                  <button
+                    onClick={() => {
+                      handleAction(() => onBulkExport(selectedIds));
+                      setShowMoreActions(false);
+                    }}
+                    disabled={isProcessing}
+                    className="w-full px-4 py-3 text-left hover:bg-neutral-700 transition-colors flex items-center gap-3 first:rounded-t-lg disabled:opacity-50"
+                  >
+                    <Download className="w-4 h-4 text-blue-400" />
+                    <span>Exporteer selectie</span>
+                  </button>
+                )}
+
+                {onBulkReschedule && (
+                  <button
+                    onClick={() => {
+                      // This would open a modal to select new event
+                      alert('Verplaats functionaliteit: Kies een nieuw event');
+                      setShowMoreActions(false);
+                    }}
+                    disabled={isProcessing}
+                    className="w-full px-4 py-3 text-left hover:bg-neutral-700 transition-colors flex items-center gap-3 disabled:opacity-50"
+                  >
+                    <Calendar className="w-4 h-4 text-purple-400" />
+                    <span>Verplaats naar...</span>
+                  </button>
+                )}
+
+                {onBulkAddTag && (
+                  <button
+                    onClick={() => {
+                      const tag = prompt('Voer een tag in:');
+                      if (tag) {
+                        handleAction(() => onBulkAddTag(selectedIds, tag));
+                      }
+                      setShowMoreActions(false);
+                    }}
+                    disabled={isProcessing}
+                    className="w-full px-4 py-3 text-left hover:bg-neutral-700 transition-colors flex items-center gap-3 disabled:opacity-50"
+                  >
+                    <Tag className="w-4 h-4 text-green-400" />
+                    <span>Tag toevoegen</span>
+                  </button>
+                )}
+
+                {onBulkWaitlist && (
+                  <button
+                    onClick={() => {
+                      handleAction(() => onBulkWaitlist(selectedIds));
+                      setShowMoreActions(false);
+                    }}
+                    disabled={isProcessing}
+                    className="w-full px-4 py-3 text-left hover:bg-neutral-700 transition-colors flex items-center gap-3 last:rounded-b-lg disabled:opacity-50"
+                  >
+                    <Clock className="w-4 h-4 text-orange-400" />
+                    <span>Naar wachtlijst</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Close */}

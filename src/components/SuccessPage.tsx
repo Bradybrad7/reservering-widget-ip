@@ -313,33 +313,40 @@ const SuccessPage: React.FC<SuccessPageProps> = ({ className, onNewReservation }
         </button>
       </div>
 
-      {/* 💡 Additional Info met glassmorphism */}
-      <div className="mt-8 p-6 bg-gradient-to-br from-primary-500/10 to-warning-500/5 border-2 border-primary-500/30 rounded-2xl shadow-gold animate-slide-in backdrop-blur-sm">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-gradient-to-br from-warning-400 to-warning-600 rounded-xl flex items-center justify-center shadow-gold">
-            <span className="text-2xl">💡</span>
+      {/* 💡 Additional Info met glassmorphism - PROMINENTER GEMAAKT */}
+      <div className="mt-8 p-8 bg-gradient-to-br from-amber-500/20 to-orange-500/10 border-4 border-amber-500/50 rounded-2xl shadow-2xl animate-slide-in backdrop-blur-sm">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-amber-600 rounded-xl flex items-center justify-center shadow-gold">
+            <span className="text-3xl">⚠️</span>
           </div>
-          <h3 className="text-xl font-bold text-primary-500 text-shadow">Wat gebeurt er nu?</h3>
+          <h3 className="text-2xl font-bold text-amber-400 text-shadow">BELANGRIJK: Wat gebeurt er nu?</h3>
         </div>
-        <ul className="text-sm text-text-secondary space-y-3 ml-1">
-          <li className="flex items-start gap-2">
-            <span className="text-primary-500 font-bold">✓</span>
-            <span>U ontvangt een automatische bevestiging op het opgegeven e-mailadres</span>
+        <ul className="text-base text-text-secondary space-y-4 ml-1">
+          <li className="flex items-start gap-3 p-4 bg-amber-500/10 rounded-lg border-2 border-amber-500/30">
+            <span className="text-amber-400 font-bold text-xl flex-shrink-0">⚠️</span>
+            <span className="text-text-primary">
+              <strong className="text-amber-400 text-lg">Dit is nog GEEN definitieve bevestiging!</strong>
+              <br />
+              <span className="text-base mt-2 block">
+                Wij hebben uw reservering ontvangen en moeten deze nog controleren op beschikbare capaciteit en details. 
+                U ontvangt binnen 2 werkdagen een definitieve bevestiging per e-mail.
+              </span>
+            </span>
           </li>
-          <li className="flex items-start gap-2">
-            <span className="text-warning-400 font-bold">⚠️</span>
-            <span className="text-text-primary"><strong>Let op:</strong> Uw boeking is nog <strong className="text-warning-400">niet bevestigd</strong>. We controleren eerst de beschikbare capaciteit en u ontvangt spoedig een definitieve bevestiging.</span>
+          <li className="flex items-start gap-3">
+            <span className="text-primary-500 font-bold text-xl">✓</span>
+            <span>U ontvangt een automatische ontvangstbevestiging op <strong className="text-primary-400">{completedReservation.email}</strong></span>
           </li>
-          <li className="flex items-start gap-2">
-            <span className="text-primary-500 font-bold">✓</span>
-            <span>Binnen een week neemt ons team contact met u op voor de definitieve bevestiging</span>
+          <li className="flex items-start gap-3">
+            <span className="text-primary-500 font-bold text-xl">✓</span>
+            <span>Binnen <strong className="text-primary-400">2 werkdagen</strong> neemt ons team contact met u op voor de definitieve bevestiging</span>
           </li>
-          <li className="flex items-start gap-2">
-            <span className="text-primary-500 font-bold">✓</span>
-            <span>Betaling vindt plaats na bevestiging via de methode die met u wordt afgesproken</span>
+          <li className="flex items-start gap-3">
+            <span className="text-primary-500 font-bold text-xl">✓</span>
+            <span>Betaling vindt plaats <strong className="text-primary-400">na bevestiging</strong> via de methode die met u wordt afgesproken</span>
           </li>
-          <li className="flex items-start gap-2">
-            <span className="text-primary-500 font-bold">✓</span>
+          <li className="flex items-start gap-3">
+            <span className="text-primary-500 font-bold text-xl">📧</span>
             <span>Bij vragen kunt u contact opnemen via <a href="mailto:info@inspiration-point.nl" className="font-bold text-primary-400 hover:text-primary-300 underline">info@inspiration-point.nl</a></span>
           </li>
         </ul>

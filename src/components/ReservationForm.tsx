@@ -124,6 +124,7 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
         <div className="relative">
           <input
             type={type}
+            name={field as string}
             value={value}
             onChange={handleChange}
             onBlur={handleBlur}
@@ -738,31 +739,58 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
         <button
           type="button"
           onClick={() => {
+            console.log('🔘 Button clicked, formData:', {
+              contactPerson: formData.contactPerson,
+              phone: formData.phone,
+              email: formData.email,
+              acceptTerms: formData.acceptTerms
+            });
             const store = useReservationStore.getState();
             store.goToNextStep();
           }}
-          disabled={!formData.acceptTerms}
+          disabled={
+            !formData.acceptTerms || 
+            !formData.contactPerson?.trim() || 
+            !formData.phone?.trim() || 
+            !formData.email?.trim()
+          }
           className={cn(
             'group relative px-12 py-5 rounded-2xl font-bold text-lg transition-all duration-300 overflow-hidden',
-            formData.acceptTerms
+            formData.acceptTerms && formData.contactPerson?.trim() && formData.phone?.trim() && formData.email?.trim()
               ? 'bg-gold-gradient text-neutral-950 hover:scale-105 shadow-gold-glow hover:shadow-gold animate-pulse-gold'
               : 'bg-bg-elevated text-text-disabled cursor-not-allowed opacity-60 border-2 border-border-default'
           )}
         >
-          {formData.acceptTerms && (
+          {formData.acceptTerms && formData.contactPerson?.trim() && formData.phone?.trim() && formData.email?.trim() && (
             <div className="absolute inset-0 bg-gold-shimmer animate-shimmer" />
           )}
           <span className="relative flex items-center gap-3">
             Doorgaan naar Overzicht
             <svg className={cn(
               "w-6 h-6 transition-transform duration-300",
-              formData.acceptTerms && "group-hover:translate-x-1"
+              formData.acceptTerms && formData.contactPerson?.trim() && formData.phone?.trim() && formData.email?.trim() && "group-hover:translate-x-1"
             )} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
           </span>
         </button>
       </div>
+      
+      {/* Show validation hints when button is disabled */}
+      {(!formData.contactPerson?.trim() || !formData.phone?.trim() || !formData.email?.trim() || !formData.acceptTerms) && (
+        <div className="mt-4 p-4 bg-warning-500/10 border border-warning-500/30 rounded-xl">
+          <p className="text-sm text-warning-300 flex items-start gap-2">
+            <span className="text-lg">⚠️</span>
+            <span>
+              <strong>Let op:</strong> Vul alle verplichte velden (*) in en accepteer de algemene voorwaarden om door te gaan.
+              {!formData.contactPerson?.trim() && <><br/>• Contactpersoon is verplicht</>}
+              {!formData.phone?.trim() && <><br/>• Telefoonnummer is verplicht</>}
+              {!formData.email?.trim() && <><br/>• E-mailadres is verplicht</>}
+              {!formData.acceptTerms && <><br/>• Accepteer de algemene voorwaarden</>}
+            </span>
+          </p>
+        </div>
+      )}
     </div>
   );
 };

@@ -5,7 +5,8 @@ import { ToastProvider, useToast, useFormErrorHandler } from './Toast';
 import { StepIndicator } from './StepIndicator';
 import { StepLayout } from './StepLayout';
 import OrderSummary from './OrderSummary';
-import { cn } from '../utils';
+import { cn, formatCurrency, formatTime } from '../utils';
+import { nl } from '../config/defaults';
 
 // Lazy load heavy components for better initial load performance
 const Calendar = lazy(() => import('./Calendar'));
@@ -28,6 +29,8 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
     isSubmitting,
     completedReservation,
     formErrors,
+    formData,
+    priceCalculation,
     loadEvents,
     submitReservation,
     updateConfig,
@@ -208,25 +211,29 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
           <StepLayout
             showBackButton={showBackButton}
             onBack={goToPreviousStep}
-            sidebar={<OrderSummary onReserve={handleReserve} />}
+            sidebar={<OrderSummary />}
           >
-            <div className="card-theatre rounded-2xl border border-gold-400/20 p-4 md:p-6 shadow-lifted">
-              <h2 className="text-2xl font-bold text-neutral-100 mb-3 text-shadow">Controleer uw gegevens</h2>
-              <p className="text-dark-200 mb-4">
-                Controleer hieronder uw reserveringsgegevens voordat u bevestigt.
-              </p>
-              
-              {/* Show summary of form data */}
-              <div className="space-y-3">
+            <div className="space-y-4">
+              {/* Header */}
+              <div className="card-theatre rounded-2xl border border-gold-400/20 p-4 md:p-6 shadow-lifted">
+                <h2 className="text-2xl font-bold text-neutral-100 mb-3 text-shadow">Controleer uw gegevens</h2>
+                <p className="text-dark-200 mb-4">
+                  Controleer hieronder uw reserveringsgegevens voordat u bevestigt.
+                </p>
+              </div>
+
+              {/* Complete Overview */}
+              <div className="card-theatre rounded-2xl border border-gold-400/20 p-4 md:p-6 shadow-lifted space-y-6">
+                {/* Event Info */}
                 {selectedEvent && (
                   <div className="p-5 bg-gradient-to-br from-gold-500/20 to-gold-600/10 border border-gold-400/30 rounded-xl backdrop-blur-sm">
-                    <h3 className="font-bold text-gold-400 mb-2 flex items-center gap-2">
+                    <h3 className="font-bold text-gold-400 mb-3 flex items-center gap-2">
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
                       </svg>
                       Geselecteerde datum
                     </h3>
-                    <p className="text-neutral-200 font-medium">
+                    <p className="text-neutral-200 font-medium text-lg">
                       {new Intl.DateTimeFormat('nl-NL', {
                         weekday: 'long',
                         year: 'numeric',
@@ -234,15 +241,165 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
                         day: 'numeric'
                       }).format(selectedEvent.date)}
                     </p>
+                    <p className="text-neutral-300 text-sm mt-1">
+                      Aanvang: {formatTime(selectedEvent.startsAt)} • Deuren open: {formatTime(selectedEvent.doorsOpen)}
+                    </p>
                   </div>
                 )}
-                
+
+                {/* Company & Contact Info */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 bg-neutral-800/50 rounded-lg border border-neutral-600">
+                    <h3 className="font-bold text-gold-400 mb-3 flex items-center gap-2">
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" />
+                      </svg>
+                      Bedrijfsgegevens
+                    </h3>
+                    <dl className="space-y-2 text-sm">
+                      <div>
+                        <dt className="text-neutral-400">Bedrijfsnaam</dt>
+                        <dd className="text-white font-medium">{formData.companyName}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-neutral-400">Contactpersoon</dt>
+                        <dd className="text-white font-medium">{formData.contactPerson}</dd>
+                      </div>
+                    </dl>
+                  </div>
+
+                  <div className="p-4 bg-neutral-800/50 rounded-lg border border-neutral-600">
+                    <h3 className="font-bold text-gold-400 mb-3 flex items-center gap-2">
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                        <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                      </svg>
+                      Contactgegevens
+                    </h3>
+                    <dl className="space-y-2 text-sm">
+                      <div>
+                        <dt className="text-neutral-400">E-mail</dt>
+                        <dd className="text-white font-medium">{formData.email}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-neutral-400">Telefoon</dt>
+                        <dd className="text-white font-medium">{formData.phone}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-neutral-400">Postcode</dt>
+                        <dd className="text-white font-medium">{formData.postalCode}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                </div>
+
+                {/* Reservation Details */}
+                <div className="p-4 bg-neutral-800/50 rounded-lg border border-neutral-600">
+                  <h3 className="font-bold text-gold-400 mb-3 flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                    </svg>
+                    Reserveringsdetails
+                  </h3>
+                  <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <dt className="text-neutral-400">Aantal personen</dt>
+                      <dd className="text-white font-medium text-lg">{formData.numberOfPersons}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-neutral-400">Arrangement</dt>
+                      <dd className="text-white font-medium">{nl.arrangements[formData.arrangement]}</dd>
+                    </div>
+                    {formData.preDrink?.enabled && (
+                      <div>
+                        <dt className="text-neutral-400">Voorborrel</dt>
+                        <dd className="text-white font-medium">✓ Ja ({formData.preDrink.quantity} personen)</dd>
+                      </div>
+                    )}
+                    {formData.afterParty?.enabled && (
+                      <div>
+                        <dt className="text-neutral-400">AfterParty</dt>
+                        <dd className="text-white font-medium">✓ Ja ({formData.afterParty.quantity} personen)</dd>
+                      </div>
+                    )}
+                    {formData.partyPerson && (
+                      <div>
+                        <dt className="text-neutral-400">Feestvierder</dt>
+                        <dd className="text-white font-medium">🎉 {formData.partyPerson}</dd>
+                      </div>
+                    )}
+                  </dl>
+                  {formData.comments && (
+                    <div className="mt-4 pt-4 border-t border-neutral-600">
+                      <dt className="text-neutral-400 mb-1">Opmerkingen</dt>
+                      <dd className="text-white">{formData.comments}</dd>
+                    </div>
+                  )}
+                </div>
+
+                {/* Price Summary (Mobile visible) */}
+                {priceCalculation && (
+                  <div className="p-5 bg-gradient-to-br from-gold-500/20 to-gold-600/10 border-2 border-gold-400/40 rounded-xl backdrop-blur-sm">
+                    <h3 className="font-bold text-gold-400 mb-3 flex items-center gap-2">
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
+                      </svg>
+                      Totale prijs
+                    </h3>
+                    <p className="text-3xl font-bold text-white">{formatCurrency(priceCalculation.totalPrice)}</p>
+                    <p className="text-sm text-neutral-300 mt-1">Inclusief BTW</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="card-theatre rounded-2xl border border-gold-400/20 p-4 md:p-6 shadow-lifted space-y-4">
                 <div className="text-sm text-dark-300 bg-neutral-800/50 p-4 rounded-xl border border-neutral-600">
                   <p>
                     Door op <span className="font-semibold text-gold-400">"Reservering bevestigen"</span> te klikken, bevestigt u dat alle gegevens 
                     correct zijn en gaat u akkoord met de algemene voorwaarden.
                   </p>
                 </div>
+
+                {/* Action Buttons */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={goToPreviousStep}
+                    className="flex-1 px-6 py-4 bg-neutral-700 hover:bg-neutral-600 text-white font-bold rounded-xl transition-all duration-200 border-2 border-neutral-600 hover:border-neutral-500"
+                  >
+                    ← Wijzigen
+                  </button>
+                  <button
+                    onClick={handleReserve}
+                    disabled={isSubmitting || !formData.acceptTerms}
+                    className={cn(
+                      'flex-1 px-6 py-4 font-bold rounded-xl transition-all duration-200 shadow-lg',
+                      'flex items-center justify-center gap-2',
+                      isSubmitting || !formData.acceptTerms
+                        ? 'bg-neutral-600 text-neutral-400 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-dark-900 hover:shadow-xl hover:scale-[1.02]'
+                    )}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                        <span>Bezig met opslaan...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>✓</span>
+                        <span>Reservering bevestigen</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {!formData.acceptTerms && (
+                  <p className="text-sm text-red-400 text-center">
+                    ⚠️ U moet akkoord gaan met de algemene voorwaarden om verder te gaan
+                  </p>
+                )}
               </div>
             </div>
           </StepLayout>

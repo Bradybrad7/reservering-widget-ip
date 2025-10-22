@@ -454,6 +454,7 @@ export type AdminSection =
   | 'settings-vouchers'
   | 'settings-reminders'
   | 'system-data'
+  | 'system-capacity'
   | 'system-health'
   | 'system-audit'
   | 'analytics-reports'

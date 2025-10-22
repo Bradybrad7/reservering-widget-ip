@@ -452,13 +452,23 @@ export const useReservationStore = create<ReservationStore>()(
           
         case 'form':
           // Validate form before proceeding to next enabled step
-          if (isFormValid) {
+          const validationResult = get().validateForm();
+          console.log('📋 Form validation result:', validationResult, 'errors:', get().formErrors);
+          
+          if (validationResult) {
             const nextAfterForm = enabledSteps[currentIndex + 1];
             if (nextAfterForm) {
+              console.log('✅ Form valid, moving to:', nextAfterForm.key);
               set({ currentStep: nextAfterForm.key });
             }
           } else {
-            console.warn('Form is not valid');
+            console.warn('❌ Form is not valid, errors:', get().formErrors);
+            // Scroll to first error
+            const firstError = Object.keys(get().formErrors)[0];
+            if (firstError) {
+              const element = document.querySelector(`[name="${firstError}"]`);
+              element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
           }
           break;
           

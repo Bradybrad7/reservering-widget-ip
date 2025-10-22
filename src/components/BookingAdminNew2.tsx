@@ -15,6 +15,7 @@ import { EmailRemindersConfig } from './admin/EmailRemindersConfig';
 import { DataManager } from './admin/DataManager';
 import { DataHealthCheck } from './admin/DataHealthCheck';
 import { ShowManager } from './admin/ShowManager';
+import { BulkCapacityManager } from './admin/BulkCapacityManager';
 import { useAdminStore } from '../store/adminStore';
 
 // ✨ Nieuwe features
@@ -82,6 +83,8 @@ const BookingAdminNew: React.FC<BookingAdminProps> = () => {
       // System
       case 'system-data':
         return <DataManager />;
+      case 'system-capacity':
+        return <BulkCapacityManager />;
       case 'system-health':
         return <DataHealthCheck />;
       case 'system-audit':
