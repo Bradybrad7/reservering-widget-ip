@@ -299,15 +299,24 @@ export const apiService = {
 
       mockDB.addReservation(reservation);
 
-      // ✨ IMPORTANT: Do NOT modify remainingCapacity when submitting pending reservation
-      // Capacity is only updated when admin CONFIRMS the reservation
-      // This prevents capacity from being blocked by unconfirmed bookings
+      // ✨ FIXED: Capacity IS updated immediately when reservation is placed
+      // This prevents overbooking by ensuring all pending reservations count toward capacity
+      // Note: localStorageService.addReservation() handles the capacity update automatically
+
+      // ✨ NEW: Auto-activate waitlist if capacity is now exhausted or exceeded
+      // Check AFTER reservation is added and capacity is updated
+      const updatedEvent = mockDB.getEventById(eventId);
+      if (updatedEvent && updatedEvent.remainingCapacity !== undefined && updatedEvent.remainingCapacity <= 0) {
+        // Capacity is now 0 or negative - activate waitlist immediately
+        mockDB.updateEvent(eventId, { waitlistActive: true });
+        console.log(`🔴 Waitlist AUTO-ACTIVATED for event ${eventId} - Remaining capacity: ${updatedEvent.remainingCapacity}`);
+      }
 
       return {
         success: true,
         data: reservation,
         message: requestedOverCapacity 
-          ? 'Uw aanvraag is ontvangen en wordt beoordeeld' 
+          ? 'Uw aanvraag is ontvangen. Let op: Deze voorstelling is nu gesloten voor nieuwe boekingen.' 
           : 'Uw reservering is in behandeling'
       };
     } catch (error) {
@@ -1506,6 +1515,162 @@ export const apiService = {
       return {
         success: false,
         error: 'Failed to delete show'
+      };
+    }
+  }
+,
+
+  // ============================================
+  // WAITLIST API - NEW
+  // ============================================
+
+  async getWaitlistEntries(): Promise<ApiResponse<any[]>> {
+    await delay(200);
+
+    try {
+      const entries = localStorageService.getWaitlistEntries();
+      return {
+        success: true,
+        data: entries
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to fetch waitlist entries'
+      };
+    }
+  },
+
+  async getWaitlistEntriesByEvent(eventId: string): Promise<ApiResponse<any[]>> {
+    await delay(150);
+
+    try {
+      const entries = localStorageService.getWaitlistEntriesByEvent(eventId);
+      return {
+        success: true,
+        data: entries
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to fetch waitlist entries for event'
+      };
+    }
+  },
+
+  async getWaitlistStatusForDates(dates: string[]): Promise<ApiResponse<Record<string, number>>> {
+    await delay(100);
+
+    try {
+      const statusMap: Record<string, number> = {};
+      dates.forEach(date => {
+        const count = localStorageService.getWaitlistCountForDate(date);
+        if (count > 0) {
+          statusMap[date] = count;
+        }
+      });
+
+      return {
+        success: true,
+        data: statusMap
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to fetch waitlist status for dates'
+      };
+    }
+  },
+
+  async createWaitlistEntry(entry: any): Promise<ApiResponse<any>> {
+    await delay(300);
+
+    try {
+      const newEntry = localStorageService.addWaitlistEntry(entry);
+      return {
+        success: true,
+        data: newEntry,
+        message: 'U bent toegevoegd aan de wachtlijst'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to create waitlist entry'
+      };
+    }
+  },
+
+  async updateWaitlistEntry(entryId: string, updates: any): Promise<ApiResponse<any>> {
+    await delay(200);
+
+    try {
+      const success = localStorageService.updateWaitlistEntry(entryId, updates);
+
+      if (!success) {
+        return {
+          success: false,
+          error: 'Waitlist entry not found'
+        };
+      }
+
+      return {
+        success: true,
+        message: 'Waitlist entry bijgewerkt'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to update waitlist entry'
+      };
+    }
+  },
+
+  async deleteWaitlistEntry(entryId: string): Promise<ApiResponse<void>> {
+    await delay(200);
+
+    try {
+      const success = localStorageService.deleteWaitlistEntry(entryId);
+
+      if (!success) {
+        return {
+          success: false,
+          error: 'Waitlist entry not found'
+        };
+      }
+
+      return {
+        success: true,
+        message: 'Waitlist entry verwijderd'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to delete waitlist entry'
+      };
+    }
+  },
+
+  async bulkContactWaitlist(entryIds: string[]): Promise<ApiResponse<void>> {
+    await delay(400);
+
+    try {
+      // In production, this would send emails
+      entryIds.forEach(id => {
+        localStorageService.updateWaitlistEntry(id, {
+          status: 'contacted',
+          contactedAt: new Date(),
+          contactedBy: 'Admin'
+        });
+      });
+
+      return {
+        success: true,
+        message: `${entryIds.length} personen gecontacteerd`
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to contact waitlist entries'
       };
     }
   }

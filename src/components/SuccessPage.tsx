@@ -63,6 +63,152 @@ const SuccessPage: React.FC<SuccessPageProps> = ({ className, onNewReservation }
   const isPending = completedReservation.status === 'pending';
   const requestedOverCapacity = completedReservation.requestedOverCapacity || false;
 
+  // ✨ WAITLIST: Simplified confirmation page
+  if (isWaitlist) {
+    return (
+      <div className={cn('max-w-3xl mx-auto animate-fade-in', className)}>
+        {/* Waitlist Header */}
+        <div className="border-2 rounded-3xl p-8 mb-8 relative overflow-hidden shadow-gold-glow backdrop-blur-sm bg-gradient-to-br from-warning-500/20 to-warning-400/10 border-warning-500/30">
+          {/* Decorative Background Glow */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-warning-500/20 to-transparent rounded-full blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-warning-400/20 to-transparent rounded-full blur-3xl"></div>
+          
+          <div className="relative z-10">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-gold-glow animate-scale-in bg-gradient-to-br from-warning-400 to-warning-600">
+                <CheckCircle className="w-10 h-10 text-white" strokeWidth={2.5} />
+              </div>
+              <div>
+                <h1 className="text-3xl md:text-4xl font-black mb-2 text-shadow text-warning-300">
+                  🔔 Aanmelding Wachtlijst Ontvangen
+                </h1>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-warning-300">
+                    Wachtlijstnummer:
+                  </span>
+                  <span className="text-lg font-black px-3 py-1 rounded-lg shadow-md bg-gradient-to-r from-warning-500 to-warning-600 text-white">
+                    {completedReservation.id}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="card-theatre rounded-2xl p-6 shadow-lifted">
+              <p className="text-lg leading-relaxed font-medium mb-4 text-text-primary">
+                🎭 <strong>Bedankt voor uw interesse!</strong> Helaas is deze voorstelling momenteel volledig volgeboekt.
+              </p>
+              <p className="text-base leading-relaxed text-text-secondary mb-4">
+                U staat nu op de wachtlijst voor deze datum. Zodra er plaatsen vrijkomen, nemen wij zo spoedig mogelijk contact met u op.
+              </p>
+              <div className="p-4 bg-warning-500/10 border-2 border-warning-500/30 rounded-xl">
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">📧</span>
+                  <div>
+                    <p className="font-semibold text-warning-300 mb-2">
+                      Wat gebeurt er nu?
+                    </p>
+                    <ul className="space-y-2 text-sm text-text-secondary">
+                      <li className="flex items-start gap-2">
+                        <span className="text-warning-400 mt-0.5">✓</span>
+                        <span>U ontvangt een bevestiging van uw wachtlijst aanmelding op <strong className="text-text-primary">{completedReservation.email}</strong></span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-warning-400 mt-0.5">✓</span>
+                        <span>Bij vrijkomende plaatsen nemen wij <strong className="text-text-primary">direct</strong> contact met u op</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-warning-400 mt-0.5">📞</span>
+                        <span>Vragen? Bel ons of mail naar <a href="mailto:info@inspiration-point.nl" className="font-bold text-warning-400 hover:text-warning-300 underline">info@inspiration-point.nl</a></span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Basic Details - Only Date, Contact, and Number of Persons */}
+        <div className="card-theatre p-8 mb-8 rounded-2xl">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-gold-gradient rounded-xl flex items-center justify-center shadow-gold">
+              <CalendarIcon className="w-5 h-5 text-neutral-950" />
+            </div>
+            <h2 className="text-2xl font-bold text-text-primary text-shadow">
+              Uw Wachtlijst Aanmelding
+            </h2>
+          </div>
+
+          <div className="space-y-4">
+            {/* Event Info */}
+            <div className="flex items-start space-x-3 pb-4 border-b border-border-default">
+              <CalendarIcon className="w-5 h-5 text-primary-500 mt-1" />
+              <div>
+                <p className="font-medium text-text-primary">
+                  {formatDate(selectedEvent.date)}
+                </p>
+                <p className="text-sm text-text-secondary">
+                  {getEventTypeName(selectedEvent.type)}
+                </p>
+                <p className="text-sm text-text-muted">
+                  Deuren: {formatTime(selectedEvent.doorsOpen)} | 
+                  Show: {formatTime(selectedEvent.startsAt)} - {formatTime(selectedEvent.endsAt)}
+                </p>
+              </div>
+            </div>
+
+            {/* Contact Info */}
+            <div className="pb-4 border-b border-border-default">
+              <h3 className="font-semibold text-primary-500 mb-2">Contactgegevens</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-text-secondary">
+                <div>
+                  <p><strong className="text-text-primary">Naam:</strong> {completedReservation.contactPerson}</p>
+                  <p><strong className="text-text-primary">E-mail:</strong> {completedReservation.email}</p>
+                </div>
+                <div>
+                  <p><strong className="text-text-primary">Telefoon:</strong> {completedReservation.phone}</p>
+                  <p><strong className="text-text-primary">Aantal personen:</strong> {completedReservation.numberOfPersons}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="space-y-4">
+          {/* New Reservation */}
+          <button
+            onClick={handleNewReservation}
+            className="group w-full flex items-center justify-center gap-3 py-4 px-8 bg-gold-gradient text-neutral-950 rounded-xl hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all duration-300 shadow-gold-glow hover:shadow-gold font-bold text-lg active:scale-95 animate-pulse-gold"
+          >
+            <ArrowLeft className="w-6 h-6 transition-transform group-hover:-translate-x-1" strokeWidth={2.5} />
+            <span>Terug naar kalender</span>
+          </button>
+        </div>
+
+        {/* Contact Info */}
+        <div className="mt-8 p-6 bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-2 border-blue-500/30 rounded-2xl shadow-lifted backdrop-blur-sm">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl flex items-center justify-center shadow-lifted flex-shrink-0">
+              <span className="text-2xl">💬</span>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-blue-400 mb-3">Contact</h3>
+              <p className="text-sm text-text-secondary leading-relaxed">
+                Heeft u vragen over uw wachtlijst aanmelding? Neem gerust contact met ons op via{' '}
+                <a href="mailto:info@inspiration-point.nl" className="font-bold text-blue-400 hover:text-blue-300 underline">
+                  info@inspiration-point.nl
+                </a>
+                {' '}of bel ons tijdens kantooruren.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // NORMAL BOOKING SUCCESS PAGE
   return (
     <div className={cn('max-w-3xl mx-auto animate-fade-in', className)}>
       {/* Success Header - Dark Mode */}

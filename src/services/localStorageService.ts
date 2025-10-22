@@ -28,10 +28,12 @@ const KEYS = {
   EVENT_TYPES_CONFIG: 'ip_event_types_config',
   TEXT_CUSTOMIZATION: 'ip_text_customization',
   SHOWS: 'ip_shows',
+  WAITLIST_ENTRIES: 'ip_waitlist_entries', // NEW
   VERSION: 'ip_storage_version',
   LAST_BACKUP: 'ip_last_backup',
   EVENT_ID_COUNTER: 'ip_event_counter',
-  RESERVATION_ID_COUNTER: 'ip_reservation_counter'
+  RESERVATION_ID_COUNTER: 'ip_reservation_counter',
+  WAITLIST_ID_COUNTER: 'ip_waitlist_counter' // NEW
 };
 
 // Storage limits
@@ -276,8 +278,11 @@ class LocalStorageService {
     reservations.push(reservation);
     this.saveReservations(reservations);
     
-    // Update event capacity
-    this.updateEventCapacity(reservation.eventId, -reservation.numberOfPersons);
+    // ✨ FIXED: Update event capacity for ALL reservations (pending + confirmed)
+    // Capacity must be immediately reserved when a booking is placed
+    if (reservation.status !== 'cancelled' && reservation.status !== 'rejected') {
+      this.updateEventCapacity(reservation.eventId, -reservation.numberOfPersons);
+    }
     
     return reservation;
   }
@@ -292,10 +297,33 @@ class LocalStorageService {
     reservations[index] = { ...oldReservation, ...updates, updatedAt: new Date() };
     this.saveReservations(reservations);
     
-    // If numberOfPersons changed, update capacity
+    // ✨ FIXED: Handle status changes that affect capacity
+    const oldStatus = oldReservation.status;
+    const newStatus = updates.status || oldStatus;
+    
+    // Status change logic:
+    // - If changing FROM (cancelled/rejected) TO (pending/confirmed) -> DECREASE capacity
+    // - If changing FROM (pending/confirmed) TO (cancelled/rejected) -> INCREASE capacity
+    const wasInactive = oldStatus === 'cancelled' || oldStatus === 'rejected';
+    const isInactive = newStatus === 'cancelled' || newStatus === 'rejected';
+    
+    if (wasInactive && !isInactive) {
+      // Reactivating a reservation - reserve capacity
+      this.updateEventCapacity(oldReservation.eventId, -oldReservation.numberOfPersons);
+    } else if (!wasInactive && isInactive) {
+      // Cancelling/rejecting a reservation - free capacity
+      this.updateEventCapacity(oldReservation.eventId, oldReservation.numberOfPersons);
+      
+      // ✨ NEW: Check if we should deactivate waitlist after capacity increased
+      this.checkWaitlistDeactivation(oldReservation.eventId);
+    }
+    
+    // If numberOfPersons changed (and reservation is active), update capacity
     if (updates.numberOfPersons && updates.numberOfPersons !== oldReservation.numberOfPersons) {
-      const diff = updates.numberOfPersons - oldReservation.numberOfPersons;
-      this.updateEventCapacity(oldReservation.eventId, -diff);
+      if (!isInactive) {
+        const diff = updates.numberOfPersons - oldReservation.numberOfPersons;
+        this.updateEventCapacity(oldReservation.eventId, -diff);
+      }
     }
     
     return true;
@@ -310,12 +338,26 @@ class LocalStorageService {
     const filtered = reservations.filter(r => r.id !== reservationId);
     this.saveReservations(filtered);
     
-    // Only restore capacity if the reservation was confirmed
-    if (reservation.status === 'confirmed') {
+    // ✨ FIXED: Restore capacity for any active reservation (pending or confirmed)
+    if (reservation.status !== 'cancelled' && reservation.status !== 'rejected') {
       this.updateEventCapacity(reservation.eventId, reservation.numberOfPersons);
+      
+      // ✨ NEW: Check if we should deactivate waitlist after capacity increased
+      this.checkWaitlistDeactivation(reservation.eventId);
     }
     
     return true;
+  }
+
+  // ✨ NEW: Check if waitlist should be deactivated after capacity increases
+  private checkWaitlistDeactivation(eventId: string): void {
+    const events = this.getEvents();
+    const event = events.find(e => e.id === eventId);
+    
+    if (event && event.waitlistActive && event.remainingCapacity && event.remainingCapacity > 0) {
+      // There's capacity available again - deactivate waitlist
+      this.updateEvent(eventId, { waitlistActive: false });
+    }
   }
 
   private updateEventCapacity(eventId: string, delta: number): void {
@@ -739,7 +781,87 @@ class LocalStorageService {
     this.saveEvents(filtered);
     return removed;
   }
+
+  // ============================================
+  // WAITLIST - NEW
+  // ============================================
+
+  getWaitlistEntries(): any[] {
+    const data = localStorage.getItem(KEYS.WAITLIST_ENTRIES);
+    if (!data) return [];
+    
+    const entries = JSON.parse(data);
+    return entries.map((e: any) => ({
+      ...e,
+      eventDate: new Date(e.eventDate),
+      createdAt: new Date(e.createdAt),
+      updatedAt: new Date(e.updatedAt),
+      contactedAt: e.contactedAt ? new Date(e.contactedAt) : undefined
+    }));
+  }
+
+  getWaitlistEntriesByEvent(eventId: string): any[] {
+    return this.getWaitlistEntries().filter(e => e.eventId === eventId);
+  }
+
+  getWaitlistCountForDate(dateString: string): number {
+    const entries = this.getWaitlistEntries();
+    return entries.filter(e => {
+      const eventDateStr = e.eventDate.toISOString().split('T')[0];
+      return eventDateStr === dateString && (e.status === 'pending' || e.status === 'contacted');
+    }).length;
+  }
+
+  addWaitlistEntry(entry: any): any {
+    const entries = this.getWaitlistEntries();
+    
+    const counter = this.getNextWaitlistId();
+    const newEntry = {
+      ...entry,
+      id: `wl-${counter}`,
+      status: entry.status || 'pending',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    entries.push(newEntry);
+    this.saveWaitlistEntries(entries);
+    
+    return newEntry;
+  }
+
+  updateWaitlistEntry(entryId: string, updates: any): boolean {
+    const entries = this.getWaitlistEntries();
+    const index = entries.findIndex(e => e.id === entryId);
+    
+    if (index === -1) return false;
+    
+    entries[index] = { ...entries[index], ...updates, updatedAt: new Date() };
+    this.saveWaitlistEntries(entries);
+    return true;
+  }
+
+  deleteWaitlistEntry(entryId: string): boolean {
+    const entries = this.getWaitlistEntries();
+    const filtered = entries.filter(e => e.id !== entryId);
+    
+    if (filtered.length === entries.length) return false;
+    
+    this.saveWaitlistEntries(filtered);
+    return true;
+  }
+
+  private saveWaitlistEntries(entries: any[]): void {
+    localStorage.setItem(KEYS.WAITLIST_ENTRIES, JSON.stringify(entries));
+  }
+
+  private getNextWaitlistId(): number {
+    const counter = parseInt(localStorage.getItem(KEYS.WAITLIST_ID_COUNTER) || '1');
+    localStorage.setItem(KEYS.WAITLIST_ID_COUNTER, (counter + 1).toString());
+    return counter;
+  }
 }
 
 // Export singleton instance
 export const localStorageService = new LocalStorageService();
+

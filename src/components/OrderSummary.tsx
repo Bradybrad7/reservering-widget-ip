@@ -25,7 +25,8 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
     eventAvailability
   } = useReservationStore();
 
-  const isEventFull = selectedEvent && eventAvailability[selectedEvent.id]?.remainingCapacity === 0;
+  // Check if waitlist is manually activated (not based on capacity)
+  const isWaitlistActive = selectedEvent?.waitlistActive === true;
 
   if (!selectedEvent) {
     return (
@@ -276,43 +277,43 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
         {renderPriceBreakdown()}
       </div>
 
-      {/* Waitlist Warning - Donkerrood */}
-      {isEventFull && (
+      {/* Waitlist Warning - Only when waitlist is manually activated */}
+      {isWaitlistActive && (
         <div className="mb-4 p-4 bg-danger-500/15 border-2 border-danger-500/40 rounded-lg backdrop-blur-sm">
           <p className="text-sm font-medium text-danger-400 mb-1">
-            ⚠️ Deze datum is vol
+            ⚠️ Wachtlijst geactiveerd
           </p>
           <p className="text-xs text-text-secondary">
-            U kunt zich aanmelden voor de wachtlijst. We nemen contact met u op als er een plek vrijkomt.
+            Deze voorstelling accepteert momenteel alleen wachtlijst aanmeldingen. We nemen contact met u op als er een plek vrijkomt.
           </p>
         </div>
       )}
 
-      {/* Reserve/Continue Button - Zwart/Goud/Donkerrood */}
-      <button
-        onClick={handleReserve}
-        disabled={!isReadyToReserve() || isSubmitting}
-        className={cn(
-          'w-full py-4 px-6 rounded-xl font-bold transition-all duration-300 text-lg',
-          'focus:outline-none focus:ring-2 focus:ring-primary-500/60 flex items-center justify-center gap-2',
-          'relative overflow-hidden',
-          {
-            'bg-gold-gradient text-neutral-950 hover:shadow-gold-glow hover:scale-105 active:scale-100 border border-primary-600': isReadyToReserve() && !isSubmitting && !isEventFull,
-            'bg-red-gradient text-text-primary hover:shadow-red-glow hover:scale-105 border border-danger-600': isReadyToReserve() && !isSubmitting && isEventFull,
-            'bg-neutral-900/50 text-text-disabled cursor-not-allowed border border-neutral-800': !isReadyToReserve() || isSubmitting
-          }
-        )}
-        aria-label={isSubmitting ? 'Bezig met opslaan' : onReserve ? 'Reservering bevestigen' : 'Naar volgende stap'}
-      >
-        {isSubmitting ? (
-          <div className="flex items-center justify-center space-x-2">
-            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-            <span>{nl.saving}</span>
-          </div>
-        ) : (
-          <>
-            {onReserve ? (
-              isEventFull ? (
+      {/* Reserve Button - Only show on final step when onReserve is provided */}
+      {onReserve && (
+        <>
+          <button
+            onClick={handleReserve}
+            disabled={!isReadyToReserve() || isSubmitting}
+            className={cn(
+              'w-full py-4 px-6 rounded-xl font-bold transition-all duration-300 text-lg',
+              'focus:outline-none focus:ring-2 focus:ring-primary-500/60 flex items-center justify-center gap-2',
+              'relative overflow-hidden',
+              {
+                'bg-gold-gradient text-neutral-950 hover:shadow-gold-glow hover:scale-105 active:scale-100 border border-primary-600': isReadyToReserve() && !isSubmitting && !isWaitlistActive,
+                'bg-red-gradient text-text-primary hover:shadow-red-glow hover:scale-105 border border-danger-600': isReadyToReserve() && !isSubmitting && isWaitlistActive,
+                'bg-neutral-900/50 text-text-disabled cursor-not-allowed border border-neutral-800': !isReadyToReserve() || isSubmitting
+              }
+            )}
+            aria-label={isSubmitting ? 'Bezig met opslaan' : 'Reservering bevestigen'}
+          >
+            {isSubmitting ? (
+              <div className="flex items-center justify-center space-x-2">
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                <span>{nl.saving}</span>
+              </div>
+            ) : (
+              isWaitlistActive ? (
                 <>
                   <span>📝</span>
                   <span>Aanmelden wachtlijst</span>
@@ -323,29 +324,41 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
                   <span>{nl.summary.reserve}</span>
                 </>
               )
-            ) : (
-              <>
-                <span>→</span>
-                <span>Doorgaan</span>
-              </>
             )}
-          </>
-        )}
-      </button>
+          </button>
 
-      {/* Helper text */}
-      {!isReadyToReserve() && !isSubmitting && (
-        <p className="mt-3 text-xs text-center text-primary-500 animate-pulse">
-          Vul alle verplichte velden in om te kunnen reserveren
-        </p>
+          {/* Helper text */}
+          {!isReadyToReserve() && !isSubmitting && (
+            <p className="mt-3 text-xs text-center text-primary-500 animate-pulse">
+              Vul alle verplichte velden in om te kunnen reserveren
+            </p>
+          )}
+        </>
       )}
 
       {/* Disclaimer */}
       <div className="mt-6 pt-4 border-t border-primary-500/20">
-        <p className="text-xs text-text-muted text-center leading-relaxed">
-          Alle prijzen zijn inclusief BTW. Na verzending ontvangt u binnen een week een bevestiging per e-mail. 
-          Betaling vindt plaats na bevestiging.
-        </p>
+        <div className="space-y-3">
+          <p className="text-xs text-text-muted text-center leading-relaxed">
+            Alle prijzen zijn inclusief BTW. Na verzending ontvangt u binnen een week een bevestiging per e-mail.
+          </p>
+          <div className="p-3 bg-primary-500/10 border border-primary-500/30 rounded-lg">
+            <p className="text-xs text-text-primary font-semibold mb-2 flex items-center justify-center gap-2">
+              <span>💳</span>
+              <span>Betaling & Facturatie</span>
+            </p>
+            <ul className="text-xs text-text-muted space-y-1.5">
+              <li className="flex items-start gap-2">
+                <span className="text-primary-400">•</span>
+                <span>Factuur wordt <strong className="text-text-primary">ca. 2 weken voor voorstelling</strong> verzonden</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-primary-400">•</span>
+                <span>Betaling via <strong className="text-text-primary">bankoverschrijving</strong></span>
+              </li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   );

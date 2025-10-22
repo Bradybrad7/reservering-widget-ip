@@ -113,6 +113,7 @@ const Button: React.FC<ButtonProps> = ({
 
   return (
     <button
+      type="button"
       className={`
         ${baseStyles}
         ${variantStyles[variant]}

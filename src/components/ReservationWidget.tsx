@@ -11,9 +11,12 @@ import { nl } from '../config/defaults';
 // Lazy load heavy components for better initial load performance
 const Calendar = lazy(() => import('./Calendar'));
 const PersonsStep = lazy(() => import('./PersonsStep'));
-const ArrangementStep = lazy(() => import('./ArrangementStep'));
-const AddonsStep = lazy(() => import('./AddonsStep'));
-const MerchandiseStep = lazy(() => import('./MerchandiseStep'));
+// ✨ NIEUW: PackageStep combineert arrangement + borrels
+const PackageStep = lazy(() => import('./PackageStep'));
+// ✨ OUDE STAPPEN: Deze worden niet meer gebruikt in de wizard
+// const ArrangementStep = lazy(() => import('./ArrangementStep'));
+// const AddonsStep = lazy(() => import('./AddonsStep'));
+// const MerchandiseStep = lazy(() => import('./MerchandiseStep'));
 const WaitlistPrompt = lazy(() => import('./WaitlistPrompt'));
 const ReservationForm = lazy(() => import('./ReservationForm'));
 const SuccessPage = lazy(() => import('./SuccessPage'));
@@ -154,44 +157,29 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
           </StepLayout>
         );
 
+      // ✨ NIEUWE GECOMBINEERDE STAP: Package (arrangement + borrels)
+      case 'package':
+        return (
+          <StepLayout
+            showBackButton={showBackButton}
+            onBack={goToPreviousStep}
+            sidebar={<OrderSummary />}
+          >
+            <Suspense fallback={<LoadingFallback />}>
+              <PackageStep />
+            </Suspense>
+          </StepLayout>
+        );
+
+      // ✨ OUDE STAPPEN VERWIJDERD: arrangement, addons, merchandise zijn nu geïntegreerd
+      // Deze cases blijven voor backwards compatibility maar worden niet meer gebruikt
       case 'arrangement':
-        return (
-          <StepLayout
-            showBackButton={showBackButton}
-            onBack={goToPreviousStep}
-            sidebar={<OrderSummary />}
-          >
-            <Suspense fallback={<LoadingFallback />}>
-              <ArrangementStep />
-            </Suspense>
-          </StepLayout>
-        );
-
       case 'addons':
-        return (
-          <StepLayout
-            showBackButton={showBackButton}
-            onBack={goToPreviousStep}
-            sidebar={<OrderSummary />}
-          >
-            <Suspense fallback={<LoadingFallback />}>
-              <AddonsStep />
-            </Suspense>
-          </StepLayout>
-        );
-
       case 'merchandise':
-        return (
-          <StepLayout
-            showBackButton={showBackButton}
-            onBack={goToPreviousStep}
-            sidebar={<OrderSummary />}
-          >
-            <Suspense fallback={<LoadingFallback />}>
-              <MerchandiseStep />
-            </Suspense>
-          </StepLayout>
-        );
+        // Redirect naar package step als deze oude stappen toch worden aangeroepen
+        console.warn(`Step '${currentStep}' is deprecated. Redirecting to 'package' step.`);
+        setCurrentStep('package');
+        return null;
 
       case 'form':
         return (
@@ -308,7 +296,7 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
                     </div>
                     <div>
                       <dt className="text-neutral-400">Arrangement</dt>
-                      <dd className="text-white font-medium">{nl.arrangements[formData.arrangement]}</dd>
+                      <dd className="text-white font-medium">{formData.arrangement ? nl.arrangements[formData.arrangement] : '-'}</dd>
                     </div>
                     {formData.preDrink?.enabled && (
                       <div>

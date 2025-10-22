@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { AlertCircle, Mail, Users, Calendar } from 'lucide-react';
 import { useReservationStore } from '../store/reservationStore';
+import { useWaitlistStore } from '../store/waitlistStore';
 import Button from './ui/Button';
 
 export const WaitlistPrompt: React.FC = () => {
   const {
     selectedEvent,
     formData,
-    updateFormData,
-    submitWaitlist,
-    goToPreviousStep
+    goToPreviousStep,
+    setCurrentStep
   } = useReservationStore();
+
+  const { addWaitlistEntry } = useWaitlistStore();
 
   const [email, setEmail] = useState(formData.email || '');
   const [name, setName] = useState(formData.contactPerson || '');
@@ -30,24 +32,35 @@ export const WaitlistPrompt: React.FC = () => {
       return;
     }
 
-    // Update form data
-    updateFormData({
-      contactPerson: name,
-      email,
-      phone,
-      numberOfPersons: formData.numberOfPersons || 1
-    });
+    if (!selectedEvent) {
+      setError('Geen evenement geselecteerd');
+      return;
+    }
 
     setIsSubmitting(true);
     setError(null);
 
     try {
-      const success = await submitWaitlist();
-      if (!success) {
+      // ✨ FIXED: Create a WaitlistEntry instead of a Reservation
+      const success = await addWaitlistEntry({
+        eventId: selectedEvent.id,
+        eventDate: selectedEvent.date,
+        customerName: name,
+        customerEmail: email,
+        customerPhone: phone,
+        phoneCountryCode: formData.phoneCountryCode || '+31',
+        numberOfPersons: formData.numberOfPersons || 1,
+        arrangement: formData.arrangement,
+        status: 'pending'
+      });
+
+      if (success) {
+        // Navigate to success page
+        setCurrentStep('waitlistSuccess');
+      } else {
         setError('Er is een fout opgetreden. Probeer het opnieuw.');
         setIsSubmitting(false);
       }
-      // If successful, the store will handle navigation to waitlistSuccess
     } catch (err) {
       setError('Er is een onverwachte fout opgetreden');
       setIsSubmitting(false);

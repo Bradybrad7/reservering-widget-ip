@@ -1,8 +1,9 @@
-import React, { useEffect, useCallback, memo, useMemo } from 'react';
+import React, { useEffect, useCallback, memo, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Event } from '../types';
 import { useReservationStore } from '../store/reservationStore';
 import { useAdminStore } from '../store/adminStore';
+import { useWaitlistStore } from '../store/waitlistStore';
 import { 
   getDaysInMonth, 
   isToday, 
@@ -34,6 +35,10 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
   } = useReservationStore();
 
   const { shows, loadShows, eventTypesConfig, loadConfig } = useAdminStore();
+  
+  // ✨ NEW: Waitlist support
+  const { loadWaitlistStatusForDates } = useWaitlistStore();
+  const [waitlistCounts, setWaitlistCounts] = useState<Record<string, number>>({});
 
   // Load shows and config on mount
   useEffect(() => {
@@ -45,6 +50,23 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
   useEffect(() => {
     loadEventsForMonth(currentMonth.getFullYear(), currentMonth.getMonth());
   }, [currentMonth, loadEventsForMonth]);
+
+  // ✨ NEW: Load waitlist status for current month
+  useEffect(() => {
+    const loadWaitlistData = async () => {
+      const monthEvents = events.filter(event => 
+        isInCurrentMonth(event.date, currentMonth)
+      );
+      
+      const dates = monthEvents.map(e => e.date.toISOString().split('T')[0]);
+      if (dates.length > 0) {
+        const counts = await loadWaitlistStatusForDates(dates);
+        setWaitlistCounts(counts);
+      }
+    };
+    
+    loadWaitlistData();
+  }, [events, currentMonth, loadWaitlistStatusForDates]);
 
   // Load availability for events in current view
   useEffect(() => {
@@ -290,12 +312,16 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
                     {formatTime(event.startsAt)}
                   </div>
                   
-                  {/* Wachtlijst status - alleen als vol */}
+                  {/* Wachtlijst status - alleen als vol of heeft waitlist */}
                   {availability && event.capacity !== undefined && (
                     (() => {
                       const confirmedOccupancy = event.remainingCapacity !== undefined 
                         ? ((event.capacity - event.remainingCapacity) / event.capacity) * 100
                         : 0;
+                      
+                      // ✨ NEW: Check for actual waitlist entries
+                      const dateKey = date.toISOString().split('T')[0];
+                      const waitlistCount = waitlistCounts[dateKey] || 0;
                       
                       if (confirmedOccupancy >= 100) {
                         return (
@@ -306,7 +332,20 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
                               'bg-red-600 text-white': isSelected
                             }
                           )}>
-                            WACHTLIJST
+                            WACHTLIJST {waitlistCount > 0 && `(${waitlistCount})`}
+                          </div>
+                        );
+                      } else if (waitlistCount > 0) {
+                        // ✨ NEW: Show waitlist count even if not full (shows interest)
+                        return (
+                          <div className={cn(
+                            "text-[9px] font-bold tracking-tight leading-tight px-1 py-0.5 rounded mt-0.5",
+                            {
+                              'bg-orange-900/60 text-orange-200': !isSelected,
+                              'bg-orange-500 text-white': isSelected
+                            }
+                          )}>
+                            {waitlistCount} op wachtlijst
                           </div>
                         );
                       }

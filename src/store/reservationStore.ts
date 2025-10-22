@@ -96,12 +96,21 @@ type ReservationStore = ReservationState & ReservationActions;
 const initialFormData: Partial<CustomerFormData> = {
   companyName: '',
   salutation: '' as Salutation,
+  firstName: '',
+  lastName: '',
   contactPerson: '',
+  vatNumber: '',
   address: '',
   houseNumber: '',
   postalCode: '',
   city: '',
   country: 'Nederland',
+  invoiceAddress: '',
+  invoiceHouseNumber: '',
+  invoicePostalCode: '',
+  invoiceCity: '',
+  invoiceCountry: 'Nederland',
+  invoiceInstructions: '',
   phoneCountryCode: '+31',
   phone: '',
   email: '',
@@ -127,14 +136,18 @@ const defaultWizardConfig: WizardConfig = {
   steps: [
     { key: 'calendar', label: 'Datum', enabled: true, order: 1, required: true },
     { key: 'persons', label: 'Personen', enabled: true, order: 2, required: true },
-    { key: 'arrangement', label: 'Arrangement', enabled: true, order: 3, required: true },
-    { key: 'addons', label: 'Borrel', enabled: true, order: 4, required: false },
-    { key: 'merchandise', label: 'Merchandise', enabled: true, order: 5, required: false },
-    { key: 'form', label: 'Gegevens', enabled: true, order: 6, required: true },
-    { key: 'summary', label: 'Bevestigen', enabled: true, order: 7, required: true },
-    { key: 'success', label: 'Voltooid', enabled: true, order: 8, required: true },
-    { key: 'waitlistPrompt', label: 'Wachtlijst', enabled: true, order: 9, required: false },
-    { key: 'waitlistSuccess', label: 'Wachtlijst Bevestigd', enabled: true, order: 10, required: false }
+    // ✨ NIEUW: Gecombineerde stap voor arrangement + borrels
+    { key: 'package', label: 'Pakket & Opties', enabled: true, order: 3, required: true },
+    // ✨ OUDE STAPPEN UITGESCHAKELD: arrangement, addons, merchandise zijn nu geïntegreerd
+    { key: 'arrangement', label: 'Arrangement', enabled: false, order: 99, required: true },
+    { key: 'addons', label: 'Borrel', enabled: false, order: 99, required: false },
+    { key: 'merchandise', label: 'Merchandise', enabled: false, order: 99, required: false },
+    // ✨ Gegevens bevat nu ook merchandise-sectie
+    { key: 'form', label: 'Gegevens & Extra\'s', enabled: true, order: 4, required: true },
+    { key: 'summary', label: 'Bevestigen', enabled: true, order: 5, required: true },
+    { key: 'success', label: 'Voltooid', enabled: true, order: 6, required: true },
+    { key: 'waitlistPrompt', label: 'Wachtlijst', enabled: true, order: 7, required: false },
+    { key: 'waitlistSuccess', label: 'Wachtlijst Bevestigd', enabled: true, order: 8, required: false }
   ]
 };
 
@@ -178,6 +191,17 @@ export const useReservationStore = create<ReservationStore>()(
         const response = await apiService.getEvents();
         if (response.success && response.data) {
           set({ events: response.data });
+          
+          // ✨ IMPORTANT: Update selectedEvent if one is currently selected
+          const currentSelectedEvent = get().selectedEvent;
+          if (currentSelectedEvent) {
+            const updatedSelectedEvent = response.data.find(e => e.id === currentSelectedEvent.id);
+            if (updatedSelectedEvent) {
+              set({ selectedEvent: updatedSelectedEvent });
+              console.log('✅ Updated selectedEvent with new data:', updatedSelectedEvent.id, 'waitlistActive:', updatedSelectedEvent.waitlistActive);
+            }
+          }
+          
           return { success: true };
         } else {
           console.error('Failed to load events:', response.error);
@@ -281,6 +305,50 @@ export const useReservationStore = create<ReservationStore>()(
       const errors: FormErrors = {};
       let isValid = true;
 
+      // ✨ WAITLIST MODE: Simplified validation (only 5 fields)
+      const isWaitlist = selectedEvent?.waitlistActive === true;
+      
+      if (isWaitlist) {
+        console.log('📝 Validating waitlist form (simplified)');
+        
+        // Waitlist needs: firstName, lastName, phone, email, numberOfPersons, acceptTerms
+        if (!formData.contactPerson?.trim()) {
+          errors.contactPerson = 'Naam is verplicht';
+          isValid = false;
+        }
+
+        if (!formData.phone?.trim()) {
+          errors.phone = 'Telefoonnummer is verplicht';
+          isValid = false;
+        }
+
+        if (!formData.email?.trim()) {
+          errors.email = 'E-mailadres is verplicht';
+          isValid = false;
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+          errors.email = 'Vul een geldig e-mailadres in';
+          isValid = false;
+        }
+
+        if (!formData.numberOfPersons || formData.numberOfPersons < 1) {
+          errors.numberOfPersons = 'Minimaal 1 persoon vereist';
+          isValid = false;
+        }
+
+        if (!formData.acceptTerms) {
+          errors.acceptTerms = 'U moet akkoord gaan met de algemene voorwaarden';
+          isValid = false;
+        }
+
+        // Terms required for waitlist too
+        console.log('✅ Waitlist validation complete:', isValid ? 'VALID' : 'INVALID', errors);
+        set({ formErrors: errors, isFormValid: isValid });
+        return isValid;
+      }
+
+      // NORMAL BOOKING: Full validation
+      console.log('📝 Validating normal booking form (full)');
+      
       // Required fields validation
       if (!formData.contactPerson?.trim()) {
         errors.contactPerson = 'Contactpersoon is verplicht';
@@ -308,9 +376,17 @@ export const useReservationStore = create<ReservationStore>()(
       // Check capacity if event is selected
       if (selectedEvent && formData.numberOfPersons) {
         const availability = get().eventAvailability[selectedEvent.id];
+        
+        // ✨ CHANGED: Don't block bookings that exceed capacity
+        // Instead, flag them as over-capacity and allow submission
+        // The system will auto-activate waitlist after this booking
+        // This is the LAST booking allowed before waitlist kicks in
+        
+        // Only show a warning if significantly over capacity (not blocking)
         if (availability && formData.numberOfPersons > availability.remainingCapacity) {
-          errors.numberOfPersons = `Maximaal ${availability.remainingCapacity} personen beschikbaar`;
-          isValid = false;
+          // Store this info but DON'T set isValid to false
+          // The booking will be flagged as requestedOverCapacity in the backend
+          console.log(`⚠️ Booking for ${formData.numberOfPersons} exceeds capacity by ${formData.numberOfPersons - availability.remainingCapacity}. Will be flagged for admin review.`);
         }
       }
 
@@ -395,12 +471,19 @@ export const useReservationStore = create<ReservationStore>()(
       
       console.log('🚀 goToNextStep from:', currentStep, 'selectedEvent:', selectedEvent?.id);
       
+      // ✨ CHECK: Is waitlist active? Skip package/arrangement/addons/merchandise steps
+      const isWaitlist = selectedEvent?.waitlistActive === true;
+      
       // Get enabled steps in order
       const enabledSteps = wizardConfig.steps
         .filter(s => s.enabled)
         .sort((a, b) => a.order - b.order);
       
+      console.log('🚀 Enabled steps:', enabledSteps.map(s => `${s.key}(${s.order})`).join(' → '));
+      console.log('🚀 Waitlist mode:', isWaitlist);
+      
       const currentIndex = enabledSteps.findIndex(s => s.key === currentStep);
+      console.log('🚀 Current index:', currentIndex, 'of', enabledSteps.length, 'steps');
       
       // Special logic for specific steps
       switch (currentStep) {
@@ -414,13 +497,48 @@ export const useReservationStore = create<ReservationStore>()(
             console.warn('Invalid number of persons');
             return;
           }
-          // Go to next enabled step
+          
+          // ✨ WAITLIST: Skip directly to form step
+          if (isWaitlist) {
+            console.log('📝 Waitlist mode - skipping to form');
+            set({ currentStep: 'form' });
+            return;
+          }
+          
+          // Normal mode: Go to next enabled step (package)
           const nextAfterPersons = enabledSteps[currentIndex + 1];
           if (nextAfterPersons) {
             set({ currentStep: nextAfterPersons.key });
           }
           break;
           
+        // ✨ NIEUWE PACKAGE STEP: Combineert arrangement + borrels
+        case 'package':
+          // ⚠️ GEEN validatie hier - dat gebeurt al in PackageStep.handleContinue
+          // De formData.arrangement update van updateFormData() is nog niet zichtbaar
+          // in deze snapshot van de state wanneer goToNextStep() wordt aangeroepen.
+          console.log('📦 Package step - navigating to next:', {
+            currentIndex,
+            enabledStepsCount: enabledSteps.length
+          });
+          
+          // Proceed to next enabled step
+          const nextAfterPackage = enabledSteps[currentIndex + 1];
+          console.log('📦 Next step after package:', {
+            currentIndex,
+            nextStep: nextAfterPackage?.key,
+            nextStepLabel: nextAfterPackage?.label
+          });
+          
+          if (nextAfterPackage) {
+            console.log('✅ Moving to:', nextAfterPackage.key);
+            set({ currentStep: nextAfterPackage.key });
+          } else {
+            console.error('❌ No next step found after package!');
+          }
+          break;
+          
+        // ✨ OUDE STAPPEN: Backwards compatibility (hoewel disabled)
         case 'arrangement':
           // Validate arrangement is selected
           if (!formData.arrangement) {
@@ -496,6 +614,10 @@ export const useReservationStore = create<ReservationStore>()(
       const { currentStep, wizardConfig, selectedEvent } = get();
       console.log('⬅️ goToPreviousStep from:', currentStep, 'selectedEvent:', selectedEvent?.id);
       
+      // ✨ CHECK: Is waitlist active?
+      const isWaitlist = selectedEvent?.waitlistActive === true;
+      console.log('⬅️ Waitlist mode:', isWaitlist);
+      
       // Get enabled steps in order
       const enabledSteps = wizardConfig.steps
         .filter(s => s.enabled)
@@ -510,6 +632,19 @@ export const useReservationStore = create<ReservationStore>()(
           
         case 'persons':
           set({ currentStep: 'calendar', selectedEvent: null });
+          break;
+          
+        case 'form':
+          // ✨ WAITLIST: Go directly back to persons step
+          if (isWaitlist) {
+            console.log('📝 Waitlist mode - going back to persons');
+            set({ currentStep: 'persons' });
+            return;
+          }
+          // Normal mode: Go to previous enabled step
+          if (currentIndex > 0) {
+            set({ currentStep: enabledSteps[currentIndex - 1].key });
+          }
           break;
           
         case 'waitlistPrompt':
@@ -575,6 +710,9 @@ export const useReservationStore = create<ReservationStore>()(
             response.data.status = 'waitlist';
             response.data.isWaitlist = true;
           }
+          
+          // ✨ IMPORTANT: Reload events to get updated capacity and waitlist status
+          await get().loadEvents();
           
           set({ 
             completedReservation: response.data,

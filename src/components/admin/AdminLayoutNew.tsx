@@ -76,7 +76,8 @@ const navigationGroups: NavigationGroup[] = [
       { id: 'reservations-all', label: 'Alle Reserveringen', icon: 'ListChecks', order: 1 },
       { id: 'reservations-pending', label: 'In Afwachting', icon: 'Clock', order: 2 },
       { id: 'reservations-confirmed', label: 'Bevestigd', icon: 'CheckCircle', order: 3 },
-      { id: 'reservations-checkin', label: 'Check-in Systeem', icon: 'UserCheck', order: 4 }
+      { id: 'reservations-waitlist', label: 'Wachtlijst', icon: 'List', order: 4 },
+      { id: 'reservations-checkin', label: 'Check-in Systeem', icon: 'UserCheck', order: 5 }
     ]
   },
   {

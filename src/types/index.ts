@@ -7,7 +7,8 @@ export type Salutation = 'Dhr' | 'Mevr' | '';
 // Wizard step types
 export type StepKey = 
   | 'calendar' 
-  | 'persons' 
+  | 'persons'
+  | 'package' // ✨ NIEUW: Gecombineerde stap voor arrangement + borrels
   | 'arrangement' 
   | 'addons' 
   | 'merchandise' 
@@ -45,6 +46,7 @@ export interface Event {
   customPricing?: Partial<Record<Arrangement, number>>;
   notes?: string;
   isActive: boolean;
+  waitlistActive?: boolean; // Admin can manually activate waitlist to close bookings
 }
 
 // Pricing structure
@@ -157,10 +159,15 @@ export interface TextCustomization {
 // Dietary requirements and allergies
 export interface DietaryRequirements {
   vegetarian: boolean;
+  vegetarianCount?: number;
   vegan: boolean;
+  veganCount?: number;
   glutenFree: boolean;
+  glutenFreeCount?: number;
   lactoseFree: boolean;
+  lactoseFreeCount?: number;
   other: string; // Free text for other allergies/requirements
+  otherCount?: number;
 }
 
 // Customer form data
@@ -168,7 +175,12 @@ export interface CustomerFormData {
   // Company/Personal details
   companyName: string;
   salutation: Salutation;
-  contactPerson: string;
+  firstName: string;
+  lastName: string;
+  contactPerson: string; // Keep for backward compatibility, will be computed from firstName + lastName
+  
+  // Business details (optional)
+  vatNumber?: string;
   
   // Address
   address: string;
@@ -176,6 +188,14 @@ export interface CustomerFormData {
   postalCode: string;
   city: string;
   country: string;
+  
+  // Invoice Address (for businesses)
+  invoiceAddress?: string;
+  invoiceHouseNumber?: string;
+  invoicePostalCode?: string;
+  invoiceCity?: string;
+  invoiceCountry?: string;
+  invoiceInstructions?: string;
   
   // Contact
   phoneCountryCode: string;
@@ -239,6 +259,27 @@ export interface CommunicationLog {
   author: string; // Admin who made the entry
 }
 
+// ✨ NEW: Waitlist Entry - Separate from Reservations
+export interface WaitlistEntry {
+  id: string;
+  eventId: string;
+  eventDate: Date;
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string;
+  phoneCountryCode?: string;
+  numberOfPersons: number;
+  arrangement?: Arrangement;
+  status: 'pending' | 'contacted' | 'converted' | 'expired' | 'cancelled';
+  priority?: number; // Order in waitlist (1 = first)
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  contactedAt?: Date;
+  contactedBy?: string;
+  convertedToReservationId?: string; // If converted to actual reservation
+}
+
 // Availability response
 export interface Availability {
   eventId: string;
@@ -246,6 +287,7 @@ export interface Availability {
   remainingCapacity: number;
   bookingStatus: 'open' | 'closed' | 'cutoff' | 'full' | 'request';
   reason?: string;
+  waitlistCount?: number; // NEW: Number of people on waitlist
 }
 
 // API responses
@@ -439,6 +481,7 @@ export type AdminSection =
   | 'reservations-all'
   | 'reservations-pending'
   | 'reservations-confirmed'
+  | 'reservations-waitlist'
   | 'reservations-checkin'
   | 'customers-overview'
   | 'customers-detail'

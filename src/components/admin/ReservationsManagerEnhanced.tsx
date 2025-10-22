@@ -24,7 +24,9 @@ import {
   MoreVertical,
   Send,
   List,
-  AlertTriangle
+  AlertTriangle,
+  MapPin,
+  ShoppingBag
 } from 'lucide-react';
 import type { Reservation, Event, AdminSection } from '../../types';
 import { apiService } from '../../services/apiService';
@@ -32,7 +34,7 @@ import { formatCurrency, formatDate, formatTime, cn } from '../../utils';
 import { useAdminStore } from '../../store/adminStore';
 
 interface ReservationsManagerEnhancedProps {
-  filter?: 'all' | 'pending' | 'confirmed';
+  filter?: 'all' | 'pending' | 'confirmed' | 'waitlist';
 }
 
 export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedProps> = ({ filter = 'all' }) => {
@@ -83,6 +85,8 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
       setStatusFilter('pending');
     } else if (filter === 'confirmed') {
       setStatusFilter('confirmed');
+    } else if (filter === 'waitlist') {
+      setStatusFilter('waitlist');
     } else {
       setStatusFilter('all');
     }
@@ -113,6 +117,12 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
     // Status filter
     if (statusFilter !== 'all') {
       filtered = filtered.filter(r => r.status === statusFilter);
+    }
+
+    // ✨ IMPORTANT: Exclude waitlist from normal reservation views
+    // Waitlist should have its own dedicated section
+    if (statusFilter === 'pending' || statusFilter === 'confirmed') {
+      filtered = filtered.filter(r => r.status !== 'waitlist');
     }
 
     // Event filter
@@ -293,11 +303,12 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
         <div>
           <h2 className="text-2xl font-bold text-white">
             {filter === 'pending' ? 'Pending Reserveringen' : 
-             filter === 'confirmed' ? 'Bevestigde Reserveringen' : 
+             filter === 'confirmed' ? 'Bevestigde Reserveringen' :
+             filter === 'waitlist' ? 'Wachtlijst Aanmeldingen' :
              'Alle Reserveringen'}
           </h2>
           <p className="text-neutral-400 mt-1">
-            {filteredReservations.length} van {reservations.length} reserveringen
+            {filteredReservations.length} van {reservations.length} {filter === 'waitlist' ? 'aanmeldingen' : 'reserveringen'}
           </p>
         </div>
 
@@ -630,6 +641,18 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
         )}
       </div>
 
+      {/* Detail Modal */}
+      {showDetailModal && selectedReservation && (
+        <ReservationDetailModal
+          reservation={selectedReservation}
+          event={getEventForReservation(selectedReservation.eventId)}
+          onClose={() => {
+            setShowDetailModal(false);
+            setSelectedReservation(null);
+          }}
+        />
+      )}
+
       {/* Tag Editor Modal */}
       {showTagEditor && selectedReservation && (
         <TagEditorModal
@@ -944,3 +967,402 @@ const CommunicationLogModal: React.FC<{
     </div>
   );
 };
+
+// Reservation Detail Modal Component
+const ReservationDetailModal: React.FC<{
+  reservation: Reservation;
+  event?: Event;
+  onClose: () => void;
+}> = ({ reservation, event, onClose }) => {
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-neutral-800 rounded-lg p-6 max-w-4xl w-full my-8">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-2xl font-bold text-white">Reservering Details</h3>
+          <button onClick={onClose} className="p-2 hover:bg-neutral-700 rounded-lg transition-colors">
+            <X className="w-5 h-5 text-neutral-400" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left Column - Contact & Company Info */}
+          <div className="space-y-6">
+            {/* Personal Info */}
+            <div className="bg-neutral-700/50 rounded-lg p-4">
+              <h4 className="text-lg font-semibold text-gold-400 mb-4 flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Contactgegevens
+              </h4>
+              <div className="space-y-3 text-sm">
+                <div>
+                  <label className="text-neutral-400">Naam</label>
+                  <p className="text-white font-medium">{reservation.contactPerson}</p>
+                </div>
+                <div>
+                  <label className="text-neutral-400">Email</label>
+                  <p className="text-white font-medium">{reservation.email}</p>
+                </div>
+                <div>
+                  <label className="text-neutral-400">Telefoon</label>
+                  <p className="text-white font-medium">
+                    {reservation.phoneCountryCode} {reservation.phone}
+                  </p>
+                </div>
+                {reservation.salutation && (
+                  <div>
+                    <label className="text-neutral-400">Aanhef</label>
+                    <p className="text-white font-medium">{reservation.salutation}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Company Info - Only if company booking */}
+            {reservation.companyName && reservation.companyName.trim() && (
+              <div className="bg-neutral-700/50 rounded-lg p-4">
+                <h4 className="text-lg font-semibold text-blue-400 mb-4 flex items-center gap-2">
+                  <Building2 className="w-5 h-5" />
+                  Bedrijfsgegevens
+                </h4>
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <label className="text-neutral-400">Bedrijfsnaam</label>
+                    <p className="text-white font-medium">{reservation.companyName}</p>
+                  </div>
+                  {reservation.vatNumber && (
+                    <div>
+                      <label className="text-neutral-400">BTW Nummer</label>
+                      <p className="text-white font-medium">{reservation.vatNumber}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Address */}
+            {(reservation.address || reservation.city) && (
+              <div className="bg-neutral-700/50 rounded-lg p-4">
+                <h4 className="text-lg font-semibold text-purple-400 mb-4 flex items-center gap-2">
+                  <MapPin className="w-5 h-5" />
+                  Adresgegevens
+                </h4>
+                <div className="space-y-3 text-sm">
+                  {reservation.address && (
+                    <div>
+                      <label className="text-neutral-400">Adres</label>
+                      <p className="text-white font-medium">
+                        {reservation.address} {reservation.houseNumber}
+                      </p>
+                    </div>
+                  )}
+                  {(reservation.postalCode || reservation.city) && (
+                    <div>
+                      <label className="text-neutral-400">Plaats</label>
+                      <p className="text-white font-medium">
+                        {reservation.postalCode} {reservation.city}
+                      </p>
+                    </div>
+                  )}
+                  {reservation.country && (
+                    <div>
+                      <label className="text-neutral-400">Land</label>
+                      <p className="text-white font-medium">{reservation.country}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Invoice Address - Only if different from main address */}
+            {reservation.invoiceAddress && (
+              <div className="bg-neutral-700/50 rounded-lg p-4 border-2 border-purple-500/30">
+                <h4 className="text-lg font-semibold text-purple-400 mb-4 flex items-center gap-2">
+                  <span className="text-xl">📄</span>
+                  Factuuradres
+                </h4>
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <label className="text-neutral-400">Adres</label>
+                    <p className="text-white font-medium">
+                      {reservation.invoiceAddress} {reservation.invoiceHouseNumber}
+                    </p>
+                  </div>
+                  {(reservation.invoicePostalCode || reservation.invoiceCity) && (
+                    <div>
+                      <label className="text-neutral-400">Plaats</label>
+                      <p className="text-white font-medium">
+                        {reservation.invoicePostalCode} {reservation.invoiceCity}
+                      </p>
+                    </div>
+                  )}
+                  {reservation.invoiceCountry && (
+                    <div>
+                      <label className="text-neutral-400">Land</label>
+                      <p className="text-white font-medium">{reservation.invoiceCountry}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Invoice Instructions */}
+            {reservation.invoiceInstructions && (
+              <div className="bg-neutral-700/50 rounded-lg p-4 border-2 border-gold-500/30">
+                <h4 className="text-lg font-semibold text-gold-400 mb-4 flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5" />
+                  Factuur Instructies
+                </h4>
+                <p className="text-white text-sm whitespace-pre-wrap">{reservation.invoiceInstructions}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column - Booking Info */}
+          <div className="space-y-6">
+            {/* Event Info */}
+            <div className="bg-neutral-700/50 rounded-lg p-4">
+              <h4 className="text-lg font-semibold text-green-400 mb-4 flex items-center gap-2">
+                <Calendar className="w-5 h-5" />
+                Event Informatie
+              </h4>
+              <div className="space-y-3 text-sm">
+                <div>
+                  <label className="text-neutral-400">Datum</label>
+                  <p className="text-white font-medium">
+                    {event ? formatDate(event.date) : 'Onbekend'}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-neutral-400">Tijd</label>
+                  <p className="text-white font-medium">
+                    {event ? new Date(event.date).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : 'Onbekend'}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-neutral-400">Event ID</label>
+                  <p className="text-white font-medium font-mono text-xs">{event?.id || 'Onbekend'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Booking Details */}
+            <div className="bg-neutral-700/50 rounded-lg p-4">
+              <h4 className="text-lg font-semibold text-gold-400 mb-4 flex items-center gap-2">
+                <DollarSign className="w-5 h-5" />
+                Boeking Details
+              </h4>
+              <div className="space-y-3 text-sm">
+                <div>
+                  <label className="text-neutral-400">Aantal Personen</label>
+                  <p className="text-white font-medium text-lg">{reservation.numberOfPersons}</p>
+                </div>
+                <div>
+                  <label className="text-neutral-400">Arrangement</label>
+                  <p className="text-white font-medium">{reservation.arrangement}</p>
+                </div>
+                <div>
+                  <label className="text-neutral-400">Status</label>
+                  <p className="text-white font-medium">
+                    <span className={cn(
+                      'inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border-2',
+                      {
+                        'bg-green-500/20 text-green-400 border-green-500/30': reservation.status === 'confirmed',
+                        'bg-orange-500/20 text-orange-400 border-orange-500/30': reservation.status === 'pending',
+                        'bg-blue-500/20 text-blue-400 border-blue-500/30': reservation.status === 'waitlist',
+                        'bg-red-500/20 text-red-400 border-red-500/30': reservation.status === 'rejected' || reservation.status === 'cancelled'
+                      }
+                    )}>
+                      {reservation.status}
+                    </span>
+                  </p>
+                </div>
+                <div>
+                  <label className="text-neutral-400">Totaalprijs</label>
+                  <p className="text-gold-400 font-bold text-xl">
+                    {formatCurrency(reservation.totalPrice)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Add-ons */}
+            {(reservation.preDrink?.enabled || reservation.afterParty?.enabled) && (
+              <div className="bg-neutral-700/50 rounded-lg p-4">
+                <h4 className="text-lg font-semibold text-orange-400 mb-4">Add-ons</h4>
+                <div className="space-y-2 text-sm">
+                  {reservation.preDrink?.enabled && (
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-400" />
+                      <span className="text-white">
+                        Pre-drink ({reservation.preDrink.quantity} personen)
+                      </span>
+                    </div>
+                  )}
+                  {reservation.afterParty?.enabled && (
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-400" />
+                      <span className="text-white">
+                        After-party ({reservation.afterParty.quantity} personen)
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Merchandise */}
+            {reservation.merchandise && reservation.merchandise.length > 0 && (
+              <div className="bg-neutral-700/50 rounded-lg p-4">
+                <h4 className="text-lg font-semibold text-pink-400 mb-4 flex items-center gap-2">
+                  <ShoppingBag className="w-5 h-5" />
+                  Merchandise
+                </h4>
+                <div className="space-y-2 text-sm">
+                  {reservation.merchandise.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between">
+                      <span className="text-white">{item.itemId}</span>
+                      <span className="text-neutral-400">{item.quantity}x</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Party Person */}
+            {reservation.partyPerson && (
+              <div className="bg-neutral-700/50 rounded-lg p-4 border-2 border-pink-500/30">
+                <h4 className="text-lg font-semibold text-pink-400 mb-3 flex items-center gap-2">
+                  <span className="text-xl">🎉</span>
+                  Feestvierder
+                </h4>
+                <p className="text-white font-medium">{reservation.partyPerson}</p>
+              </div>
+            )}
+
+            {/* Dietary Requirements */}
+            {reservation.dietaryRequirements && (
+              <div className="bg-neutral-700/50 rounded-lg p-4">
+                <h4 className="text-lg font-semibold text-green-400 mb-4 flex items-center gap-2">
+                  <span className="text-xl">🍽️</span>
+                  Dieetwensen
+                </h4>
+                <div className="space-y-2 text-sm">
+                  {reservation.dietaryRequirements.vegetarian && (
+                    <div className="flex items-center justify-between gap-2 p-2 bg-neutral-600/50 rounded-md">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-400" />
+                        <span className="text-white">Vegetarisch</span>
+                      </div>
+                      {reservation.dietaryRequirements.vegetarianCount && (
+                        <span className="text-white font-bold text-lg bg-green-500/20 px-3 py-1 rounded-full">
+                          {reservation.dietaryRequirements.vegetarianCount}x
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {reservation.dietaryRequirements.vegan && (
+                    <div className="flex items-center justify-between gap-2 p-2 bg-neutral-600/50 rounded-md">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-400" />
+                        <span className="text-white">Vegan</span>
+                      </div>
+                      {reservation.dietaryRequirements.veganCount && (
+                        <span className="text-white font-bold text-lg bg-green-500/20 px-3 py-1 rounded-full">
+                          {reservation.dietaryRequirements.veganCount}x
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {reservation.dietaryRequirements.glutenFree && (
+                    <div className="flex items-center justify-between gap-2 p-2 bg-neutral-600/50 rounded-md">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-400" />
+                        <span className="text-white">Glutenvrij</span>
+                      </div>
+                      {reservation.dietaryRequirements.glutenFreeCount && (
+                        <span className="text-white font-bold text-lg bg-green-500/20 px-3 py-1 rounded-full">
+                          {reservation.dietaryRequirements.glutenFreeCount}x
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {reservation.dietaryRequirements.lactoseFree && (
+                    <div className="flex items-center justify-between gap-2 p-2 bg-neutral-600/50 rounded-md">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-400" />
+                        <span className="text-white">Lactosevrij</span>
+                      </div>
+                      {reservation.dietaryRequirements.lactoseFreeCount && (
+                        <span className="text-white font-bold text-lg bg-green-500/20 px-3 py-1 rounded-full">
+                          {reservation.dietaryRequirements.lactoseFreeCount}x
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {reservation.dietaryRequirements.other && (
+                    <div className="mt-2 p-2 bg-neutral-600/50 rounded-md">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-neutral-400 text-xs font-semibold">Overige</label>
+                        {reservation.dietaryRequirements.otherCount && (
+                          <span className="text-white font-bold text-lg bg-green-500/20 px-3 py-1 rounded-full">
+                            {reservation.dietaryRequirements.otherCount}x
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-white">{reservation.dietaryRequirements.other}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Comments */}
+            {reservation.comments && (
+              <div className="bg-neutral-700/50 rounded-lg p-4">
+                <h4 className="text-lg font-semibold text-cyan-400 mb-4 flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5" />
+                  Opmerkingen
+                </h4>
+                <p className="text-white text-sm whitespace-pre-wrap">{reservation.comments}</p>
+              </div>
+            )}
+
+            {/* Metadata */}
+            <div className="bg-neutral-700/50 rounded-lg p-4">
+              <h4 className="text-lg font-semibold text-neutral-400 mb-4">Metadata</h4>
+              <div className="space-y-2 text-sm">
+                <div>
+                  <label className="text-neutral-400">Reservering ID</label>
+                  <p className="text-white font-mono text-xs">{reservation.id}</p>
+                </div>
+                <div>
+                  <label className="text-neutral-400">Gemaakt op</label>
+                  <p className="text-white">
+                    {new Date(reservation.createdAt).toLocaleString('nl-NL')}
+                  </p>
+                </div>
+                {reservation.newsletterOptIn && (
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-400" />
+                    <span className="text-white">Ingeschreven voor nieuwsbrief</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Close Button */}
+        <div className="mt-6 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-6 py-3 bg-gold-500 text-white rounded-lg hover:bg-gold-600 transition-colors font-semibold"
+          >
+            Sluiten
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+

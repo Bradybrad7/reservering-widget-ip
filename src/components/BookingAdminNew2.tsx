@@ -52,6 +52,8 @@ const BookingAdminNew: React.FC<BookingAdminProps> = () => {
         return <ReservationsManagerEnhanced filter="pending" />;
       case 'reservations-confirmed':
         return <ReservationsManagerEnhanced filter="confirmed" />;
+      case 'reservations-waitlist':
+        return <ReservationsManagerEnhanced filter="waitlist" />;
       case 'reservations-checkin':
         return <CheckInManager />;
 
