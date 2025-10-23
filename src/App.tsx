@@ -9,7 +9,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-dark-50 via-gray-50 to-primary-50">
+    <div className="min-h-screen bg-black">
       {/* Theatrical curtain effect at top */}
       <div className="h-2 bg-gradient-to-r from-secondary-700 via-secondary-600 to-secondary-700"></div>
       

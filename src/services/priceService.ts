@@ -67,6 +67,9 @@ export const calculatePrice = (
   // Merchandise calculation
   const merchandiseTotal = merchandise.reduce((total, selection) => {
     const item = defaultMerchandise.find(m => m.id === selection.itemId);
+    if (!item) {
+      console.warn(`⚠️ Merchandise item with ID "${selection.itemId}" not found in catalog`);
+    }
     return total + (item ? item.price * selection.quantity : 0);
   }, 0);
 
@@ -105,9 +108,12 @@ export const calculatePrice = (
   if (merchandise.length > 0) {
     const items = merchandise.map(selection => {
       const item = defaultMerchandise.find(m => m.id === selection.itemId);
+      if (!item) {
+        console.warn(`⚠️ Merchandise item with ID "${selection.itemId}" not found when creating breakdown`);
+      }
       return {
         id: selection.itemId,
-        name: item?.name || 'Unknown',
+        name: item?.name || 'Unknown Item',
         price: item?.price || 0,
         quantity: selection.quantity,
         total: (item?.price || 0) * selection.quantity

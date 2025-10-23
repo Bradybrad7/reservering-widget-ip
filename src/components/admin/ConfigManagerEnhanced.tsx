@@ -1,19 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Settings,
-  DollarSign,
-  Calendar,
   Save,
   RotateCcw,
   CheckCircle,
-  List,
-  Languages,
   HelpCircle,
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
 import { useAdminStore } from '../../store/adminStore';
-import { cn, getAllTextKeys } from '../../utils';
+import { getAllTextKeys } from '../../utils';
 import type { Pricing, BookingRules, GlobalConfig, WizardConfig, TextCustomization, AdminSection } from '../../types';
 
 interface ConfigManagerEnhancedProps {

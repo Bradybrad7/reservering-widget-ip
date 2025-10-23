@@ -115,7 +115,7 @@ export const PackageStep: React.FC = () => {
     });
   }, [formData, updateFormData]);
 
-  const handleContinue = () => {
+  const handleContinue = useCallback(() => {
     console.log('🔘 PackageStep handleContinue clicked:', {
       selectedArrangement,
       formDataArrangement: formData.arrangement,
@@ -123,13 +123,19 @@ export const PackageStep: React.FC = () => {
     });
     
     if (selectedArrangement) {
+      // Update state first
       updateFormData({ arrangement: selectedArrangement });
-      console.log('🔘 Calling goToNextStep from PackageStep');
-      goToNextStep();
+      
+      // Use setTimeout to ensure Zustand state is fully updated before navigation
+      // This prevents race condition where goToNextStep checks old state
+      setTimeout(() => {
+        console.log('🔘 Calling goToNextStep from PackageStep (after state update)');
+        goToNextStep();
+      }, 0);
     } else {
       console.warn('⚠️ No arrangement selected, cannot continue');
     }
-  };
+  }, [selectedArrangement, formData.arrangement, updateFormData, goToNextStep]);
 
   const addonOptions = [
     {

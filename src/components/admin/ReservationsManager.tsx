@@ -5,9 +5,7 @@ import {
   Phone,
   Calendar,
   DollarSign,
-  Clock,
   Search,
-  Filter,
   Download,
   Edit,
   Trash2,
@@ -16,8 +14,7 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Package,
-  Image as ImageIcon
+  Package
 } from 'lucide-react';
 import type { Reservation, MerchandiseItem, Event } from '../../types';
 import { apiService } from '../../services/apiService';
@@ -37,7 +34,6 @@ export const ReservationsManager: React.FC = () => {
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [processingReservation, setProcessingReservation] = useState<Reservation | null>(null);
   const [selectedReservations, setSelectedReservations] = useState<Set<string>>(new Set());
 
@@ -417,22 +413,24 @@ export const ReservationsManager: React.FC = () => {
       waitlist: 'bg-purple-100 text-purple-800 border-purple-300',
       cancelled: 'bg-red-100 text-red-800 border-red-300',
       rejected: 'bg-gray-100 text-gray-800 border-gray-300',
-      request: 'bg-blue-100 text-blue-800 border-blue-300'
+      request: 'bg-blue-100 text-blue-800 border-blue-300',
+      'checked-in': 'bg-teal-100 text-teal-800 border-teal-300'
     } as const;
 
-    const labels = {
+    const labels: Record<string, string> = {
       confirmed: 'Bevestigd',
       pending: 'In Afwachting',
       waitlist: 'Wachtlijst',
       cancelled: 'Geannuleerd',
       rejected: 'Afgewezen',
-      request: 'Aanvraag'
+      request: 'Aanvraag',
+      'checked-in': 'Ingecheckt'
     } as const;
 
     return (
       <div className="flex items-center gap-2">
-        <span className={cn('px-3 py-1 rounded-full text-xs font-medium border-2', styles[status])}>
-          {labels[status]}
+        <span className={cn('px-3 py-1 rounded-full text-xs font-medium border-2', styles[status] || styles.pending)}>
+          {labels[status] || status}
         </span>
         {requestedOverCapacity && status === 'pending' && (
           <span className="text-xs text-orange-500 font-medium">⚠️ Boven capaciteit</span>

@@ -26,7 +26,7 @@ interface BulkEventModalProps {
 }
 
 export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose, onSuccess }) => {
-  const { eventTypesConfig, loadConfig, events: existingEvents, loadEvents } = useAdminStore();
+  const { eventTypesConfig, loadConfig, events: existingEvents, loadEvents, shows, loadShows } = useAdminStore();
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
@@ -35,14 +35,26 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
   const [startsAt, setStartsAt] = useState('20:00');
   const [endsAt, setEndsAt] = useState('22:30');
   const [capacity, setCapacity] = useState(230);
+  const [selectedShowId, setSelectedShowId] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load event types config and existing events on mount
+  // Load event types config, existing events, and shows on mount
   useEffect(() => {
     loadConfig();
     loadEvents();
-  }, [loadConfig, loadEvents]);
+    loadShows();
+  }, [loadConfig, loadEvents, loadShows]);
+  
+  // Set default show when shows are loaded
+  useEffect(() => {
+    if (shows.length > 0 && !selectedShowId) {
+      const defaultShow = shows.find(s => s.isActive) || shows[0];
+      if (defaultShow) {
+        setSelectedShowId(defaultShow.id);
+      }
+    }
+  }, [shows, selectedShowId]);
 
   // Get enabled event types
   const enabledEventTypes = eventTypesConfig?.types.filter(t => t.enabled) || [];
@@ -119,6 +131,11 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
       setError('Geen datums geselecteerd');
       return;
     }
+    
+    if (!selectedShowId) {
+      setError('Geen show geselecteerd. Maak eerst een show aan.');
+      return;
+    }
 
     setIsProcessing(true);
     setError(null);
@@ -130,6 +147,7 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
         startsAt,
         endsAt,
         type: eventType,
+        showId: selectedShowId,
         capacity,
         remainingCapacity: capacity,
         bookingOpensAt: null,
@@ -481,6 +499,31 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
                 </>
               )}
             </select>
+          </div>
+
+          {/* Show Selection */}
+          <div>
+            <label className="block text-sm font-medium text-neutral-100 mb-2">
+              Show *
+            </label>
+            <select
+              value={selectedShowId}
+              onChange={(e) => setSelectedShowId(e.target.value)}
+              required
+              className="w-full px-4 py-2 bg-neutral-800 text-white border border-neutral-600 rounded-lg focus:ring-2 focus:ring-gold-500 focus:border-gold-500 transition-colors"
+            >
+              <option value="">Selecteer een show</option>
+              {shows.map(show => (
+                <option key={show.id} value={show.id}>
+                  {show.name} {show.isActive ? '(Actief)' : '(Inactief)'}
+                </option>
+              ))}
+            </select>
+            {shows.length === 0 && (
+              <p className="mt-1 text-xs text-amber-400">
+                ⚠️ Geen shows beschikbaar. Maak eerst een show aan in het Shows-beheer.
+              </p>
+            )}
           </div>
 
           {/* Times */}

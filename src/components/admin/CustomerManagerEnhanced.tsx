@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   Users,
   Mail,
-  Phone,
   Building2,
   Calendar,
   DollarSign,
@@ -12,14 +11,13 @@ import {
   Tag,
   FileText,
   Clock,
-  Star,
   BarChart3,
   Package,
   X
 } from 'lucide-react';
 import { useAdminStore } from '../../store/adminStore';
 import { formatCurrency, formatDate, cn } from '../../utils';
-import type { CustomerProfile, Reservation } from '../../types';
+import type { CustomerProfile } from '../../types';
 
 export const CustomerManagerEnhanced: React.FC = () => {
   const {
@@ -373,13 +371,14 @@ export const CustomerManagerEnhanced: React.FC = () => {
                 <p className="text-neutral-500 text-center py-8">Geen boekingen gevonden</p>
               ) : (
                 selectedCustomer.reservations.map((reservation) => {
-                  const statusColors = {
+                  const statusColors: Record<string, string> = {
                     confirmed: 'bg-green-500/20 text-green-400',
                     pending: 'bg-orange-500/20 text-orange-400',
                     waitlist: 'bg-blue-500/20 text-blue-400',
                     cancelled: 'bg-neutral-500/20 text-neutral-400',
                     rejected: 'bg-red-500/20 text-red-400',
-                    request: 'bg-purple-500/20 text-purple-400'
+                    request: 'bg-purple-500/20 text-purple-400',
+                    'checked-in': 'bg-teal-500/20 text-teal-400'
                   };
 
                   return (

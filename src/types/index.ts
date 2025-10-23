@@ -3,6 +3,7 @@ export type EventType = 'REGULAR' | 'MATINEE' | 'CARE_HEROES' | 'REQUEST' | 'UNA
 export type Arrangement = 'BWF' | 'BWFM';
 export type DayType = 'weekday' | 'weekend' | 'matinee' | 'careHeroes';
 export type Salutation = 'Dhr' | 'Mevr' | '';
+export type ReservationStatus = 'pending' | 'confirmed' | 'cancelled' | 'rejected' | 'request' | 'waitlist' | 'checked-in';
 
 // Wizard step types
 export type StepKey = 
@@ -237,7 +238,7 @@ export interface Reservation extends CustomerFormData {
   eventId: string;
   eventDate: Date;
   totalPrice: number;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'rejected' | 'request' | 'waitlist' | 'checked-in';
+  status: ReservationStatus;
   isWaitlist?: boolean;
   requestedOverCapacity?: boolean; // TRUE if booking was made when exceeding available capacity
   createdAt: Date;

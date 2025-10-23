@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Save, X, DollarSign, Users } from 'lucide-react';
+import { Save, X, DollarSign, Users } from 'lucide-react';
 import { useAdminStore } from '../../store/adminStore';
-import { cn } from '../../utils';
 import type { AddOns, AddOn } from '../../types';
 
 export const AddOnsManagerEnhanced: React.FC = () => {

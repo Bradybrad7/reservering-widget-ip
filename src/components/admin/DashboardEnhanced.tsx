@@ -10,7 +10,6 @@ import {
   CheckCircle,
   CalendarPlus,
   FileDown,
-  Mail,
   RefreshCw,
   ArrowRight,
   Star

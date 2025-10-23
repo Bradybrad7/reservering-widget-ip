@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { User, Mail, Phone, MapPin, Users, CreditCard, MessageSquare, CheckCircle, Check, ShoppingBag, Plus, Minus } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Users, CreditCard, MessageSquare, CheckCircle, Check, ShoppingBag, Plus, Minus, AlertCircle } from 'lucide-react';
 import type { CustomerFormData, Arrangement, MerchandiseItem } from '../types';
 import { useReservationStore } from '../store/reservationStore';
 import { nl } from '../config/defaults';
@@ -11,8 +11,7 @@ import {
   validateEmail,
   validatePhone,
   formatPhone,
-  validateCompanyName,
-  validateContactPerson
+  validateCompanyName
 } from '../utils/validation';
 
 interface ReservationFormProps {
@@ -113,7 +112,6 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
   }
 
   const availability = eventAvailability[selectedEvent.id];
-  const maxPersons = availability?.remainingCapacity || selectedEvent.capacity;
 
   const handleInputChange = (field: keyof CustomerFormData, value: any) => {
     updateFormData({ [field]: value });
@@ -152,8 +150,9 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
       // Trigger validation on blur if validation function exists
       const currentValue = e.target.value;
       if (validationFn && currentValue) {
-        const validation = validationFn(currentValue);
+        validationFn(currentValue);
         // Validation feedback is handled by formErrors from store
+        // The validation result updates the store automatically
       }
     };
 
@@ -252,43 +251,6 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
           </option>
         ))}
       </select>
-      
-      {formErrors[field as string] && (
-        <p className="mt-1 text-sm text-danger-400">
-          {formErrors[field as string]}
-        </p>
-      )}
-    </div>
-  );
-
-  const renderNumberField = (
-    label: string,
-    field: keyof CustomerFormData,
-    min: number,
-    max: number,
-    icon?: React.ReactNode,
-    required = false
-  ) => (
-    <div>
-      <label className="block text-sm font-semibold text-text-secondary mb-3">
-        {icon && <span className="inline-flex items-center space-x-2">{icon}<span>{label}</span></span>}
-        {!icon && label}
-        {required && <span className="text-danger-400 ml-1">*</span>}
-      </label>
-      
-      <input
-        type="number"
-        min={min}
-        max={max}
-        value={(formData[field] as number) || 1}
-        onChange={(e) => handleInputChange(field, parseInt(e.target.value) || 0)}
-        className={cn(
-          'w-full px-4 py-3 bg-bg-input border-2 border-border-default rounded-xl text-text-primary',
-          'focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500',
-          'transition-all duration-300 backdrop-blur-sm shadow-sm',
-          formErrors[field as string] ? 'border-danger-500/50 bg-danger-500/10' : ''
-        )}
-      />
       
       {formErrors[field as string] && (
         <p className="mt-1 text-sm text-danger-400">
@@ -572,6 +534,33 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
 
   return (
     <div className={cn('space-y-4 animate-fade-in', className)}>
+      {/* ⚠️ Capacity Warning - Show if booking exceeds remaining capacity */}
+      {(() => {
+        const availability = eventAvailability[selectedEvent.id];
+        const remainingCapacity = availability?.remainingCapacity || 0;
+        const isOverCapacity = formData.numberOfPersons && formData.numberOfPersons > remainingCapacity;
+        
+        if (isOverCapacity && remainingCapacity > 0) {
+          return (
+            <div className="p-4 bg-warning-500/10 border-2 border-warning-500/50 rounded-xl animate-fade-in">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-warning-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="w-6 h-6 text-warning-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-warning-300 mb-1">Let op: Aanvraag boven capaciteit</h3>
+                  <p className="text-sm text-warning-200/90 leading-relaxed">
+                    U boekt {formData.numberOfPersons} personen, maar er zijn momenteel slechts <strong>{remainingCapacity} plaatsen</strong> beschikbaar. 
+                    Uw reservering wordt als <strong>aanvraag</strong> behandeld en beoordeeld door onze medewerkers.
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        }
+        return null;
+      })()}
+      
       {/* 👤 Persoonlijke Gegevens */}
       <div className="card-theatre p-4 rounded-2xl shadow-lifted">
         <div className="flex items-center gap-2 mb-3">
