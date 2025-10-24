@@ -18,7 +18,7 @@ import type {
 } from '../types';
 import { localStorageService } from './localStorageService';
 import { checkReservationLimit } from './rateLimiter';
-import { calculatePrice } from './priceService';
+import { calculatePrice, createPricingSnapshot } from './priceService';
 
 // Mock data storage - now using LocalStorage
 class MockDatabase {
@@ -277,7 +277,21 @@ export const apiService = {
       }
 
       // ✨ Calculate total price using price service
-      const priceCalculation = calculatePrice(event, formData);
+      const priceCalculation = calculatePrice(
+        event, 
+        formData, 
+        formData.promotionCode, 
+        formData.voucherCode
+      );
+      
+      // ✨ NEW: Create pricing snapshot to protect against future price changes
+      const pricingSnapshot = createPricingSnapshot(
+        event,
+        formData,
+        priceCalculation,
+        formData.promotionCode,
+        formData.voucherCode
+      );
       
       // ✨ NEW: Determine if booking is over current available capacity
       const currentRemaining = event.remainingCapacity ?? 0;
@@ -290,6 +304,7 @@ export const apiService = {
         eventId,
         eventDate: event.date,
         totalPrice: priceCalculation.totalPrice,
+        pricingSnapshot, // ✨ CRITICAL: Store pricing at time of booking
         status: 'pending', // Always pending - admin must confirm
         requestedOverCapacity, // Flag for admin review
         isWaitlist: false, // Deprecated in favor of status management
@@ -458,9 +473,11 @@ export const apiService = {
     
     try {
       const reservations = mockDB.getReservations();
+      // Exclude archived reservations from default view
+      const activeReservations = reservations.filter(r => !r.isArchived);
       return {
         success: true,
-        data: reservations
+        data: activeReservations
       };
     } catch (error) {
       return {
@@ -577,6 +594,113 @@ export const apiService = {
       return {
         success: false,
         error: 'Failed to delete reservation'
+      };
+    }
+  },
+
+  async archiveReservation(reservationId: string): Promise<ApiResponse<Reservation>> {
+    await delay(200);
+    
+    try {
+      const reservations = localStorageService.getReservations();
+      const reservation = reservations.find(r => r.id === reservationId);
+      
+      if (!reservation) {
+        return {
+          success: false,
+          error: 'Reservation not found'
+        };
+      }
+      
+      const updatedReservation = {
+        ...reservation,
+        isArchived: true,
+        archivedAt: new Date(),
+        archivedBy: 'Admin',
+        updatedAt: new Date()
+      };
+      
+      const success = localStorageService.updateReservation(reservationId, updatedReservation);
+      
+      if (!success) {
+        return {
+          success: false,
+          error: 'Failed to archive reservation'
+        };
+      }
+      
+      return {
+        success: true,
+        data: updatedReservation,
+        message: 'Reservation archived successfully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to archive reservation'
+      };
+    }
+  },
+
+  async unarchiveReservation(reservationId: string): Promise<ApiResponse<Reservation>> {
+    await delay(200);
+    
+    try {
+      const reservations = localStorageService.getReservations();
+      const reservation = reservations.find(r => r.id === reservationId);
+      
+      if (!reservation) {
+        return {
+          success: false,
+          error: 'Reservation not found'
+        };
+      }
+      
+      const updatedReservation = {
+        ...reservation,
+        isArchived: false,
+        archivedAt: undefined,
+        archivedBy: undefined,
+        updatedAt: new Date()
+      };
+      
+      const success = localStorageService.updateReservation(reservationId, updatedReservation);
+      
+      if (!success) {
+        return {
+          success: false,
+          error: 'Failed to unarchive reservation'
+        };
+      }
+      
+      return {
+        success: true,
+        data: updatedReservation,
+        message: 'Reservation restored successfully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to unarchive reservation'
+      };
+    }
+  },
+
+  async getArchivedReservations(): Promise<ApiResponse<Reservation[]>> {
+    await delay(300);
+    
+    try {
+      const reservations = localStorageService.getReservations();
+      const archived = reservations.filter(r => r.isArchived === true);
+      
+      return {
+        success: true,
+        data: archived
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to load archived reservations'
       };
     }
   },
@@ -1147,7 +1271,7 @@ export const apiService = {
         } else {
           customerMap.set(res.email, {
             email: res.email,
-            companyName: res.companyName,
+            companyName: res.companyName || '',
             contactPerson: res.contactPerson,
             totalBookings: 1,
             totalSpent: res.totalPrice,

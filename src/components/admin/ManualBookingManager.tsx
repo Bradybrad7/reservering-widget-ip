@@ -15,7 +15,12 @@ import { formatCurrency, formatDate, cn } from '../../utils';
  * - Direct booking without customer validation rules
  * - One-page fast workflow
  */
-export const ManualBookingManager: React.FC = () => {
+
+interface ManualBookingManagerProps {
+  onClose?: () => void;
+}
+
+export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onClose }) => {
   const { events, loadEvents, loadReservations } = useAdminStore();
   const [selectedEvent, setSelectedEvent] = useState<AdminEvent | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,7 +64,7 @@ export const ManualBookingManager: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!selectedEvent || !formData.companyName || !formData.email) {
+    if (!selectedEvent || !formData.email) {
       return;
     }
 
@@ -97,25 +102,30 @@ export const ManualBookingManager: React.FC = () => {
         await loadReservations();
         await loadEvents();
         
-        // Reset form after 2 seconds
+        // Close modal and reset form after 1 second
         setTimeout(() => {
-          setFormData({
-            companyName: '',
-            contactPerson: '',
-            email: '',
-            phone: '',
-            phoneCountryCode: '+31',
-            numberOfPersons: 2,
-            arrangement: 'BWF' as Arrangement,
-            preDrink: { enabled: false, quantity: 0 },
-            afterParty: { enabled: false, quantity: 0 },
-            comments: ''
-          });
-          setSelectedEvent(null);
-          setPriceOverride(null);
-          setShowPriceOverride(false);
-          setSuccess(false);
-        }, 2000);
+          if (onClose) {
+            onClose();
+          } else {
+            // If no onClose provided, reset form
+            setFormData({
+              companyName: '',
+              contactPerson: '',
+              email: '',
+              phone: '',
+              phoneCountryCode: '+31',
+              numberOfPersons: 2,
+              arrangement: 'BWF' as Arrangement,
+              preDrink: { enabled: false, quantity: 0 },
+              afterParty: { enabled: false, quantity: 0 },
+              comments: ''
+            });
+            setSelectedEvent(null);
+            setPriceOverride(null);
+            setShowPriceOverride(false);
+            setSuccess(false);
+          }
+        }, 1000);
       }
     } catch (error) {
       console.error('Failed to create manual booking:', error);
@@ -151,19 +161,31 @@ export const ManualBookingManager: React.FC = () => {
   })() : null;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Phone className="w-7 h-7 text-gold-500" />
-            Handmatige Boeking
-          </h2>
-          <p className="text-neutral-400 mt-1">
-            Voor telefonische en walk-in boekingen (admin rechten)
-          </p>
-        </div>
-      </div>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="p-6 space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                <Phone className="w-7 h-7 text-gold-500" />
+                Handmatige Boeking
+              </h2>
+              <p className="text-neutral-400 mt-1">
+                Voor telefonische en walk-in boekingen (admin rechten)
+              </p>
+            </div>
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="text-neutral-400 hover:text-white transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
 
       {success && (
         <div className="p-4 bg-green-500/20 border border-green-500/50 rounded-xl flex items-center gap-3 animate-fade-in">
@@ -419,6 +441,8 @@ export const ManualBookingManager: React.FC = () => {
           </button>
         </div>
       </form>
+        </div>
+      </div>
     </div>
   );
 };

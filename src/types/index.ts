@@ -1,7 +1,10 @@
 // Core enums and types
-export type EventType = 'REGULAR' | 'MATINEE' | 'CARE_HEROES' | 'REQUEST' | 'UNAVAILABLE';
+// EventType is now dynamic and matches event type keys from configuration
+// Common types: 'weekday', 'weekend', 'matinee', 'care_heroes', 'special_event', etc.
+export type EventType = string;
 export type Arrangement = 'BWF' | 'BWFM';
-export type DayType = 'weekday' | 'weekend' | 'matinee' | 'careHeroes';
+// DayType is now dynamic and matches event type keys
+export type DayType = string;
 export type Salutation = 'Dhr' | 'Mevr' | '';
 export type ReservationStatus = 'pending' | 'confirmed' | 'cancelled' | 'rejected' | 'request' | 'waitlist' | 'checked-in';
 
@@ -58,10 +61,7 @@ export interface PricingByDayType {
 
 export interface Pricing {
   byDayType: {
-    weekday: PricingByDayType;
-    weekend: PricingByDayType;
-    matinee: PricingByDayType;
-    careHeroes: PricingByDayType;
+    [key: string]: PricingByDayType; // Dynamic keys based on event types
   };
 }
 
@@ -174,7 +174,7 @@ export interface DietaryRequirements {
 // Customer form data
 export interface CustomerFormData {
   // Company/Personal details
-  companyName: string;
+  companyName?: string; // Optional - can be empty for personal bookings
   salutation: Salutation;
   firstName: string;
   lastName: string;
@@ -242,11 +242,36 @@ export interface Reservation extends CustomerFormData {
   eventId: string;
   eventDate: Date;
   totalPrice: number;
+  
+  // ✨ IMPORTANT: Store pricing snapshot at time of booking
+  // This ensures price changes don't affect existing reservations
+  pricingSnapshot?: {
+    basePrice: number;           // Price per person for arrangement
+    pricePerPerson: number;       // Same as basePrice (for clarity)
+    numberOfPersons: number;
+    arrangement: Arrangement;
+    arrangementTotal: number;     // basePrice * numberOfPersons
+    preDrinkPrice?: number;       // Price per person if enabled
+    preDrinkTotal?: number;
+    afterPartyPrice?: number;     // Price per person if enabled
+    afterPartyTotal?: number;
+    merchandiseTotal?: number;
+    subtotal: number;             // Before discounts
+    discountAmount?: number;      // Total discount applied
+    discountDescription?: string; // e.g., "Kortingscode: SUMMER2024"
+    voucherAmount?: number;       // Voucher discount
+    finalTotal: number;           // After all discounts
+    calculatedAt: Date;           // When this pricing was calculated
+  };
+  
   status: ReservationStatus;
   isWaitlist?: boolean;
   requestedOverCapacity?: boolean; // TRUE if booking was made when exceeding available capacity
   createdAt: Date;
   updatedAt: Date;
+  isArchived?: boolean; // NEW: For archiving cancelled/rejected bookings
+  archivedAt?: Date; // NEW: When it was archived
+  archivedBy?: string; // NEW: Who archived it
   tags?: string[]; // VIP, Corporate, Repeat Customer, etc.
   communicationLog?: CommunicationLog[];
   notes?: string; // Admin notes
@@ -420,7 +445,7 @@ export interface PromotionCode {
   id: string;
   code: string;
   description: string;
-  type: 'percentage' | 'fixed';
+  type: 'percentage' | 'fixed' | 'per_person' | 'per_arrangement';
   value: number; // percentage (0-100) or fixed amount
   minBookingAmount?: number;
   maxUses?: number;
@@ -490,6 +515,7 @@ export type AdminSection =
   | 'events'         // All event management (tabs: overview, calendar, templates, shows, types)
   | 'reservations'   // All reservations with filter tabs (all, pending, confirmed, cancelled)
   | 'waitlist'       // Waitlist management (separate workflow)
+  | 'archive'        // Archived/deleted reservations
   | 'checkin'        // Check-in system (day-of workflow)
   | 'customers'      // CRM & customer management
   | 'products'       // Products & Pricing (tabs: arrangements, addons, merchandise, promotions, vouchers)

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { User, Mail, Phone, MapPin, Users, CreditCard, MessageSquare, CheckCircle, Check, ShoppingBag, Plus, Minus, AlertCircle } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Users, CreditCard, MessageSquare, CheckCircle, Check, ShoppingBag, AlertCircle } from 'lucide-react';
 import type { CustomerFormData, Arrangement, MerchandiseItem } from '../types';
 import { useReservationStore } from '../store/reservationStore';
 import { nl } from '../config/defaults';
@@ -13,6 +13,7 @@ import {
   formatPhone,
   validateCompanyName
 } from '../utils/validation';
+import { capitalizeName, capitalizeCompanyName, capitalizeStreetName, capitalizeCityName } from '../utils/nameUtils';
 
 interface ReservationFormProps {
   className?: string;
@@ -112,6 +113,26 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
   }
 
   const handleInputChange = (field: keyof CustomerFormData, value: any) => {
+    // Auto-capitalize names
+    if ((field === 'firstName' || field === 'lastName' || field === 'contactPerson' || field === 'partyPerson') && typeof value === 'string') {
+      value = capitalizeName(value);
+    }
+    
+    // Auto-capitalize company name
+    if (field === 'companyName' && typeof value === 'string') {
+      value = capitalizeCompanyName(value);
+    }
+    
+    // Auto-capitalize street names (both regular and invoice address)
+    if ((field === 'address' || field === 'invoiceAddress') && typeof value === 'string') {
+      value = capitalizeStreetName(value);
+    }
+    
+    // Auto-capitalize city names (both regular and invoice city)
+    if ((field === 'city' || field === 'invoiceCity') && typeof value === 'string') {
+      value = capitalizeCityName(value);
+    }
+    
     updateFormData({ [field]: value });
   };
 
@@ -1130,30 +1151,27 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
                         </span>
 
                         {/* Quantity Controls */}
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleQuantityChange(item.id, -1)}
-                            disabled={quantity === 0}
-                            className={cn(
-                              'w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-300',
-                              quantity > 0
-                                ? 'bg-red-500/80 hover:bg-red-500 text-white active:scale-95'
-                                : 'bg-neutral-800/50 text-dark-500 cursor-not-allowed'
-                            )}
-                          >
-                            <Minus className="w-4 h-4" />
-                          </button>
-
-                          <span className="w-8 text-center font-bold text-neutral-100">
-                            {quantity}
-                          </span>
-
-                          <button
-                            onClick={() => handleQuantityChange(item.id, 1)}
-                            className="w-8 h-8 rounded-lg bg-gold-gradient hover:shadow-gold text-neutral-950 flex items-center justify-center transition-all duration-300 active:scale-95 font-bold"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
+                        <div className="flex items-center gap-3">
+                          <label htmlFor={`resform-${item.id}`} className="text-sm text-neutral-400">
+                            Aantal:
+                          </label>
+                          <input
+                            id={`resform-${item.id}`}
+                            type="number"
+                            min="0"
+                            max="99"
+                            value={quantity}
+                            onChange={(e) => {
+                              const newValue = parseInt(e.target.value) || 0;
+                              const clampedValue = Math.max(0, Math.min(99, newValue));
+                              const diff = clampedValue - quantity;
+                              if (diff !== 0) {
+                                handleQuantityChange(item.id, diff);
+                              }
+                            }}
+                            className="w-20 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-center font-bold focus:outline-none focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+                            placeholder="0"
+                          />
                         </div>
                       </div>
                     </div>

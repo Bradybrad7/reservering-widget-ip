@@ -100,24 +100,6 @@ export const MerchandiseManager: React.FC = () => {
     }
   };
 
-  const getCategoryLabel = (category: MerchandiseItem['category']) => {
-    const labels = {
-      clothing: 'Kleding',
-      accessories: 'Accessoires',
-      other: 'Overig'
-    };
-    return labels[category];
-  };
-
-  const getCategoryColor = (category: MerchandiseItem['category']) => {
-    const colors = {
-      clothing: 'bg-blue-100 text-blue-800 border-blue-300',
-      accessories: 'bg-purple-100 text-purple-800 border-purple-300',
-      other: 'bg-gray-100 text-gray-800 border-gold-500/20'
-    };
-    return colors[category];
-  };
-
   if (isLoadingMerchandise) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -145,7 +127,7 @@ export const MerchandiseManager: React.FC = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="card-theatre p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -171,21 +153,9 @@ export const MerchandiseManager: React.FC = () => {
         <div className="card-theatre p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-300">Kleding</p>
-              <p className="text-2xl font-bold text-blue-400">
-                {merchandiseItems.filter(i => i.category === 'clothing').length}
-              </p>
-            </div>
-            <Tag className="w-8 h-8 text-blue-400" />
-          </div>
-        </div>
-
-        <div className="card-theatre p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-300">Accessoires</p>
+              <p className="text-sm text-gray-300">Totale Waarde</p>
               <p className="text-2xl font-bold text-purple-400">
-                {merchandiseItems.filter(i => i.category === 'accessories').length}
+                {formatCurrency(merchandiseItems.reduce((sum, item) => sum + item.price, 0))}
               </p>
             </div>
             <Tag className="w-8 h-8 text-purple-400" />
@@ -222,14 +192,6 @@ export const MerchandiseManager: React.FC = () => {
             <div className="space-y-3">
               <div className="flex items-start justify-between">
                 <h3 className="text-lg font-bold text-white">{item.name}</h3>
-                <span
-                  className={cn(
-                    'px-2 py-1 rounded text-xs font-medium border',
-                    getCategoryColor(item.category)
-                  )}
-                >
-                  {getCategoryLabel(item.category)}
-                </span>
               </div>
 
               <p className="text-sm text-gray-300 line-clamp-2">{item.description}</p>
@@ -370,10 +332,9 @@ export const MerchandiseManager: React.FC = () => {
                     onChange={(e) => setFormData({ ...formData, category: e.target.value as MerchandiseItem['category'] })}
                     className="w-full px-4 py-3 bg-dark-800 border-2 border-gold-500/20 rounded-lg text-white focus:border-gold-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
                   >
-                    <option value="clothing">Kleding</option>
-                    <option value="accessories">Accessoires</option>
-                    <option value="other">Overig</option>
+                    <option value="other">Merchandise</option>
                   </select>
+                  <p className="text-xs text-neutral-400 mt-1">Algemene merchandise categorie</p>
                 </div>
               </div>
 

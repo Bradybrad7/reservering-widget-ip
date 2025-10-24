@@ -10,7 +10,8 @@ import {
   MapPin,
   FileText,
   User,
-  Mail
+  Mail,
+  Tag
 } from 'lucide-react';
 import type { Reservation, MerchandiseItem, Event, Arrangement } from '../../types';
 import { formatCurrency, formatDate, cn } from '../../utils';
@@ -34,6 +35,10 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
   onClose,
   onSave
 }) => {
+  const [allEvents, setAllEvents] = useState<Event[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState(reservation.eventId);
+  const [selectedEvent, setSelectedEvent] = useState<Event | undefined>(event);
+  
   const [formData, setFormData] = useState({
     // Personal details
     salutation: reservation.salutation || ('' as any),
@@ -77,6 +82,10 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
     // Merchandise
     merchandise: reservation.merchandise || [],
     
+    // Promotions
+    promotionCode: reservation.promotionCode || '',
+    voucherCode: reservation.voucherCode || '',
+    
     // Dietary requirements
     dietaryRequirements: reservation.dietaryRequirements || {
       vegetarian: false,
@@ -101,11 +110,28 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [capacityWarning, setCapacityWarning] = useState<string | null>(null);
 
-  // Recalculate price when form data changes
+  // Load all events on mount
   useEffect(() => {
-    if (!event) return;
+    const loadEvents = async () => {
+      const response = await apiService.getEvents();
+      if (response.success && response.data) {
+        setAllEvents(response.data);
+      }
+    };
+    loadEvents();
+  }, []);
 
-    const calculation = priceService.calculatePrice(event, {
+  // Update selected event when eventId changes
+  useEffect(() => {
+    const newEvent = allEvents.find(e => e.id === selectedEventId);
+    setSelectedEvent(newEvent);
+  }, [selectedEventId, allEvents]);
+
+  // Recalculate price when form data OR selected event changes
+  useEffect(() => {
+    if (!selectedEvent) return;
+
+    const calculation = priceService.calculatePrice(selectedEvent, {
       numberOfPersons: formData.numberOfPersons,
       arrangement: formData.arrangement,
       preDrink: formData.preDrink,
@@ -117,13 +143,13 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
 
     // Check capacity
     checkCapacity();
-  }, [formData, event]);
+  }, [formData, selectedEvent]);
 
   const checkCapacity = async () => {
-    if (!event) return;
+    if (!selectedEvent) return;
 
     try {
-      const response = await apiService.getReservationsByEvent(event.id);
+      const response = await apiService.getReservationsByEvent(selectedEvent.id);
       if (response.success && response.data) {
         const confirmedReservations = response.data.filter(
           r => r.id !== reservation.id && (r.status === 'confirmed' || r.status === 'pending')
@@ -131,11 +157,11 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
         const currentBooked = confirmedReservations.reduce((sum, r) => sum + r.numberOfPersons, 0);
         const newTotal = currentBooked + formData.numberOfPersons;
 
-        if (newTotal > event.capacity) {
-          const over = newTotal - event.capacity;
+        if (newTotal > selectedEvent.capacity) {
+          const over = newTotal - selectedEvent.capacity;
           setCapacityWarning(
             `⚠️ WAARSCHUWING: Dit overschrijdt de eventcapaciteit met ${over} personen! ` +
-            `(Huidig: ${currentBooked}, Nieuw totaal: ${newTotal}, Capaciteit: ${event.capacity})`
+            `(Huidig: ${currentBooked}, Nieuw totaal: ${newTotal}, Capaciteit: ${selectedEvent.capacity})`
           );
         } else {
           setCapacityWarning(null);
@@ -187,8 +213,8 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
       return;
     }
 
-    if (!formData.companyName.trim() || !formData.contactPerson.trim() || !formData.email.trim()) {
-      alert('Bedrijfsnaam, contactpersoon en email zijn verplicht');
+    if (!formData.contactPerson.trim() || !formData.email.trim()) {
+      alert('Contactpersoon en email zijn verplicht');
       return;
     }
 
@@ -202,7 +228,10 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
       const updateData: Partial<Reservation> = {
         ...formData,
         salutation: formData.salutation as any,
+        eventId: selectedEventId, // Update event if changed
+        eventDate: selectedEvent?.date || reservation.eventDate, // Update event date
         totalPrice: priceCalculation?.totalPrice || reservation.totalPrice,
+        pricingSnapshot: priceCalculation, // Update pricing snapshot with new event pricing
         updatedAt: new Date()
       };
 
@@ -259,6 +288,32 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
             </div>
           )}
 
+          {/* Event Selector - NIEUW! */}
+          <div className="card-theatre p-4">
+            <label className="block text-sm font-semibold text-white mb-3">
+              <svg className="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Evenement
+            </label>
+            <select
+              value={selectedEventId}
+              onChange={(e) => setSelectedEventId(e.target.value)}
+              className="w-full px-4 py-3 bg-dark-800 border-2 border-gold-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold-500"
+            >
+              {allEvents.map((evt) => (
+                <option key={evt.id} value={evt.id}>
+                  {formatDate(evt.date)} - {evt.type} - {evt.capacity} personen
+                </option>
+              ))}
+            </select>
+            {selectedEventId !== reservation.eventId && (
+              <div className="mt-2 p-2 bg-blue-500/20 border border-blue-500/30 rounded text-sm text-blue-300">
+                ⚠️ Event gewijzigd! Prijzen worden automatisch herberekend op basis van nieuwe event prijzen.
+              </div>
+            )}
+          </div>
+
           {/* Number of Persons */}
           <div className="card-theatre p-4">
             <label className="block text-sm font-semibold text-white mb-3">
@@ -269,7 +324,20 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
               type="number"
               min="1"
               value={formData.numberOfPersons}
-              onChange={(e) => setFormData({ ...formData, numberOfPersons: parseInt(e.target.value) || 1 })}
+              onChange={(e) => {
+                const newCount = parseInt(e.target.value) || 1;
+                setFormData({ 
+                  ...formData, 
+                  numberOfPersons: newCount,
+                  // Auto-sync borrel quantities
+                  preDrink: formData.preDrink.enabled 
+                    ? { ...formData.preDrink, quantity: newCount }
+                    : formData.preDrink,
+                  afterParty: formData.afterParty.enabled
+                    ? { ...formData.afterParty, quantity: newCount }
+                    : formData.afterParty
+                });
+              }}
               className="w-full px-4 py-3 bg-dark-800 border-2 border-gold-500/20 rounded-lg text-white text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-gold-500"
             />
           </div>
@@ -283,10 +351,10 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
                   key={arr}
                   onClick={() => setFormData({ ...formData, arrangement: arr })}
                   className={cn(
-                    'p-4 rounded-lg border-2 transition-all',
+                    'p-4 rounded-lg border-2 transition-all font-semibold',
                     formData.arrangement === arr
-                      ? 'bg-gold-500 border-gold-600 text-white shadow-lg'
-                      : 'bg-dark-800 border-gold-500/20 text-neutral-300 hover:border-gold-500/40'
+                      ? 'bg-gold-500 border-gold-600 text-white shadow-xl shadow-gold-500/30 scale-105'
+                      : 'bg-dark-800 border-gold-500/20 text-neutral-300 hover:border-gold-500/40 hover:bg-dark-700'
                   )}
                 >
                   <p className="font-semibold">{nl.arrangements[arr]}</p>
@@ -376,6 +444,36 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
             </div>
           </div>
 
+          {/* Promo & Voucher Codes */}
+          <div className="card-theatre p-4">
+            <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+              <Tag className="w-5 h-5 text-gold-500" />
+              Kortingscodes
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-neutral-300 mb-2">Promocode</label>
+                <input
+                  type="text"
+                  value={formData.promotionCode}
+                  onChange={(e) => setFormData({ ...formData, promotionCode: e.target.value.toUpperCase() })}
+                  className="w-full px-4 py-2 bg-dark-800 border border-gold-500/30 rounded text-white uppercase"
+                  placeholder="PROMO2024"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-neutral-300 mb-2">Vouchercode</label>
+                <input
+                  type="text"
+                  value={formData.voucherCode}
+                  onChange={(e) => setFormData({ ...formData, voucherCode: e.target.value.toUpperCase() })}
+                  className="w-full px-4 py-2 bg-dark-800 border border-gold-500/30 rounded text-white uppercase"
+                  placeholder="VOUCHER123"
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Merchandise */}
           {merchandiseItems.length > 0 && (
             <div className="card-theatre p-4">
@@ -457,13 +555,12 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <div>
-                <label className="block text-sm text-neutral-300 mb-2">Bedrijfsnaam *</label>
+                <label className="block text-sm text-neutral-300 mb-2">Bedrijfsnaam (optioneel)</label>
                 <input
                   type="text"
-                  value={formData.companyName}
+                  value={formData.companyName || ''}
                   onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
                   className="w-full px-4 py-2 bg-dark-800 border border-gold-500/30 rounded text-white"
-                  required
                 />
               </div>
               <div>
@@ -668,215 +765,28 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
             </div>
           </div>
 
-          {/* Dietary Requirements - BEWERKBAAR */}
+          {/* Dietary Requirements - SIMPEL */}
           <div className="card-theatre p-4">
-            <label className="flex items-center gap-2 text-sm font-semibold text-white mb-4">
+            <label className="flex items-center gap-2 text-sm font-semibold text-white mb-3">
               <span className="text-xl">🍽️</span>
               Dieetwensen & Allergieën
             </label>
-            <div className="space-y-4">
-              {/* Vegetarian */}
-              <div className="p-3 bg-dark-800/50 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span>🥗</span>
-                    <span className="font-medium text-white">Vegetarisch</span>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.dietaryRequirements.vegetarian}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        dietaryRequirements: {
-                          ...formData.dietaryRequirements,
-                          vegetarian: e.target.checked,
-                          vegetarianCount: e.target.checked ? formData.dietaryRequirements.vegetarianCount || 1 : 0
-                        }
-                      })}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-neutral-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-500/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
-                  </label>
-                </div>
-                {formData.dietaryRequirements.vegetarian && (
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.dietaryRequirements.vegetarianCount || 0}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      dietaryRequirements: {
-                        ...formData.dietaryRequirements,
-                        vegetarianCount: parseInt(e.target.value) || 0
-                      }
-                    })}
-                    className="w-full mt-2 px-3 py-2 bg-dark-800 border border-emerald-500/30 rounded text-white"
-                    placeholder="Aantal personen"
-                  />
-                )}
-              </div>
-
-              {/* Vegan */}
-              <div className="p-3 bg-dark-800/50 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span>🌱</span>
-                    <span className="font-medium text-white">Vegan</span>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.dietaryRequirements.vegan}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        dietaryRequirements: {
-                          ...formData.dietaryRequirements,
-                          vegan: e.target.checked,
-                          veganCount: e.target.checked ? formData.dietaryRequirements.veganCount || 1 : 0
-                        }
-                      })}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-neutral-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-500/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-                  </label>
-                </div>
-                {formData.dietaryRequirements.vegan && (
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.dietaryRequirements.veganCount || 0}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      dietaryRequirements: {
-                        ...formData.dietaryRequirements,
-                        veganCount: parseInt(e.target.value) || 0
-                      }
-                    })}
-                    className="w-full mt-2 px-3 py-2 bg-dark-800 border border-green-500/30 rounded text-white"
-                    placeholder="Aantal personen"
-                  />
-                )}
-              </div>
-
-              {/* Gluten Free */}
-              <div className="p-3 bg-dark-800/50 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span>🌾</span>
-                    <span className="font-medium text-white">Glutenvrij</span>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.dietaryRequirements.glutenFree}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        dietaryRequirements: {
-                          ...formData.dietaryRequirements,
-                          glutenFree: e.target.checked,
-                          glutenFreeCount: e.target.checked ? formData.dietaryRequirements.glutenFreeCount || 1 : 0
-                        }
-                      })}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-neutral-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-500/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
-                  </label>
-                </div>
-                {formData.dietaryRequirements.glutenFree && (
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.dietaryRequirements.glutenFreeCount || 0}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      dietaryRequirements: {
-                        ...formData.dietaryRequirements,
-                        glutenFreeCount: parseInt(e.target.value) || 0
-                      }
-                    })}
-                    className="w-full mt-2 px-3 py-2 bg-dark-800 border border-amber-500/30 rounded text-white"
-                    placeholder="Aantal personen"
-                  />
-                )}
-              </div>
-
-              {/* Lactose Free */}
-              <div className="p-3 bg-dark-800/50 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span>🥛</span>
-                    <span className="font-medium text-white">Lactosevrij</span>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.dietaryRequirements.lactoseFree}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        dietaryRequirements: {
-                          ...formData.dietaryRequirements,
-                          lactoseFree: e.target.checked,
-                          lactoseFreeCount: e.target.checked ? formData.dietaryRequirements.lactoseFreeCount || 1 : 0
-                        }
-                      })}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-neutral-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-500/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
-                  </label>
-                </div>
-                {formData.dietaryRequirements.lactoseFree && (
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.dietaryRequirements.lactoseFreeCount || 0}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      dietaryRequirements: {
-                        ...formData.dietaryRequirements,
-                        lactoseFreeCount: parseInt(e.target.value) || 0
-                      }
-                    })}
-                    className="w-full mt-2 px-3 py-2 bg-dark-800 border border-blue-500/30 rounded text-white"
-                    placeholder="Aantal personen"
-                  />
-                )}
-              </div>
-
-              {/* Other Dietary Requirements */}
-              <div className="p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
-                <label className="block text-sm text-orange-200 font-medium mb-2">Overige wensen of allergieën</label>
-                <textarea
-                  value={formData.dietaryRequirements.other}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    dietaryRequirements: {
-                      ...formData.dietaryRequirements,
-                      other: e.target.value
-                    }
-                  })}
-                  className="w-full px-3 py-2 bg-dark-800 border border-orange-500/30 rounded text-white resize-none mb-2"
-                  rows={2}
-                  placeholder="Andere dieetwensen of allergieën..."
-                />
-                {formData.dietaryRequirements.other && (
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.dietaryRequirements.otherCount || 0}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      dietaryRequirements: {
-                        ...formData.dietaryRequirements,
-                        otherCount: parseInt(e.target.value) || 0
-                      }
-                    })}
-                    className="w-full px-3 py-2 bg-dark-800 border border-orange-500/30 rounded text-white"
-                    placeholder="Aantal personen"
-                  />
-                )}
-              </div>
-            </div>
+            <textarea
+              value={formData.dietaryRequirements.other || ''}
+              onChange={(e) => setFormData({
+                ...formData,
+                dietaryRequirements: {
+                  ...formData.dietaryRequirements,
+                  other: e.target.value
+                }
+              })}
+              className="w-full px-4 py-3 bg-dark-800 border-2 border-gold-500/20 rounded-lg text-white resize-none focus:outline-none focus:ring-2 focus:ring-gold-500"
+              rows={4}
+              placeholder="Bijv: 3 vegetarisch, 2 glutenvrij, 1 noten allergie..."
+            />
+            <p className="text-xs text-neutral-400 mt-2">
+              Typ hier alle dieetwensen en allergieën voor deze reservering
+            </p>
           </div>
 
           {/* Comments */}

@@ -43,7 +43,9 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
       discountCode,
       priceCalculation.subtotal,
       selectedEvent,
-      formData.arrangement
+      formData.arrangement,
+      formData.numberOfPersons || 0,
+      1 // numberOfArrangements - currently always 1
     );
 
     if (promoResult.isValid) {

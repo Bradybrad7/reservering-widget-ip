@@ -32,14 +32,16 @@ export const defaultConfig: GlobalConfig = {
 } as const;
 
 // Default pricing structure
+// NOTE: These are fallback values. Actual pricing should be configured via admin panel.
+// Keys should match event type keys (e.g., 'weekday', 'weekend', 'matinee', 'care_heroes')
 export const defaultPricing: Pricing = {
   byDayType: {
-    weekday: { BWF: 70, BWFM: 85 },    // zo–do
-    weekend: { BWF: 80, BWFM: 95 },    // vr–za
-    matinee: { BWF: 70, BWFM: 85 },    // aanpasbaar
-    careHeroes: { BWF: 65, BWFM: 80 }
+    'weekday': { BWF: 70, BWFM: 85 },      // Doordeweeks (zo–do)
+    'weekend': { BWF: 80, BWFM: 95 },      // Weekend (vr–za)
+    'matinee': { BWF: 70, BWFM: 85 },      // Matinee voorstellingen
+    'care_heroes': { BWF: 65, BWFM: 80 }   // Zorgzame Helden korting
   }
-} as const;
+};
 
 // Default add-ons
 export const defaultAddOns: AddOns = {
@@ -319,7 +321,7 @@ export const nl = {
   // Form fields
   form: {
     companyName: {
-      label: 'Bedrijfsnaam',
+      label: 'Bedrijfsnaam (optioneel)',
       placeholder: 'Vul uw bedrijfsnaam in'
     },
     salutation: {
@@ -468,11 +470,22 @@ export const nl = {
 
 // Utility functions
 export const getEventTypeColor = (type: EventType): string => {
-  return defaultConfig.colors[type];
+  // For backwards compatibility, try defaultConfig.colors first
+  // Otherwise return a default color
+  return (defaultConfig.colors as any)[type] || defaultConfig.colors.REGULAR || '#FFD700';
 };
 
 export const getEventTypeName = (type: EventType): string => {
-  return nl.eventTypes[type];
+  // For backwards compatibility, try nl.eventTypes first
+  // Otherwise return the type key in a readable format
+  const translatedName = (nl.eventTypes as any)[type];
+  if (translatedName) return translatedName;
+  
+  // Convert kebab-case or snake_case to Title Case
+  return type
+    .split(/[-_]/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
 };
 
 export const formatCurrency = (amount: number, locale = defaultConfig.locale): string => {

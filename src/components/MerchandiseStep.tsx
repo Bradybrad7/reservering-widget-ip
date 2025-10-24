@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Plus, Minus, ShoppingBag, ArrowRight, ArrowLeft } from 'lucide-react';
+import { ShoppingBag, ArrowRight, ArrowLeft } from 'lucide-react';
 import { useAdminStore } from '../store/adminStore';
 import { useReservationStore } from '../store/reservationStore';
 import { formatCurrency, cn } from '../utils';
@@ -130,36 +130,24 @@ const MerchandiseStep: React.FC = () => {
 
                 {/* Quantity Controls */}
                 <div className="flex items-center justify-between mt-4 pt-4 border-t border-neutral-700">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleQuantityChange(item.id, quantity - 1)}
-                      disabled={quantity === 0}
-                      className={cn(
-                        'p-2 rounded-lg transition-all',
-                        quantity > 0
-                          ? 'bg-neutral-700 hover:bg-neutral-600 text-white'
-                          : 'bg-neutral-800 text-neutral-600 cursor-not-allowed'
-                      )}
-                    >
-                      <Minus className="w-5 h-5" />
-                    </button>
-
-                    <span className="w-14 text-center font-bold text-white text-xl">
-                      {quantity}
-                    </span>
-
-                    <button
-                      onClick={() => handleQuantityChange(item.id, quantity + 1)}
+                  <div className="flex items-center gap-3">
+                    <label htmlFor={`merch-${item.id}`} className="text-sm text-neutral-400">
+                      Aantal:
+                    </label>
+                    <input
+                      id={`merch-${item.id}`}
+                      type="number"
+                      min="0"
+                      max="99"
+                      value={quantity}
+                      onChange={(e) => {
+                        const newValue = parseInt(e.target.value) || 0;
+                        handleQuantityChange(item.id, Math.max(0, Math.min(99, newValue)));
+                      }}
+                      className="w-20 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-center font-bold focus:outline-none focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+                      placeholder="0"
                       disabled={!item.inStock}
-                      className={cn(
-                        'p-2 rounded-lg transition-all',
-                        !item.inStock
-                          ? 'bg-neutral-800 text-neutral-600 cursor-not-allowed'
-                          : 'bg-gold-500 hover:bg-gold-600 text-dark-900 shadow-lg hover:shadow-xl'
-                      )}
-                    >
-                      <Plus className="w-5 h-5" />
-                    </button>
+                    />
                   </div>
 
                   {quantity > 0 && (

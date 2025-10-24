@@ -418,7 +418,7 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
         if (filters.searchTerm) {
           const term = filters.searchTerm.toLowerCase();
           return (
-            reservation.companyName.toLowerCase().includes(term) ||
+            (reservation.companyName && reservation.companyName.toLowerCase().includes(term)) ||
             reservation.contactPerson.toLowerCase().includes(term) ||
             reservation.email.toLowerCase().includes(term) ||
             reservation.id.toLowerCase().includes(term)

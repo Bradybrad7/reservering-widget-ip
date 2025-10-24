@@ -2,22 +2,25 @@ import type {
   Event,
   EventType,
   Arrangement,
-  DayType,
   PriceCalculation,
-  CustomerFormData
+  CustomerFormData,
+  Pricing
 } from '../types';
 import { defaultPricing, defaultAddOns, defaultMerchandise } from '../config/defaults';
 import { promotionService } from './promotionService';
+import { localStorageService } from './localStorageService';
 
-// Determine day type for pricing
-export const getDayType = (date: Date, eventType: EventType): DayType => {
-  if (eventType === 'CARE_HEROES') return 'careHeroes';
-  if (eventType === 'MATINEE') return 'matinee';
-  
-  const dayOfWeek = date.getDay();
-  const isWeekendDay = dayOfWeek === 5 || dayOfWeek === 6; // Friday or Saturday
-  
-  return isWeekendDay ? 'weekend' : 'weekday';
+// Get current pricing (from API/localStorage or fallback to defaults)
+const getCurrentPricing = (): Pricing => {
+  const storedPricing = localStorageService.getPricing();
+  return storedPricing || defaultPricing;
+};
+
+// Determine day type for pricing (now uses event type key directly)
+export const getDayType = (_date: Date, eventType: EventType): string => {
+  // The eventType key is now used directly as the pricing key
+  // This maps to the dynamic pricing structure
+  return eventType.toLowerCase();
 };
 
 // Get arrangement price for a specific event
@@ -30,9 +33,22 @@ export const getArrangementPrice = (
     return event.customPricing[arrangement]!;
   }
   
-  // Use default pricing based on day type
-  const dayType = getDayType(event.date, event.type);
-  return defaultPricing.byDayType[dayType][arrangement];
+  // Get current pricing configuration
+  const pricing = getCurrentPricing();
+  
+  // Use pricing based on event type
+  const dayTypeKey = getDayType(event.date, event.type);
+  
+  // Get pricing from the dynamic byDayType object
+  const pricingForType = pricing.byDayType[dayTypeKey];
+  
+  // Fallback to 0 if pricing not found (should be configured in admin)
+  if (!pricingForType) {
+    console.warn(`⚠️ No pricing found for event type: ${dayTypeKey}. Please configure pricing in admin panel.`);
+    return 0;
+  }
+  
+  return pricingForType[arrangement];
 };
 
 // Calculate total price for a reservation
@@ -87,7 +103,9 @@ export const calculatePrice = (
       promotionCode,
       subtotal,
       event,
-      arrangement
+      arrangement,
+      numberOfPersons,
+      1 // numberOfArrangements - currently always 1
     );
     if (promoResult.isValid && promoResult.discountAmount) {
       discountAmount += promoResult.discountAmount;
@@ -181,7 +199,58 @@ export const calculatePrice = (
   };
 };
 
-// Validate add-on quantities
+// ✨ NEW: Create pricing snapshot for reservation
+// This captures all pricing details at time of booking to protect against future price changes
+export const createPricingSnapshot = (
+  event: Event,
+  formData: Partial<CustomerFormData>,
+  calculation: PriceCalculation,
+  _promotionCode?: string,
+  voucherCode?: string
+) => {
+  const {
+    numberOfPersons = 0,
+    arrangement = 'BWF',
+    preDrink = { enabled: false, quantity: 0 },
+    afterParty = { enabled: false, quantity: 0 }
+  } = formData;
+
+  const pricePerPerson = getArrangementPrice(event, arrangement);
+
+  return {
+    basePrice: pricePerPerson,
+    pricePerPerson: pricePerPerson,
+    numberOfPersons: numberOfPersons,
+    arrangement: arrangement,
+    arrangementTotal: calculation.basePrice,
+    preDrinkPrice: preDrink.enabled ? defaultAddOns.preDrink.pricePerPerson : undefined,
+    preDrinkTotal: calculation.preDrinkTotal > 0 ? calculation.preDrinkTotal : undefined,
+    afterPartyPrice: afterParty.enabled ? defaultAddOns.afterParty.pricePerPerson : undefined,
+    afterPartyTotal: calculation.afterPartyTotal > 0 ? calculation.afterPartyTotal : undefined,
+    merchandiseTotal: calculation.merchandiseTotal > 0 ? calculation.merchandiseTotal : undefined,
+    subtotal: calculation.subtotal,
+    discountAmount: (calculation.discountAmount || 0) > 0 ? calculation.discountAmount : undefined,
+    discountDescription: calculation.breakdown?.discount?.description,
+    voucherAmount: voucherCode && (calculation.discountAmount || 0) > 0 ? calculation.discountAmount : undefined,
+    finalTotal: calculation.totalPrice,
+    calculatedAt: new Date()
+  };
+};
+
+// ✨ NEW: Get display price for a reservation
+// IMPORTANT: Always use the stored pricingSnapshot if available, not current prices
+// This ensures price changes don't affect existing reservations
+export const getReservationDisplayPrice = (reservation: any): number => {
+  // Use pricingSnapshot if available (post-implementation)
+  if (reservation.pricingSnapshot?.finalTotal !== undefined) {
+    return reservation.pricingSnapshot.finalTotal;
+  }
+  
+  // Fallback to totalPrice (legacy reservations)
+  return reservation.totalPrice || 0;
+};
+
+// Validate add-ons
 export const validateAddOns = (formData: Partial<CustomerFormData>) => {
   const errors: string[] = [];
 
@@ -215,6 +284,8 @@ export const priceService = {
   getDayType,
   getArrangementPrice,
   calculatePrice,
+  createPricingSnapshot,
+  getReservationDisplayPrice,
   validateAddOns,
   isArrangementAvailable,
   getAvailableArrangements

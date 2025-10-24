@@ -24,7 +24,9 @@ export const PricingConfigManager: React.FC = () => {
     deleteShow,
     eventTypesConfig,
     loadConfig,
+    updateEventTypesConfig,
     pricing,
+    updatePricing,
     isLoadingShows 
   } = useAdminStore();
 
@@ -32,6 +34,7 @@ export const PricingConfigManager: React.FC = () => {
   const [editingShow, setEditingShow] = useState<Show | null>(null);
   const [editingType, setEditingType] = useState<EventTypeConfig | null>(null);
   const [isAddingShow, setIsAddingShow] = useState(false);
+  const [isAddingType, setIsAddingType] = useState(false);
 
   // New show form
   const [newShow, setNewShow] = useState({
@@ -43,6 +46,20 @@ export const PricingConfigManager: React.FC = () => {
 
   // Pricing state
   const [editingPricing, setEditingPricing] = useState<Pricing | null>(null);
+
+  // New event type form
+  const [newEventType, setNewEventType] = useState<Partial<EventTypeConfig>>({
+    name: '',
+    description: '',
+    color: '#FFD700',
+    enabled: true,
+    showOnCalendar: true,
+    defaultTimes: {
+      doorsOpen: '18:00',
+      startsAt: '19:00',
+      endsAt: '22:00'
+    }
+  });
 
   useEffect(() => {
     loadShows();
@@ -94,14 +111,105 @@ export const PricingConfigManager: React.FC = () => {
   };
 
   const saveEventType = async () => {
-    if (!editingType) return;
-    // TODO: Implement API call to save event type config
-    console.log('Saving event type:', editingType);
-    setEditingType(null);
+    if (!editingType || !eventTypesConfig) return;
+    
+    // Update the event type in the config
+    const updatedTypes = eventTypesConfig.types.map(type => 
+      type.key === editingType.key ? editingType : type
+    );
+    
+    const success = await updateEventTypesConfig({
+      types: updatedTypes
+    });
+    
+    if (success) {
+      setEditingType(null);
+      await loadConfig(); // Reload to get fresh data
+    } else {
+      alert('Fout bij opslaan van event type');
+    }
+  };
+
+  const handleCreateEventType = async () => {
+    if (!newEventType.key || !newEventType.name || !eventTypesConfig) {
+      alert('Key en naam zijn verplicht');
+      return;
+    }
+    
+    // Check if key already exists
+    if (eventTypesConfig.types.some(type => type.key === newEventType.key)) {
+      alert('Deze key bestaat al');
+      return;
+    }
+    
+    // Add event type
+    const success = await updateEventTypesConfig({
+      types: [...eventTypesConfig.types, newEventType as EventTypeConfig]
+    });
+    
+    if (success) {
+      // Also add default pricing for this new event type
+      if (pricing) {
+        const updatedPricing = {
+          ...pricing,
+          byDayType: {
+            ...pricing.byDayType,
+            [newEventType.key]: {
+              BWF: 0,
+              BWFM: 0
+            }
+          }
+        };
+        
+        await updatePricing(updatedPricing);
+      }
+      
+      setIsAddingType(false);
+      setNewEventType({
+        name: '',
+        description: '',
+        color: '#FFD700',
+        enabled: true,
+        showOnCalendar: true,
+        defaultTimes: {
+          doorsOpen: '18:00',
+          startsAt: '19:00',
+          endsAt: '22:00'
+        }
+      });
+      await loadConfig();
+    } else {
+      alert('Fout bij toevoegen van event type');
+    }
+  };
+
+  const handleDeleteEventType = async (key: string) => {
+    if (!eventTypesConfig) return;
+    
+    if (confirm(`Weet je zeker dat je dit event type wilt verwijderen?`)) {
+      const updatedTypes = eventTypesConfig.types.filter(type => type.key !== key);
+      
+      const success = await updateEventTypesConfig({
+        types: updatedTypes
+      });
+      
+      if (success) {
+        // Also remove pricing for this event type
+        if (pricing && pricing.byDayType[key]) {
+          const updatedPricing = { ...pricing };
+          delete updatedPricing.byDayType[key];
+          await updatePricing(updatedPricing);
+        }
+        
+        await loadConfig();
+      } else {
+        alert('Fout bij verwijderen van event type');
+      }
+    }
   };
 
   // ==================== PRICING BEHEER ====================
-  const updatePrice = (dayType: keyof Pricing['byDayType'], arrangement: 'BWF' | 'BWFM', value: number) => {
+  const updatePrice = (dayType: string, arrangement: 'BWF' | 'BWFM', value: number) => {
     if (!editingPricing) return;
     
     setEditingPricing({
@@ -118,8 +226,15 @@ export const PricingConfigManager: React.FC = () => {
 
   const savePricing = async () => {
     if (!editingPricing) return;
-    // TODO: Implement API call to save pricing
-    console.log('Saving pricing:', editingPricing);
+    
+    const success = await updatePricing(editingPricing);
+    
+    if (success) {
+      alert('Prijzen succesvol opgeslagen');
+      await loadConfig();
+    } else {
+      alert('Fout bij opslaan van prijzen');
+    }
   };
 
   // ==================== RENDERS ====================
@@ -343,8 +458,172 @@ export const PricingConfigManager: React.FC = () => {
 
   const renderEventTypes = () => (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-white">Evenement Types & Tijden</h3>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-white">Evenement Types & Tijden</h3>
+        <button
+          onClick={() => setIsAddingType(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-gold-500 hover:bg-gold-600 text-white rounded-lg transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          Nieuw Event Type
+        </button>
+      </div>
+
+      {/* Add New Event Type Form */}
+      {isAddingType && (
+        <div className="bg-neutral-800/50 rounded-lg p-6 space-y-4">
+          <h4 className="text-white font-medium">Nieuw Event Type Toevoegen</h4>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-2">
+                Key (unieke identifier)
+              </label>
+              <input
+                type="text"
+                value={newEventType.key || ''}
+                onChange={(e) => setNewEventType({ ...newEventType, key: e.target.value as any })}
+                className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white font-mono"
+                placeholder="bijv. special-event"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-2">
+                Naam
+              </label>
+              <input
+                type="text"
+                value={newEventType.name || ''}
+                onChange={(e) => setNewEventType({ ...newEventType, name: e.target.value })}
+                className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white"
+                placeholder="Bijv. Speciaal Evenement"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-2">
+                Beschrijving
+              </label>
+              <input
+                type="text"
+                value={newEventType.description || ''}
+                onChange={(e) => setNewEventType({ ...newEventType, description: e.target.value })}
+                className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white"
+                placeholder="Korte beschrijving..."
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-2">
+                Kleur
+              </label>
+              <input
+                type="color"
+                value={newEventType.color || '#FFD700'}
+                onChange={(e) => setNewEventType({ ...newEventType, color: e.target.value })}
+                className="w-full h-10 px-2 bg-neutral-700 border border-neutral-600 rounded-lg"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-2">
+                Deuren Open
+              </label>
+              <input
+                type="time"
+                value={newEventType.defaultTimes?.doorsOpen || '18:00'}
+                onChange={(e) => setNewEventType({
+                  ...newEventType,
+                  defaultTimes: { ...newEventType.defaultTimes!, doorsOpen: e.target.value }
+                })}
+                className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-2">
+                Start Tijd
+              </label>
+              <input
+                type="time"
+                value={newEventType.defaultTimes?.startsAt || '19:00'}
+                onChange={(e) => setNewEventType({
+                  ...newEventType,
+                  defaultTimes: { ...newEventType.defaultTimes!, startsAt: e.target.value }
+                })}
+                className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-neutral-300 mb-2">
+                Eind Tijd
+              </label>
+              <input
+                type="time"
+                value={newEventType.defaultTimes?.endsAt || '22:00'}
+                onChange={(e) => setNewEventType({
+                  ...newEventType,
+                  defaultTimes: { ...newEventType.defaultTimes!, endsAt: e.target.value }
+                })}
+                className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="newTypeEnabled"
+                checked={newEventType.enabled ?? true}
+                onChange={(e) => setNewEventType({ ...newEventType, enabled: e.target.checked })}
+                className="w-4 h-4 rounded border-neutral-600"
+              />
+              <label htmlFor="newTypeEnabled" className="text-sm text-neutral-300">
+                Ingeschakeld
+              </label>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="newTypeCalendar"
+                checked={newEventType.showOnCalendar ?? true}
+                onChange={(e) => setNewEventType({ ...newEventType, showOnCalendar: e.target.checked })}
+                className="w-4 h-4 rounded border-neutral-600"
+              />
+              <label htmlFor="newTypeCalendar" className="text-sm text-neutral-300">
+                Toon op kalender
+              </label>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={handleCreateEventType}
+              className="flex items-center gap-2 px-4 py-2 bg-gold-500 hover:bg-gold-600 text-white rounded-lg transition-colors"
+            >
+              <Save className="w-4 h-4" />
+              Opslaan
+            </button>
+            <button
+              onClick={() => setIsAddingType(false)}
+              className="px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg transition-colors"
+            >
+              Annuleren
+            </button>
+          </div>
+        </div>
+      )}
       
+      {/* Event Types List */}
       {eventTypesConfig?.types.map((type) => (
         <div
           key={type.key}
@@ -515,12 +794,20 @@ export const PricingConfigManager: React.FC = () => {
                 </div>
               </div>
               
-              <button
-                onClick={() => setEditingType(type)}
-                className="p-2 hover:bg-neutral-700 rounded-lg transition-colors"
-              >
-                <Edit className="w-4 h-4 text-neutral-400" />
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setEditingType(type)}
+                  className="p-2 hover:bg-neutral-700 rounded-lg transition-colors"
+                >
+                  <Edit className="w-4 h-4 text-neutral-400" />
+                </button>
+                <button
+                  onClick={() => handleDeleteEventType(type.key)}
+                  className="p-2 hover:bg-neutral-700 rounded-lg transition-colors"
+                >
+                  <Trash2 className="w-4 h-4 text-red-400" />
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -529,19 +816,41 @@ export const PricingConfigManager: React.FC = () => {
   );
 
   const renderPricing = () => {
-    if (!editingPricing) return <div className="text-neutral-400">Laden...</div>;
+    if (!editingPricing || !eventTypesConfig) return <div className="text-neutral-400">Laden...</div>;
 
-    const dayTypes = [
-      { key: 'weekday' as const, label: 'Doordeweeks' },
-      { key: 'weekend' as const, label: 'Weekend' },
-      { key: 'matinee' as const, label: 'Matinee' },
-      { key: 'careHeroes' as const, label: 'Zorgzame Helden' }
-    ];
+    // Use event types from config as day types
+    const dayTypes = eventTypesConfig.types
+      .filter(type => type.enabled)
+      .map(type => ({
+        key: type.key,
+        label: type.name,
+        color: type.color
+      }));
+
+    // Ensure all event types have pricing entries
+    const ensurePricingEntries = () => {
+      const updatedPricing = { ...editingPricing };
+      
+      dayTypes.forEach(dayType => {
+        if (!updatedPricing.byDayType[dayType.key]) {
+          updatedPricing.byDayType[dayType.key] = {
+            BWF: 0,
+            BWFM: 0
+          };
+        }
+      });
+      
+      if (JSON.stringify(updatedPricing) !== JSON.stringify(editingPricing)) {
+        setEditingPricing(updatedPricing);
+      }
+    };
+
+    ensurePricingEntries();
 
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white">Prijzen per Dag Type</h3>
+          <h3 className="text-lg font-semibold text-white">Prijzen per Event Type</h3>
           <button
             onClick={savePricing}
             className="flex items-center gap-2 px-4 py-2 bg-gold-500 hover:bg-gold-600 text-white rounded-lg transition-colors"
@@ -551,60 +860,79 @@ export const PricingConfigManager: React.FC = () => {
           </button>
         </div>
 
-        <div className="bg-neutral-800/50 rounded-lg overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-neutral-900/50">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-neutral-300">
-                  Dag Type
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-neutral-300">
-                  BWF (Standaard)
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-neutral-300">
-                  BWFM (Deluxe)
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-700">
-              {dayTypes.map((dayType) => (
-                <tr key={dayType.key} className="hover:bg-neutral-700/30">
-                  <td className="px-4 py-3 text-white font-medium">
-                    {dayType.label}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-neutral-400">€</span>
-                      <input
-                        type="number"
-                        value={editingPricing.byDayType[dayType.key].BWF}
-                        onChange={(e) => updatePrice(dayType.key, 'BWF', parseFloat(e.target.value))}
-                        className="w-24 px-3 py-1.5 bg-neutral-700 border border-neutral-600 rounded-lg text-white"
-                        step="0.50"
-                        min="0"
-                      />
-                      <span className="text-neutral-400 text-sm">per persoon</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-neutral-400">€</span>
-                      <input
-                        type="number"
-                        value={editingPricing.byDayType[dayType.key].BWFM}
-                        onChange={(e) => updatePrice(dayType.key, 'BWFM', parseFloat(e.target.value))}
-                        className="w-24 px-3 py-1.5 bg-neutral-700 border border-neutral-600 rounded-lg text-white"
-                        step="0.50"
-                        min="0"
-                      />
-                      <span className="text-neutral-400 text-sm">per persoon</span>
-                    </div>
-                  </td>
+        {dayTypes.length === 0 ? (
+          <div className="bg-neutral-800/50 rounded-lg p-8 text-center">
+            <Calendar className="w-12 h-12 text-neutral-600 mx-auto mb-3" />
+            <p className="text-neutral-400">
+              Geen actieve event types gevonden. Voeg eerst event types toe.
+            </p>
+          </div>
+        ) : (
+          <div className="bg-neutral-800/50 rounded-lg overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-neutral-900/50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-neutral-300">
+                    Event Type
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-neutral-300">
+                    BWF (Standaard)
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-neutral-300">
+                    BWFM (Deluxe)
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-neutral-700">
+                {dayTypes.map((dayType) => {
+                  const pricing = editingPricing.byDayType[dayType.key] || { BWF: 0, BWFM: 0 };
+                  
+                  return (
+                    <tr key={dayType.key} className="hover:bg-neutral-700/30">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-3 h-3 rounded"
+                            style={{ backgroundColor: dayType.color }}
+                          />
+                          <span className="text-white font-medium">{dayType.label}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-neutral-400">€</span>
+                          <input
+                            type="number"
+                            value={pricing.BWF}
+                            onChange={(e) => updatePrice(dayType.key, 'BWF', parseFloat(e.target.value) || 0)}
+                            className="w-24 px-3 py-1.5 bg-neutral-700 border border-neutral-600 rounded-lg text-white"
+                            step="0.50"
+                            min="0"
+                          />
+                          <span className="text-neutral-400 text-sm">per persoon</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-neutral-400">€</span>
+                          <input
+                            type="number"
+                            value={pricing.BWFM}
+                            onChange={(e) => updatePrice(dayType.key, 'BWFM', parseFloat(e.target.value) || 0)}
+                            className="w-24 px-3 py-1.5 bg-neutral-700 border border-neutral-600 rounded-lg text-white"
+                            step="0.50"
+                            min="0"
+                          />
+                          <span className="text-neutral-400 text-sm">per persoon</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
           <p className="text-sm text-blue-300">

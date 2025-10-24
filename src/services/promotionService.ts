@@ -19,7 +19,7 @@ export interface DiscountResult {
   isValid: boolean;
   errorMessage?: string;
   discountAmount?: number;
-  discountType?: 'percentage' | 'fixed';
+  discountType?: 'percentage' | 'fixed' | 'per_person' | 'per_arrangement';
   code?: PromotionCode | Voucher;
 }
 
@@ -36,7 +36,9 @@ class PromotionService {
     code: string,
     subtotal: number,
     event?: Event,
-    arrangement?: Arrangement
+    arrangement?: Arrangement,
+    numberOfPersons?: number,
+    numberOfArrangements?: number
   ): DiscountResult {
     const promotionCodes = this.getAllPromotionCodes();
     const promo = promotionCodes.find(
@@ -96,7 +98,12 @@ class PromotionService {
     }
 
     // Calculate discount
-    const discountAmount = this.calculatePromotionDiscount(promo, subtotal);
+    const discountAmount = this.calculatePromotionDiscount(
+      promo, 
+      subtotal, 
+      numberOfPersons || 0,
+      numberOfArrangements || 1
+    );
 
     return {
       isValid: true,
@@ -109,11 +116,29 @@ class PromotionService {
   /**
    * Calculate discount amount from promotion code
    */
-  private calculatePromotionDiscount(promo: PromotionCode, subtotal: number): number {
-    if (promo.type === 'percentage') {
-      return (subtotal * promo.value) / 100;
-    } else {
-      return Math.min(promo.value, subtotal); // Can't discount more than subtotal
+  private calculatePromotionDiscount(
+    promo: PromotionCode, 
+    subtotal: number,
+    numberOfPersons: number,
+    numberOfArrangements: number
+  ): number {
+    switch (promo.type) {
+      case 'percentage':
+        return (subtotal * promo.value) / 100;
+      
+      case 'fixed':
+        return Math.min(promo.value, subtotal);
+      
+      case 'per_person':
+        const perPersonDiscount = promo.value * numberOfPersons;
+        return Math.min(perPersonDiscount, subtotal);
+      
+      case 'per_arrangement':
+        const perArrangementDiscount = promo.value * numberOfArrangements;
+        return Math.min(perArrangementDiscount, subtotal);
+      
+      default:
+        return 0;
     }
   }
 

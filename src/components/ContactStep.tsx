@@ -7,6 +7,7 @@ import {
   validatePhone,
   formatPhone
 } from '../utils/validation';
+import { capitalizeName, capitalizeCompanyName } from '../utils/nameUtils';
 import Button from './ui/Button';
 
 /**
@@ -43,6 +44,16 @@ export const ContactStep: React.FC = () => {
     // Special handling for phone formatting
     if (field === 'phone' && typeof value === 'string') {
       value = formatPhone(value);
+    }
+    
+    // Auto-capitalize names
+    if ((field === 'firstName' || field === 'lastName') && typeof value === 'string') {
+      value = capitalizeName(value);
+    }
+    
+    // Auto-capitalize company name
+    if (field === 'companyName' && typeof value === 'string') {
+      value = capitalizeCompanyName(value);
     }
     
     updateFormData({ [field]: value });

@@ -27,7 +27,9 @@ import {
   Gift,
   TrendingUp,
   ScrollText,
-  Film
+  Film,
+  Archive,
+  List
 } from 'lucide-react';
 import { cn } from '../../utils';
 import type { AdminSection, NavigationGroup } from '../../types';
@@ -71,38 +73,45 @@ const navigationGroups: NavigationGroup[] = [
     section: 'waitlist' as AdminSection
   },
   {
+    id: 'archive',
+    label: 'Archief',
+    icon: 'Archive',
+    order: 5,
+    section: 'archive' as AdminSection
+  },
+  {
     id: 'checkin',
     label: 'Check-in',
     icon: 'UserCheck',
-    order: 5,
+    order: 6,
     section: 'checkin' as AdminSection
   },
   {
     id: 'customers',
     label: 'Klanten',
     icon: 'Users',
-    order: 6,
+    order: 7,
     section: 'customers' as AdminSection
   },
   {
     id: 'products',
     label: 'Producten & Prijzen',
     icon: 'Package',
-    order: 7,
+    order: 8,
     section: 'products' as AdminSection
   },
   {
     id: 'reports',
     label: 'Rapportages',
     icon: 'TrendingUp',
-    order: 8,
+    order: 9,
     section: 'reports' as AdminSection
   },
   {
     id: 'config',
     label: 'Configuratie',
     icon: 'Settings',
-    order: 9,
+    order: 10,
     section: 'config' as AdminSection
   }
 ];
@@ -132,7 +141,9 @@ const iconMap: Record<string, React.ElementType> = {
   Gift,
   TrendingUp,
   ScrollText,
-  Film
+  Film,
+  Archive,
+  List
 };
 
 export const AdminLayoutNew: React.FC<AdminLayoutNewProps> = ({ children }) => {

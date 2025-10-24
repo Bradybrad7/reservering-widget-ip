@@ -16,6 +16,7 @@ import { useWaitlistStore } from '../../store/waitlistStore';
 import type { AdminEvent, Reservation, WaitlistEntry } from '../../types';
 import { EventMasterList } from './EventMasterList';
 import { EventDetailPanel } from './EventDetailPanel';
+import { BulkEventModal } from './BulkEventModal';
 
 // ============================================================================
 // HELPER FUNCTION: Bereken Event Statistieken
@@ -95,6 +96,7 @@ export const getEventComputedData = (
 export const EventCommandCenter: React.FC = () => {
   // State voor selectie
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [showBulkModal, setShowBulkModal] = useState(false);
 
   // Data ophalen uit alle stores
   const { events, loadEvents, isLoadingEvents } = useEventsStore();
@@ -129,6 +131,11 @@ export const EventCommandCenter: React.FC = () => {
 
   const isLoading = isLoadingEvents || isLoadingReservations || isLoadingWaitlist;
 
+  const handleBulkSuccess = () => {
+    loadEvents(); // Reload events after bulk add
+    setShowBulkModal(false);
+  };
+
   return (
     <div className="flex h-full w-full bg-gray-900">
       {isLoading ? (
@@ -148,6 +155,7 @@ export const EventCommandCenter: React.FC = () => {
               allWaitlistEntries={waitlistEntries}
               selectedEventId={selectedEventId}
               onSelectEvent={setSelectedEventId}
+              onBulkAdd={() => setShowBulkModal(true)}
             />
           </div>
 
@@ -174,6 +182,13 @@ export const EventCommandCenter: React.FC = () => {
           </div>
         </>
       )}
+      
+      {/* Bulk Event Modal */}
+      <BulkEventModal
+        isOpen={showBulkModal}
+        onClose={() => setShowBulkModal(false)}
+        onSuccess={handleBulkSuccess}
+      />
     </div>
   );
 };

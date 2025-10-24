@@ -19,6 +19,7 @@ interface EventMasterListProps {
   selectedEventId: string | null;
   onSelectEvent: (eventId: string) => void;
   onCreateEvent?: () => void;
+  onBulkAdd?: () => void;
 }
 
 export const EventMasterList: React.FC<EventMasterListProps> = ({
@@ -28,6 +29,7 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
   selectedEventId,
   onSelectEvent,
   onCreateEvent,
+  onBulkAdd,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'full' | 'waitlist' | 'closed'>('all');
@@ -101,14 +103,28 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
       <div className="p-4 border-b border-gray-700 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold text-white">Evenementen</h2>
-          {onCreateEvent && (
-            <button
-              onClick={onCreateEvent}
-              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              + Nieuw
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {onBulkAdd && (
+              <button
+                onClick={onBulkAdd}
+                className="px-3 py-1.5 bg-gold-600 hover:bg-gold-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1"
+                title="Bulk evenementen toevoegen"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Bulk
+              </button>
+            )}
+            {onCreateEvent && (
+              <button
+                onClick={onCreateEvent}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                + Nieuw
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Zoekbalk */}

@@ -205,11 +205,20 @@ export const PromotionsManager: React.FC = () => {
                       </td>
                       <td className="px-4 py-3 text-neutral-300">{promotion.description}</td>
                       <td className="px-4 py-3">
-                        <span className="text-green-400 font-semibold">
-                          {promotion.type === 'percentage'
-                            ? `${promotion.value}%`
-                            : `€${promotion.value}`}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className="text-green-400 font-semibold">
+                            {promotion.type === 'percentage' && `${promotion.value}%`}
+                            {promotion.type === 'fixed' && `€${promotion.value}`}
+                            {promotion.type === 'per_person' && `€${promotion.value} pp`}
+                            {promotion.type === 'per_arrangement' && `€${promotion.value} p/arr`}
+                          </span>
+                          <span className="text-xs text-neutral-500">
+                            {promotion.type === 'percentage' && 'Percentage'}
+                            {promotion.type === 'fixed' && 'Vast bedrag'}
+                            {promotion.type === 'per_person' && 'Per persoon'}
+                            {promotion.type === 'per_arrangement' && 'Per arrangement'}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-neutral-300 text-sm">
                         <div className="flex items-center gap-1">
@@ -356,27 +365,47 @@ export const PromotionsManager: React.FC = () => {
                   <select
                     required
                     value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value as 'percentage' | 'fixed' })}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value as PromotionCode['type'] })}
                     className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent"
                   >
-                    <option value="percentage">Percentage (%)</option>
-                    <option value="fixed">Vast Bedrag (€)</option>
+                    <option value="percentage">Percentage (%) - van totaal</option>
+                    <option value="fixed">Vast Bedrag (€) - eenmalig</option>
+                    <option value="per_person">Per Persoon (€) - per gast</option>
+                    <option value="per_arrangement">Per Arrangement (€) - per arrangement</option>
                   </select>
+                  <p className="text-xs text-neutral-500 mt-1">
+                    {formData.type === 'percentage' && 'Korting als percentage van totaalbedrag'}
+                    {formData.type === 'fixed' && 'Eenmalig vast bedrag korting'}
+                    {formData.type === 'per_person' && 'Korting wordt vermenigvuldigd met aantal personen'}
+                    {formData.type === 'per_arrangement' && 'Korting wordt vermenigvuldigd met aantal arrangementen'}
+                  </p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-neutral-300 mb-2">
                     Kortingswaarde *
                   </label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    step={formData.type === 'percentage' ? '1' : '0.01'}
-                    value={formData.value}
-                    onChange={(e) => setFormData({ ...formData, value: parseFloat(e.target.value) })}
-                    className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent"
-                  />
+                  <div className="relative">
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      step={formData.type === 'percentage' ? '1' : '0.01'}
+                      max={formData.type === 'percentage' ? '100' : undefined}
+                      value={formData.value}
+                      onChange={(e) => setFormData({ ...formData, value: parseFloat(e.target.value) })}
+                      className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                      {formData.type === 'percentage' ? '%' : '€'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-500 mt-1">
+                    {formData.type === 'percentage' && 'Bijv. 10 voor 10% korting'}
+                    {formData.type === 'fixed' && 'Bijv. 20 voor €20 korting'}
+                    {formData.type === 'per_person' && 'Bijv. 5 voor €5 per persoon'}
+                    {formData.type === 'per_arrangement' && 'Bijv. 10 voor €10 per arrangement'}
+                  </p>
                 </div>
               </div>
 

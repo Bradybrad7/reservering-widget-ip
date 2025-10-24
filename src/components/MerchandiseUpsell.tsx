@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Minus, ShoppingBag } from 'lucide-react';
+import { ShoppingBag } from 'lucide-react';
 import { useAdminStore } from '../store/adminStore';
 import { useReservationStore } from '../store/reservationStore';
 import { formatCurrency, cn } from '../utils';
@@ -83,7 +83,9 @@ export const MerchandiseUpsell: React.FC = () => {
           'p-2 rounded-lg transition-all',
           isExpanded ? 'bg-gold-500/20 rotate-180' : 'bg-neutral-700 group-hover:bg-neutral-600'
         )}>
-          <Plus className="w-5 h-5 text-gold-400" />
+          <svg className="w-5 h-5 text-gold-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
         </div>
       </button>
 
@@ -139,35 +141,23 @@ export const MerchandiseUpsell: React.FC = () => {
 
                     {/* Quantity Controls */}
                     <div className="flex items-center gap-3 mt-3">
-                      <button
-                        onClick={() => handleQuantityChange(item.id, quantity - 1)}
-                        disabled={quantity === 0}
-                        className={cn(
-                          'p-2 rounded-lg transition-all',
-                          quantity > 0
-                            ? 'bg-neutral-600 hover:bg-neutral-500 text-white'
-                            : 'bg-neutral-700 text-neutral-500 cursor-not-allowed'
-                        )}
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
-
-                      <span className="w-12 text-center font-bold text-white">
-                        {quantity}
-                      </span>
-
-                      <button
-                        onClick={() => handleQuantityChange(item.id, quantity + 1)}
+                      <label htmlFor={`upsell-${item.id}`} className="text-sm text-neutral-400">
+                        Aantal:
+                      </label>
+                      <input
+                        id={`upsell-${item.id}`}
+                        type="number"
+                        min="0"
+                        max="99"
+                        value={quantity}
+                        onChange={(e) => {
+                          const newValue = parseInt(e.target.value) || 0;
+                          handleQuantityChange(item.id, Math.max(0, Math.min(99, newValue)));
+                        }}
+                        className="w-20 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-center font-bold focus:outline-none focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+                        placeholder="0"
                         disabled={!item.inStock}
-                        className={cn(
-                          'p-2 rounded-lg transition-all',
-                          !item.inStock
-                            ? 'bg-neutral-700 text-neutral-500 cursor-not-allowed'
-                            : 'bg-gold-500 hover:bg-gold-600 text-dark-900'
-                        )}
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
+                      />
 
                       {quantity > 0 && (
                         <span className="ml-auto text-sm font-semibold text-gold-400">

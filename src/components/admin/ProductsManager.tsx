@@ -1,32 +1,30 @@
 import React, { useState } from 'react';
-import { ShoppingBag, Package, BookOpen, DollarSign, Tag, Gift } from 'lucide-react';
+import { ShoppingBag, Package, DollarSign, Tag, Gift } from 'lucide-react';
 import { cn } from '../../utils';
 // import type { AdminSection } from '../../types'; // Unused
 import { MerchandiseManager } from './MerchandiseManager';
 import { AddOnsManagerEnhanced } from './AddOnsManagerEnhanced';
-import { ArrangementsManager } from './ArrangementsManager';
 import { PricingConfigManager } from './PricingConfigManager';
+import { PromotionsManager } from './PromotionsManager';
+import { VouchersManager } from './VouchersManager';
 
 interface ProductsManagerProps {
   activeTab?: string;
 }
 
 export const ProductsManager: React.FC<ProductsManagerProps> = ({ activeTab: initialTab }) => {
-  const [activeTab, setActiveTab] = useState<string>(initialTab || 'arrangements');
+  const [activeTab, setActiveTab] = useState<string>(initialTab || 'pricing');
   
   const tabs = [
-    { id: 'arrangements', label: 'Arrangementen', icon: BookOpen },
     { id: 'pricing', label: 'Prijzen', icon: DollarSign },
     { id: 'addons', label: 'Add-ons', icon: ShoppingBag },
     { id: 'merchandise', label: 'Merchandise', icon: Package },
     { id: 'promotions', label: 'Promoties', icon: Tag },
-    { id: 'vouchers', label: 'Vouchers', icon: Gift }
+    { id: 'vouchers', label: 'Theaterbonnen', icon: Gift }
   ];
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'arrangements':
-        return <ArrangementsManager />;
       case 'pricing':
         return <PricingConfigManager />;
       case 'addons':
@@ -34,11 +32,11 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ activeTab: ini
       case 'merchandise':
         return <MerchandiseManager />;
       case 'promotions':
-        return <div className="p-6"><h2 className="text-xl font-bold text-white">Promoties</h2><p className="text-neutral-400 mt-2">Beheer promoties en kortingen</p></div>;
+        return <PromotionsManager />;
       case 'vouchers':
-        return <div className="p-6"><h2 className="text-xl font-bold text-white">Vouchers</h2><p className="text-neutral-400 mt-2">Beheer vouchers en cadeaubonnen</p></div>;
+        return <VouchersManager />;
       default:
-        return <ArrangementsManager />;
+        return <PricingConfigManager />;
     }
   };
 

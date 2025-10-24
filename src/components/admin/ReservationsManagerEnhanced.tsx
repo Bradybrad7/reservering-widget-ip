@@ -26,12 +26,15 @@ import {
   List,
   AlertTriangle,
   MapPin,
-  ShoppingBag
+  ShoppingBag,
+  Plus
 } from 'lucide-react';
-import type { Reservation, Event, AdminSection } from '../../types';
+import type { Reservation, Event } from '../../types';
 import { apiService } from '../../services/apiService';
-import { formatCurrency, formatDate, formatTime, cn } from '../../utils';
+import { formatCurrency, formatDate, cn } from '../../utils';
 import { useAdminStore } from '../../store/adminStore';
+import { ManualBookingManager } from './ManualBookingManager';
+import { ReservationEditModal } from './ReservationEditModal';
 
 interface ReservationsManagerEnhancedProps {
   filter?: 'all' | 'pending' | 'confirmed' | 'waitlist';
@@ -48,7 +51,8 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
     addCommunicationLog,
     bulkUpdateStatus,
     deleteReservation,
-    exportReservationsCSV
+    exportReservationsCSV,
+    merchandiseItems
   } = useAdminStore();
 
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -65,6 +69,8 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showTagEditor, setShowTagEditor] = useState(false);
   const [showCommunicationLog, setShowCommunicationLog] = useState(false);
+  const [showManualBooking, setShowManualBooking] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   
   // Inline editing
@@ -134,7 +140,7 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(r =>
-        r.companyName.toLowerCase().includes(term) ||
+        (r.companyName && r.companyName.toLowerCase().includes(term)) ||
         r.contactPerson.toLowerCase().includes(term) ||
         r.email.toLowerCase().includes(term) ||
         r.id.toLowerCase().includes(term)
@@ -219,6 +225,11 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
   const handleEditTags = (reservation: Reservation) => {
     setSelectedReservation(reservation);
     setShowTagEditor(true);
+  };
+
+  const handleEditReservation = (reservation: Reservation) => {
+    setSelectedReservation(reservation);
+    setShowEditModal(true);
   };
 
   const handleShowCommunication = (reservation: Reservation) => {
@@ -313,6 +324,13 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
         </div>
 
         <div className="flex gap-2">
+          <button
+            onClick={() => setShowManualBooking(true)}
+            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Handmatige Boeking
+          </button>
           <button
             onClick={() => exportReservationsCSV()}
             className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
@@ -605,9 +623,9 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleInlineEdit(reservation)}
-                            className="p-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
-                            title="Notitie toevoegen"
+                            onClick={() => handleEditReservation(reservation)}
+                            className="p-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
+                            title="Reservering bewerken"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
@@ -649,6 +667,34 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
           onClose={() => {
             setShowDetailModal(false);
             setSelectedReservation(null);
+          }}
+        />
+      )}
+
+      {/* Manual Booking Modal */}
+      {showManualBooking && (
+        <ManualBookingManager
+          onClose={() => {
+            setShowManualBooking(false);
+            loadData(); // Refresh data after manual booking
+          }}
+        />
+      )}
+
+      {/* Reservation Edit Modal */}
+      {showEditModal && selectedReservation && (
+        <ReservationEditModal
+          reservation={selectedReservation}
+          event={getEventForReservation(selectedReservation.eventId)}
+          merchandiseItems={merchandiseItems}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedReservation(null);
+          }}
+          onSave={() => {
+            setShowEditModal(false);
+            setSelectedReservation(null);
+            loadData(); // Refresh data after edit
           }}
         />
       )}

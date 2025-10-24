@@ -81,10 +81,16 @@ export const formatPhone = (phone: string): string => {
   return phone;
 };
 
-// Company name validation
+// Company name validation (OPTIONAL)
 export const validateCompanyName = (companyName: string): { isValid: boolean; message?: string } => {
-  if (!companyName || companyName.trim().length < 2) {
-    return { isValid: false, message: 'Bedrijfsnaam is verplicht (minimaal 2 tekens)' };
+  // Company name is optional, so empty is valid
+  if (!companyName || companyName.trim().length === 0) {
+    return { isValid: true };
+  }
+  
+  // If provided, must be at least 2 characters
+  if (companyName.trim().length < 2) {
+    return { isValid: false, message: 'Bedrijfsnaam moet minimaal 2 tekens bevatten' };
   }
   
   return { isValid: true };

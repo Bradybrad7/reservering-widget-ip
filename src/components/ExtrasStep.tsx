@@ -1,6 +1,6 @@
 import React, { useEffect, useState, memo, useMemo, useCallback } from 'react';
 import { useReservationStore } from '../store/reservationStore';
-import { Plus, Minus, ShoppingBag, Wine, PartyPopper } from 'lucide-react';
+import { ShoppingBag, Wine, PartyPopper } from 'lucide-react';
 import { apiService } from '../services/apiService';
 import type { MerchandiseItem } from '../types';
 import { nl } from '../config/defaults';
@@ -301,23 +301,23 @@ export const ExtrasStep: React.FC = memo(() => {
                                 Uitverkocht
                               </span>
                             ) : (
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => handleMerchandiseQuantity(item.id, Math.max(0, quantity - 1))}
-                                  disabled={quantity === 0}
-                                  className="w-9 h-9 flex items-center justify-center bg-bg-elevated hover:bg-bg-surface disabled:bg-bg-base disabled:cursor-not-allowed text-text-secondary disabled:text-text-disabled rounded-lg font-bold transition-all hover:scale-110 border border-border-default hover:border-border-strong"
-                                >
-                                  <Minus className="w-4 h-4" />
-                                </button>
-                                
-                                <span className="w-10 text-center font-bold text-text-primary text-lg">{quantity}</span>
-                                
-                                <button
-                                  onClick={() => handleMerchandiseQuantity(item.id, quantity + 1)}
-                                  className="w-9 h-9 flex items-center justify-center bg-secondary-500 hover:bg-secondary-600 disabled:bg-bg-base disabled:cursor-not-allowed text-white disabled:text-text-disabled rounded-lg font-bold transition-all hover:scale-110 hover:shadow-md border border-secondary-400 hover:border-secondary-300"
-                                >
-                                  <Plus className="w-4 h-4" />
-                                </button>
+                              <div className="flex items-center gap-3">
+                                <label htmlFor={`merchandise-${item.id}`} className="text-sm text-text-muted">
+                                  Aantal:
+                                </label>
+                                <input
+                                  id={`merchandise-${item.id}`}
+                                  type="number"
+                                  min="0"
+                                  max="99"
+                                  value={quantity}
+                                  onChange={(e) => {
+                                    const newValue = parseInt(e.target.value) || 0;
+                                    handleMerchandiseQuantity(item.id, Math.max(0, Math.min(99, newValue)));
+                                  }}
+                                  className="w-20 px-3 py-2 bg-bg-elevated border border-border-default rounded-lg text-text-primary text-center font-bold focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:border-transparent"
+                                  placeholder="0"
+                                />
                               </div>
                             )}
                           </div>

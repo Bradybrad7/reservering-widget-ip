@@ -134,6 +134,9 @@ interface AdminActions {
   rejectReservation: (reservationId: string) => Promise<boolean>;
   moveToWaitlist: (reservationId: string) => Promise<boolean>;
   deleteReservation: (reservationId: string) => Promise<boolean>;
+  archiveReservation: (reservationId: string) => Promise<boolean>; // NEW
+  unarchiveReservation: (reservationId: string) => Promise<boolean>; // NEW
+  loadArchivedReservations: () => Promise<void>; // NEW
   selectReservation: (reservation: Reservation | null) => void;
   addCommunicationLog: (reservationId: string, log: Omit<CommunicationLog, 'id' | 'timestamp'>) => Promise<boolean>;
   updateReservationTags: (reservationId: string, tags: string[]) => Promise<boolean>;
@@ -536,6 +539,56 @@ export const useAdminStore = create<AdminStore>()(
         return false;
       } finally {
         set({ isSubmitting: false });
+      }
+    },
+
+    archiveReservation: async (reservationId: string) => {
+      set({ isSubmitting: true });
+      try {
+        const response = await apiService.archiveReservation(reservationId);
+        if (response.success) {
+          await get().loadReservations();
+          await get().loadStats();
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Failed to archive reservation:', error);
+        return false;
+      } finally {
+        set({ isSubmitting: false });
+      }
+    },
+
+    unarchiveReservation: async (reservationId: string) => {
+      set({ isSubmitting: true });
+      try {
+        const response = await apiService.unarchiveReservation(reservationId);
+        if (response.success) {
+          await get().loadReservations();
+          await get().loadStats();
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Failed to unarchive reservation:', error);
+        return false;
+      } finally {
+        set({ isSubmitting: false });
+      }
+    },
+
+    loadArchivedReservations: async () => {
+      set({ isLoadingReservations: true });
+      try {
+        const response = await apiService.getArchivedReservations();
+        if (response.success && response.data) {
+          set({ reservations: response.data });
+        }
+      } catch (error) {
+        console.error('Failed to load archived reservations:', error);
+      } finally {
+        set({ isLoadingReservations: false });
       }
     },
 
