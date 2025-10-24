@@ -515,6 +515,71 @@ export interface NavigationGroup {
   section: AdminSection; // Direct mapping to AdminSection
 }
 
+// ✨ Product Management Types (Oct 2025)
+
+// Arrangement (Product) - Full definition beyond just the code
+export interface ArrangementProduct {
+  id: string;
+  name: string;
+  code: Arrangement; // 'BWF' | 'BWFM'
+  description: string;
+  minPersons?: number;
+  maxPersons?: number;
+  imageUrl?: string;
+  isActive: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+// Promotion/Discount Code
+export interface Promotion {
+  id: string;
+  name: string; // Internal name
+  code: string; // The code customers enter
+  description?: string;
+  type: 'percentage' | 'fixed_amount';
+  value: number; // 20 for 20% or 10 for €10
+  validFrom: Date | string;
+  validTo: Date | string;
+  minBookingValue?: number;
+  applicableTo: 'all' | 'arrangements' | 'merchandise';
+  applicableItemIds?: string[]; // Specific arrangement/merchandise IDs
+  isActive: boolean;
+  usageCount?: number; // How many times it has been used
+  maxUsage?: number; // Optional limit
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+// Voucher Template (What you sell)
+export interface VoucherTemplate {
+  id: string;
+  name: string; // e.g., "€25 Cadeaubon"
+  description: string;
+  value: number; // Fixed value
+  validityDays: number; // Days valid after issuance
+  imageUrl?: string;
+  isActive: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+// Issued Voucher (Actual voucher given to customer)
+export interface IssuedVoucher {
+  id: string;
+  code: string; // Unique generated code
+  templateId: string; // Links to VoucherTemplate
+  issuedTo: string; // Name or email
+  issueDate: Date | string;
+  expiryDate: Date | string;
+  initialValue: number;
+  remainingValue: number;
+  status: 'active' | 'used' | 'expired';
+  usedInReservationIds?: string[]; // Track where it was used
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 // Export types for external use
 export type ReservationWidgetProps = {
   config?: Partial<GlobalConfig>;

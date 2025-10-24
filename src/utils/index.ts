@@ -7,6 +7,9 @@ import { localStorageService } from '../services/localStorageService';
 // Re-export event color utilities
 export * from './eventColors';
 
+// Re-export findChanges utility for audit logging
+export * from './findChanges';
+
 // Utility function for combining classes
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));

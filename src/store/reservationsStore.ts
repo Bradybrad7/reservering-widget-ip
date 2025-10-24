@@ -8,6 +8,8 @@ import type {
 } from '../types';
 import { apiService } from '../services/apiService';
 import { emailService } from '../services/emailService';
+import { auditLogger } from '../services/auditLogger';
+import { findChanges } from '../utils/findChanges';
 
 // Reservations State
 interface ReservationsState {
@@ -31,7 +33,7 @@ interface ReservationsState {
 interface ReservationsActions {
   loadReservations: () => Promise<void>;
   loadReservationsByEvent: (eventId: string) => Promise<void>;
-  updateReservation: (reservationId: string, updates: Partial<Reservation>) => Promise<boolean>;
+  updateReservation: (reservationId: string, updates: Partial<Reservation>, originalReservation?: Reservation) => Promise<boolean>;
   updateReservationStatus: (reservationId: string, status: Reservation['status']) => Promise<boolean>;
   confirmReservation: (reservationId: string) => Promise<boolean>;
   rejectReservation: (reservationId: string) => Promise<boolean>;
@@ -114,14 +116,37 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
       }
     },
 
-    updateReservation: async (reservationId: string, updates: Partial<Reservation>) => {
+    updateReservation: async (reservationId: string, updates: Partial<Reservation>, originalReservation?: Reservation) => {
+      // Haal de originele reservering op als deze niet is meegestuurd
+      const original = originalReservation || get().reservations.find(r => r.id === reservationId);
+      
       const response = await apiService.updateReservation(reservationId, updates);
       if (response.success) {
+        // Update state
         set(state => ({
           reservations: state.reservations.map(r =>
             r.id === reservationId ? { ...r, ...updates, updatedAt: new Date() } : r
           )
         }));
+        
+        // 🔍 AUDIT LOGGING: Log de specifieke wijzigingen
+        if (original) {
+          const changes = findChanges(original, updates);
+          
+          if (changes && changes.length > 0) {
+            // Log naar audit logger
+            auditLogger.logReservationUpdated(reservationId, changes);
+            
+            // Voeg ook een communicatielog toe aan de reservering
+            const logMessage = `Reservering bijgewerkt. Wijzigingen: ${changes.map(c => c.field).join(', ')}`;
+            await get().addCommunicationLog(reservationId, {
+              type: 'note',
+              message: logMessage,
+              author: 'Admin'
+            });
+          }
+        }
+        
         return true;
       }
       return false;

@@ -21,7 +21,11 @@ import type {
   AdminSection,
   CommunicationLog,
   Arrangement,
-  Show
+  Show,
+  ArrangementProduct,
+  Promotion,
+  VoucherTemplate,
+  IssuedVoucher
 } from '../types';
 import { apiService } from '../services/apiService';
 
@@ -93,6 +97,23 @@ interface AdminState {
   // Shows
   shows: Show[];
   isLoadingShows: boolean;
+  
+  // ✨ NEW: Product Management (Oct 2025)
+  // Arrangements (Products)
+  arrangements: ArrangementProduct[];
+  isLoadingArrangements: boolean;
+  
+  // Promotions/Discounts
+  promotionCodes: Promotion[];
+  isLoadingPromotionCodes: boolean;
+  
+  // Voucher Templates
+  voucherTemplates: VoucherTemplate[];
+  isLoadingVoucherTemplates: boolean;
+  
+  // Issued Vouchers
+  issuedVouchers: IssuedVoucher[];
+  isLoadingIssuedVouchers: boolean;
 }
 
 interface AdminActions {
@@ -174,6 +195,29 @@ interface AdminActions {
   updateShow: (show: Show) => Promise<boolean>;
   deleteShow: (showId: string) => Promise<boolean>;
   
+  // ✨ NEW: Product Management Actions (Oct 2025)
+  // Arrangements
+  loadArrangements: () => Promise<void>;
+  createArrangement: (arrangement: Omit<ArrangementProduct, 'id' | 'createdAt' | 'updatedAt'>) => Promise<boolean>;
+  updateArrangement: (arrangementId: string, updates: Partial<ArrangementProduct>) => Promise<boolean>;
+  deleteArrangement: (arrangementId: string) => Promise<boolean>;
+  
+  // Promotions
+  loadPromotionCodes: () => Promise<void>;
+  createPromotionCode: (promotion: Omit<Promotion, 'id' | 'usageCount' | 'createdAt' | 'updatedAt'>) => Promise<boolean>;
+  updatePromotionCode: (promotionId: string, updates: Partial<Promotion>) => Promise<boolean>;
+  deletePromotionCode: (promotionId: string) => Promise<boolean>;
+  
+  // Voucher Templates
+  loadVoucherTemplates: () => Promise<void>;
+  createVoucherTemplate: (template: Omit<VoucherTemplate, 'id' | 'createdAt' | 'updatedAt'>) => Promise<boolean>;
+  updateVoucherTemplate: (templateId: string, updates: Partial<VoucherTemplate>) => Promise<boolean>;
+  deleteVoucherTemplate: (templateId: string) => Promise<boolean>;
+  
+  // Issued Vouchers
+  findIssuedVouchers: (query: string) => Promise<void>;
+  updateIssuedVoucher: (voucherId: string, updates: Partial<IssuedVoucher>) => Promise<boolean>;
+  
   // UI actions
   setActiveSection: (section: AdminSection) => void;
   setBreadcrumbs: (breadcrumbs: { label: string; section: AdminSection }[]) => void;
@@ -249,6 +293,19 @@ export const useAdminStore = create<AdminStore>()(
     
     shows: [],
     isLoadingShows: false,
+    
+    // ✨ NEW: Product Management State (Oct 2025)
+    arrangements: [],
+    isLoadingArrangements: false,
+    
+    promotionCodes: [],
+    isLoadingPromotionCodes: false,
+    
+    voucherTemplates: [],
+    isLoadingVoucherTemplates: false,
+    
+    issuedVouchers: [],
+    isLoadingIssuedVouchers: false,
 
     // Actions
     loadEvents: async () => {
@@ -1320,6 +1377,257 @@ export const useAdminStore = create<AdminStore>()(
         return true;
       } catch (error) {
         console.error('Failed to delete show:', error);
+        set({ isSubmitting: false });
+        return false;
+      }
+    },
+    
+    // ✨ NEW: Product Management Actions Implementation (Oct 2025)
+    
+    // Arrangements
+    loadArrangements: async () => {
+      set({ isLoadingArrangements: true });
+      try {
+        const response = await apiService.getArrangements();
+        if (response.success && response.data) {
+          set({ arrangements: response.data, isLoadingArrangements: false });
+        } else {
+          set({ arrangements: [], isLoadingArrangements: false });
+        }
+      } catch (error) {
+        console.error('Failed to load arrangements:', error);
+        set({ arrangements: [], isLoadingArrangements: false });
+      }
+    },
+
+    createArrangement: async (arrangement: Omit<ArrangementProduct, 'id' | 'createdAt' | 'updatedAt'>) => {
+      set({ isSubmitting: true });
+      try {
+        const response = await apiService.createArrangement(arrangement);
+        if (response.success) {
+          await get().loadArrangements();
+          set({ isSubmitting: false });
+          return true;
+        }
+        set({ isSubmitting: false });
+        return false;
+      } catch (error) {
+        console.error('Failed to create arrangement:', error);
+        set({ isSubmitting: false });
+        return false;
+      }
+    },
+
+    updateArrangement: async (arrangementId: string, updates: Partial<ArrangementProduct>) => {
+      set({ isSubmitting: true });
+      try {
+        const response = await apiService.updateArrangement(arrangementId, updates);
+        if (response.success) {
+          await get().loadArrangements();
+          set({ isSubmitting: false });
+          return true;
+        }
+        set({ isSubmitting: false });
+        return false;
+      } catch (error) {
+        console.error('Failed to update arrangement:', error);
+        set({ isSubmitting: false });
+        return false;
+      }
+    },
+
+    deleteArrangement: async (arrangementId: string) => {
+      set({ isSubmitting: true });
+      try {
+        const response = await apiService.deleteArrangement(arrangementId);
+        if (response.success) {
+          await get().loadArrangements();
+          set({ isSubmitting: false });
+          return true;
+        }
+        set({ isSubmitting: false });
+        return false;
+      } catch (error) {
+        console.error('Failed to delete arrangement:', error);
+        set({ isSubmitting: false });
+        return false;
+      }
+    },
+
+    // Promotion Codes
+    loadPromotionCodes: async () => {
+      set({ isLoadingPromotionCodes: true });
+      try {
+        const response = await apiService.getPromotionCodes();
+        if (response.success && response.data) {
+          set({ promotionCodes: response.data, isLoadingPromotionCodes: false });
+        } else {
+          set({ promotionCodes: [], isLoadingPromotionCodes: false });
+        }
+      } catch (error) {
+        console.error('Failed to load promotion codes:', error);
+        set({ promotionCodes: [], isLoadingPromotionCodes: false });
+      }
+    },
+
+    createPromotionCode: async (promotion: Omit<Promotion, 'id' | 'usageCount' | 'createdAt' | 'updatedAt'>) => {
+      set({ isSubmitting: true });
+      try {
+        const response = await apiService.createPromotionCode(promotion);
+        if (response.success) {
+          await get().loadPromotionCodes();
+          set({ isSubmitting: false });
+          return true;
+        }
+        set({ isSubmitting: false });
+        return false;
+      } catch (error) {
+        console.error('Failed to create promotion code:', error);
+        set({ isSubmitting: false });
+        return false;
+      }
+    },
+
+    updatePromotionCode: async (promotionId: string, updates: Partial<Promotion>) => {
+      set({ isSubmitting: true });
+      try {
+        const response = await apiService.updatePromotionCode(promotionId, updates);
+        if (response.success) {
+          await get().loadPromotionCodes();
+          set({ isSubmitting: false });
+          return true;
+        }
+        set({ isSubmitting: false });
+        return false;
+      } catch (error) {
+        console.error('Failed to update promotion code:', error);
+        set({ isSubmitting: false });
+        return false;
+      }
+    },
+
+    deletePromotionCode: async (promotionId: string) => {
+      set({ isSubmitting: true });
+      try {
+        const response = await apiService.deletePromotionCode(promotionId);
+        if (response.success) {
+          await get().loadPromotionCodes();
+          set({ isSubmitting: false });
+          return true;
+        }
+        set({ isSubmitting: false });
+        return false;
+      } catch (error) {
+        console.error('Failed to delete promotion code:', error);
+        set({ isSubmitting: false });
+        return false;
+      }
+    },
+
+    // Voucher Templates
+    loadVoucherTemplates: async () => {
+      set({ isLoadingVoucherTemplates: true });
+      try {
+        const response = await apiService.getVoucherTemplates();
+        if (response.success && response.data) {
+          set({ voucherTemplates: response.data, isLoadingVoucherTemplates: false });
+        } else {
+          set({ voucherTemplates: [], isLoadingVoucherTemplates: false });
+        }
+      } catch (error) {
+        console.error('Failed to load voucher templates:', error);
+        set({ voucherTemplates: [], isLoadingVoucherTemplates: false });
+      }
+    },
+
+    createVoucherTemplate: async (template: Omit<VoucherTemplate, 'id' | 'createdAt' | 'updatedAt'>) => {
+      set({ isSubmitting: true });
+      try {
+        const response = await apiService.createVoucherTemplate(template);
+        if (response.success) {
+          await get().loadVoucherTemplates();
+          set({ isSubmitting: false });
+          return true;
+        }
+        set({ isSubmitting: false });
+        return false;
+      } catch (error) {
+        console.error('Failed to create voucher template:', error);
+        set({ isSubmitting: false });
+        return false;
+      }
+    },
+
+    updateVoucherTemplate: async (templateId: string, updates: Partial<VoucherTemplate>) => {
+      set({ isSubmitting: true });
+      try {
+        const response = await apiService.updateVoucherTemplate(templateId, updates);
+        if (response.success) {
+          await get().loadVoucherTemplates();
+          set({ isSubmitting: false });
+          return true;
+        }
+        set({ isSubmitting: false });
+        return false;
+      } catch (error) {
+        console.error('Failed to update voucher template:', error);
+        set({ isSubmitting: false });
+        return false;
+      }
+    },
+
+    deleteVoucherTemplate: async (templateId: string) => {
+      set({ isSubmitting: true });
+      try {
+        const response = await apiService.deleteVoucherTemplate(templateId);
+        if (response.success) {
+          await get().loadVoucherTemplates();
+          set({ isSubmitting: false });
+          return true;
+        }
+        set({ isSubmitting: false });
+        return false;
+      } catch (error) {
+        console.error('Failed to delete voucher template:', error);
+        set({ isSubmitting: false });
+        return false;
+      }
+    },
+
+    // Issued Vouchers
+    findIssuedVouchers: async (query: string) => {
+      set({ isLoadingIssuedVouchers: true });
+      try {
+        const response = await apiService.findIssuedVouchers(query);
+        if (response.success && response.data) {
+          set({ issuedVouchers: response.data, isLoadingIssuedVouchers: false });
+        } else {
+          set({ issuedVouchers: [], isLoadingIssuedVouchers: false });
+        }
+      } catch (error) {
+        console.error('Failed to find issued vouchers:', error);
+        set({ issuedVouchers: [], isLoadingIssuedVouchers: false });
+      }
+    },
+
+    updateIssuedVoucher: async (voucherId: string, updates: Partial<IssuedVoucher>) => {
+      set({ isSubmitting: true });
+      try {
+        const response = await apiService.updateIssuedVoucher(voucherId, updates);
+        if (response.success) {
+          // Refresh the vouchers list
+          set(state => ({
+            issuedVouchers: state.issuedVouchers.map(v => 
+              v.id === voucherId ? { ...v, ...updates } : v
+            ),
+            isSubmitting: false
+          }));
+          return true;
+        }
+        set({ isSubmitting: false });
+        return false;
+      } catch (error) {
+        console.error('Failed to update issued voucher:', error);
         set({ isSubmitting: false });
         return false;
       }

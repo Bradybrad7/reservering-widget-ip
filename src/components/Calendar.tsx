@@ -367,41 +367,6 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
     );
   };
 
-  const renderLegend = () => (
-    <div className="mt-4 card-theatre rounded-xl p-3 border border-gold-400/20 shadow-lifted">
-      <h3 className="text-xs md:text-sm font-semibold text-neutral-100 mb-2">Legenda</h3>
-      <div className="grid grid-cols-2 gap-2 text-xs">
-        <div className="flex items-center space-x-2">
-          <div className="w-3 h-3 bg-gold-gradient rounded-full shadow-gold" />
-          <span className="text-neutral-300">Geselecteerd</span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <div className="w-3 h-3 bg-dark-700 rounded-full border border-dark-600" />
-          <span className="text-neutral-300">Niet beschikbaar</span>
-        </div>
-      </div>
-      
-      {/* ✅ Status Legend - GEEN capaciteitspercentages */}
-      <div className="mt-3 pt-3 border-t border-gold-500/30">
-        <h4 className="text-xs font-semibold text-neutral-200 mb-2">Status:</h4>
-        <div className="grid grid-cols-1 gap-1.5 text-xs">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-1.5 bg-gradient-to-r from-green-400 to-green-500 rounded-full shadow-sm" />
-            <span className="text-neutral-200">Beschikbaar</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-1.5 bg-gradient-to-r from-orange-400 to-orange-500 rounded-full shadow-sm" />
-            <span className="text-neutral-200">Op aanvraag</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-1.5 bg-gradient-to-r from-red-400 to-red-500 rounded-full shadow-sm" />
-            <span className="text-neutral-200">Wachtlijst</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
   const currentMonthEvents = events.filter(event => 
     isInCurrentMonth(event.date, currentMonth)
   );
@@ -447,8 +412,6 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
             )}
           </>
         )}
-        
-        {renderLegend()}
       </div>
 
     </>

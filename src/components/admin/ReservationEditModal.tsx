@@ -17,6 +17,7 @@ import { formatCurrency, formatDate, cn } from '../../utils';
 import { nl } from '../../config/defaults';
 import { priceService } from '../../services/priceService';
 import { apiService } from '../../services/apiService';
+import { useReservationsStore } from '../../store/reservationsStore';
 
 interface ReservationEditModalProps {
   reservation: Reservation;
@@ -194,6 +195,9 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
     setIsSaving(true);
 
     try {
+      // Haal de updateReservation actie op uit de store
+      const updateReservation = useReservationsStore.getState().updateReservation;
+      
       // Update reservation with new data - cast to proper type
       const updateData: Partial<Reservation> = {
         ...formData,
@@ -202,14 +206,16 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
         updatedAt: new Date()
       };
 
-      const response = await apiService.updateReservation(reservation.id, updateData);
+      // Gebruik de store-actie in plaats van directe apiService call
+      // Dit zorgt voor automatische audit logging
+      const success = await updateReservation(reservation.id, updateData, reservation);
 
-      if (response.success) {
+      if (success) {
         alert('✅ Reservering succesvol bijgewerkt!');
         onSave();
         onClose();
       } else {
-        alert(`❌ Fout bij opslaan: ${response.error || 'Onbekende fout'}`);
+        alert('❌ Fout bij opslaan: Kon reservering niet bijwerken');
       }
     } catch (error) {
       console.error('Failed to update reservation:', error);
