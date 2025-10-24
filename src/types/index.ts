@@ -226,6 +226,10 @@ export interface CustomerFormData {
   // Dietary requirements (NEW)
   dietaryRequirements?: DietaryRequirements;
   
+  // Promotion & Vouchers (NEW)
+  promotionCode?: string;
+  voucherCode?: string;
+  
   // Optional fields
   comments?: string;
   newsletterOptIn: boolean;
@@ -307,6 +311,7 @@ export interface PriceCalculation {
   afterPartyTotal: number;
   merchandiseTotal: number;
   subtotal: number;
+  discountAmount?: number; // ✨ NEW: Total discount from promotions/vouchers
   vatAmount: number;
   totalPrice: number;
   breakdown: {
@@ -335,6 +340,10 @@ export interface PriceCalculation {
         total: number;
       }>;
       total: number;
+    };
+    discount?: { // ✨ NEW: Discount breakdown
+      description: string;
+      amount: number;
     };
   };
 }

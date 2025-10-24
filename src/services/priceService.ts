@@ -7,7 +7,7 @@ import type {
   CustomerFormData
 } from '../types';
 import { defaultPricing, defaultAddOns, defaultMerchandise } from '../config/defaults';
-// Import not needed for current implementation
+import { promotionService } from './promotionService';
 
 // Determine day type for pricing
 export const getDayType = (date: Date, eventType: EventType): DayType => {
@@ -38,7 +38,9 @@ export const getArrangementPrice = (
 // Calculate total price for a reservation
 export const calculatePrice = (
   event: Event,
-  formData: Partial<CustomerFormData>
+  formData: Partial<CustomerFormData>,
+  promotionCode?: string,
+  voucherCode?: string
 ): PriceCalculation => {
   const {
     numberOfPersons = 0,
@@ -73,10 +75,42 @@ export const calculatePrice = (
     return total + (item ? item.price * selection.quantity : 0);
   }, 0);
 
-  // Totals (all prices are inclusive of VAT)
+  // Calculate subtotal before discounts
   const subtotal = basePrice + preDrinkTotal + afterPartyTotal + merchandiseTotal;
+
+  // Apply promotion code discount
+  let discountAmount = 0;
+  let discountDescription = '';
+  
+  if (promotionCode) {
+    const promoResult = promotionService.validatePromotionCode(
+      promotionCode,
+      subtotal,
+      event,
+      arrangement
+    );
+    if (promoResult.isValid && promoResult.discountAmount) {
+      discountAmount += promoResult.discountAmount;
+      discountDescription = `Kortingscode: ${promotionCode}`;
+    }
+  }
+
+  // Apply voucher discount
+  if (voucherCode) {
+    const voucherResult = promotionService.validateVoucher(voucherCode, subtotal - discountAmount);
+    if (voucherResult.isValid && voucherResult.discountAmount) {
+      discountAmount += voucherResult.discountAmount;
+      if (discountDescription) {
+        discountDescription += `, Voucher: ${voucherCode}`;
+      } else {
+        discountDescription = `Voucher: ${voucherCode}`;
+      }
+    }
+  }
+
+  // Final totals (all prices are inclusive of VAT)
   const vatAmount = 0; // Not calculated separately - prices are inclusive
-  const totalPrice = subtotal;
+  const totalPrice = Math.max(0, subtotal - discountAmount); // Can't go below 0
 
   // Create breakdown
   const breakdown: PriceCalculation['breakdown'] = {
@@ -126,12 +160,21 @@ export const calculatePrice = (
     };
   }
 
+  // Add discount to breakdown if applicable
+  if (discountAmount > 0) {
+    breakdown.discount = {
+      description: discountDescription,
+      amount: discountAmount
+    };
+  }
+
   return {
     basePrice,
     preDrinkTotal,
     afterPartyTotal,
     merchandiseTotal,
     subtotal,
+    discountAmount,
     vatAmount,
     totalPrice,
     breakdown

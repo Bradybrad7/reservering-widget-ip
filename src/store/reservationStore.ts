@@ -76,7 +76,7 @@ interface ReservationActions {
   
   // Submission
   submitReservation: () => Promise<boolean>;
-  submitWaitlist: () => Promise<boolean>;
+  // 🗑️ REMOVED: submitWaitlist - now handled by waitlistStore
   
   // Configuration
   updateConfig: (config: Partial<GlobalConfig>) => void;
@@ -494,10 +494,12 @@ export const useReservationStore = create<ReservationStore>()(
             return;
           }
           
-          // ✨ WAITLIST: Skip directly to form step
+          // ✨ WAITLIST FIX: Skip directly to waitlistPrompt component (NOT form!)
+          // This ensures we use the correct WaitlistEntry system, not Reservation
           if (isWaitlist) {
-            console.log('📝 Waitlist mode - skipping to form');
-            set({ currentStep: 'form' });
+            console.log('� WAITLIST MODE DETECTED - Redirecting to waitlistPrompt');
+            console.log('✅ This will create a WaitlistEntry (NOT a Reservation with status=waitlist)');
+            set({ currentStep: 'waitlistPrompt' });
             return;
           }
           
@@ -653,12 +655,17 @@ export const useReservationStore = create<ReservationStore>()(
         return;
       }
 
-      const calculation = priceService.calculatePrice(selectedEvent, formData);
+      const calculation = priceService.calculatePrice(
+        selectedEvent, 
+        formData,
+        formData.promotionCode,
+        formData.voucherCode
+      );
       set({ priceCalculation: calculation });
     },
 
     submitReservation: async () => {
-      const { selectedEvent, formData, isFormValid, eventAvailability } = get();
+      const { selectedEvent, formData, isFormValid } = get();
       
       if (!selectedEvent || !isFormValid) {
         return false;
@@ -667,72 +674,66 @@ export const useReservationStore = create<ReservationStore>()(
       set({ isSubmitting: true });
       
       try {
-        // Check if this should be a waitlist reservation
-        const availability = eventAvailability[selectedEvent.id];
-        const isWaitlistReservation = availability && availability.remainingCapacity <= 0;
+        // 🚨 IMPORTANT: This function should NEVER be called for waitlist entries!
+        // Waitlist entries are handled by WaitlistPrompt.tsx -> waitlistStore.addWaitlistEntry()
+        console.log('📋 submitReservation: Creating REAL reservation (NOT waitlist)');
         
         const response = await apiService.submitReservation(formData as CustomerFormData, selectedEvent.id);
         
         if (response.success && response.data) {
-          // Update the reservation with calculated price and status
+          // Update the reservation with calculated price
           const priceCalculation = get().priceCalculation;
           if (priceCalculation) {
             response.data.totalPrice = priceCalculation.totalPrice;
           }
           
-          // Set status based on availability
-          if (isWaitlistReservation) {
-            response.data.status = 'waitlist';
-            response.data.isWaitlist = true;
-          } else {
-            // ⚡ CRM AUTOMATION: Check if customer is VIP/Corporate for auto-approval
-            try {
-              // Get all reservations for this customer to determine if they're a returning customer
-              const allReservations = await apiService.getAdminReservations();
+          // ⚡ CRM AUTOMATION: Check if customer is VIP/Corporate for auto-approval
+          try {
+            // Get all reservations for this customer to determine if they're a returning customer
+            const allReservations = await apiService.getAdminReservations();
+            
+            if (allReservations.success && allReservations.data && formData.email) {
+              const customerReservations = allReservations.data.filter(
+                (r: any) => r.email.toLowerCase() === formData.email!.toLowerCase()
+              );
               
-              if (allReservations.success && allReservations.data && formData.email) {
-                const customerReservations = allReservations.data.filter(
-                  (r: any) => r.email.toLowerCase() === formData.email!.toLowerCase()
-                );
+              const previousBookings = customerReservations.length;
+              const hasVIPTag = customerReservations.some((r: any) => r.tags?.includes('VIP') || r.tags?.includes('Corporate'));
+              
+              if (hasVIPTag) {
+                console.log(`🌟 [VIP AUTO-APPROVAL] Customer ${formData.email} is VIP/Corporate, auto-confirming...`);
+                response.data.status = 'confirmed';
                 
-                const previousBookings = customerReservations.length;
-                const hasVIPTag = customerReservations.some((r: any) => r.tags?.includes('VIP') || r.tags?.includes('Corporate'));
-                
-                if (hasVIPTag) {
-                  console.log(`🌟 [VIP AUTO-APPROVAL] Customer ${formData.email} is VIP/Corporate, auto-confirming...`);
-                  response.data.status = 'confirmed';
-                  
-                  // Add note to reservation
-                  if (!response.data.communicationLog) {
-                    response.data.communicationLog = [];
-                  }
-                  response.data.communicationLog.push({
-                    id: `log-vip-${Date.now()}`,
-                    timestamp: new Date(),
-                    type: 'note',
-                    message: '🌟 Automatisch bevestigd - VIP/Corporate klant',
-                    author: 'System'
-                  });
-                } else if (previousBookings > 0) {
-                  console.log(`🔁 [RETURNING CUSTOMER] Customer ${formData.email} has ${previousBookings} previous bookings`);
-                  
-                  // Add note for admin visibility
-                  if (!response.data.communicationLog) {
-                    response.data.communicationLog = [];
-                  }
-                  response.data.communicationLog.push({
-                    id: `log-returning-${Date.now()}`,
-                    timestamp: new Date(),
-                    type: 'note',
-                    message: `🔁 Terugkerende klant - ${previousBookings} eerdere ${previousBookings === 1 ? 'boeking' : 'boekingen'}`,
-                    author: 'System'
-                  });
+                // Add note to reservation
+                if (!response.data.communicationLog) {
+                  response.data.communicationLog = [];
                 }
+                response.data.communicationLog.push({
+                  id: `log-vip-${Date.now()}`,
+                  timestamp: new Date(),
+                  type: 'note',
+                  message: '🌟 Automatisch bevestigd - VIP/Corporate klant',
+                  author: 'System'
+                });
+              } else if (previousBookings > 0) {
+                console.log(`🔁 [RETURNING CUSTOMER] Customer ${formData.email} has ${previousBookings} previous bookings`);
+                
+                // Add note for admin visibility
+                if (!response.data.communicationLog) {
+                  response.data.communicationLog = [];
+                }
+                response.data.communicationLog.push({
+                  id: `log-returning-${Date.now()}`,
+                  timestamp: new Date(),
+                  type: 'note',
+                  message: `🔁 Terugkerende klant - ${previousBookings} eerdere ${previousBookings === 1 ? 'boeking' : 'boekingen'}`,
+                  author: 'System'
+                });
               }
-            } catch (error) {
-              console.error('Failed to check customer history for VIP status:', error);
-              // Continue with normal flow if check fails
             }
+          } catch (error) {
+            console.error('Failed to check customer history for VIP status:', error);
+            // Continue with normal flow if check fails
           }
           
           // ✨ IMPORTANT: Reload events to get updated capacity and waitlist status
@@ -740,7 +741,7 @@ export const useReservationStore = create<ReservationStore>()(
           
           set({ 
             completedReservation: response.data,
-            currentStep: isWaitlistReservation ? 'waitlistSuccess' : 'success'
+            currentStep: 'success' // Always 'success' - waitlist goes through different flow
           });
           
           // Clear draft after successful submission
@@ -759,53 +760,12 @@ export const useReservationStore = create<ReservationStore>()(
       }
     },
 
-    submitWaitlist: async () => {
-      const { selectedEvent, formData } = get();
-      
-      if (!selectedEvent) {
-        return false;
-      }
-
-      // For waitlist, we only need basic contact information
-      const minimalData: Partial<CustomerFormData> = {
-        contactPerson: formData.contactPerson,
-        email: formData.email,
-        phone: formData.phone,
-        phoneCountryCode: formData.phoneCountryCode,
-        numberOfPersons: formData.numberOfPersons,
-        arrangement: formData.arrangement,
-        comments: formData.comments
-      };
-
-      set({ isSubmitting: true });
-      
-      try {
-        const response = await apiService.submitReservation(minimalData as CustomerFormData, selectedEvent.id);
-        
-        if (response.success && response.data) {
-          response.data.status = 'waitlist';
-          response.data.isWaitlist = true;
-          
-          set({ 
-            completedReservation: response.data,
-            currentStep: 'waitlistSuccess'
-          });
-          
-          // Clear draft after successful submission
-          get().clearDraft();
-          
-          return true;
-        } else {
-          console.error('Waitlist submission failed:', response.error);
-          return false;
-        }
-      } catch (error) {
-        console.error('Failed to submit waitlist:', error);
-        return false;
-      } finally {
-        set({ isSubmitting: false });
-      }
-    },
+    // 🗑️ REMOVED: submitWaitlist function
+    // Waitlist entries are now handled EXCLUSIVELY by:
+    // - WaitlistPrompt.tsx component
+    // - waitlistStore.addWaitlistEntry() action
+    // - apiService.createWaitlistEntry() API call
+    // This creates proper WaitlistEntry objects, NOT Reservation objects with status='waitlist'
 
     updateConfig: (config) => {
       set(state => ({

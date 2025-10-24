@@ -3,7 +3,7 @@ import type { BookingAdminProps } from '../types';
 import { AdminLayoutNew } from './admin/AdminLayoutNew';
 import { DashboardEnhanced } from './admin/DashboardEnhanced';
 import { ReservationsManagerEnhanced } from './admin/ReservationsManagerEnhanced';
-import { EventManagerEnhanced } from './admin/EventManagerEnhanced';
+import { EventCommandCenter } from './admin/EventCommandCenter';
 import { CustomerManagerEnhanced } from './admin/CustomerManagerEnhanced';
 import { ProductsManager } from './admin/ProductsManager';
 import { ConfigManagerEnhanced } from './admin/ConfigManagerEnhanced';
@@ -25,7 +25,7 @@ const BookingAdminNew: React.FC<BookingAdminProps> = () => {
 
       // Events - Unified manager with internal tabs
       case 'events':
-        return <EventManagerEnhanced />;
+        return <EventCommandCenter />;
 
       // Reservations - Unified manager with filter tabs
       case 'reservations':

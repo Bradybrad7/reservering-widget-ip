@@ -868,6 +868,44 @@ class LocalStorageService {
     localStorage.setItem(KEYS.WAITLIST_ID_COUNTER, (counter + 1).toString());
     return counter;
   }
+
+  // ============================================
+  // GENERIC GET/SET METHODS (for extensions like promotions, vouchers, etc.)
+  // ============================================
+
+  /**
+   * Generic getter for custom data types
+   */
+  get<T>(key: string): T | null {
+    const data = localStorage.getItem(key);
+    if (!data) return null;
+    
+    try {
+      return JSON.parse(data) as T;
+    } catch (e) {
+      console.error(`Failed to parse localStorage key "${key}":`, e);
+      return null;
+    }
+  }
+
+  /**
+   * Generic setter for custom data types
+   */
+  set<T>(key: string, value: T): void {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {
+      console.error(`Failed to save to localStorage key "${key}":`, e);
+      throw e;
+    }
+  }
+
+  /**
+   * Remove a custom key
+   */
+  remove(key: string): void {
+    localStorage.removeItem(key);
+  }
 }
 
 // Export singleton instance

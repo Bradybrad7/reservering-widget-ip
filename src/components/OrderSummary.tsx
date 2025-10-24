@@ -1,5 +1,5 @@
-import React, { memo } from 'react';
-import { Calculator, Calendar as CalendarIcon, Users, CreditCard, Clock } from 'lucide-react';
+import React, { memo, useState } from 'react';
+import { Calculator, Calendar as CalendarIcon, Users, CreditCard, Clock, Tag, X } from 'lucide-react';
 // Types imported through store
 import { useReservationStore } from '../store/reservationStore';
 import { 
@@ -9,6 +9,7 @@ import {
   cn 
 } from '../utils';
 import { nl, getEventTypeName } from '../config/defaults';
+import { promotionService } from '../services/promotionService';
 
 interface OrderSummaryProps {
   className?: string;
@@ -22,11 +23,61 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
     priceCalculation,
     isSubmitting,
     goToNextStep,
-    eventAvailability
+    updateFormData,
   } = useReservationStore();
+
+  // Discount code state
+  const [discountCode, setDiscountCode] = useState('');
+  const [appliedCode, setAppliedCode] = useState<string | null>(null);
+  const [discountError, setDiscountError] = useState<string | null>(null);
 
   // Check if waitlist is manually activated (not based on capacity)
   const isWaitlistActive = selectedEvent?.waitlistActive === true;
+
+  // Apply discount code
+  const handleApplyDiscount = () => {
+    if (!discountCode.trim() || !selectedEvent || !priceCalculation) return;
+
+    // Try promotion code first
+    const promoResult = promotionService.validatePromotionCode(
+      discountCode,
+      priceCalculation.subtotal,
+      selectedEvent,
+      formData.arrangement
+    );
+
+    if (promoResult.isValid) {
+      setAppliedCode(discountCode);
+      setDiscountError(null);
+      updateFormData({ promotionCode: discountCode });
+      setDiscountCode('');
+      return;
+    }
+
+    // Try voucher code
+    const voucherResult = promotionService.validateVoucher(
+      discountCode,
+      priceCalculation.subtotal
+    );
+
+    if (voucherResult.isValid) {
+      setAppliedCode(discountCode);
+      setDiscountError(null);
+      updateFormData({ voucherCode: discountCode });
+      setDiscountCode('');
+      return;
+    }
+
+    // Neither worked
+    setDiscountError(promoResult.errorMessage || voucherResult.errorMessage || 'Ongeldige code');
+  };
+
+  // Remove applied discount
+  const handleRemoveDiscount = () => {
+    setAppliedCode(null);
+    setDiscountError(null);
+    updateFormData({ promotionCode: undefined, voucherCode: undefined });
+  };
 
   if (!selectedEvent) {
     return (
@@ -185,6 +236,20 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
           </div>
         )}
 
+        {/* Discount Display */}
+        {priceCalculation.breakdown.discount && (
+          <div className="flex justify-between items-center p-2 bg-success-500/15 rounded-lg border border-success-400/30 backdrop-blur-sm">
+            <div className="flex-1">
+              <p className="text-xs font-semibold text-success-300 flex items-center gap-2">
+                🎉 {priceCalculation.breakdown.discount.description}
+              </p>
+            </div>
+            <p className="font-bold text-success-400 text-sm">
+              - {formatCurrency(priceCalculation.breakdown.discount.amount)}
+            </p>
+          </div>
+        )}
+
         {/* Total - Enhanced Goud Glow */}
         <div className="mt-4 p-4 bg-gold-gradient rounded-2xl border-2 border-primary-500/50 shadow-gold-glow">
           <div className="flex justify-between items-center">
@@ -271,6 +336,78 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
 
       {/* Add-ons Info */}
       {renderAddOns()}
+
+      {/* Discount Code Input */}
+      <div className="mb-4 pt-4 border-t border-gold-500/30">
+        {appliedCode ? (
+          <div className="flex items-center justify-between p-3 bg-success-500/15 border border-success-400/30 rounded-lg">
+            <div className="flex items-center gap-2">
+              <Tag className="w-4 h-4 text-success-400" />
+              <span className="text-sm font-medium text-success-300">
+                Code toegepast: {appliedCode}
+              </span>
+            </div>
+            <button
+              onClick={handleRemoveDiscount}
+              className="p-1 hover:bg-danger-500/20 rounded transition-colors"
+              aria-label="Code verwijderen"
+            >
+              <X className="w-4 h-4 text-text-muted hover:text-danger-400" />
+            </button>
+          </div>
+        ) : (
+          <div>
+            <label className="text-sm font-medium text-text-secondary mb-2 block">
+              Kortingscode of Voucher
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={discountCode}
+                onChange={(e) => {
+                  setDiscountCode(e.target.value.toUpperCase());
+                  setDiscountError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleApplyDiscount();
+                  }
+                }}
+                placeholder="Bijv. ZOMER2025"
+                className={cn(
+                  'flex-1 px-3 py-2 bg-surface border rounded-lg text-text-primary text-sm',
+                  'placeholder:text-text-disabled',
+                  'focus:outline-none focus:ring-2 focus:ring-primary-500/60 focus:border-primary-500',
+                  {
+                    'border-danger-500 focus:ring-danger-500/60': discountError,
+                    'border-border-default': !discountError
+                  }
+                )}
+              />
+              <button
+                onClick={handleApplyDiscount}
+                disabled={!discountCode.trim()}
+                className={cn(
+                  'px-4 py-2 rounded-lg font-medium text-sm transition-all',
+                  'focus:outline-none focus:ring-2 focus:ring-primary-500/60',
+                  {
+                    'bg-primary-600 text-text-primary hover:bg-primary-500': discountCode.trim(),
+                    'bg-neutral-800 text-text-disabled cursor-not-allowed': !discountCode.trim()
+                  }
+                )}
+              >
+                Toepassen
+              </button>
+            </div>
+            {discountError && (
+              <p className="mt-2 text-xs text-danger-400 flex items-center gap-1">
+                <span>⚠️</span>
+                <span>{discountError}</span>
+              </p>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Price Breakdown */}
       <div className="mb-6 pt-4 border-t border-gold-500/30">
