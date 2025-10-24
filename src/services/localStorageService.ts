@@ -824,8 +824,16 @@ class LocalStorageService {
       updatedAt: new Date()
     };
     
+    console.log('🔍 DEBUG LocalStorage: Adding waitlist entry');
+    console.log('📝 Entry data:', newEntry);
+    console.log('📊 Current entries count:', entries.length);
+    
     entries.push(newEntry);
     this.saveWaitlistEntries(entries);
+    
+    console.log('✅ Saved to localStorage key: ip_waitlist_entries');
+    console.log('📊 New entries count:', entries.length);
+    console.log('🔍 Verify in localStorage:', localStorage.getItem(KEYS.WAITLIST_ENTRIES));
     
     return newEntry;
   }

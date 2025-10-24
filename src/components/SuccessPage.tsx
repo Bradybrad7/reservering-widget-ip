@@ -276,8 +276,8 @@ const SuccessPage: React.FC<SuccessPageProps> = ({ className, onNewReservation }
               {isWaitlist 
                 ? '🎭 Bedankt voor uw aanmelding op de wachtlijst! Deze datum is momenteel volledig volgeboekt. We nemen contact met u op zodra er een plek vrijkomt. U ontvangt binnenkort een bevestiging per e-mail.'
                 : isPending
-                ? '🎭 Bedankt voor uw aanvraag! We hebben uw reservering ontvangen met status "In Afwachting".'
-                : nl.successPage.message
+                ? '🎭 Bedankt voor uw aanvraag! Uw reservering is ontvangen en wordt beoordeeld door ons team. U ontvangt binnen 2 werkdagen een definitieve bevestiging of aanvullende informatie per e-mail.'
+                : '🎭 Bedankt voor uw reservering! U ontvangt binnenkort een bevestiging per e-mail met alle details.'
               }
             </p>
             
@@ -286,29 +286,33 @@ const SuccessPage: React.FC<SuccessPageProps> = ({ className, onNewReservation }
                 "p-4 rounded-xl border-2 mt-4",
                 requestedOverCapacity
                   ? "bg-warning-500/10 border-warning-500/30"
-                  : "bg-primary-500/10 border-primary-500/30"
+                  : "bg-blue-500/10 border-blue-500/30"
               )}>
                 <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-500/20 flex items-center justify-center mt-0.5">
-                    <span className="text-primary-400 text-xs font-bold">ℹ️</span>
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center mt-0.5">
+                    <span className="text-2xl">📋</span>
                   </div>
                   <div className="flex-1">
                     <p className="font-semibold text-text-primary mb-2">
-                      📅 Volgende stappen:
+                      Wat gebeurt er nu?
                     </p>
                     <ul className="space-y-2 text-sm text-text-secondary">
                       <li className="flex items-start gap-2">
-                        <span className="text-primary-500 mt-0.5">•</span>
-                        <span>U ontvangt binnen <strong className="text-text-primary">2 werkdagen</strong> bericht over de definitieve bevestiging van uw reservering.</span>
+                        <span className="text-blue-400 mt-0.5">✓</span>
+                        <span>Uw aanvraag wordt <strong className="text-text-primary">binnen 2 werkdagen</strong> beoordeeld door ons team.</span>
                       </li>
                       <li className="flex items-start gap-2">
-                        <span className="text-primary-500 mt-0.5">•</span>
-                        <span>Een bevestigingsmail is verzonden naar <strong className="text-text-primary">{completedReservation.email}</strong>.</span>
+                        <span className="text-blue-400 mt-0.5">✓</span>
+                        <span>U ontvangt een definitieve bevestiging per e-mail op <strong className="text-text-primary">{completedReservation.email}</strong>.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-400 mt-0.5">📞</span>
+                        <span>Bij vragen kunt u ons bereiken via <a href="mailto:info@inspiration-point.nl" className="font-bold text-blue-400 hover:text-blue-300 underline">info@inspiration-point.nl</a></span>
                       </li>
                       {requestedOverCapacity && (
-                        <li className="flex items-start gap-2">
-                          <span className="text-warning-400 mt-0.5">⚠️</span>
-                          <span className="text-warning-200">Uw aanvraag betreft meer personen dan direct beschikbaar. We doen ons best om aan uw wens te voldoen.</span>
+                        <li className="flex items-start gap-2 mt-3 pt-3 border-t border-warning-500/30">
+                          <span className="text-warning-400 mt-0.5">💡</span>
+                          <span className="text-warning-200"><strong>Let op:</strong> Uw aanvraag kan extra tijd vergen omdat we kijken naar beschikbare capaciteit voor uw groep.</span>
                         </li>
                       )}
                     </ul>

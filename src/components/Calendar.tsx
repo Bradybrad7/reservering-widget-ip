@@ -212,22 +212,20 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
           const isCurrentMonth = isInCurrentMonth(date, currentMonth);
           const isSelected = selectedEvent && event && event.id === selectedEvent.id;
           
-          // Check if event is fully booked
-          const confirmedOccupancy = event && event.remainingCapacity !== undefined
-            ? ((event.capacity - event.remainingCapacity) / event.capacity) * 100
-            : 0;
-          const isFullyBooked = confirmedOccupancy >= 100;
+          // ✅ GEBRUIK ALLEEN bookingStatus - GEEN CAPACITEITSDATA
+          const isFull = availability?.bookingStatus === 'full';
+          const isRequestOnly = availability?.bookingStatus === 'request';
           
           // Get event type color
           const eventColor = event ? getEventTypeColor(event.type) : null;
           
-          // Determine background color: red for fully booked, event color otherwise
+          // Determine background color based on booking status
           let bgColor = undefined;
           let borderColor = undefined;
           
           if (event && isCurrentMonth && !isSelected) {
-            if (isFullyBooked) {
-              bgColor = 'rgba(185, 28, 28, 0.25)'; // Red for waitlist
+            if (isFull || isRequestOnly) {
+              bgColor = 'rgba(185, 28, 28, 0.25)'; // Red for full/request
               borderColor = '#991b1b'; // Dark red border
             } else {
               bgColor = eventColor ? hexToRgba(eventColor, 0.15) : undefined;
@@ -312,18 +310,14 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
                     {formatTime(event.startsAt)}
                   </div>
                   
-                  {/* Wachtlijst status - alleen als vol of heeft waitlist */}
-                  {availability && event.capacity !== undefined && (
+                  {/* ✅ Status labels - ALLEEN gebaseerd op bookingStatus, GEEN capaciteitsdata */}
+                  {availability && (
                     (() => {
-                      const confirmedOccupancy = event.remainingCapacity !== undefined 
-                        ? ((event.capacity - event.remainingCapacity) / event.capacity) * 100
-                        : 0;
-                      
-                      // ✨ NEW: Check for actual waitlist entries
+                      // Check waitlist count
                       const dateKey = date.toISOString().split('T')[0];
                       const waitlistCount = waitlistCounts[dateKey] || 0;
                       
-                      if (confirmedOccupancy >= 100) {
+                      if (availability.bookingStatus === 'full') {
                         return (
                           <div className={cn(
                             "text-[9px] font-black uppercase tracking-tight leading-tight px-1 py-0.5 rounded mt-0.5",
@@ -335,8 +329,7 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
                             WACHTLIJST {waitlistCount > 0 && `(${waitlistCount})`}
                           </div>
                         );
-                      } else if (waitlistCount > 0) {
-                        // ✨ NEW: Show waitlist count even if not full (shows interest)
+                      } else if (availability.bookingStatus === 'request') {
                         return (
                           <div className={cn(
                             "text-[9px] font-bold tracking-tight leading-tight px-1 py-0.5 rounded mt-0.5",
@@ -345,7 +338,20 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
                               'bg-orange-500 text-white': isSelected
                             }
                           )}>
-                            {waitlistCount} op wachtlijst
+                            OP AANVRAAG
+                          </div>
+                        );
+                      } else if (waitlistCount > 0) {
+                        // Toon interesse (waitlist count) zonder capaciteitsdata
+                        return (
+                          <div className={cn(
+                            "text-[9px] font-bold tracking-tight leading-tight px-1 py-0.5 rounded mt-0.5",
+                            {
+                              'bg-blue-900/60 text-blue-200': !isSelected,
+                              'bg-blue-500 text-white': isSelected
+                            }
+                          )}>
+                            {waitlistCount} geïnteresseerd
                           </div>
                         );
                       }
@@ -375,21 +381,21 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
         </div>
       </div>
       
-      {/* Capacity Bar Legend - Dark Mode */}
+      {/* ✅ Status Legend - GEEN capaciteitspercentages */}
       <div className="mt-3 pt-3 border-t border-gold-500/30">
-        <h4 className="text-xs font-semibold text-neutral-200 mb-2">Beschikbaarheid:</h4>
+        <h4 className="text-xs font-semibold text-neutral-200 mb-2">Status:</h4>
         <div className="grid grid-cols-1 gap-1.5 text-xs">
           <div className="flex items-center gap-2">
             <div className="w-8 h-1.5 bg-gradient-to-r from-green-400 to-green-500 rounded-full shadow-sm" />
-            <span className="text-neutral-200">Beschikbaar (&lt;75% bezet)</span>
+            <span className="text-neutral-200">Beschikbaar</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-1.5 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full shadow-sm" />
-            <span className="text-neutral-200">Beperkt (75-99% bezet)</span>
+            <div className="w-8 h-1.5 bg-gradient-to-r from-orange-400 to-orange-500 rounded-full shadow-sm" />
+            <span className="text-neutral-200">Op aanvraag</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-8 h-1.5 bg-gradient-to-r from-red-400 to-red-500 rounded-full shadow-sm" />
-            <span className="text-neutral-200">Vol - Aanvraag mogelijk</span>
+            <span className="text-neutral-200">Wachtlijst</span>
           </div>
         </div>
       </div>

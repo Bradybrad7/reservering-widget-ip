@@ -9,12 +9,12 @@ export type ReservationStatus = 'pending' | 'confirmed' | 'cancelled' | 'rejecte
 export type StepKey = 
   | 'calendar' 
   | 'persons'
-  | 'package' // ✨ NIEUW: Gecombineerde stap voor arrangement + borrels
-  | 'arrangement' 
-  | 'addons' 
-  | 'merchandise' 
-  | 'form' 
-  | 'summary' 
+  | 'package' // ✨ Gecombineerde stap voor arrangement + borrels
+  | 'merchandise' // 🛍️ Optionele merchandise stap
+  | 'contact' // ✨ Essentiële contactgegevens (naam, bedrijf, email, telefoon)
+  | 'details' // ✨ Extra details (adres, factuur, dieetwensen)
+  | 'form' // ⚠️ DEPRECATED: Wordt vervangen door contact + details
+  | 'summary'
   | 'success'
   | 'waitlistPrompt'
   | 'waitlistSuccess';
@@ -159,15 +159,15 @@ export interface TextCustomization {
 
 // Dietary requirements and allergies
 export interface DietaryRequirements {
-  vegetarian: boolean;
+  vegetarian?: boolean;
   vegetarianCount?: number;
-  vegan: boolean;
+  vegan?: boolean;
   veganCount?: number;
-  glutenFree: boolean;
+  glutenFree?: boolean;
   glutenFreeCount?: number;
-  lactoseFree: boolean;
+  lactoseFree?: boolean;
   lactoseFreeCount?: number;
-  other: string; // Free text for other allergies/requirements
+  other?: string; // ✨ VEREENVOUDIGD: Klanten vullen alles in dit veld (inclusief aantallen)
   otherCount?: number;
 }
 
@@ -261,6 +261,7 @@ export interface CommunicationLog {
 }
 
 // ✨ NEW: Waitlist Entry - Separate from Reservations
+// Note: NO arrangement or pricing - they're just on the waitlist!
 export interface WaitlistEntry {
   id: string;
   eventId: string;
@@ -270,7 +271,7 @@ export interface WaitlistEntry {
   customerPhone?: string;
   phoneCountryCode?: string;
   numberOfPersons: number;
-  arrangement?: Arrangement;
+  // ⚠️ NO arrangement - waitlist entries don't book yet!
   status: 'pending' | 'contacted' | 'converted' | 'expired' | 'cancelled';
   priority?: number; // Order in waitlist (1 = first)
   notes?: string;
@@ -472,44 +473,27 @@ export interface EmailReminderConfig {
 }
 
 // Admin navigation types
+// ✨ SIMPLIFIED ADMIN NAVIGATION (Oct 2025)
+// Reduced from 30+ items to 9 logical groups
+// Sub-pages implemented as tabs within main components
 export type AdminSection = 
-  | 'dashboard'
-  | 'events-overview'
-  | 'events-shows'
-  | 'events-types'
-  | 'events-calendar'
-  | 'events-templates'
-  | 'reservations-all'
-  | 'reservations-pending'
-  | 'reservations-confirmed'
-  | 'reservations-waitlist'
-  | 'reservations-checkin'
-  | 'customers-overview'
-  | 'customers-detail'
-  | 'products-addons'
-  | 'products-merchandise'
-  | 'products-arrangements'
-  | 'settings-pricing'
-  | 'settings-booking'
-  | 'settings-wizard'
-  | 'settings-texts'
-  | 'settings-general'
-  | 'settings-promotions'
-  | 'settings-vouchers'
-  | 'settings-reminders'
-  | 'system-data'
-  | 'system-capacity'
-  | 'system-health'
-  | 'system-audit'
-  | 'analytics-reports'
-  | 'analytics-dashboard';
+  | 'dashboard'      // Home overview
+  | 'events'         // All event management (tabs: overview, calendar, templates, shows, types)
+  | 'reservations'   // All reservations with filter tabs (all, pending, confirmed, cancelled)
+  | 'waitlist'       // Waitlist management (separate workflow)
+  | 'checkin'        // Check-in system (day-of workflow)
+  | 'customers'      // CRM & customer management
+  | 'products'       // Products & Pricing (tabs: arrangements, addons, merchandise, promotions, vouchers)
+  | 'reports'        // Analytics & reporting (tabs: dashboard, custom reports)
+  | 'config';        // All configuration (tabs: general, booking, system)
 
 export interface NavigationItem {
   id: AdminSection;
   label: string;
   icon: string; // Lucide icon name
-  parent?: string; // Parent group ID
+  parent?: string; // Parent group ID (deprecated with new flat structure)
   order: number;
+  badge?: string | number; // Optional badge for notifications
 }
 
 export interface NavigationGroup {
@@ -517,8 +501,9 @@ export interface NavigationGroup {
   label: string;
   icon: string;
   order: number;
-  items: NavigationItem[];
+  items?: NavigationItem[]; // Optional: for future nested structure
   defaultExpanded?: boolean;
+  section: AdminSection; // Direct mapping to AdminSection
 }
 
 // Export types for external use

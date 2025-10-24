@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar as CalendarIcon, Clock, ToggleLeft, ToggleRight, Plus, Save, CheckCircle } from 'lucide-react';
-import type { AdminEvent, EventType } from '../../types';
+import { Calendar as CalendarIcon, Clock, ToggleLeft, ToggleRight, Plus, Save, CheckCircle, Users, Mail, Phone, Building2 } from 'lucide-react';
+import type { AdminEvent, EventType, Reservation } from '../../types';
 import { apiService } from '../../services/apiService';
+import { useWaitlistStore } from '../../store/waitlistStore';
 import { nl } from '../../config/defaults';
 
 interface CalendarDay {
@@ -18,6 +19,8 @@ export const CalendarManager: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showAddEventModal, setShowAddEventModal] = useState(false);
+  const [dayBookings, setDayBookings] = useState<Reservation[]>([]);
+  const [loadingBookings, setLoadingBookings] = useState(false);
   const [newEvent, setNewEvent] = useState({
     date: '',
     type: 'REGULAR' as EventType,
@@ -29,6 +32,14 @@ export const CalendarManager: React.FC = () => {
   useEffect(() => {
     loadCalendarData();
   }, [currentMonth]);
+
+  useEffect(() => {
+    if (selectedDate) {
+      loadBookingsForDate(selectedDate);
+    } else {
+      setDayBookings([]);
+    }
+  }, [selectedDate]);
 
   const loadCalendarData = async () => {
     setIsLoading(true);
@@ -42,6 +53,26 @@ export const CalendarManager: React.FC = () => {
       console.error('Failed to load calendar:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadBookingsForDate = async (dateStr: string) => {
+    setLoadingBookings(true);
+    try {
+      const result = await apiService.getAdminReservations();
+      if (result.success && result.data) {
+        // Filter reservations for the selected date
+        const bookingsForDate = result.data.filter(r => {
+          const resDate = r.eventDate instanceof Date ? r.eventDate : new Date(r.eventDate);
+          return resDate.toISOString().split('T')[0] === dateStr;
+        });
+        setDayBookings(bookingsForDate);
+      }
+    } catch (error) {
+      console.error('Failed to load bookings:', error);
+      setDayBookings([]);
+    } finally {
+      setLoadingBookings(false);
     }
   };
 
@@ -243,6 +274,76 @@ export const CalendarManager: React.FC = () => {
             })}
           </h3>
 
+          {/* 🆕 BOOKINGS OVERVIEW FOR SELECTED DATE */}
+          {loadingBookings ? (
+            <div className="text-center py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-gold-200 border-t-gold-600 mx-auto"></div>
+              <p className="text-neutral-300 mt-2">Boekingen laden...</p>
+            </div>
+          ) : dayBookings.length > 0 ? (
+            <div className="mb-6">
+              <h4 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Alle Boekingen ({dayBookings.length})
+              </h4>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {dayBookings.map((booking) => (
+                  <div
+                    key={booking.id}
+                    className={`
+                      p-3 rounded-lg border-2 transition-all
+                      ${booking.status === 'confirmed' ? 'bg-green-900/30 border-green-500/30' : ''}
+                      ${booking.status === 'pending' ? 'bg-orange-900/30 border-orange-500/30' : ''}
+                      ${booking.status === 'cancelled' ? 'bg-red-900/30 border-red-500/30' : ''}
+                      ${booking.status === 'checked-in' ? 'bg-blue-900/30 border-blue-500/30' : ''}
+                    `}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Building2 className="w-4 h-4 text-gold-400" />
+                          <span className="font-semibold text-white">{booking.companyName}</span>
+                          <span className={`
+                            px-2 py-0.5 rounded-full text-xs font-medium
+                            ${booking.status === 'confirmed' ? 'bg-green-500 text-white' : ''}
+                            ${booking.status === 'pending' ? 'bg-orange-500 text-white' : ''}
+                            ${booking.status === 'cancelled' ? 'bg-red-500 text-white' : ''}
+                            ${booking.status === 'checked-in' ? 'bg-blue-500 text-white' : ''}
+                          `}>
+                            {booking.status === 'confirmed' && '✓ Bevestigd'}
+                            {booking.status === 'pending' && '⏳ Pending'}
+                            {booking.status === 'cancelled' && '✕ Geannuleerd'}
+                            {booking.status === 'checked-in' && '✓ Ingecheckt'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-neutral-300">
+                          <div className="flex items-center gap-1">
+                            <Users className="w-3.5 h-3.5" />
+                            <span>{booking.numberOfPersons} personen</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Mail className="w-3.5 h-3.5" />
+                            <span>{booking.email}</span>
+                          </div>
+                          {booking.phone && (
+                            <div className="flex items-center gap-1">
+                              <Phone className="w-3.5 h-3.5" />
+                              <span>{booking.phone}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="mb-6 p-4 bg-neutral-800/30 rounded-lg border border-neutral-700">
+              <p className="text-neutral-300 text-center">📭 Nog geen boekingen voor deze datum</p>
+            </div>
+          )}
+
           {selectedDay.events.length === 0 ? (
             <div className="text-center py-8">
               <CalendarIcon className="w-16 h-16 text-dark-300 mx-auto mb-4" />
@@ -294,9 +395,22 @@ export const CalendarManager: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-2">
                           <CalendarIcon className="w-4 h-4" />
-                          <span>
-                            Capaciteit: {event.remainingCapacity || event.capacity} / {event.capacity} personen
-                          </span>
+                          {(() => {
+                            // Bereken het werkelijke aantal geboekte personen
+                            const totalBookedPersons = (event.reservations || [])
+                              .filter(r => r.status === 'confirmed' || r.status === 'pending' || r.status === 'checked-in')
+                              .reduce((sum, r) => sum + r.numberOfPersons, 0);
+                            const waitlistCount = useWaitlistStore.getState().getWaitlistCount(event.id);
+                            
+                            return (
+                              <span>
+                                Geboekt: <span className={totalBookedPersons > event.capacity ? 'text-red-400 font-semibold' : ''}>{totalBookedPersons}</span> / {event.capacity}
+                                {waitlistCount > 0 && (
+                                  <span className="ml-1 text-orange-400"> (+{waitlistCount} wachtlijst)</span>
+                                )}
+                              </span>
+                            );
+                          })()}
                         </div>
                         {event.reservations && event.reservations.length > 0 && (
                           <div className="flex items-center gap-2 text-primary-500">

@@ -111,8 +111,6 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
     );
   }
 
-  const availability = eventAvailability[selectedEvent.id];
-
   const handleInputChange = (field: keyof CustomerFormData, value: any) => {
     updateFormData({ [field]: value });
   };
@@ -534,13 +532,12 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
 
   return (
     <div className={cn('space-y-4 animate-fade-in', className)}>
-      {/* ⚠️ Capacity Warning - Show if booking exceeds remaining capacity */}
+      {/* ⚠️ Request Status Warning - Show if event requires booking request */}
       {(() => {
         const availability = eventAvailability[selectedEvent.id];
-        const remainingCapacity = availability?.remainingCapacity || 0;
-        const isOverCapacity = formData.numberOfPersons && formData.numberOfPersons > remainingCapacity;
+        const isRequestOnly = availability?.bookingStatus === 'request';
         
-        if (isOverCapacity && remainingCapacity > 0) {
+        if (isRequestOnly) {
           return (
             <div className="p-4 bg-warning-500/10 border-2 border-warning-500/50 rounded-xl animate-fade-in">
               <div className="flex items-start gap-3">
@@ -548,10 +545,10 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
                   <AlertCircle className="w-6 h-6 text-warning-400" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-warning-300 mb-1">Let op: Aanvraag boven capaciteit</h3>
+                  <h3 className="text-base font-bold text-warning-300 mb-1">Let op: Deze datum vereist een aanvraag</h3>
                   <p className="text-sm text-warning-200/90 leading-relaxed">
-                    U boekt {formData.numberOfPersons} personen, maar er zijn momenteel slechts <strong>{remainingCapacity} plaatsen</strong> beschikbaar. 
-                    Uw reservering wordt als <strong>aanvraag</strong> behandeld en beoordeeld door onze medewerkers.
+                    Uw reservering voor {formData.numberOfPersons} personen wordt als <strong>aanvraag</strong> behandeld en beoordeeld door onze medewerkers. 
+                    U ontvangt spoedig bericht over de status van uw aanvraag.
                   </p>
                 </div>
               </div>
@@ -984,17 +981,16 @@ const ReservationForm: React.FC<ReservationFormProps> = ({ className }) => {
             <span>Wilt u het aantal personen aanpassen? Klik op "Wijzigen" om terug te gaan naar de vorige stap.</span>
           </p>
           
-          {/* Warning if booking exceeds capacity */}
-          {selectedEvent && eventAvailability[selectedEvent.id] && formData.numberOfPersons &&
-           formData.numberOfPersons > eventAvailability[selectedEvent.id].remainingCapacity && (
+          {/* Warning if event requires booking request */}
+          {selectedEvent && eventAvailability[selectedEvent.id] && 
+           eventAvailability[selectedEvent.id].bookingStatus === 'request' && (
             <div className="mt-3 p-4 bg-warning-500/10 border-2 border-warning-500/40 rounded-xl">
               <p className="text-sm text-warning-200 flex items-start gap-2 font-semibold">
                 <span className="text-lg">⚠️</span>
                 <span>
-                  <strong>Let op:</strong> Uw boeking overschrijdt de huidige beschikbare capaciteit 
-                  ({eventAvailability[selectedEvent.id].remainingCapacity} plaatsen beschikbaar). 
-                  Deze boeking wordt ter beoordeling voorgelegd aan ons team. 
-                  Na plaatsing van deze boeking wordt deze datum gesloten voor verdere reserveringen.
+                  <strong>Let op:</strong> Deze datum vereist een aanvraag. 
+                  Uw boeking wordt ter beoordeling voorgelegd aan ons team. 
+                  U ontvangt spoedig bericht over de status van uw reservering.
                 </span>
               </p>
             </div>

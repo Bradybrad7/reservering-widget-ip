@@ -5,19 +5,26 @@ import {
   CheckCircle,
   HelpCircle,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Settings,
+  Calendar,
+  DollarSign,
+  Wand2,
+  FileText
 } from 'lucide-react';
 import { useAdminStore } from '../../store/adminStore';
-import { getAllTextKeys } from '../../utils';
+import { getAllTextKeys, cn } from '../../utils';
 import type { Pricing, BookingRules, GlobalConfig, WizardConfig, TextCustomization, AdminSection } from '../../types';
 
 interface ConfigManagerEnhancedProps {
-  activeSection: AdminSection;
+  activeSection?: AdminSection;
 }
 
-type ConfigSection = 'pricing' | 'booking' | 'general' | 'wizard' | 'texts';
+type ConfigSection = 'general' | 'booking' | 'pricing' | 'wizard' | 'texts' | 'promotions' | 'reminders' | 'vouchers' | 'data' | 'capacity' | 'health' | 'audit';
 
-export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ activeSection }) => {
+export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ activeSection: initialSection }) => {
+  const [activeTab, setActiveTab] = React.useState<ConfigSection>(initialSection as ConfigSection || 'general');
+  
   const {
     config,
     pricing,
@@ -34,17 +41,7 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
   } = useAdminStore();
 
   // Map AdminSection to ConfigSection
-  const sectionMap: Record<string, ConfigSection> = {
-    'settings-pricing': 'pricing',
-    'settings-booking': 'booking',
-    'settings-wizard': 'wizard',
-    'settings-texts': 'texts',
-    'settings-general': 'general'
-  };
-
-  const [currentSection, setCurrentSection] = useState<ConfigSection>(
-    sectionMap[activeSection] || 'pricing'
-  );
+  const [currentSection, setCurrentSection] = useState<ConfigSection>(activeTab);
   const [hasChanges, setHasChanges] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
@@ -66,8 +63,8 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
   }, [loadConfig]);
 
   useEffect(() => {
-    setCurrentSection(sectionMap[activeSection] || 'pricing');
-  }, [activeSection]);
+    setCurrentSection(activeTab);
+  }, [activeTab]);
 
   useEffect(() => {
     if (pricing) setLocalPricing(pricing);
@@ -677,6 +674,39 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
             <span className="font-medium">Opgeslagen!</span>
           </div>
         )}
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="bg-neutral-800/50 rounded-lg p-2 flex gap-2 flex-wrap">
+        {[
+          { id: 'general' as ConfigSection, label: 'Algemeen', icon: Settings },
+          { id: 'booking' as ConfigSection, label: 'Booking', icon: Calendar },
+          { id: 'pricing' as ConfigSection, label: 'Prijzen', icon: DollarSign },
+          { id: 'wizard' as ConfigSection, label: 'Wizard', icon: Wand2 },
+          { id: 'texts' as ConfigSection, label: 'Teksten', icon: FileText }
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = currentSection === tab.id;
+          
+          return (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setActiveTab(tab.id);
+                setCurrentSection(tab.id);
+              }}
+              className={cn(
+                'flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all',
+                isActive
+                  ? 'bg-gold-500 text-white shadow-md'
+                  : 'text-neutral-300 hover:bg-neutral-700'
+              )}
+            >
+              <Icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Content */}

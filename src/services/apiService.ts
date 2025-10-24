@@ -648,7 +648,7 @@ export const apiService = {
     }
   },
 
-  // ✨ NEW: Reject pending reservation (no capacity change)
+  // ✨ NEW: Reject pending reservation (no capacity change) + Auto Archive
   async rejectReservation(reservationId: string): Promise<ApiResponse<Reservation>> {
     await delay(300);
     
@@ -676,8 +676,18 @@ export const apiService = {
         };
       }
 
+      // 🆕 AUTOMATICALLY DELETE (ARCHIVE) REJECTED RESERVATION
+      // Rejected reservations are moved to archive by removing them from active list
+      const deleted = localStorageService.deleteReservation(reservationId);
+      
+      if (deleted) {
+        console.log(`📦 Rejected reservation ${reservationId} automatically archived (deleted from active list).`);
+      } else {
+        console.warn(`⚠️ Failed to archive rejected reservation ${reservationId}`);
+      }
+
       // TODO: Send rejection email
-      console.log(`❌ Reservation ${reservationId} rejected.`);
+      console.log(`❌ Reservation ${reservationId} rejected and archived.`);
 
       return {
         success: true,
@@ -1586,13 +1596,21 @@ export const apiService = {
     await delay(300);
 
     try {
+      console.log('🔍 DEBUG: Creating waitlist entry:', entry);
+      console.log('📦 Will be saved to: ip_waitlist_entries');
+      
       const newEntry = localStorageService.addWaitlistEntry(entry);
+      
+      console.log('✅ Waitlist entry created:', newEntry);
+      console.log('📋 Current waitlist entries:', localStorageService.getWaitlistEntries().length);
+      
       return {
         success: true,
         data: newEntry,
         message: 'U bent toegevoegd aan de wachtlijst'
       };
     } catch (error) {
+      console.error('❌ Failed to create waitlist entry:', error);
       return {
         success: false,
         error: 'Failed to create waitlist entry'

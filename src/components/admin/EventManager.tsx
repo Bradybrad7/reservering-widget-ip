@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { Event, EventType, Arrangement } from '../../types';
 import { useAdminStore } from '../../store/adminStore';
+import { useWaitlistStore } from '../../store/waitlistStore';
 import { formatDate, formatTime, cn } from '../../utils';
 import { nl, eventTypeConfig } from '../../config/defaults';
 import { BulkEventModal } from './BulkEventModal';
@@ -438,32 +439,62 @@ export const EventManager: React.FC = () => {
                         <div className="flex items-center text-sm justify-between">
                           <div className="flex items-center">
                             <Users className="w-4 h-4 mr-1 text-dark-400" />
-                            <span className="font-medium text-white">{event.capacity - (event.remainingCapacity || 0)}</span>
-                            <span className="text-dark-500">/{event.capacity}</span>
-                            {/* Check for override indicator */}
+                            {/* Bereken het werkelijke aantal geboekte personen */}
                             {(() => {
-                              const overrideKey = `capacity-override-${event.id}`;
-                              const overrideData = localStorage.getItem(overrideKey);
-                              if (overrideData) {
-                                try {
-                                  const override = JSON.parse(overrideData);
-                                  if (override && override.enabled) {
-                                    return (
-                                      <span 
-                                        className="ml-1 text-xs bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded font-bold border border-blue-500/30"
-                                        title={`Override actief: ${override.capacity} personen`}
-                                      >
-                                        🔧
-                                      </span>
-                                    );
-                                  }
-                                } catch (e) {}
-                              }
-                              return null;
+                              // Type guard: AdminEvent heeft reservations array
+                              const adminEvent = event as any;
+                              const totalBookedPersons = (adminEvent.reservations || [])
+                                .filter((r: any) => r.status === 'confirmed' || r.status === 'pending' || r.status === 'checked-in')
+                                .reduce((sum: number, r: any) => sum + r.numberOfPersons, 0);
+                              const waitlistCount = useWaitlistStore.getState().getWaitlistCount(event.id);
+                              
+                              return (
+                                <>
+                                  <span className={cn(
+                                    "font-medium",
+                                    totalBookedPersons > event.capacity ? "text-red-400" : "text-white"
+                                  )}>
+                                    {totalBookedPersons}
+                                  </span>
+                                  <span className="text-dark-500">/{event.capacity}</span>
+                                  {waitlistCount > 0 && (
+                                    <span className="ml-1 text-xs text-orange-400" title={`${waitlistCount} personen op wachtlijst`}>
+                                      (+{waitlistCount})
+                                    </span>
+                                  )}
+                                  {/* Check for override indicator */}
+                                  {(() => {
+                                    const overrideKey = `capacity-override-${event.id}`;
+                                    const overrideData = localStorage.getItem(overrideKey);
+                                    if (overrideData) {
+                                      try {
+                                        const override = JSON.parse(overrideData);
+                                        if (override && override.enabled) {
+                                          return (
+                                            <span 
+                                              className="ml-1 text-xs bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded font-bold border border-blue-500/30"
+                                              title={`Override actief: ${override.capacity} personen`}
+                                            >
+                                              🔧
+                                            </span>
+                                          );
+                                        }
+                                      } catch (e) {}
+                                    }
+                                    return null;
+                                  })()}
+                                </>
+                              );
                             })()}
                           </div>
                           <span className="text-xs text-neutral-300 ml-2">
-                            {Math.round(((event.capacity - (event.remainingCapacity || 0)) / event.capacity) * 100)}%
+                            {(() => {
+                              const adminEvent = event as any;
+                              const totalBookedPersons = (adminEvent.reservations || [])
+                                .filter((r: any) => r.status === 'confirmed' || r.status === 'pending' || r.status === 'checked-in')
+                                .reduce((sum: number, r: any) => sum + r.numberOfPersons, 0);
+                              return Math.round((totalBookedPersons / event.capacity) * 100);
+                            })()}%
                           </span>
                         </div>
                         {/* Capacity Progress Bar */}
@@ -471,16 +502,25 @@ export const EventManager: React.FC = () => {
                           <div
                             className={cn(
                               'h-full transition-all duration-300 rounded-full',
-                              ((event.capacity - (event.remainingCapacity || 0)) / event.capacity) >= 0.9
-                                ? 'bg-red-500'
-                                : ((event.capacity - (event.remainingCapacity || 0)) / event.capacity) >= 0.75
-                                ? 'bg-orange-500'
-                                : ((event.capacity - (event.remainingCapacity || 0)) / event.capacity) >= 0.5
-                                ? 'bg-yellow-500'
-                                : 'bg-green-500'
+                              (() => {
+                                const adminEvent = event as any;
+                                const totalBookedPersons = (adminEvent.reservations || [])
+                                  .filter((r: any) => r.status === 'confirmed' || r.status === 'pending' || r.status === 'checked-in')
+                                  .reduce((sum: number, r: any) => sum + r.numberOfPersons, 0);
+                                const filledRatio = totalBookedPersons / event.capacity;
+                                return filledRatio >= 0.9 ? 'bg-red-500' :
+                                       filledRatio >= 0.75 ? 'bg-orange-500' :
+                                       filledRatio >= 0.5 ? 'bg-yellow-500' : 'bg-green-500';
+                              })()
                             )}
                             style={{
-                              width: `${Math.min(((event.capacity - (event.remainingCapacity || 0)) / event.capacity) * 100, 100)}%`
+                              width: `${(() => {
+                                const adminEvent = event as any;
+                                const totalBookedPersons = (adminEvent.reservations || [])
+                                  .filter((r: any) => r.status === 'confirmed' || r.status === 'pending' || r.status === 'checked-in')
+                                  .reduce((sum: number, r: any) => sum + r.numberOfPersons, 0);
+                                return Math.min((totalBookedPersons / event.capacity) * 100, 100);
+                              })()}%`
                             }}
                           />
                         </div>

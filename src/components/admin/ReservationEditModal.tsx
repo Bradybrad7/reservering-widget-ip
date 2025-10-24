@@ -6,7 +6,11 @@ import {
   Package,
   Wine,
   PartyPopper,
-  AlertTriangle
+  AlertTriangle,
+  MapPin,
+  FileText,
+  User,
+  Mail
 } from 'lucide-react';
 import type { Reservation, MerchandiseItem, Event, Arrangement } from '../../types';
 import { formatCurrency, formatDate, cn } from '../../utils';
@@ -30,16 +34,66 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
   onSave
 }) => {
   const [formData, setFormData] = useState({
-    numberOfPersons: reservation.numberOfPersons,
-    arrangement: reservation.arrangement,
-    preDrink: reservation.preDrink || { enabled: false, quantity: 0 },
-    afterParty: reservation.afterParty || { enabled: false, quantity: 0 },
-    merchandise: reservation.merchandise || [],
+    // Personal details
+    salutation: reservation.salutation || ('' as any),
+    firstName: reservation.firstName || '',
+    lastName: reservation.lastName || '',
     companyName: reservation.companyName,
     contactPerson: reservation.contactPerson,
-    email: reservation.email,
+    
+    // Business details
+    vatNumber: reservation.vatNumber || '',
+    
+    // Address
+    address: reservation.address || '',
+    houseNumber: reservation.houseNumber || '',
+    postalCode: reservation.postalCode || '',
+    city: reservation.city || '',
+    country: reservation.country || '',
+    
+    // Invoice Address
+    invoiceAddress: reservation.invoiceAddress || '',
+    invoiceHouseNumber: reservation.invoiceHouseNumber || '',
+    invoicePostalCode: reservation.invoicePostalCode || '',
+    invoiceCity: reservation.invoiceCity || '',
+    invoiceCountry: reservation.invoiceCountry || '',
+    invoiceInstructions: reservation.invoiceInstructions || '',
+    
+    // Contact
+    phoneCountryCode: reservation.phoneCountryCode || '+31',
     phone: reservation.phone,
-    comments: reservation.comments || ''
+    email: reservation.email,
+    
+    // Booking details
+    numberOfPersons: reservation.numberOfPersons,
+    arrangement: reservation.arrangement,
+    partyPerson: reservation.partyPerson || '',
+    
+    // Add-ons
+    preDrink: reservation.preDrink || { enabled: false, quantity: 0 },
+    afterParty: reservation.afterParty || { enabled: false, quantity: 0 },
+    
+    // Merchandise
+    merchandise: reservation.merchandise || [],
+    
+    // Dietary requirements
+    dietaryRequirements: reservation.dietaryRequirements || {
+      vegetarian: false,
+      vegetarianCount: 0,
+      vegan: false,
+      veganCount: 0,
+      glutenFree: false,
+      glutenFreeCount: 0,
+      lactoseFree: false,
+      lactoseFreeCount: 0,
+      other: '',
+      otherCount: 0
+    },
+    
+    // Other
+    comments: reservation.comments || '',
+    newsletterOptIn: reservation.newsletterOptIn || false,
+    acceptTerms: reservation.acceptTerms || true
   });
 
   const [priceCalculation, setPriceCalculation] = useState<any>(null);
@@ -50,8 +104,7 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
   useEffect(() => {
     if (!event) return;
 
-    const calculation = priceService.calculatePrice({
-      event,
+    const calculation = priceService.calculatePrice(event, {
       numberOfPersons: formData.numberOfPersons,
       arrangement: formData.arrangement,
       preDrink: formData.preDrink,
@@ -141,12 +194,15 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
     setIsSaving(true);
 
     try {
-      // Update reservation with new data
-      const response = await apiService.updateReservation(reservation.id, {
+      // Update reservation with new data - cast to proper type
+      const updateData: Partial<Reservation> = {
         ...formData,
+        salutation: formData.salutation as any,
         totalPrice: priceCalculation?.totalPrice || reservation.totalPrice,
         updatedAt: new Date()
-      });
+      };
+
+      const response = await apiService.updateReservation(reservation.id, updateData);
 
       if (response.success) {
         alert('✅ Reservering succesvol bijgewerkt!');
@@ -357,8 +413,43 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
 
           {/* Contact Info */}
           <div className="card-theatre p-4">
-            <h3 className="text-sm font-semibold text-white mb-4">Contactgegevens</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+              <User className="w-5 h-5 text-gold-500" />
+              Persoonlijke Gegevens
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm text-neutral-300 mb-2">Aanhef</label>
+                <select
+                  value={formData.salutation}
+                  onChange={(e) => setFormData({ ...formData, salutation: e.target.value as any })}
+                  className="w-full px-4 py-2 bg-dark-800 border border-gold-500/30 rounded text-white"
+                >
+                  <option value="">Selecteer...</option>
+                  <option value="Dhr">Dhr.</option>
+                  <option value="Mevr">Mevr.</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-neutral-300 mb-2">Voornaam</label>
+                <input
+                  type="text"
+                  value={formData.firstName}
+                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  className="w-full px-4 py-2 bg-dark-800 border border-gold-500/30 rounded text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-neutral-300 mb-2">Achternaam</label>
+                <input
+                  type="text"
+                  value={formData.lastName}
+                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  className="w-full px-4 py-2 bg-dark-800 border border-gold-500/30 rounded text-white"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <div>
                 <label className="block text-sm text-neutral-300 mb-2">Bedrijfsnaam *</label>
                 <input
@@ -369,6 +460,26 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
                   required
                 />
               </div>
+              <div>
+                <label className="block text-sm text-neutral-300 mb-2">BTW-nummer</label>
+                <input
+                  type="text"
+                  value={formData.vatNumber}
+                  onChange={(e) => setFormData({ ...formData, vatNumber: e.target.value })}
+                  className="w-full px-4 py-2 bg-dark-800 border border-gold-500/30 rounded text-white"
+                  placeholder="NL123456789B01"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Contact Details */}
+          <div className="card-theatre p-4">
+            <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+              <Mail className="w-5 h-5 text-gold-500" />
+              Contactgegevens
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm text-neutral-300 mb-2">Contactpersoon *</label>
                 <input
@@ -390,6 +501,16 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
                 />
               </div>
               <div>
+                <label className="block text-sm text-neutral-300 mb-2">Landcode</label>
+                <input
+                  type="text"
+                  value={formData.phoneCountryCode}
+                  onChange={(e) => setFormData({ ...formData, phoneCountryCode: e.target.value })}
+                  className="w-full px-4 py-2 bg-dark-800 border border-gold-500/30 rounded text-white"
+                  placeholder="+31"
+                />
+              </div>
+              <div>
                 <label className="block text-sm text-neutral-300 mb-2">Telefoon</label>
                 <input
                   type="tel"
@@ -401,56 +522,382 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
             </div>
           </div>
 
-          {/* Dietary Requirements - NEW */}
-          {reservation.dietaryRequirements && (
-            <div className="card-theatre p-4">
-              <label className="flex items-center gap-2 text-sm font-semibold text-white mb-3">
-                <span className="text-xl">🍽️</span>
-                Dieetwensen & Allergieën
-              </label>
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  {reservation.dietaryRequirements.vegetarian && (
-                    <div className="px-3 py-2 bg-emerald-500/20 border border-emerald-500/40 rounded-lg text-emerald-300 text-sm flex items-center gap-2">
-                      <span>🥗</span> Vegetarisch
-                    </div>
-                  )}
-                  {reservation.dietaryRequirements.vegan && (
-                    <div className="px-3 py-2 bg-green-500/20 border border-green-500/40 rounded-lg text-green-300 text-sm flex items-center gap-2">
-                      <span>🌱</span> Vegan
-                    </div>
-                  )}
-                  {reservation.dietaryRequirements.glutenFree && (
-                    <div className="px-3 py-2 bg-amber-500/20 border border-amber-500/40 rounded-lg text-amber-300 text-sm flex items-center gap-2">
-                      <span>🌾</span> Glutenvrij
-                    </div>
-                  )}
-                  {reservation.dietaryRequirements.lactoseFree && (
-                    <div className="px-3 py-2 bg-blue-500/20 border border-blue-500/40 rounded-lg text-blue-300 text-sm flex items-center gap-2">
-                      <span>🥛</span> Lactosevrij
-                    </div>
-                  )}
+          {/* Address Details */}
+          <div className="card-theatre p-4">
+            <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-gold-500" />
+              Adresgegevens
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm text-neutral-300 mb-2">Straat</label>
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  className="w-full px-4 py-2 bg-dark-800 border border-gold-500/30 rounded text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-neutral-300 mb-2">Huisnummer</label>
+                <input
+                  type="text"
+                  value={formData.houseNumber}
+                  onChange={(e) => setFormData({ ...formData, houseNumber: e.target.value })}
+                  className="w-full px-4 py-2 bg-dark-800 border border-gold-500/30 rounded text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-neutral-300 mb-2">Postcode</label>
+                <input
+                  type="text"
+                  value={formData.postalCode}
+                  onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+                  className="w-full px-4 py-2 bg-dark-800 border border-gold-500/30 rounded text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-neutral-300 mb-2">Plaats</label>
+                <input
+                  type="text"
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  className="w-full px-4 py-2 bg-dark-800 border border-gold-500/30 rounded text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-neutral-300 mb-2">Land</label>
+                <input
+                  type="text"
+                  value={formData.country}
+                  onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                  className="w-full px-4 py-2 bg-dark-800 border border-gold-500/30 rounded text-white"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Invoice Address (Conditional) */}
+          {(formData.vatNumber || formData.invoiceAddress || formData.invoiceInstructions) && (
+            <div className="card-theatre p-4 border-2 border-blue-500/30">
+              <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-blue-400" />
+                Factuurgegevens
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-sm text-neutral-300 mb-2">Factuuradres</label>
+                  <input
+                    type="text"
+                    value={formData.invoiceAddress}
+                    onChange={(e) => setFormData({ ...formData, invoiceAddress: e.target.value })}
+                    className="w-full px-4 py-2 bg-dark-800 border border-blue-500/30 rounded text-white"
+                  />
                 </div>
-                {reservation.dietaryRequirements.other && (
-                  <div className="p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
-                    <p className="text-sm text-orange-200 font-medium mb-1">Overige wensen:</p>
-                    <p className="text-sm text-neutral-300">{reservation.dietaryRequirements.other}</p>
-                  </div>
-                )}
+                <div>
+                  <label className="block text-sm text-neutral-300 mb-2">Huisnummer</label>
+                  <input
+                    type="text"
+                    value={formData.invoiceHouseNumber}
+                    onChange={(e) => setFormData({ ...formData, invoiceHouseNumber: e.target.value })}
+                    className="w-full px-4 py-2 bg-dark-800 border border-blue-500/30 rounded text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-neutral-300 mb-2">Postcode</label>
+                  <input
+                    type="text"
+                    value={formData.invoicePostalCode}
+                    onChange={(e) => setFormData({ ...formData, invoicePostalCode: e.target.value })}
+                    className="w-full px-4 py-2 bg-dark-800 border border-blue-500/30 rounded text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-neutral-300 mb-2">Plaats</label>
+                  <input
+                    type="text"
+                    value={formData.invoiceCity}
+                    onChange={(e) => setFormData({ ...formData, invoiceCity: e.target.value })}
+                    className="w-full px-4 py-2 bg-dark-800 border border-blue-500/30 rounded text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-neutral-300 mb-2">Land</label>
+                  <input
+                    type="text"
+                    value={formData.invoiceCountry}
+                    onChange={(e) => setFormData({ ...formData, invoiceCountry: e.target.value })}
+                    className="w-full px-4 py-2 bg-dark-800 border border-blue-500/30 rounded text-white"
+                  />
+                </div>
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm text-neutral-300 mb-2">Factuur instructies</label>
+                <textarea
+                  value={formData.invoiceInstructions}
+                  onChange={(e) => setFormData({ ...formData, invoiceInstructions: e.target.value })}
+                  className="w-full px-4 py-3 bg-dark-800 border border-blue-500/30 rounded-lg text-white resize-none"
+                  rows={2}
+                  placeholder="Speciale instructies voor facturering..."
+                />
               </div>
             </div>
           )}
 
+          {/* Party Person */}
+          <div className="card-theatre p-4 bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-2 border-purple-500/30">
+            <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+              <PartyPopper className="w-5 h-5 text-purple-400" />
+              Speciale Gelegenheid
+            </h3>
+            <div>
+              <label className="block text-sm text-neutral-300 mb-2">Jarige/Feestvarken</label>
+              <input
+                type="text"
+                value={formData.partyPerson}
+                onChange={(e) => setFormData({ ...formData, partyPerson: e.target.value })}
+                className="w-full px-4 py-2 bg-dark-800 border border-purple-500/30 rounded text-white"
+                placeholder="Naam van de jarige (optioneel)..."
+              />
+            </div>
+          </div>
+
+          {/* Dietary Requirements - BEWERKBAAR */}
+          <div className="card-theatre p-4">
+            <label className="flex items-center gap-2 text-sm font-semibold text-white mb-4">
+              <span className="text-xl">🍽️</span>
+              Dieetwensen & Allergieën
+            </label>
+            <div className="space-y-4">
+              {/* Vegetarian */}
+              <div className="p-3 bg-dark-800/50 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span>🥗</span>
+                    <span className="font-medium text-white">Vegetarisch</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.dietaryRequirements.vegetarian}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        dietaryRequirements: {
+                          ...formData.dietaryRequirements,
+                          vegetarian: e.target.checked,
+                          vegetarianCount: e.target.checked ? formData.dietaryRequirements.vegetarianCount || 1 : 0
+                        }
+                      })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-neutral-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-500/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                  </label>
+                </div>
+                {formData.dietaryRequirements.vegetarian && (
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.dietaryRequirements.vegetarianCount || 0}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      dietaryRequirements: {
+                        ...formData.dietaryRequirements,
+                        vegetarianCount: parseInt(e.target.value) || 0
+                      }
+                    })}
+                    className="w-full mt-2 px-3 py-2 bg-dark-800 border border-emerald-500/30 rounded text-white"
+                    placeholder="Aantal personen"
+                  />
+                )}
+              </div>
+
+              {/* Vegan */}
+              <div className="p-3 bg-dark-800/50 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span>🌱</span>
+                    <span className="font-medium text-white">Vegan</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.dietaryRequirements.vegan}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        dietaryRequirements: {
+                          ...formData.dietaryRequirements,
+                          vegan: e.target.checked,
+                          veganCount: e.target.checked ? formData.dietaryRequirements.veganCount || 1 : 0
+                        }
+                      })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-neutral-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-500/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                  </label>
+                </div>
+                {formData.dietaryRequirements.vegan && (
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.dietaryRequirements.veganCount || 0}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      dietaryRequirements: {
+                        ...formData.dietaryRequirements,
+                        veganCount: parseInt(e.target.value) || 0
+                      }
+                    })}
+                    className="w-full mt-2 px-3 py-2 bg-dark-800 border border-green-500/30 rounded text-white"
+                    placeholder="Aantal personen"
+                  />
+                )}
+              </div>
+
+              {/* Gluten Free */}
+              <div className="p-3 bg-dark-800/50 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span>🌾</span>
+                    <span className="font-medium text-white">Glutenvrij</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.dietaryRequirements.glutenFree}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        dietaryRequirements: {
+                          ...formData.dietaryRequirements,
+                          glutenFree: e.target.checked,
+                          glutenFreeCount: e.target.checked ? formData.dietaryRequirements.glutenFreeCount || 1 : 0
+                        }
+                      })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-neutral-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-500/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                  </label>
+                </div>
+                {formData.dietaryRequirements.glutenFree && (
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.dietaryRequirements.glutenFreeCount || 0}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      dietaryRequirements: {
+                        ...formData.dietaryRequirements,
+                        glutenFreeCount: parseInt(e.target.value) || 0
+                      }
+                    })}
+                    className="w-full mt-2 px-3 py-2 bg-dark-800 border border-amber-500/30 rounded text-white"
+                    placeholder="Aantal personen"
+                  />
+                )}
+              </div>
+
+              {/* Lactose Free */}
+              <div className="p-3 bg-dark-800/50 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span>🥛</span>
+                    <span className="font-medium text-white">Lactosevrij</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.dietaryRequirements.lactoseFree}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        dietaryRequirements: {
+                          ...formData.dietaryRequirements,
+                          lactoseFree: e.target.checked,
+                          lactoseFreeCount: e.target.checked ? formData.dietaryRequirements.lactoseFreeCount || 1 : 0
+                        }
+                      })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-neutral-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-500/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+                  </label>
+                </div>
+                {formData.dietaryRequirements.lactoseFree && (
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.dietaryRequirements.lactoseFreeCount || 0}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      dietaryRequirements: {
+                        ...formData.dietaryRequirements,
+                        lactoseFreeCount: parseInt(e.target.value) || 0
+                      }
+                    })}
+                    className="w-full mt-2 px-3 py-2 bg-dark-800 border border-blue-500/30 rounded text-white"
+                    placeholder="Aantal personen"
+                  />
+                )}
+              </div>
+
+              {/* Other Dietary Requirements */}
+              <div className="p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                <label className="block text-sm text-orange-200 font-medium mb-2">Overige wensen of allergieën</label>
+                <textarea
+                  value={formData.dietaryRequirements.other}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    dietaryRequirements: {
+                      ...formData.dietaryRequirements,
+                      other: e.target.value
+                    }
+                  })}
+                  className="w-full px-3 py-2 bg-dark-800 border border-orange-500/30 rounded text-white resize-none mb-2"
+                  rows={2}
+                  placeholder="Andere dieetwensen of allergieën..."
+                />
+                {formData.dietaryRequirements.other && (
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.dietaryRequirements.otherCount || 0}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      dietaryRequirements: {
+                        ...formData.dietaryRequirements,
+                        otherCount: parseInt(e.target.value) || 0
+                      }
+                    })}
+                    className="w-full px-3 py-2 bg-dark-800 border border-orange-500/30 rounded text-white"
+                    placeholder="Aantal personen"
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Comments */}
           <div className="card-theatre p-4">
-            <label className="block text-sm font-semibold text-white mb-3">Opmerkingen</label>
+            <label className="block text-sm font-semibold text-white mb-3">Opmerkingen van klant</label>
             <textarea
               value={formData.comments}
               onChange={(e) => setFormData({ ...formData, comments: e.target.value })}
               className="w-full px-4 py-3 bg-dark-800 border border-gold-500/30 rounded-lg text-white resize-none"
-              rows={3}
+              rows={4}
               placeholder="Speciale wensen of opmerkingen..."
             />
+          </div>
+
+          {/* Newsletter Opt-in */}
+          <div className="card-theatre p-4">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.newsletterOptIn}
+                onChange={(e) => setFormData({ ...formData, newsletterOptIn: e.target.checked })}
+                className="w-5 h-5 rounded border-gold-500/30 bg-dark-800 text-gold-500 focus:ring-2 focus:ring-gold-500"
+              />
+              <span className="text-white">
+                Klant wil nieuwsbrief ontvangen
+              </span>
+            </label>
           </div>
 
           {/* Price Summary */}

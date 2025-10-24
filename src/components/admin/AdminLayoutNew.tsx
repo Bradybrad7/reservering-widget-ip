@@ -6,7 +6,6 @@ import {
   Package,
   Settings,
   Database,
-  ChevronDown,
   ChevronRight,
   Menu,
   X,
@@ -40,102 +39,71 @@ interface AdminLayoutNewProps {
   children: React.ReactNode;
 }
 
-// Navigation structure
+// ✨ SIMPLIFIED NAVIGATION (Oct 2025)
+// From 30+ items to 9 logical groups with internal tabs
 const navigationGroups: NavigationGroup[] = [
   {
     id: 'dashboard',
     label: 'Dashboard',
     icon: 'LayoutDashboard',
     order: 1,
-    defaultExpanded: true,
-    items: [
-      { id: 'dashboard', label: 'Overzicht', icon: 'LayoutDashboard', order: 1 }
-    ]
+    section: 'dashboard' as AdminSection
   },
   {
     id: 'events',
     label: 'Evenementen',
     icon: 'Calendar',
     order: 2,
-    defaultExpanded: true,
-    items: [
-      { id: 'events-overview', label: 'Alle Evenementen', icon: 'Calendar', order: 1 },
-      { id: 'events-shows', label: 'Shows Beheren', icon: 'Film', order: 2 },
-      { id: 'events-types', label: 'Event Types', icon: 'Tag', order: 3 },
-      { id: 'events-calendar', label: 'Kalender Beheer', icon: 'CalendarRange', order: 4 },
-      { id: 'events-templates', label: 'Templates', icon: 'FileText', order: 5 }
-    ]
+    section: 'events' as AdminSection
   },
   {
     id: 'reservations',
     label: 'Reserveringen',
     icon: 'ListChecks',
     order: 3,
-    defaultExpanded: true,
-    items: [
-      { id: 'reservations-all', label: 'Alle Reserveringen', icon: 'ListChecks', order: 1 },
-      { id: 'reservations-pending', label: 'In Afwachting', icon: 'Clock', order: 2 },
-      { id: 'reservations-confirmed', label: 'Bevestigd', icon: 'CheckCircle', order: 3 },
-      { id: 'reservations-waitlist', label: 'Wachtlijst', icon: 'List', order: 4 },
-      { id: 'reservations-checkin', label: 'Check-in Systeem', icon: 'UserCheck', order: 5 }
-    ]
+    section: 'reservations' as AdminSection
+  },
+  {
+    id: 'waitlist',
+    label: 'Wachtlijst',
+    icon: 'List',
+    order: 4,
+    section: 'waitlist' as AdminSection
+  },
+  {
+    id: 'checkin',
+    label: 'Check-in',
+    icon: 'UserCheck',
+    order: 5,
+    section: 'checkin' as AdminSection
   },
   {
     id: 'customers',
     label: 'Klanten',
     icon: 'Users',
-    order: 4,
-    items: [
-      { id: 'customers-overview', label: 'Klantenoverzicht', icon: 'Users', order: 1 }
-    ]
+    order: 6,
+    section: 'customers' as AdminSection
   },
   {
     id: 'products',
-    label: 'Producten',
+    label: 'Producten & Prijzen',
     icon: 'Package',
-    order: 5,
-    items: [
-      { id: 'products-addons', label: 'Add-ons', icon: 'ShoppingBag', order: 1 },
-      { id: 'products-merchandise', label: 'Merchandise', icon: 'Package', order: 2 },
-      { id: 'products-arrangements', label: 'Arrangementen', icon: 'BookOpen', order: 3 }
-    ]
-  },
-  {
-    id: 'settings',
-    label: 'Instellingen',
-    icon: 'Settings',
-    order: 6,
-    items: [
-      { id: 'settings-pricing', label: 'Prijzen', icon: 'DollarSign', order: 1 },
-      { id: 'settings-booking', label: 'Boekingsregels', icon: 'Calendar', order: 2 },
-      { id: 'settings-wizard', label: 'Wizard Stappen', icon: 'ListChecks', order: 3 },
-      { id: 'settings-texts', label: 'Teksten', icon: 'Languages', order: 4 },
-      { id: 'settings-promotions', label: 'Promoties', icon: 'Tag', order: 5 },
-      { id: 'settings-vouchers', label: 'Vouchers & Codes', icon: 'Gift', order: 6 },
-      { id: 'settings-reminders', label: 'E-mail Herinneringen', icon: 'Bell', order: 7 },
-      { id: 'settings-general', label: 'Algemeen', icon: 'Settings', order: 8 }
-    ]
-  },
-  {
-    id: 'system',
-    label: 'Systeem',
-    icon: 'Database',
     order: 7,
-    items: [
-      { id: 'system-data', label: 'Data Beheer', icon: 'Database', order: 1 },
-      { id: 'system-capacity', label: 'Capaciteit Override', icon: 'Users', order: 2 },
-      { id: 'system-health', label: 'Data Health', icon: 'ActivitySquare', order: 3 },
-      { id: 'system-audit', label: 'Audit Log', icon: 'ScrollText', order: 4 }
-    ]
+    section: 'products' as AdminSection
   },
   {
-    id: 'analytics',
-    label: 'Analytics',
+    id: 'reports',
+    label: 'Rapportages',
     icon: 'TrendingUp',
     order: 8,
-    items: [
-      { id: 'analytics-reports', label: 'Rapporten', icon: 'TrendingUp', order: 1 }
-    ]
+    section: 'reports' as AdminSection
+  },
+  {
+    id: 'config',
+    label: 'Configuratie',
+    icon: 'Settings',
+    order: 9,
+    section: 'config' as AdminSection
   }
 ];
 
@@ -169,38 +137,24 @@ const iconMap: Record<string, React.ElementType> = {
 
 export const AdminLayoutNew: React.FC<AdminLayoutNewProps> = ({ children }) => {
   const { activeSection, breadcrumbs, sidebarCollapsed, setActiveSection, setBreadcrumbs, toggleSidebar } = useAdminStore();
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    new Set(navigationGroups.filter(g => g.defaultExpanded).map(g => g.id))
-  );
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  const toggleGroup = (groupId: string) => {
-    const newExpanded = new Set(expandedGroups);
-    if (newExpanded.has(groupId)) {
-      newExpanded.delete(groupId);
-    } else {
-      newExpanded.add(groupId);
-    }
-    setExpandedGroups(newExpanded);
-  };
-
-  const handleNavigate = (section: AdminSection, groupLabel: string, itemLabel: string) => {
+  const handleNavigate = (section: AdminSection, _groupLabel: string, itemLabel: string) => {
     setActiveSection(section);
     setBreadcrumbs([
-      { label: groupLabel, section: section },
       { label: itemLabel, section: section }
     ]);
     setMobileSidebarOpen(false);
   };
 
-  const renderNavItem = (item: NavigationGroup['items'][0], groupLabel: string) => {
-    const Icon = iconMap[item.icon];
-    const isActive = activeSection === item.id;
+  const renderNavItem = (group: NavigationGroup) => {
+    const Icon = iconMap[group.icon];
+    const isActive = activeSection === group.section;
 
     return (
       <button
-        key={item.id}
-        onClick={() => handleNavigate(item.id, groupLabel, item.label)}
+        key={group.id}
+        onClick={() => handleNavigate(group.section, '', group.label)}
         className={cn(
           'w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all rounded-lg',
           isActive
@@ -208,54 +162,9 @@ export const AdminLayoutNew: React.FC<AdminLayoutNewProps> = ({ children }) => {
             : 'text-neutral-300 hover:bg-neutral-700/50 hover:text-gold-400'
         )}
       >
-        {Icon && <Icon className="w-4 h-4 flex-shrink-0" />}
-        {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
+        {Icon && <Icon className="w-5 h-5 flex-shrink-0" />}
+        {!sidebarCollapsed && <span className="truncate">{group.label}</span>}
       </button>
-    );
-  };
-
-  const renderNavGroup = (group: NavigationGroup) => {
-    const Icon = iconMap[group.icon];
-    const isExpanded = expandedGroups.has(group.id);
-    const hasActiveItem = group.items.some(item => item.id === activeSection);
-
-    // If only one item, render directly without group header
-    if (group.items.length === 1) {
-      return renderNavItem(group.items[0], group.label);
-    }
-
-    return (
-      <div key={group.id} className="space-y-1">
-        <button
-          onClick={() => toggleGroup(group.id)}
-          className={cn(
-            'w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold transition-all rounded-lg',
-            hasActiveItem
-              ? 'text-gold-400'
-              : 'text-neutral-200 hover:text-gold-400 hover:bg-neutral-700/30'
-          )}
-        >
-          {Icon && <Icon className="w-5 h-5 flex-shrink-0" />}
-          {!sidebarCollapsed && (
-            <>
-              <span className="flex-1 text-left truncate">{group.label}</span>
-              {isExpanded ? (
-                <ChevronDown className="w-4 h-4 flex-shrink-0" />
-              ) : (
-                <ChevronRight className="w-4 h-4 flex-shrink-0" />
-              )}
-            </>
-          )}
-        </button>
-
-        {isExpanded && !sidebarCollapsed && (
-          <div className="ml-4 space-y-0.5 border-l-2 border-neutral-700 pl-2">
-            {group.items
-              .sort((a, b) => a.order - b.order)
-              .map(item => renderNavItem(item, group.label))}
-          </div>
-        )}
-      </div>
     );
   };
 
@@ -287,7 +196,7 @@ export const AdminLayoutNew: React.FC<AdminLayoutNewProps> = ({ children }) => {
       <nav className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-thin scrollbar-thumb-neutral-700 scrollbar-track-transparent">
         {navigationGroups
           .sort((a, b) => a.order - b.order)
-          .map(group => renderNavGroup(group))}
+          .map(group => renderNavItem(group))}
       </nav>
 
       {/* Sidebar Footer */}

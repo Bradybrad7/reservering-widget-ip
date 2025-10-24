@@ -13,8 +13,7 @@ export const AlternativeDates: React.FC<AlternativeDatesProps> = ({
   currentEvent,
   onSelectAlternative,
 }) => {
-  const { events, formData } = useReservationStore();
-  const requestedPersons = formData.numberOfPersons || 1;
+  const { events, eventAvailability } = useReservationStore();
 
   // ✅ IMPROVED: Intelligente alternatieve datums suggestie
   const findAlternatives = () => {
@@ -33,8 +32,11 @@ export const AlternativeDates: React.FC<AlternativeDatesProps> = ({
         // Must be in the future
         if (e.date < today) return false;
         
-        // Must have enough capacity for requested persons
-        if ((e.remainingCapacity || 0) < requestedPersons) return false;
+        // Must have availability data and not be closed
+        const availability = eventAvailability[e.id];
+        if (!availability) return false;
+        const status = availability.bookingStatus || 'open';
+        if (status === 'closed') return false;
         
         return true;
       })
@@ -53,17 +55,19 @@ export const AlternativeDates: React.FC<AlternativeDatesProps> = ({
         // 🎯 Priority 4: Same time
         if (e.startsAt === currentEvent.startsAt) score += 20;
         
-        // 🎯 Priority 5: More available capacity (prefer more space)
-        const capacityRatio = (e.remainingCapacity || 0) / e.capacity;
-        score += capacityRatio * 10;
+        // 🎯 Priority 5: Booking status (prefer open over request)
+        const availability = eventAvailability[e.id];
+        const status = availability?.bookingStatus || 'open';
+        if (status === 'open') score += 15;
+        else if (status === 'request') score += 5;
         
         // 🎯 Priority 6: Closer in time (prefer sooner than later)
         const daysDiff = Math.abs(
           (e.date.getTime() - currentEvent.date.getTime()) / (1000 * 60 * 60 * 24)
         );
-        if (daysDiff <= 7) score += 15;
-        else if (daysDiff <= 14) score += 10;
-        else if (daysDiff <= 30) score += 5;
+        if (daysDiff <= 7) score += 10;
+        else if (daysDiff <= 14) score += 7;
+        else if (daysDiff <= 30) score += 3;
         
         // Penalty for being too far in the future (> 60 days)
         if (daysDiff > 60) score -= 20;
@@ -112,6 +116,21 @@ export const AlternativeDates: React.FC<AlternativeDatesProps> = ({
             ? `${daysDiff} ${daysDiff === 1 ? 'dag' : 'dagen'} later`
             : `${Math.abs(daysDiff)} ${Math.abs(daysDiff) === 1 ? 'dag' : 'dagen'} eerder`;
 
+          // Get booking status for badge
+          const availability = eventAvailability[alt.id];
+          const status = availability?.bookingStatus || 'open';
+          
+          let statusText = 'Beschikbaar';
+          let statusColor = 'success';
+          
+          if (status === 'request') {
+            statusText = 'Op aanvraag';
+            statusColor = 'warning';
+          } else if (status === 'full') {
+            statusText = 'Wachtlijst';
+            statusColor = 'info';
+          }
+
           return (
             <button
               key={alt.id}
@@ -127,9 +146,9 @@ export const AlternativeDates: React.FC<AlternativeDatesProps> = ({
                     {diffText} • Aanvang: {alt.startsAt}
                   </p>
                   <div className="flex items-center gap-3 mt-2">
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-success-500 bg-success-500/10 border border-success-500/20 px-2 py-1 rounded">
-                      <span className="w-2 h-2 bg-success-500 rounded-full animate-pulse-gold"></span>
-                      {alt.remainingCapacity} plaatsen
+                    <span className={`inline-flex items-center gap-1 text-xs font-medium text-${statusColor}-500 bg-${statusColor}-500/10 border border-${statusColor}-500/20 px-2 py-1 rounded`}>
+                      <span className={`w-2 h-2 bg-${statusColor}-500 rounded-full animate-pulse-gold`}></span>
+                      {statusText}
                     </span>
                     {alt.type === 'MATINEE' && (
                       <span className="text-xs font-medium text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-1 rounded">

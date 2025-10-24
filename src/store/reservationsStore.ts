@@ -87,7 +87,7 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
     loadReservations: async () => {
       set({ isLoadingReservations: true });
       try {
-        const response = await apiService.getAllReservations();
+        const response = await apiService.getAdminReservations();
         if (response.success && response.data) {
           set({ reservations: response.data, isLoadingReservations: false });
         } else {
@@ -145,6 +145,19 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
         if (status === 'confirmed') {
           await emailService.sendConfirmation(reservation);
         }
+        
+        // ⚡ AUTOMATION: Check waitlist when reservation is cancelled
+        if (status === 'cancelled') {
+          console.log(`🔔 [AUTOMATION] Reservation ${reservationId} cancelled, checking waitlist...`);
+          
+          // Import waitlistStore dynamically to avoid circular dependency
+          const { useWaitlistStore } = await import('./waitlistStore');
+          const waitlistStore = useWaitlistStore.getState();
+          
+          // Free up the capacity and notify waitlist
+          const freedCapacity = reservation.numberOfPersons;
+          await waitlistStore.checkWaitlistForAvailableSpots(reservation.eventId, freedCapacity);
+        }
       }
       
       return success;
@@ -166,11 +179,26 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
     },
 
     deleteReservation: async (reservationId: string) => {
+      const reservation = get().reservations.find(r => r.id === reservationId);
+      if (!reservation) return false;
+      
       const response = await apiService.deleteReservation(reservationId);
       if (response.success) {
         set(state => ({
           reservations: state.reservations.filter(r => r.id !== reservationId)
         }));
+        
+        // ⚡ AUTOMATION: Check waitlist when reservation is deleted
+        console.log(`🔔 [AUTOMATION] Reservation ${reservationId} deleted, checking waitlist...`);
+        
+        // Import waitlistStore dynamically to avoid circular dependency
+        const { useWaitlistStore } = await import('./waitlistStore');
+        const waitlistStore = useWaitlistStore.getState();
+        
+        // Free up the capacity and notify waitlist
+        const freedCapacity = reservation.numberOfPersons;
+        await waitlistStore.checkWaitlistForAvailableSpots(reservation.eventId, freedCapacity);
+        
         return true;
       }
       return false;
@@ -213,16 +241,22 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
       return results.every(r => r === true);
     },
 
-    bulkSendEmail: async (reservationIds: string[], template: string) => {
+    bulkSendEmail: async (reservationIds: string[], emailData: { subject: string; body: string }) => {
       const reservations = get().reservations.filter(r => reservationIds.includes(r.id));
       
       const promises = reservations.map(async (reservation) => {
         try {
-          await emailService.sendBulkEmail(reservation, template);
+          // Send bulk emails with proper parameters
+          await emailService.sendBulkEmails(
+            reservations,
+            emailData.subject,
+            emailData.body
+          );
+          
           await get().addCommunicationLog(reservation.id, {
             type: 'email',
-            subject: `Bulk email: ${template}`,
-            message: `Email verzonden via bulk actie`,
+            subject: emailData.subject,
+            message: `Email verzonden via bulk actie: ${emailData.body.substring(0, 100)}...`,
             author: 'Admin'
           });
           return true;

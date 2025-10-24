@@ -1,118 +1,96 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { ShoppingBag, Plus, Minus, Info } from 'lucide-react';
-import type { MerchandiseItem } from '../types';
+import React, { useEffect } from 'react';
+import { Plus, Minus, ShoppingBag, ArrowRight, ArrowLeft } from 'lucide-react';
+import { useAdminStore } from '../store/adminStore';
 import { useReservationStore } from '../store/reservationStore';
-import { apiService } from '../services/apiService';
-import Button from './ui/Button';
-import { cn } from '../utils';
+import { formatCurrency, cn } from '../utils';
 
-export const MerchandiseStep: React.FC = () => {
-  const { 
-    formData, 
-    updateFormData, 
-    goToNextStep,
-    goToPreviousStep
-  } = useReservationStore();
-
-  const [availableMerchandise, setAvailableMerchandise] = useState<MerchandiseItem[]>([]);
-  const [loading, setLoading] = useState(true);
+const MerchandiseStep: React.FC = () => {
+  const { merchandiseItems, loadMerchandise, isLoadingMerchandise } = useAdminStore();
+  const { formData, updateFormData, goToNextStep, goToPreviousStep } = useReservationStore();
 
   useEffect(() => {
-    const loadMerchandise = async () => {
-      setLoading(true);
-      const response = await apiService.getMerchandise();
-      if (response.success && response.data) {
-        setAvailableMerchandise(response.data.filter(item => item.inStock));
-      }
-      setLoading(false);
-    };
     loadMerchandise();
-  }, []);
+  }, [loadMerchandise]);
 
-  const selectedMerchandise = useMemo(() => formData.merchandise || [], [formData.merchandise]);
+  const activeMerchandise = merchandiseItems.filter(item => item.inStock);
+  const selectedMerchandise = formData.merchandise || [];
 
-  const handleQuantityChange = useCallback((itemId: string, delta: number) => {
-    const existingIndex = selectedMerchandise.findIndex(m => m.itemId === itemId);
-    const currentQuantity = existingIndex !== -1 ? selectedMerchandise[existingIndex].quantity : 0;
-    const newQuantity = Math.max(0, currentQuantity + delta);
-
-    if (newQuantity === 0 && existingIndex !== -1) {
-      const newMerchandise = [...selectedMerchandise];
-      newMerchandise.splice(existingIndex, 1);
-      updateFormData({ merchandise: newMerchandise });
-    } else if (newQuantity > 0) {
-      const newMerchandise = [...selectedMerchandise];
-      if (existingIndex !== -1) {
-        newMerchandise[existingIndex] = { itemId, quantity: newQuantity };
-      } else {
-        newMerchandise.push({ itemId, quantity: newQuantity });
-      }
-      updateFormData({ merchandise: newMerchandise });
+  const handleQuantityChange = (itemId: string, newQuantity: number) => {
+    const existing = selectedMerchandise.find(m => m.itemId === itemId);
+    
+    if (newQuantity <= 0) {
+      // Remove item
+      updateFormData({ merchandise: selectedMerchandise.filter(m => m.itemId !== itemId) });
+    } else if (existing) {
+      // Update quantity
+      updateFormData({ merchandise: selectedMerchandise.map(m =>
+        m.itemId === itemId ? { ...m, quantity: newQuantity } : m
+      ) });
+    } else {
+      // Add new item
+      updateFormData({ merchandise: [...selectedMerchandise, { itemId, quantity: newQuantity }] });
     }
-  }, [selectedMerchandise, updateFormData]);
-
-  const getQuantity = useCallback((itemId: string): number => {
-    const item = selectedMerchandise.find(m => m.itemId === itemId);
-    return item ? item.quantity : 0;
-  }, [selectedMerchandise]);
-
-  const totalItems = useMemo(() => 
-    selectedMerchandise.reduce((sum, item) => sum + item.quantity, 0),
-    [selectedMerchandise]
-  );
-
-  const totalPrice = useMemo(() => 
-    selectedMerchandise.reduce((sum, item) => {
-      const merchItem = availableMerchandise.find(m => m.id === item.itemId);
-      return sum + (merchItem ? merchItem.price * item.quantity : 0);
-    }, 0),
-    [selectedMerchandise, availableMerchandise]
-  );
-
-  const handleContinue = () => {
-    goToNextStep();
   };
 
-  if (loading) {
+  const getQuantity = (itemId: string): number => {
+    return selectedMerchandise.find(m => m.itemId === itemId)?.quantity || 0;
+  };
+
+  const getMerchandiseTotal = (): number => {
+    return selectedMerchandise.reduce((total, item) => {
+      const merchandiseItem = merchandiseItems.find(m => m.id === item.itemId);
+      return total + (merchandiseItem?.price || 0) * item.quantity;
+    }, 0);
+  };
+
+  const hasSelection = selectedMerchandise.length > 0;
+  const merchandiseTotal = getMerchandiseTotal();
+
+  if (isLoadingMerchandise) {
     return (
-      <div className="flex items-center justify-center p-12">
-        <div className="w-12 h-12 border-4 border-gold-400/30 border-t-gold-400 rounded-full animate-spin"></div>
+      <div className="flex items-center justify-center py-12">
+        <div className="w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="text-center space-y-2">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gold-500/20 border-2 border-gold-400/50 mb-4">
-          <ShoppingBag className="w-8 h-8 text-gold-400" />
+      <div className="card-theatre rounded-2xl border border-gold-400/20 p-6 shadow-lifted">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="p-3 bg-gold-500/20 rounded-xl">
+            <ShoppingBag className="w-6 h-6 text-gold-400" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-neutral-100 text-shadow">Merchandise toevoegen</h2>
+            <p className="text-neutral-400 text-sm mt-1">Optioneel - Neem mooie herinneringen mee naar huis!</p>
+          </div>
         </div>
-        <h2 className="text-3xl font-bold text-neutral-100 text-shadow">
-          Merchandise (Optioneel)
-        </h2>
-        <p className="text-dark-200 text-lg">
-          Neem een herinnering mee naar huis
-        </p>
+
+        {hasSelection && (
+          <div className="mt-4 p-4 bg-gold-500/10 border border-gold-400/30 rounded-xl">
+            <div className="flex items-center justify-between">
+              <span className="text-neutral-300 font-medium">
+                {selectedMerchandise.length} artikel(en) geselecteerd
+              </span>
+              <span className="text-2xl font-bold text-gold-400">
+                {formatCurrency(merchandiseTotal)}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Info Banner */}
-      <div className="p-4 bg-blue-500/20 border border-blue-400/30 rounded-xl flex items-start gap-3">
-        <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-        <p className="text-sm text-blue-200">
-          Deze stap is volledig optioneel. U kunt zonder merchandise doorgaan naar de volgende stap.
-        </p>
-      </div>
-
-      {/* Merchandise Grid */}
-      {availableMerchandise.length === 0 ? (
-        <div className="card-theatre p-8 rounded-2xl text-center">
-          <ShoppingBag className="w-16 h-16 text-dark-400 mx-auto mb-4" />
-          <p className="text-dark-200">Momenteel is er geen merchandise beschikbaar</p>
+      {/* Merchandise Items */}
+      {activeMerchandise.length === 0 ? (
+        <div className="card-theatre rounded-2xl border border-gold-400/20 p-8 text-center">
+          <ShoppingBag className="w-12 h-12 text-neutral-500 mx-auto mb-3" />
+          <p className="text-neutral-400">Geen merchandise beschikbaar op dit moment</p>
         </div>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {availableMerchandise.map((item) => {
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {activeMerchandise.map((item) => {
             const quantity = getQuantity(item.id);
             const isSelected = quantity > 0;
 
@@ -120,102 +98,117 @@ export const MerchandiseStep: React.FC = () => {
               <div
                 key={item.id}
                 className={cn(
-                  'card-theatre rounded-xl border-2 p-4 transition-all duration-300',
+                  'card-theatre rounded-2xl p-5 transition-all duration-300 border-2',
                   isSelected
-                    ? 'bg-gradient-to-br from-gold-500/20 to-gold-600/10 border-gold-400/50 shadow-gold'
-                    : 'bg-neutral-800/50 border-dark-700'
+                    ? 'border-gold-400/60 bg-gold-500/5 shadow-lg shadow-gold-500/10'
+                    : 'border-gold-400/20 hover:border-gold-400/40'
                 )}
               >
-                {/* Image */}
-                {item.imageUrl && (
-                  <div className="aspect-square rounded-lg overflow-hidden mb-3 bg-dark-800">
-                    <img 
-                      src={item.imageUrl} 
-                      alt={item.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                )}
+                <div className="flex gap-4">
+                  {/* Image */}
+                  {item.imageUrl && (
+                    <div className="w-24 h-24 rounded-xl overflow-hidden bg-neutral-800 flex-shrink-0 shadow-lifted">
+                      <img
+                        src={item.imageUrl}
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
 
-                {/* Info */}
-                <h3 className="font-bold text-neutral-100 mb-1">{item.name}</h3>
-                <p className="text-sm text-dark-200 mb-2 line-clamp-2">{item.description}</p>
-                <p className="text-lg font-bold text-gold-400 mb-3">€{item.price.toFixed(2)}</p>
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-white text-lg mb-1">{item.name}</h3>
+                    {item.description && (
+                      <p className="text-sm text-neutral-400 mb-2">{item.description}</p>
+                    )}
+                    <p className="text-xl font-bold text-gold-400">
+                      {formatCurrency(item.price)}
+                    </p>
+                  </div>
+                </div>
 
                 {/* Quantity Controls */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleQuantityChange(item.id, -1)}
-                    disabled={quantity === 0}
-                    className={cn(
-                      'w-10 h-10 rounded-lg border-2 flex items-center justify-center',
-                      'transition-all duration-300 focus:outline-none',
-                      quantity === 0
-                        ? 'bg-dark-900/50 border-dark-800 text-dark-600 cursor-not-allowed'
-                        : 'bg-neutral-800/50 border-dark-700 text-gold-400 hover:scale-110'
-                    )}
-                  >
-                    <Minus className="w-5 h-5" />
-                  </button>
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-neutral-700">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleQuantityChange(item.id, quantity - 1)}
+                      disabled={quantity === 0}
+                      className={cn(
+                        'p-2 rounded-lg transition-all',
+                        quantity > 0
+                          ? 'bg-neutral-700 hover:bg-neutral-600 text-white'
+                          : 'bg-neutral-800 text-neutral-600 cursor-not-allowed'
+                      )}
+                    >
+                      <Minus className="w-5 h-5" />
+                    </button>
 
-                  <span className="flex-1 text-center text-xl font-bold text-neutral-100">
-                    {quantity}
-                  </span>
+                    <span className="w-14 text-center font-bold text-white text-xl">
+                      {quantity}
+                    </span>
 
-                  <button
-                    onClick={() => handleQuantityChange(item.id, 1)}
-                    className="w-10 h-10 rounded-lg border-2 bg-neutral-800/50 border-dark-700 text-gold-400 hover:scale-110 flex items-center justify-center transition-all duration-300 focus:outline-none"
-                  >
-                    <Plus className="w-5 h-5" />
-                  </button>
+                    <button
+                      onClick={() => handleQuantityChange(item.id, quantity + 1)}
+                      disabled={!item.inStock}
+                      className={cn(
+                        'p-2 rounded-lg transition-all',
+                        !item.inStock
+                          ? 'bg-neutral-800 text-neutral-600 cursor-not-allowed'
+                          : 'bg-gold-500 hover:bg-gold-600 text-dark-900 shadow-lg hover:shadow-xl'
+                      )}
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {quantity > 0 && (
+                    <div className="text-right">
+                      <p className="text-xs text-neutral-500">Subtotaal</p>
+                      <p className="text-lg font-bold text-gold-400">
+                        {formatCurrency(item.price * quantity)}
+                      </p>
+                    </div>
+                  )}
                 </div>
+
+                {!item.inStock && (
+                  <p className="text-xs text-red-400 mt-2 flex items-center gap-1">
+                    <span>⚠️</span>
+                    Niet meer op voorraad
+                  </p>
+                )}
               </div>
             );
           })}
         </div>
       )}
 
-      {/* Summary */}
-      {totalItems > 0 && (
-        <div className="p-5 bg-gradient-to-br from-gold-500/20 to-gold-600/10 border border-gold-400/30 rounded-xl">
-          <h3 className="font-bold text-gold-400 mb-3">Winkelmandje</h3>
-          <div className="space-y-2">
-            {selectedMerchandise.map(item => {
-              const merchItem = availableMerchandise.find(m => m.id === item.itemId);
-              if (!merchItem) return null;
-              return (
-                <div key={item.itemId} className="flex justify-between text-sm">
-                  <span className="text-neutral-200">{merchItem.name} x {item.quantity}</span>
-                  <span className="font-bold text-gold-400">
-                    €{(merchItem.price * item.quantity).toFixed(2)}
-                  </span>
-                </div>
-              );
-            })}
-            <div className="pt-2 border-t border-gold-400/30 flex justify-between">
-              <span className="font-bold text-neutral-100">Totaal</span>
-              <span className="font-bold text-gold-400">€{totalPrice.toFixed(2)}</span>
-            </div>
-          </div>
+      {/* Action Buttons */}
+      <div className="card-theatre rounded-2xl border border-gold-400/20 p-6 shadow-lifted">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={goToPreviousStep}
+            className="flex-1 px-6 py-4 bg-neutral-700 hover:bg-neutral-600 text-white font-bold rounded-xl transition-all duration-200 border-2 border-neutral-600 hover:border-neutral-500 flex items-center justify-center gap-2"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span>Vorige</span>
+          </button>
+          
+          <button
+            onClick={goToNextStep}
+            className="flex-1 px-6 py-4 bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-dark-900 font-bold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-[1.02] flex items-center justify-center gap-2"
+          >
+            <span>{hasSelection ? 'Doorgaan met bestelling' : 'Overslaan'}</span>
+            <ArrowRight className="w-5 h-5" />
+          </button>
         </div>
-      )}
 
-      {/* Navigation Buttons */}
-      <div className="flex gap-4">
-        <Button
-          onClick={goToPreviousStep}
-          variant="secondary"
-          className="flex-1"
-        >
-          Vorige
-        </Button>
-        <Button
-          onClick={handleContinue}
-          variant="primary"
-          className="flex-1"
-        >
-          {totalItems > 0 ? 'Volgende' : 'Overslaan'}
-        </Button>
+        {hasSelection && (
+          <p className="text-sm text-neutral-400 text-center mt-3">
+            💡 Je merchandise wordt toegevoegd aan je totale reservering
+          </p>
+        )}
       </div>
     </div>
   );

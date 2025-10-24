@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { List, Calendar as CalendarIcon, LayoutGrid } from 'lucide-react';
+import React, { useState } from 'react';
+import { List, Calendar as CalendarIcon } from 'lucide-react';
+// import { useEffect, LayoutGrid } from 'react'; // Unused
 import { cn } from '../../utils';
 import { EventManager } from './EventManager';
 import { CalendarManager } from './CalendarManager';

@@ -15,6 +15,7 @@ import {
   Star
 } from 'lucide-react';
 import { useAdminStore } from '../../store/adminStore';
+import { useWaitlistStore } from '../../store/waitlistStore';
 import { formatCurrency, formatDate, cn } from '../../utils';
 import type { AdminSection } from '../../types';
 
@@ -48,7 +49,11 @@ export const DashboardEnhanced: React.FC = () => {
       return daysUntil <= 7 && daysUntil >= 0 && e.isActive;
     });
     const almostFullEvents = events.filter(e => {
-      const filled = ((e.capacity - (e.remainingCapacity || 0)) / e.capacity) * 100;
+      // Bereken het werkelijke aantal geboekte personen
+      const totalBookedPersons = e.reservations.filter(r => 
+        r.status === 'confirmed' || r.status === 'pending' || r.status === 'checked-in'
+      ).reduce((sum, r) => sum + r.numberOfPersons, 0);
+      const filled = (totalBookedPersons / e.capacity) * 100;
       return filled >= 80 && e.isActive;
     });
 
@@ -68,7 +73,7 @@ export const DashboardEnhanced: React.FC = () => {
       label: 'Nieuw Event Aanmaken',
       icon: CalendarPlus,
       color: 'gold',
-      action: () => setActiveSection('events-overview')
+      action: () => setActiveSection('events')
     },
     {
       id: 'pending-reservations' as AdminSection,
@@ -76,7 +81,7 @@ export const DashboardEnhanced: React.FC = () => {
       icon: Clock,
       color: 'orange',
       badge: urgentData.pendingCount,
-      action: () => setActiveSection('reservations-pending')
+      action: () => setActiveSection('reservations')
     },
     {
       id: 'export-data' as AdminSection,
@@ -90,7 +95,7 @@ export const DashboardEnhanced: React.FC = () => {
       label: 'Klanten Beheer',
       icon: Users,
       color: 'purple',
-      action: () => setActiveSection('customers-overview')
+      action: () => setActiveSection('customers')
     }
   ];
 
@@ -122,48 +127,31 @@ export const DashboardEnhanced: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Urgent Actions Banner */}
-      {(urgentData.pendingCount > 0 || urgentData.almostFullCount > 0) && (
+      {/* Urgent Actions Banner - Only for pending reservations */}
+      {urgentData.pendingCount > 0 && (
         <div className="bg-orange-900/30 border-2 border-orange-500 rounded-lg p-4">
           <div className="flex items-start gap-3">
             <AlertCircle className="w-6 h-6 text-orange-400 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
               <h3 className="text-lg font-semibold text-white mb-2">Aandacht Vereist</h3>
-              <div className="space-y-2">
-                {urgentData.pendingCount > 0 && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-neutral-200">
-                      {urgentData.pendingCount} reservering(en) wachten op bevestiging
-                    </span>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setActiveSection('reservations-pending')}
-                        className="px-3 py-1 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors"
-                      >
-                        Bekijken
-                      </button>
-                      <button
-                        onClick={handleQuickConfirmAll}
-                        className="px-3 py-1 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors"
-                      >
-                        Alles Bevestigen
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {urgentData.almostFullCount > 0 && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-neutral-200">
-                      {urgentData.almostFullCount} event(s) bijna vol (&gt;80%)
-                    </span>
-                    <button
-                      onClick={() => setActiveSection('events-overview')}
-                      className="px-3 py-1 bg-gold-500 text-white rounded-lg text-sm font-medium hover:bg-gold-600 transition-colors"
-                    >
-                      Bekijken
-                    </button>
-                  </div>
-                )}
+              <div className="flex items-center justify-between">
+                <span className="text-neutral-200">
+                  {urgentData.pendingCount} reservering(en) wachten op bevestiging
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setActiveSection('reservations')}
+                    className="px-3 py-1 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors"
+                  >
+                    Bekijken
+                  </button>
+                  <button
+                    onClick={handleQuickConfirmAll}
+                    className="px-3 py-1 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors"
+                  >
+                    Alles Bevestigen
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -283,7 +271,7 @@ export const DashboardEnhanced: React.FC = () => {
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center justify-between">
             <span>Aankomende Events (7 dagen)</span>
             <button
-              onClick={() => setActiveSection('events-overview')}
+              onClick={() => setActiveSection('events')}
               className="text-sm text-gold-400 hover:text-gold-300 flex items-center gap-1"
             >
               Alle events <ArrowRight className="w-4 h-4" />
@@ -295,18 +283,58 @@ export const DashboardEnhanced: React.FC = () => {
             ) : (
               urgentData.upcomingEvents.slice(0, 5).map((event) => {
                 const eventDate = new Date(event.date);
-                const filled = ((event.capacity - (event.remainingCapacity || 0)) / event.capacity) * 100;
+                // Bereken het werkelijke aantal geboekte personen
+                const totalBookedPersons = event.reservations.filter(r => 
+                  r.status === 'confirmed' || r.status === 'pending' || r.status === 'checked-in'
+                ).reduce((sum, r) => sum + r.numberOfPersons, 0);
+                const filled = (totalBookedPersons / event.capacity) * 100;
+                // Haal wachtlijst-totaal op
+                const waitlistCount = useWaitlistStore.getState().getWaitlistCount(event.id);
+                
+                // Check if this is today's event
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const eventDateOnly = new Date(eventDate);
+                eventDateOnly.setHours(0, 0, 0, 0);
+                const isToday = eventDateOnly.getTime() === today.getTime();
                 
                 return (
-                  <div
+                  <button
                     key={event.id}
-                    className="flex items-center justify-between p-3 bg-neutral-700/30 rounded-lg hover:bg-neutral-700/50 transition-colors"
+                    onClick={() => {
+                      if (isToday) {
+                        // ⚡ Quick Check-in: Navigate to today's check-in for this event
+                        setActiveSection('checkin');
+                        // TODO: Pass eventId to CheckInManager to auto-select
+                      } else {
+                        setActiveSection('events');
+                      }
+                    }}
+                    className="w-full flex items-center justify-between p-3 bg-neutral-700/30 rounded-lg hover:bg-neutral-700/50 transition-colors text-left"
                   >
                     <div className="flex-1">
-                      <div className="font-medium text-white">{formatDate(eventDate)}</div>
-                      <div className="text-sm text-neutral-400">
-                        {event.capacity - (event.remainingCapacity || 0)} / {event.capacity} personen ({filled.toFixed(0)}%)
+                      <div className="font-medium text-white flex items-center gap-2">
+                        {formatDate(eventDate)}
+                        {isToday && (
+                          <span className="px-2 py-0.5 bg-gold-500/20 border border-gold-500/40 rounded-full text-xs font-semibold text-gold-400">
+                            Vandaag
+                          </span>
+                        )}
                       </div>
+                      <div className="text-sm text-neutral-400">
+                        Geboekt: <span className={cn(
+                          "font-semibold",
+                          totalBookedPersons > event.capacity ? "text-red-400" : "text-white"
+                        )}>{totalBookedPersons}</span> / {event.capacity}
+                        {waitlistCount > 0 && (
+                          <span className="ml-1 text-orange-400"> (+{waitlistCount} wachtlijst)</span>
+                        )}
+                      </div>
+                      {isToday && (
+                        <div className="text-xs text-gold-400 mt-1">
+                          → Klik voor snelle check-in
+                        </div>
+                      )}
                     </div>
                     <div className={cn(
                       'px-3 py-1 rounded-full text-xs font-medium',
@@ -316,7 +344,7 @@ export const DashboardEnhanced: React.FC = () => {
                     )}>
                       {filled >= 80 ? 'Bijna vol' : filled >= 50 ? 'Halvol' : 'Beschikbaar'}
                     </div>
-                  </div>
+                  </button>
                 );
               })
             )}
@@ -328,7 +356,7 @@ export const DashboardEnhanced: React.FC = () => {
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center justify-between">
             <span>Recente Pending Reserveringen</span>
             <button
-              onClick={() => setActiveSection('reservations-pending')}
+              onClick={() => setActiveSection('reservations')}
               className="text-sm text-gold-400 hover:text-gold-300 flex items-center gap-1"
             >
               Alle pending <ArrowRight className="w-4 h-4" />
@@ -338,29 +366,51 @@ export const DashboardEnhanced: React.FC = () => {
             {urgentData.pendingReservations.length === 0 ? (
               <p className="text-neutral-500 text-sm">Geen pending reserveringen</p>
             ) : (
-              urgentData.pendingReservations.slice(0, 5).map((reservation) => (
-                <div
-                  key={reservation.id}
-                  className="flex items-center justify-between p-3 bg-neutral-700/30 rounded-lg hover:bg-neutral-700/50 transition-colors"
-                >
-                  <div className="flex-1">
-                    <div className="font-medium text-white">{reservation.companyName}</div>
-                    <div className="text-sm text-neutral-400">
-                      {reservation.numberOfPersons} personen - {formatCurrency(reservation.totalPrice)}
-                    </div>
-                  </div>
-                  <button
-                    onClick={async () => {
-                      await confirmReservation(reservation.id);
-                      await loadReservations();
-                      await loadStats();
-                    }}
-                    className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-medium hover:bg-green-600 transition-colors"
+              urgentData.pendingReservations.slice(0, 5).map((reservation) => {
+                // ⚡ CRM: Check if this is a returning customer
+                const isReturningCustomer = reservation.communicationLog?.some(
+                  log => log.message?.includes('Terugkerende klant')
+                );
+                const isVIP = reservation.communicationLog?.some(
+                  log => log.message?.includes('VIP/Corporate')
+                );
+                
+                return (
+                  <div
+                    key={reservation.id}
+                    className="flex items-center justify-between p-3 bg-neutral-700/30 rounded-lg hover:bg-neutral-700/50 transition-colors"
                   >
-                    Bevestig
-                  </button>
-                </div>
-              ))
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <div className="font-medium text-white">{reservation.companyName}</div>
+                        {isVIP && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 border border-yellow-500/30 rounded-full text-xs font-semibold text-yellow-400">
+                            <Star className="w-3 h-3" /> VIP
+                          </span>
+                        )}
+                        {isReturningCustomer && !isVIP && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 border border-blue-500/30 rounded-full text-xs font-medium text-blue-400">
+                            🔁 Terugkerend
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-neutral-400">
+                        {reservation.numberOfPersons} personen - {formatCurrency(reservation.totalPrice)}
+                      </div>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        await confirmReservation(reservation.id);
+                        await loadReservations();
+                        await loadStats();
+                      }}
+                      className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-medium hover:bg-green-600 transition-colors"
+                    >
+                      Bevestig
+                    </button>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

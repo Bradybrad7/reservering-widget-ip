@@ -43,6 +43,9 @@ interface WaitlistActions {
   bulkDelete: (entryIds: string[]) => Promise<boolean>;
   bulkContact: (entryIds: string[]) => Promise<boolean>;
   
+  // ⚡ AUTOMATION: Proactive waitlist notification
+  checkWaitlistForAvailableSpots: (eventId: string, freedCapacity: number) => Promise<boolean>;
+  
   // Filters
   setEventFilter: (eventId: string | 'all') => void;
   setDateRangeFilter: (start: Date | null, end: Date | null) => void;
@@ -75,17 +78,21 @@ export const useWaitlistStore = create<WaitlistState & WaitlistActions>()(
 
     // Actions
     loadWaitlistEntries: async () => {
+      console.log('🔍 WaitlistStore: Starting to load entries...');
       set({ isLoading: true });
       try {
         const response = await apiService.getWaitlistEntries();
+        console.log('📦 WaitlistStore: API response:', response);
         if (response.success && response.data) {
+          console.log('✅ WaitlistStore: Loaded', response.data.length, 'entries');
+          console.log('📋 WaitlistStore: Entry IDs:', response.data.map((e: any) => e.id));
           set({ entries: response.data, isLoading: false });
         } else {
-          console.error('Failed to load waitlist entries:', response.error);
+          console.error('❌ Failed to load waitlist entries:', response.error);
           set({ isLoading: false });
         }
       } catch (error) {
-        console.error('Failed to load waitlist entries:', error);
+        console.error('❌ Failed to load waitlist entries:', error);
         set({ isLoading: false });
       }
     },
@@ -224,6 +231,72 @@ export const useWaitlistStore = create<WaitlistState & WaitlistActions>()(
         return false;
       } catch (error) {
         console.error('Failed to bulk contact:', error);
+        return false;
+      }
+    },
+
+    // ⚡ AUTOMATION: Proactive Waitlist Notification
+    // This function is called automatically when a reservation is cancelled/deleted
+    checkWaitlistForAvailableSpots: async (eventId: string, freedCapacity: number) => {
+      try {
+        console.log(`🔔 [AUTOMATION] Checking waitlist for event ${eventId}, freed capacity: ${freedCapacity}`);
+        
+        // Get pending waitlist entries for this event, sorted by creation date (FIFO)
+        const pendingEntries = get().entries
+          .filter(e => 
+            e.eventId === eventId && 
+            e.status === 'pending'
+          )
+          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        
+        if (pendingEntries.length === 0) {
+          console.log('✅ No pending waitlist entries found');
+          return true;
+        }
+        
+        console.log(`📋 Found ${pendingEntries.length} pending waitlist entries`);
+        
+        // Find entries that fit in the freed capacity
+        let remainingCapacity = freedCapacity;
+        const entriesToContact: WaitlistEntry[] = [];
+        
+        for (const entry of pendingEntries) {
+          if (entry.numberOfPersons <= remainingCapacity) {
+            entriesToContact.push(entry);
+            remainingCapacity -= entry.numberOfPersons;
+            
+            if (remainingCapacity === 0) break; // Exact fit
+          }
+        }
+        
+        if (entriesToContact.length === 0) {
+          console.log('⚠️ No waitlist entries fit the freed capacity');
+          return true;
+        }
+        
+        console.log(`📧 Notifying ${entriesToContact.length} waitlist entries`);
+        
+        // Import emailService dynamically to avoid circular dependency
+        const { emailService } = await import('../services/emailService');
+        
+        // Notify each entry
+        for (const entry of entriesToContact) {
+          try {
+            // Send waitlist notification email with special booking link
+            await emailService.sendWaitlistSpotAvailable(entry);
+            
+            // Mark as contacted
+            await get().markAsContacted(entry.id, 'System (Auto)');
+            
+            console.log(`✅ Notified ${entry.customerEmail} for ${entry.numberOfPersons} persons`);
+          } catch (error) {
+            console.error(`❌ Failed to notify ${entry.customerEmail}:`, error);
+          }
+        }
+        
+        return true;
+      } catch (error) {
+        console.error('Failed to check waitlist:', error);
         return false;
       }
     },

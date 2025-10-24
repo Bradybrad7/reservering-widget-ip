@@ -257,18 +257,15 @@ export const getDefaultWizardConfig = (): WizardConfig => ({
   steps: [
     { key: 'calendar', label: 'Datum', enabled: true, order: 1, required: true },
     { key: 'persons', label: 'Personen', enabled: true, order: 2, required: true },
-    // ✨ NIEUW: Gecombineerde stap voor arrangement + borrels
     { key: 'package', label: 'Pakket & Opties', enabled: true, order: 3, required: true },
-    // ✨ OUDE STAPPEN UITGESCHAKELD: arrangement, addons, merchandise zijn nu geïntegreerd in package/form
-    { key: 'arrangement', label: 'Arrangement', enabled: false, order: 99, required: true },
-    { key: 'addons', label: 'Borrel', enabled: false, order: 99, required: false },
-    { key: 'merchandise', label: 'Merchandise', enabled: false, order: 99, required: false },
-    // ✨ Gegevens bevat nu ook merchandise-sectie
-    { key: 'form', label: 'Gegevens & Extra\'s', enabled: true, order: 4, required: true },
-    { key: 'summary', label: 'Bevestigen', enabled: true, order: 5, required: true },
-    { key: 'success', label: 'Voltooid', enabled: true, order: 6, required: true },
-    { key: 'waitlistPrompt', label: 'Wachtlijst', enabled: true, order: 7, required: false },
-    { key: 'waitlistSuccess', label: 'Wachtlijst Bevestigd', enabled: true, order: 8, required: false }
+    { key: 'merchandise', label: 'Merchandise', enabled: true, order: 4, required: false },
+    { key: 'contact', label: 'Contactgegevens', enabled: true, order: 5, required: true },
+    { key: 'details', label: 'Extra Details', enabled: true, order: 6, required: true },
+    { key: 'form', label: 'Gegevens (DEPRECATED)', enabled: false, order: 99, required: true },
+    { key: 'summary', label: 'Bevestigen', enabled: true, order: 7, required: true },
+    { key: 'success', label: 'Voltooid', enabled: true, order: 8, required: true },
+    { key: 'waitlistPrompt', label: 'Wachtlijst', enabled: true, order: 9, required: false },
+    { key: 'waitlistSuccess', label: 'Wachtlijst Bevestigd', enabled: true, order: 10, required: false }
   ]
 });
 

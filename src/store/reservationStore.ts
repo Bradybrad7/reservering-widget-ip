@@ -136,18 +136,14 @@ const defaultWizardConfig: WizardConfig = {
   steps: [
     { key: 'calendar', label: 'Datum', enabled: true, order: 1, required: true },
     { key: 'persons', label: 'Personen', enabled: true, order: 2, required: true },
-    // ✨ NIEUW: Gecombineerde stap voor arrangement + borrels
     { key: 'package', label: 'Pakket & Opties', enabled: true, order: 3, required: true },
-    // ✨ OUDE STAPPEN UITGESCHAKELD: arrangement, addons, merchandise zijn nu geïntegreerd
-    { key: 'arrangement', label: 'Arrangement', enabled: false, order: 99, required: true },
-    { key: 'addons', label: 'Borrel', enabled: false, order: 99, required: false },
-    { key: 'merchandise', label: 'Merchandise', enabled: false, order: 99, required: false },
-    // ✨ Gegevens bevat nu ook merchandise-sectie
-    { key: 'form', label: 'Gegevens & Extra\'s', enabled: true, order: 4, required: true },
-    { key: 'summary', label: 'Bevestigen', enabled: true, order: 5, required: true },
-    { key: 'success', label: 'Voltooid', enabled: true, order: 6, required: true },
-    { key: 'waitlistPrompt', label: 'Wachtlijst', enabled: true, order: 7, required: false },
-    { key: 'waitlistSuccess', label: 'Wachtlijst Bevestigd', enabled: true, order: 8, required: false }
+    { key: 'contact', label: 'Contactgegevens', enabled: true, order: 4, required: true },
+    { key: 'details', label: 'Extra Details', enabled: true, order: 5, required: true },
+    { key: 'form', label: 'Gegevens (DEPRECATED)', enabled: false, order: 99, required: true },
+    { key: 'summary', label: 'Bevestigen', enabled: true, order: 6, required: true },
+    { key: 'success', label: 'Voltooid', enabled: true, order: 7, required: true },
+    { key: 'waitlistPrompt', label: 'Wachtlijst', enabled: true, order: 8, required: false },
+    { key: 'waitlistSuccess', label: 'Wachtlijst Bevestigd', enabled: true, order: 9, required: false }
   ]
 };
 
@@ -538,56 +534,35 @@ export const useReservationStore = create<ReservationStore>()(
           }
           break;
           
-        // ✨ OUDE STAPPEN: Backwards compatibility (hoewel disabled)
-        case 'arrangement':
-          // Validate arrangement is selected
-          if (!formData.arrangement) {
-            console.warn('No arrangement selected');
-            return;
-          }
-          // Find next enabled step
-          const nextAfterArrangement = enabledSteps[currentIndex + 1];
-          if (nextAfterArrangement) {
-            set({ currentStep: nextAfterArrangement.key });
-          }
-          break;
-          
-        case 'addons':
-          // Addons are optional, proceed to next step
-          const nextAfterAddons = enabledSteps[currentIndex + 1];
-          if (nextAfterAddons) {
-            set({ currentStep: nextAfterAddons.key });
-          }
-          break;
-          
         case 'merchandise':
-          // Merchandise is optional, proceed to next enabled step
+          // 🛍️ NIEUW: Merchandise step - optioneel, geen validatie
           const nextAfterMerchandise = enabledSteps[currentIndex + 1];
           if (nextAfterMerchandise) {
+            console.log('🛍️ Moving from merchandise to:', nextAfterMerchandise.key);
             set({ currentStep: nextAfterMerchandise.key });
           }
           break;
           
-        case 'form':
-          // Validate form before proceeding to next enabled step
-          const validationResult = get().validateForm();
-          console.log('📋 Form validation result:', validationResult, 'errors:', get().formErrors);
-          
-          if (validationResult) {
-            const nextAfterForm = enabledSteps[currentIndex + 1];
-            if (nextAfterForm) {
-              console.log('✅ Form valid, moving to:', nextAfterForm.key);
-              set({ currentStep: nextAfterForm.key });
-            }
-          } else {
-            console.warn('❌ Form is not valid, errors:', get().formErrors);
-            // Scroll to first error
-            const firstError = Object.keys(get().formErrors)[0];
-            if (firstError) {
-              const element = document.querySelector(`[name="${firstError}"]`);
-              element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
+        case 'contact':
+          // ✨ NIEUW: Contact step - validatie gebeurt in component zelf
+          const nextAfterContact = enabledSteps[currentIndex + 1];
+          if (nextAfterContact) {
+            set({ currentStep: nextAfterContact.key });
           }
+          break;
+          
+        case 'details':
+          // ✨ NIEUW: Details step - validatie gebeurt in component zelf
+          const nextAfterDetails = enabledSteps[currentIndex + 1];
+          if (nextAfterDetails) {
+            set({ currentStep: nextAfterDetails.key });
+          }
+          break;
+          
+        case 'form':
+          // ⚠️ DEPRECATED: Oude form step - redirect naar contact
+          console.warn('form step is deprecated, use contact + details instead');
+          set({ currentStep: 'contact' as StepKey });
           break;
           
         case 'summary':
@@ -709,6 +684,55 @@ export const useReservationStore = create<ReservationStore>()(
           if (isWaitlistReservation) {
             response.data.status = 'waitlist';
             response.data.isWaitlist = true;
+          } else {
+            // ⚡ CRM AUTOMATION: Check if customer is VIP/Corporate for auto-approval
+            try {
+              // Get all reservations for this customer to determine if they're a returning customer
+              const allReservations = await apiService.getAdminReservations();
+              
+              if (allReservations.success && allReservations.data && formData.email) {
+                const customerReservations = allReservations.data.filter(
+                  (r: any) => r.email.toLowerCase() === formData.email!.toLowerCase()
+                );
+                
+                const previousBookings = customerReservations.length;
+                const hasVIPTag = customerReservations.some((r: any) => r.tags?.includes('VIP') || r.tags?.includes('Corporate'));
+                
+                if (hasVIPTag) {
+                  console.log(`🌟 [VIP AUTO-APPROVAL] Customer ${formData.email} is VIP/Corporate, auto-confirming...`);
+                  response.data.status = 'confirmed';
+                  
+                  // Add note to reservation
+                  if (!response.data.communicationLog) {
+                    response.data.communicationLog = [];
+                  }
+                  response.data.communicationLog.push({
+                    id: `log-vip-${Date.now()}`,
+                    timestamp: new Date(),
+                    type: 'note',
+                    message: '🌟 Automatisch bevestigd - VIP/Corporate klant',
+                    author: 'System'
+                  });
+                } else if (previousBookings > 0) {
+                  console.log(`🔁 [RETURNING CUSTOMER] Customer ${formData.email} has ${previousBookings} previous bookings`);
+                  
+                  // Add note for admin visibility
+                  if (!response.data.communicationLog) {
+                    response.data.communicationLog = [];
+                  }
+                  response.data.communicationLog.push({
+                    id: `log-returning-${Date.now()}`,
+                    timestamp: new Date(),
+                    type: 'note',
+                    message: `🔁 Terugkerende klant - ${previousBookings} eerdere ${previousBookings === 1 ? 'boeking' : 'boekingen'}`,
+                    author: 'System'
+                  });
+                }
+              }
+            } catch (error) {
+              console.error('Failed to check customer history for VIP status:', error);
+              // Continue with normal flow if check fails
+            }
           }
           
           // ✨ IMPORTANT: Reload events to get updated capacity and waitlist status

@@ -41,7 +41,13 @@ export const WaitlistPrompt: React.FC = () => {
     setError(null);
 
     try {
+      console.log('🔍 WaitlistPrompt: Starting waitlist entry submission');
+      console.log('📋 Event:', selectedEvent.id);
+      console.log('👤 Customer:', name, email);
+      console.log('✅ Using addWaitlistEntry (NOT createReservation!)');
+      
       // ✨ FIXED: Create a WaitlistEntry instead of a Reservation
+      // ⚠️ NO arrangement - waitlist doesn't reserve pricing yet!
       const success = await addWaitlistEntry({
         eventId: selectedEvent.id,
         eventDate: selectedEvent.date,
@@ -50,18 +56,22 @@ export const WaitlistPrompt: React.FC = () => {
         customerPhone: phone,
         phoneCountryCode: formData.phoneCountryCode || '+31',
         numberOfPersons: formData.numberOfPersons || 1,
-        arrangement: formData.arrangement,
         status: 'pending'
       });
 
+      console.log('📤 WaitlistPrompt: Submission result:', success ? '✅ SUCCESS' : '❌ FAILED');
+
       if (success) {
+        console.log('🎉 WaitlistPrompt: Navigating to waitlistSuccess page');
         // Navigate to success page
         setCurrentStep('waitlistSuccess');
       } else {
+        console.error('❌ WaitlistPrompt: Submission failed');
         setError('Er is een fout opgetreden. Probeer het opnieuw.');
         setIsSubmitting(false);
       }
     } catch (err) {
+      console.error('❌ WaitlistPrompt: Exception during submission:', err);
       setError('Er is een onverwachte fout opgetreden');
       setIsSubmitting(false);
     }

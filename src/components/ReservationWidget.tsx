@@ -11,15 +11,13 @@ import { nl } from '../config/defaults';
 // Lazy load heavy components for better initial load performance
 const Calendar = lazy(() => import('./Calendar'));
 const PersonsStep = lazy(() => import('./PersonsStep'));
-// ✨ NIEUW: PackageStep combineert arrangement + borrels
 const PackageStep = lazy(() => import('./PackageStep'));
-// ✨ OUDE STAPPEN: Deze worden niet meer gebruikt in de wizard
-// const ArrangementStep = lazy(() => import('./ArrangementStep'));
-// const AddonsStep = lazy(() => import('./AddonsStep'));
-// const MerchandiseStep = lazy(() => import('./MerchandiseStep'));
+const ContactStep = lazy(() => import('./ContactStep')); // ✨ NIEUW: Stap 1 van formulier
+const DetailsStep = lazy(() => import('./DetailsStep')); // ✨ NIEUW: Stap 2 van formulier
+const MerchandiseStep = lazy(() => import('./MerchandiseStep')); // 🛍️ NIEUW: Merchandise als volledige stap
 const WaitlistPrompt = lazy(() => import('./WaitlistPrompt'));
-const ReservationForm = lazy(() => import('./ReservationForm'));
 const SuccessPage = lazy(() => import('./SuccessPage'));
+const WaitlistSuccessPage = lazy(() => import('./WaitlistSuccessPage'));
 
 const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
   config,
@@ -37,6 +35,7 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
     loadEvents,
     submitReservation,
     updateConfig,
+    updateFormData,
     goToPreviousStep,
     setCurrentStep
   } = useReservationStore();
@@ -171,17 +170,8 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
           </StepLayout>
         );
 
-      // ✨ OUDE STAPPEN VERWIJDERD: arrangement, addons, merchandise zijn nu geïntegreerd
-      // Deze cases blijven voor backwards compatibility maar worden niet meer gebruikt
-      case 'arrangement':
-      case 'addons':
       case 'merchandise':
-        // Redirect naar package step als deze oude stappen toch worden aangeroepen
-        console.warn(`Step '${currentStep}' is deprecated. Redirecting to 'package' step.`);
-        setCurrentStep('package');
-        return null;
-
-      case 'form':
+        // 🛍️ NIEUW: Merchandise stap - Optionele producten
         return (
           <StepLayout
             showBackButton={showBackButton}
@@ -189,10 +179,44 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
             sidebar={<OrderSummary />}
           >
             <Suspense fallback={<LoadingFallback />}>
-              <ReservationForm />
+              <MerchandiseStep />
             </Suspense>
           </StepLayout>
         );
+
+      case 'contact':
+        // ✨ NIEUW: Stap 1 - Essentiële contactgegevens
+        return (
+          <StepLayout
+            showBackButton={showBackButton}
+            onBack={goToPreviousStep}
+            sidebar={<OrderSummary />}
+          >
+            <Suspense fallback={<LoadingFallback />}>
+              <ContactStep />
+            </Suspense>
+          </StepLayout>
+        );
+
+      case 'details':
+        // ✨ NIEUW: Stap 2 - Aanvullende details (adres, dieet, factuur)
+        return (
+          <StepLayout
+            showBackButton={showBackButton}
+            onBack={goToPreviousStep}
+            sidebar={<OrderSummary />}
+          >
+            <Suspense fallback={<LoadingFallback />}>
+              <DetailsStep />
+            </Suspense>
+          </StepLayout>
+        );
+
+      case 'form':
+        // ⚠️ DEPRECATED: Oude grote form - redirect naar contact
+        console.warn('form step is deprecated, redirecting to contact');
+        setCurrentStep('contact');
+        return null;
 
       case 'summary':
         return (
@@ -343,12 +367,37 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
 
               {/* Actions */}
               <div className="card-theatre rounded-2xl border border-gold-400/20 p-4 md:p-6 shadow-lifted space-y-4">
-                <div className="text-sm text-dark-300 bg-neutral-800/50 p-4 rounded-xl border border-neutral-600">
-                  <p>
-                    Door op <span className="font-semibold text-gold-400">"Reservering bevestigen"</span> te klikken, bevestigt u dat alle gegevens 
-                    correct zijn en gaat u akkoord met de algemene voorwaarden.
+                {/* Terms & Conditions Checkbox */}
+                <label className="flex items-start gap-3 p-4 bg-neutral-800/50 rounded-xl border border-neutral-600 cursor-pointer hover:border-gold-400/40 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={formData.acceptTerms || false}
+                    onChange={(e) => updateFormData({ acceptTerms: e.target.checked })}
+                    className="mt-1 w-5 h-5 rounded border-neutral-500 text-gold-500 focus:ring-2 focus:ring-gold-400/20 cursor-pointer"
+                  />
+                  <span className="flex-1 text-sm text-neutral-300">
+                    Ik ga akkoord met de{' '}
+                    <a
+                      href="/algemene-voorwaarden"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-gold-400 hover:text-gold-300 underline font-medium"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      algemene voorwaarden
+                    </a>
+                    {' '}en bevestig dat alle gegevens correct zijn.
+                  </span>
+                </label>
+
+                {!formData.acceptTerms && (
+                  <p className="text-sm text-red-400 flex items-center gap-2 px-4">
+                    <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    U moet akkoord gaan met de algemene voorwaarden om verder te gaan
                   </p>
-                </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3">
@@ -382,12 +431,6 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
                     )}
                   </button>
                 </div>
-
-                {!formData.acceptTerms && (
-                  <p className="text-sm text-red-400 text-center">
-                    ⚠️ U moet akkoord gaan met de algemene voorwaarden om verder te gaan
-                  </p>
-                )}
               </div>
             </div>
           </StepLayout>
@@ -406,10 +449,16 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
         );
 
       case 'success':
-      case 'waitlistSuccess':
         return (
           <Suspense fallback={<LoadingFallback />}>
             <SuccessPage onNewReservation={() => setCurrentStep('calendar')} />
+          </Suspense>
+        );
+
+      case 'waitlistSuccess':
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <WaitlistSuccessPage onNewReservation={() => setCurrentStep('calendar')} />
           </Suspense>
         );
 

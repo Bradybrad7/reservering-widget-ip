@@ -23,11 +23,15 @@ export const WaitlistManager: React.FC = () => {
   const { events, loadEvents } = useEventsStore();
 
   useEffect(() => {
+    console.log('🔍 WaitlistManager: Loading waitlist entries...');
     loadWaitlistEntries();
     loadEvents();
   }, [loadWaitlistEntries, loadEvents]);
 
   const filteredEntries = getFilteredEntries();
+  
+  console.log('📊 WaitlistManager: Filtered entries count:', filteredEntries.length);
+  console.log('📋 WaitlistManager: All entries:', filteredEntries);
 
   const getEventName = (eventId: string) => {
     const event = events.find(e => e.id === eventId);
@@ -223,11 +227,9 @@ export const WaitlistManager: React.FC = () => {
                       <Users className="w-4 h-4 text-dark-400" />
                       <span>{entry.numberOfPersons} {entry.numberOfPersons === 1 ? 'persoon' : 'personen'}</span>
                     </div>
-                    {entry.arrangement && (
-                      <div className="px-2 py-1 rounded bg-blue-500/20 text-blue-300 text-xs">
-                        {entry.arrangement}
-                      </div>
-                    )}
+                    <div className="px-2 py-1 rounded bg-purple-500/20 text-purple-300 text-xs font-medium">
+                      📋 Wachtlijst
+                    </div>
                     <div className="flex items-center gap-2 text-dark-300">
                       <Clock className="w-4 h-4" />
                       {new Intl.DateTimeFormat('nl-NL', {

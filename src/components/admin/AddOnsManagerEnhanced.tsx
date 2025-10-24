@@ -114,7 +114,7 @@ export const AddOnsManagerEnhanced: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Price Per Person */}
                 <div>
-                  <label className="block text-sm font-medium text-neutral-300 mb-2 flex items-center gap-2">
+                  <label className="flex items-center gap-2 text-sm font-medium text-neutral-300 mb-2">
                     <DollarSign className="w-4 h-4" />
                     Prijs per Persoon
                   </label>
@@ -132,7 +132,7 @@ export const AddOnsManagerEnhanced: React.FC = () => {
 
                 {/* Min Persons */}
                 <div>
-                  <label className="block text-sm font-medium text-neutral-300 mb-2 flex items-center gap-2">
+                  <label className="flex items-center gap-2 text-sm font-medium text-neutral-300 mb-2">
                     <Users className="w-4 h-4" />
                     Minimum Aantal Personen
                   </label>

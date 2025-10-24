@@ -2,6 +2,9 @@ import type { Reservation, Event } from '../types';
 import { format } from 'date-fns';
 import { nl } from 'date-fns/locale';
 
+// Import WaitlistEntry type
+import type { WaitlistEntry } from '../types';
+
 /**
  * Email Service
  * 
@@ -499,6 +502,160 @@ export const emailService = {
     }
     
     return { success: true, sent, failed };
+  },
+
+  /**
+   * ⚡ AUTOMATION: Send waitlist spot available notification
+   * Called automatically when a reservation is cancelled and capacity becomes available
+   */
+  async sendWaitlistSpotAvailable(
+    entry: WaitlistEntry
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const eventDate = format(new Date(entry.eventDate), 'EEEE d MMMM yyyy', { locale: nl });
+      
+      // Generate a unique booking link with token (for direct conversion)
+      const bookingToken = `waitlist-${entry.id}-${Date.now()}`;
+      const bookingLink = `https://inspirationpoint.nl/boeken?token=${bookingToken}&eventId=${entry.eventId}&persons=${entry.numberOfPersons}`;
+      
+      const subject = `🎉 Goed nieuws! Er is plaats vrijgekomen voor ${eventDate}`;
+      
+      // Note: html and text are prepared for future use
+      const _html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 30px; text-align: center; }
+            .content { background: white; padding: 30px; border: 1px solid #e0e0e0; }
+            .details { background: #f0fff4; padding: 20px; margin: 20px 0; border-radius: 8px; border: 2px solid #28a745; }
+            .cta-button { display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #D4AF37 0%, #C5A028 100%); color: white; text-decoration: none; border-radius: 8px; margin: 20px 0; font-weight: bold; font-size: 16px; box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3); }
+            .cta-button:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(212, 175, 55, 0.4); }
+            .urgency { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0; }
+            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🎉 Er is plaats voor u!</h1>
+              <p>Inspiration Point</p>
+            </div>
+            
+            <div class="content">
+              <p>Beste ${entry.customerName},</p>
+              
+              <p><strong>Geweldig nieuws!</strong> Er is een plaats vrijgekomen voor het evenement waar u op de wachtlijst stond:</p>
+              
+              <div class="details">
+                <h3>📅 Evenement Details</h3>
+                <p><strong>Datum:</strong> ${eventDate}</p>
+                <p><strong>Aantal personen:</strong> ${entry.numberOfPersons}</p>
+                <p style="color: #666; font-size: 14px;"><em>U kunt uw arrangement kiezen tijdens het boeken</em></p>
+              </div>
+              
+              <div class="urgency">
+                <p><strong>⏰ Belangrijk:</strong> Deze plaats is exclusief voor u gereserveerd voor <strong>24 uur</strong>. Hierna wordt de volgende persoon op de wachtlijst geïnformeerd.</p>
+              </div>
+              
+              <div style="text-align: center;">
+                <a href="${bookingLink}" class="cta-button">
+                  🎭 BOEK NU UW PLAATS
+                </a>
+              </div>
+              
+              <p style="margin-top: 30px;">Of kopieer deze link naar uw browser:</p>
+              <p style="background: #f5f5f5; padding: 10px; border-radius: 5px; word-break: break-all; font-size: 12px;">${bookingLink}</p>
+              
+              <p style="margin-top: 30px;">Heeft u vragen of wilt u telefonisch boeken?</p>
+              <ul>
+                <li>📞 Telefoon: [TELEFOONNUMMER]</li>
+                <li>📧 Email: [EMAIL]</li>
+              </ul>
+              
+              <p>We kijken ernaar uit u te mogen verwelkomen!</p>
+              
+              <p style="margin-top: 20px;">Met vriendelijke groet,<br>Het team van Inspiration Point</p>
+            </div>
+            
+            <div class="footer">
+              <p>© ${new Date().getFullYear()} Inspiration Point. Alle rechten voorbehouden.</p>
+              <p>U ontvangt deze email omdat u op onze wachtlijst staat voor dit evenement.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+      
+      const _text = `
+Goed nieuws! Er is plaats vrijgekomen - Inspiration Point
+
+Beste ${entry.customerName},
+
+Geweldig nieuws! Er is een plaats vrijgekomen voor het evenement waar u op de wachtlijst stond:
+
+Datum: ${eventDate}
+Aantal personen: ${entry.numberOfPersons}
+U kunt uw arrangement kiezen tijdens het boeken.
+
+⏰ BELANGRIJK: Deze plaats is exclusief voor u gereserveerd voor 24 uur. 
+Hierna wordt de volgende persoon op de wachtlijst geïnformeerd.
+
+BOEK NU UW PLAATS:
+${bookingLink}
+
+Heeft u vragen of wilt u telefonisch boeken?
+Telefoon: [TELEFOONNUMMER]
+Email: [EMAIL]
+
+We kijken ernaar uit u te mogen verwelkomen!
+
+Met vriendelijke groet,
+Het team van Inspiration Point
+
+© ${new Date().getFullYear()} Inspiration Point
+      `.trim();
+      
+      console.log('📧 ⚡ [AUTOMATION] Waitlist spot available email:');
+      console.log('To:', entry.customerEmail);
+      console.log('Subject:', subject);
+      console.log('Booking Link:', bookingLink);
+      console.log('Valid for: 24 hours');
+      
+      // TODO: Backend integration - Send actual email
+      // await sendgrid.send({ to: entry.customerEmail, subject, html, text });
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Waitlist email service error:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to send waitlist email' 
+      };
+    }
+  },
+
+  /**
+   * Alias for sendReservationConfirmation for backward compatibility
+   */
+  async sendConfirmation(reservation: Reservation): Promise<{ success: boolean; error?: string }> {
+    // This is a simplified version - in real implementation, fetch the event
+    console.log('📧 [COMPAT] sendConfirmation called - using mock event data');
+    
+    // Mock event data - in production, this would fetch from API
+    const mockEvent: Event = {
+      id: reservation.eventId,
+      date: reservation.eventDate,
+      startsAt: '19:30',
+      endsAt: '22:30',
+      type: 'REGULAR' as const,
+      capacity: 100,
+      isActive: true
+    };
+    
+    return this.sendReservationConfirmation(reservation, mockEvent);
   }
 };
 

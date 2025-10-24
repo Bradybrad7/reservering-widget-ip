@@ -476,8 +476,11 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
 
           {/* Event Type */}
           <div>
-            <label className="block text-sm font-medium text-neutral-100 mb-2">
-              Type Evenement
+            <label className="flex items-center justify-between text-sm font-medium text-neutral-100 mb-2">
+              <span>Type Evenement</span>
+              <span className="text-xs text-neutral-400 font-normal">
+                💡 Tijden worden automatisch ingevuld
+              </span>
             </label>
             <select
               value={eventType}
@@ -487,24 +490,34 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
               {enabledEventTypes.length > 0 ? (
                 enabledEventTypes.map(type => (
                   <option key={type.key} value={type.key}>
-                    {type.name}
+                    {type.name} ({type.defaultTimes.startsAt} - {type.defaultTimes.endsAt})
                   </option>
                 ))
               ) : (
                 <>
-                  <option value="REGULAR">Reguliere Show</option>
-                  <option value="MATINEE">Matinee</option>
-                  <option value="CARE_HEROES">Zorgzame Helden</option>
+                  <option value="REGULAR">Reguliere Show (20:00 - 22:30)</option>
+                  <option value="MATINEE">Matinee (14:00 - 18:00)</option>
+                  <option value="CARE_HEROES">Zorgzame Helden (20:00 - 22:30)</option>
                   <option value="REQUEST">Op Aanvraag</option>
                 </>
               )}
             </select>
+            {enabledEventTypes.length === 0 && (
+              <p className="mt-1 text-xs text-neutral-400">
+                Tip: Configureer event types in <strong>Producten → Prijzen → Event Types</strong>
+              </p>
+            )}
           </div>
 
           {/* Show Selection */}
           <div>
-            <label className="block text-sm font-medium text-neutral-100 mb-2">
-              Show *
+            <label className="flex items-center justify-between text-sm font-medium text-neutral-100 mb-2">
+              <span>Show *</span>
+              {shows.filter(s => s.isActive).length === 0 && (
+                <span className="text-xs text-amber-400 font-normal">
+                  💡 Tip: Ga naar Producten → Prijzen om shows te beheren
+                </span>
+              )}
             </label>
             <select
               value={selectedShowId}
@@ -513,16 +526,41 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
               className="w-full px-4 py-2 bg-neutral-800 text-white border border-neutral-600 rounded-lg focus:ring-2 focus:ring-gold-500 focus:border-gold-500 transition-colors"
             >
               <option value="">Selecteer een show</option>
-              {shows.map(show => (
-                <option key={show.id} value={show.id}>
-                  {show.name} {show.isActive ? '(Actief)' : '(Inactief)'}
-                </option>
-              ))}
+              {shows.filter(s => s.isActive).length > 0 ? (
+                <>
+                  {/* Active shows first */}
+                  {shows.filter(s => s.isActive).map(show => (
+                    <option key={show.id} value={show.id}>
+                      {show.name} ✓
+                    </option>
+                  ))}
+                  {/* Inactive shows with visual separator */}
+                  {shows.filter(s => !s.isActive).length > 0 && (
+                    <option disabled>───── Inactieve Shows ─────</option>
+                  )}
+                  {shows.filter(s => !s.isActive).map(show => (
+                    <option key={show.id} value={show.id}>
+                      {show.name} (Inactief)
+                    </option>
+                  ))}
+                </>
+              ) : (
+                <>
+                  {shows.map(show => (
+                    <option key={show.id} value={show.id}>
+                      {show.name} {show.isActive ? '✓' : '(Inactief)'}
+                    </option>
+                  ))}
+                </>
+              )}
             </select>
             {shows.length === 0 && (
-              <p className="mt-1 text-xs text-amber-400">
-                ⚠️ Geen shows beschikbaar. Maak eerst een show aan in het Shows-beheer.
-              </p>
+              <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                <p className="text-sm text-amber-300 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  Geen shows beschikbaar. Ga naar <strong>Producten → Prijzen → Shows</strong> om shows aan te maken.
+                </p>
+              </div>
             )}
           </div>
 

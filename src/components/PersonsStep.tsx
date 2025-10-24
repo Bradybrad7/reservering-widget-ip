@@ -19,8 +19,11 @@ export const PersonsStep: React.FC = () => {
   const [warning, setWarning] = useState<string | null>(null);
 
   const availability = selectedEvent ? eventAvailability[selectedEvent.id] : null;
-  const remainingCapacity = availability?.remainingCapacity || 0;
   const maxReasonable = 500; // Absolute maximum for input validation
+
+  // ✅ ALLEEN bookingStatus gebruiken - GEEN capaciteitsdata
+  const isRequestOnly = availability?.bookingStatus === 'request';
+  const isFull = availability?.bookingStatus === 'full';
 
   useEffect(() => {
     if (formData.numberOfPersons) {
@@ -37,9 +40,9 @@ export const PersonsStep: React.FC = () => {
       setError('Minimaal 1 persoon vereist');
     } else if (value > maxReasonable) {
       setError(`Maximaal ${maxReasonable} personen mogelijk`);
-    } else if (value > remainingCapacity) {
-      // Show warning but allow booking
-      setWarning(`Let op: u boekt meer plaatsen (${value}) dan momenteel direct beschikbaar (${remainingCapacity}). Uw aanvraag wordt beoordeeld door onze medewerkers.`);
+    } else if (isRequestOnly || isFull) {
+      // ✅ Toon waarschuwing gebaseerd op bookingStatus, niet op capaciteit
+      setWarning('Let op: voor deze datum is een aanvraag vereist. Uw reservering wordt beoordeeld door onze medewerkers.');
     }
   };
 
@@ -110,21 +113,29 @@ export const PersonsStep: React.FC = () => {
           </p>
           {availability && (
             <div className="mt-3 flex items-center gap-2">
-              {availability.remainingCapacity > 0 ? (
+              {/* ✅ ALLEEN bookingStatus tonen - GEEN capaciteitsdata */}
+              {availability.bookingStatus === 'open' ? (
                 <>
                   <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
                   <p className="text-sm text-green-300 font-medium">
                     Status: Beschikbaar
                   </p>
                 </>
-              ) : (
+              ) : availability.bookingStatus === 'request' ? (
                 <>
                   <div className="w-2 h-2 rounded-full bg-orange-400 animate-pulse"></div>
                   <p className="text-sm text-orange-300 font-medium">
-                    Aanvraag mogelijk
+                    Status: Op aanvraag
                   </p>
                 </>
-              )}
+              ) : availability.bookingStatus === 'full' ? (
+                <>
+                  <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse"></div>
+                  <p className="text-sm text-red-300 font-medium">
+                    Status: Wachtlijst
+                  </p>
+                </>
+              ) : null}
             </div>
           )}
         </div>

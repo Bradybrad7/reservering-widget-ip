@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from 'react';
-import { Calendar, Users, Package, FileText, CheckCircle } from 'lucide-react';
+import { Calendar, Users, Package, ShoppingBag, FileText, CheckCircle } from 'lucide-react';
 import { cn } from '../utils';
 import type { StepKey } from '../types';
 import { useReservationStore } from '../store/reservationStore';
@@ -35,12 +35,14 @@ export const StepIndicator = memo<StepIndicatorProps>(({
 
   // Generate steps based on wizard configuration
   const steps: Step[] = useMemo(() => {
-    // ✨ UPDATED: Nieuwe stappen configuratie met 'package' ipv arrangement/addons/merchandise
+    // ✨ UPDATED: Nieuwe wizard flow met merchandise + contact + details stappen
     const allSteps: Array<{ key: StepKey; label: string; icon: React.ComponentType<{ className?: string }> }> = [
       { key: 'calendar', label: 'Datum', icon: Calendar },
       { key: 'persons', label: 'Personen', icon: Users },
-      { key: 'package', label: 'Pakket & Opties', icon: Package },
-      { key: 'form', label: 'Gegevens & Extra\'s', icon: FileText },
+      { key: 'package', label: 'Pakket', icon: Package },
+      { key: 'merchandise', label: 'Merchandise', icon: ShoppingBag },
+      { key: 'contact', label: 'Contact', icon: Users },
+      { key: 'details', label: 'Details', icon: FileText },
       { key: 'summary', label: 'Bevestigen', icon: CheckCircle }
     ];
 
