@@ -10,23 +10,23 @@ import {
   Clock,
   Calendar
 } from 'lucide-react';
-import { useAdminStore } from '../../store/adminStore';
+import { useConfigStore } from '../../store/configStore';
 import { cn } from '../../utils';
 import type { EventTypesConfig, EventTypeConfig, EventType } from '../../types';
 
 export const EventTypeManager: React.FC = () => {
   const {
     eventTypesConfig,
-    isSubmitting,
     loadConfig,
     updateEventTypesConfig
-  } = useAdminStore();
+  } = useConfigStore();
 
   const [localConfig, setLocalConfig] = useState<EventTypesConfig | null>(null);
   const [editingType, setEditingType] = useState<EventTypeConfig | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [isNewType, setIsNewType] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     loadConfig();

@@ -1,11 +1,11 @@
 import React from 'react';
 import { format, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths } from 'date-fns';
 import { nl } from 'date-fns/locale';
-import { useAdminStore } from '../../store/adminStore';
+import { useReservationsStore } from '../../store/reservationsStore';
 import { formatCurrency } from '../../utils';
 
 export const FinancialReport: React.FC = () => {
-  const { reservations } = useAdminStore();
+  const { reservations } = useReservationsStore();
   
   // Calculate metrics for last 12 months
   const last12Months = eachMonthOfInterval({

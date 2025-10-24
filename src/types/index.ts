@@ -6,7 +6,26 @@ export type Arrangement = 'BWF' | 'BWFM';
 // DayType is now dynamic and matches event type keys
 export type DayType = string;
 export type Salutation = 'Dhr' | 'Mevr' | '';
-export type ReservationStatus = 'pending' | 'confirmed' | 'cancelled' | 'rejected' | 'request' | 'waitlist' | 'checked-in';
+// Reservation Status
+export type ReservationStatus = 
+  | 'pending'       // Waiting for admin confirmation
+  | 'confirmed'     // Confirmed by admin
+  | 'rejected'      // Rejected by admin
+  | 'cancelled'     // Cancelled (by customer or admin)
+  | 'waitlist'      // On waitlist (DEPRECATED - use WaitlistEntry instead)
+  | 'checked-in'    // Customer has checked in on event day
+  | 'request'       // Over-capacity request
+  | 'option';       // 🆕 Temporary hold (1 week) - minimal info, counts toward capacity
+
+// ✨ NEW: Payment Status (October 2025)
+// This tracks the financial status INDEPENDENTLY from booking status
+// A reservation can be 'confirmed' (seat reserved) but 'pending' payment
+export type PaymentStatus = 
+  | 'pending'         // Invoice sent, awaiting payment
+  | 'paid'            // Payment received and confirmed
+  | 'overdue'         // Payment deadline passed
+  | 'refunded'        // Payment was refunded
+  | 'not_applicable'; // E.g., free event, voucher, or comp ticket
 
 // Wizard step types
 export type StepKey = 
@@ -62,6 +81,25 @@ export interface PricingByDayType {
 export interface Pricing {
   byDayType: {
     [key: string]: PricingByDayType; // Dynamic keys based on event types
+  };
+  // ✨ NEW: Control which arrangements are available for voucher purchase
+  voucherSettings?: {
+    BWF: {
+      available: boolean;
+      description?: string; // What's included in this arrangement
+    };
+    BWFM: {
+      available: boolean;
+      description?: string;
+    };
+  };
+  // ✨ NEW: Per event type voucher configuration
+  voucherAvailability?: {
+    [eventType: string]: { // e.g., 'weekday', 'weekend', 'matinee'
+      displayName?: string; // Custom name for voucher display (e.g., "Weekendshow" instead of "weekend")
+      BWF?: boolean; // Is BWF available for this event type?
+      BWFM?: boolean; // Is BWFM available for this event type?
+    };
   };
 }
 
@@ -267,6 +305,15 @@ export interface Reservation extends CustomerFormData {
   status: ReservationStatus;
   isWaitlist?: boolean;
   requestedOverCapacity?: boolean; // TRUE if booking was made when exceeding available capacity
+  
+  // ✨ NEW: Financial/Payment Tracking (October 2025)
+  paymentStatus: PaymentStatus;
+  invoiceNumber?: string;           // Invoice reference number
+  paymentMethod?: string;           // 'bank_transfer', 'ideal', 'voucher', 'cash', etc.
+  paymentReceivedAt?: Date;         // Timestamp when payment was confirmed
+  paymentDueDate?: Date;            // When payment is expected
+  paymentNotes?: string;            // Admin notes about payment
+  
   createdAt: Date;
   updatedAt: Date;
   isArchived?: boolean; // NEW: For archiving cancelled/rejected bookings
@@ -277,6 +324,15 @@ export interface Reservation extends CustomerFormData {
   notes?: string; // Admin notes
   checkedInAt?: Date; // NEW: Check-in timestamp
   checkedInBy?: string; // NEW: Who performed the check-in
+  
+  // 🆕 OPTION SYSTEM: Temporary 1-week hold (October 2025)
+  // When status = 'option': minimal booking info (naam, adres, telefoon)
+  // NO arrangement/pricing required yet - just securing capacity
+  // Counts toward event capacity to reserve the seats
+  optionPlacedAt?: Date;      // When the option was created
+  optionExpiresAt?: Date;     // Auto-calculated: optionPlacedAt + 7 days
+  optionNotes?: string;       // Admin notes specific to this option
+  optionFollowedUp?: boolean; // Has admin contacted customer about expiring option?
 }
 
 // Communication log for tracking interactions
@@ -600,10 +656,90 @@ export interface IssuedVoucher {
   expiryDate: Date | string;
   initialValue: number;
   remainingValue: number;
-  status: 'active' | 'used' | 'expired';
+  status: 'active' | 'used' | 'expired' | 'pending_payment';
   usedInReservationIds?: string[]; // Track where it was used
+  
+  // Extended metadata for voucher purchases
+  metadata?: {
+    buyerName: string;
+    buyerEmail: string;
+    buyerPhone: string;
+    recipientEmail?: string;
+    personalMessage?: string;
+    deliveryMethod: 'email' | 'physical';
+    quantity: number;
+    paymentId?: string;
+    paymentStatus: 'pending' | 'paid' | 'failed';
+    activatedAt?: Date;
+  };
+  
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+// ============ VOUCHER PURCHASE & REDEMPTION ============
+
+export interface VoucherPurchaseRequest {
+  templateId: string;
+  quantity: number;
+  recipientName?: string;
+  recipientEmail?: string;
+  personalMessage?: string;
+  buyerName: string;
+  buyerEmail: string;
+  buyerPhone: string;
+  deliveryMethod: 'email' | 'physical';
+  
+  // Optional fields for arrangement-based vouchers
+  customAmount?: number;
+  arrangement?: Arrangement;
+  eventType?: string; // weekday, weekend, matinee, etc.
+  isGift?: boolean;
+  shippingAddress?: {
+    street: string;
+    city: string;
+    postalCode: string;
+    country: string;
+  };
+}
+
+export interface VoucherPurchaseResponse {
+  voucherId: string;
+  paymentUrl: string;
+  paymentId: string;
+  temporaryCode?: string;
+}
+
+export interface VoucherValidationResult {
+  isValid: boolean;
+  voucher?: IssuedVoucher;
+  remainingValue: number;
+  expiryDate: Date;
+  errorReason?: 'not_found' | 'expired' | 'used' | 'inactive';
+}
+
+export interface VoucherApplicationResult {
+  success: boolean;
+  newRemainingValue: number;
+  discountApplied: number;
+  voucher: IssuedVoucher;
+}
+
+export interface VoucherUsage {
+  reservationId: string;
+  eventDate: Date;
+  amountUsed: number;
+  usedAt: Date;
+}
+
+export interface VoucherStatusResponse {
+  code: string;
+  initialValue: number;
+  remainingValue: number;
+  status: 'active' | 'used' | 'expired' | 'pending_payment';
+  expiryDate: Date;
+  issueDate: Date;
+  usageHistory: VoucherUsage[];
 }
 
 // Export types for external use

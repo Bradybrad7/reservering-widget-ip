@@ -2,7 +2,8 @@ import React, { useEffect, useCallback, memo, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Event } from '../types';
 import { useReservationStore } from '../store/reservationStore';
-import { useAdminStore } from '../store/adminStore';
+import { useEventsStore } from '../store/eventsStore';
+import { useConfigStore } from '../store/configStore';
 import { useWaitlistStore } from '../store/waitlistStore';
 import { 
   getDaysInMonth, 
@@ -34,7 +35,8 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
     loadEventAvailability
   } = useReservationStore();
 
-  const { shows, loadShows, eventTypesConfig, loadConfig } = useAdminStore();
+  const { shows, loadShows } = useEventsStore();
+  const { eventTypesConfig, loadConfig } = useConfigStore();
   
   // ✨ NEW: Waitlist support
   const { loadWaitlistStatusForDates } = useWaitlistStore();

@@ -14,7 +14,15 @@ import type {
   WizardConfig,
   EventTypesConfig,
   TextCustomization,
-  Show
+  Show,
+  VoucherTemplate,
+  IssuedVoucher,
+  VoucherPurchaseRequest,
+  VoucherPurchaseResponse,
+  VoucherValidationResult,
+  VoucherApplicationResult,
+  VoucherStatusResponse,
+  VoucherUsage
 } from '../types';
 import { localStorageService } from './localStorageService';
 import { checkReservationLimit } from './rateLimiter';
@@ -309,7 +317,14 @@ export const apiService = {
         requestedOverCapacity, // Flag for admin review
         isWaitlist: false, // Deprecated in favor of status management
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        // ✨ NEW: Payment fields (October 2025)
+        paymentStatus: 'pending',
+        invoiceNumber: '',
+        paymentMethod: '',
+        paymentReceivedAt: undefined,
+        paymentDueDate: undefined,
+        paymentNotes: ''
       };
 
       mockDB.addReservation(reservation);
@@ -872,28 +887,70 @@ export const apiService = {
   },
 
   // Configuration management
-  async getConfig(): Promise<ApiResponse<{
-    config: GlobalConfig;
-    pricing: Pricing;
-    addOns: AddOns;
-    bookingRules: BookingRules;
-  }>> {
+  async getConfig(): Promise<ApiResponse<GlobalConfig>> {
     await delay(200);
     
     try {
       const config = localStorageService.getConfig();
-      const pricing = localStorageService.getPricing();
-      const addOns = localStorageService.getAddOns();
-      const bookingRules = localStorageService.getBookingRules();
-      
       return {
         success: true,
-        data: { config, pricing, addOns, bookingRules }
+        data: config
       };
     } catch (error) {
       return {
         success: false,
         error: 'Failed to fetch configuration'
+      };
+    }
+  },
+
+  async getPricing(): Promise<ApiResponse<Pricing>> {
+    await delay(200);
+    
+    try {
+      const pricing = localStorageService.getPricing();
+      return {
+        success: true,
+        data: pricing
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to fetch pricing'
+      };
+    }
+  },
+
+  async getAddOns(): Promise<ApiResponse<AddOns>> {
+    await delay(200);
+    
+    try {
+      const addOns = localStorageService.getAddOns();
+      return {
+        success: true,
+        data: addOns
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to fetch add-ons'
+      };
+    }
+  },
+
+  async getBookingRules(): Promise<ApiResponse<BookingRules>> {
+    await delay(200);
+    
+    try {
+      const bookingRules = localStorageService.getBookingRules();
+      return {
+        success: true,
+        data: bookingRules
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to fetch booking rules'
       };
     }
   },
@@ -1235,6 +1292,156 @@ export const apiService = {
     }
   },
 
+  // Promotions management
+  async getPromotions(): Promise<ApiResponse<PromotionCode[]>> {
+    await delay(200);
+    
+    try {
+      const promotions = localStorageService.getPromotions();
+      return {
+        success: true,
+        data: promotions
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to fetch promotions'
+      };
+    }
+  },
+
+  async createPromotion(promo: Omit<PromotionCode, 'id' | 'createdAt'>): Promise<ApiResponse<PromotionCode>> {
+    await delay(300);
+    
+    try {
+      const newPromo: PromotionCode = {
+        ...promo,
+        id: `promo-${Date.now()}`,
+        createdAt: new Date()
+      };
+      
+      const promotions = localStorageService.getPromotions();
+      promotions.push(newPromo);
+      localStorageService.savePromotions(promotions);
+      
+      return {
+        success: true,
+        data: newPromo,
+        message: 'Promotion created successfully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to create promotion'
+      };
+    }
+  },
+
+  async updatePromotion(promoId: string, updates: Partial<PromotionCode>): Promise<ApiResponse<PromotionCode>> {
+    await delay(300);
+    
+    try {
+      const promotions = localStorageService.getPromotions();
+      const index = promotions.findIndex(p => p.id === promoId);
+      
+      if (index === -1) {
+        return {
+          success: false,
+          error: 'Promotion not found'
+        };
+      }
+      
+      promotions[index] = { ...promotions[index], ...updates };
+      localStorageService.savePromotions(promotions);
+      
+      return {
+        success: true,
+        data: promotions[index],
+        message: 'Promotion updated successfully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to update promotion'
+      };
+    }
+  },
+
+  async deletePromotion(promoId: string): Promise<ApiResponse<void>> {
+    await delay(200);
+    
+    try {
+      const promotions = localStorageService.getPromotions();
+      const filtered = promotions.filter(p => p.id !== promoId);
+      
+      if (promotions.length === filtered.length) {
+        return {
+          success: false,
+          error: 'Promotion not found'
+        };
+      }
+      
+      localStorageService.savePromotions(filtered);
+      
+      return {
+        success: true,
+        message: 'Promotion deleted successfully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to delete promotion'
+      };
+    }
+  },
+
+  // Email Reminder Configuration
+  async getEmailReminderConfig(): Promise<ApiResponse<EmailReminderConfig>> {
+    await delay(200);
+    
+    try {
+      let config = localStorageService.getEmailReminderConfig();
+      
+      // Return default if not set
+      if (!config) {
+        config = {
+          enabled: false,
+          daysBeforeEvent: 3,
+          emailTemplate: 'Beste {name},\n\nDit is een herinnering voor uw reservering op {date}.\n\nMet vriendelijke groet,\nHet Theater Team'
+        };
+      }
+      
+      return {
+        success: true,
+        data: config
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to fetch email reminder config'
+      };
+    }
+  },
+
+  async updateEmailReminderConfig(config: EmailReminderConfig): Promise<ApiResponse<EmailReminderConfig>> {
+    await delay(300);
+    
+    try {
+      localStorageService.saveEmailReminderConfig(config);
+      
+      return {
+        success: true,
+        data: config,
+        message: 'Email reminder configuration updated successfully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to update email reminder config'
+      };
+    }
+  },
+
   // Customer management
   async getCustomers(): Promise<ApiResponse<Array<{
     email: string;
@@ -1243,6 +1450,7 @@ export const apiService = {
     totalBookings: number;
     totalSpent: number;
     lastBooking: Date;
+    reservations: Reservation[];
   }>>> {
     await delay(300);
     
@@ -1257,6 +1465,7 @@ export const apiService = {
         totalBookings: number;
         totalSpent: number;
         lastBooking: Date;
+        reservations: Reservation[];
       }>();
       
       reservations.forEach(res => {
@@ -1265,6 +1474,7 @@ export const apiService = {
         if (existing) {
           existing.totalBookings++;
           existing.totalSpent += res.totalPrice;
+          existing.reservations.push(res);
           if (res.createdAt > existing.lastBooking) {
             existing.lastBooking = res.createdAt;
           }
@@ -1275,7 +1485,8 @@ export const apiService = {
             contactPerson: res.contactPerson,
             totalBookings: 1,
             totalSpent: res.totalPrice,
-            lastBooking: res.createdAt
+            lastBooking: res.createdAt,
+            reservations: [res]
           });
         }
       });
@@ -1813,6 +2024,302 @@ export const apiService = {
       return {
         success: false,
         error: 'Failed to contact waitlist entries'
+      };
+    }
+  },
+
+  // ============================================================================
+  // VOUCHER ENDPOINTS
+  // ============================================================================
+
+  /**
+   * Get all active voucher templates (public endpoint)
+   */
+  async getPublicVoucherTemplates(): Promise<ApiResponse<VoucherTemplate[]>> {
+    await delay(200);
+
+    try {
+      const templates = localStorageService.getVoucherTemplates()
+        .filter((t: VoucherTemplate) => t.isActive);
+
+      return {
+        success: true,
+        data: templates
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to load voucher templates'
+      };
+    }
+  },
+
+  /**
+   * Create a voucher purchase
+   * In production, this would integrate with payment gateway
+   */
+  async createVoucherPurchase(
+    purchaseData: VoucherPurchaseRequest
+  ): Promise<ApiResponse<VoucherPurchaseResponse>> {
+    await delay(500);
+
+    try {
+      // Get template
+      const templates = localStorageService.getVoucherTemplates();
+      const template = templates.find((t: VoucherTemplate) => t.id === purchaseData.templateId);
+
+      if (!template || !template.isActive) {
+        return {
+          success: false,
+          error: 'Voucher template niet beschikbaar'
+        };
+      }
+
+      // Generate voucher code
+      const { voucherService } = await import('./voucherService');
+      const voucherCode = voucherService.generateUniqueVoucherCode();
+
+      // Calculate dates
+      const issueDate = new Date();
+      const expiryDate = voucherService.calculateExpiryDate(issueDate, template.validityDays);
+
+      // Create IssuedVoucher
+      const newVoucher: IssuedVoucher = {
+        id: voucherService.generateVoucherId(),
+        code: voucherCode,
+        templateId: template.id,
+        issuedTo: purchaseData.recipientName || purchaseData.buyerName,
+        issueDate,
+        expiryDate,
+        initialValue: template.value * purchaseData.quantity,
+        remainingValue: template.value * purchaseData.quantity,
+        status: 'pending_payment', // Will be activated by payment webhook
+        usedInReservationIds: [],
+        metadata: {
+          buyerName: purchaseData.buyerName,
+          buyerEmail: purchaseData.buyerEmail,
+          buyerPhone: purchaseData.buyerPhone,
+          recipientEmail: purchaseData.recipientEmail,
+          personalMessage: purchaseData.personalMessage,
+          deliveryMethod: purchaseData.deliveryMethod,
+          quantity: purchaseData.quantity,
+          paymentStatus: 'pending'
+        },
+        createdAt: issueDate,
+        updatedAt: issueDate
+      };
+
+      // Save to database
+      localStorageService.addIssuedVoucher(newVoucher);
+
+      // In production, initiate payment here
+      // For now, simulate payment URL
+      const paymentId = `payment-${Date.now()}`;
+      const paymentUrl = `/voucher/payment/${paymentId}`;
+
+      return {
+        success: true,
+        data: {
+          voucherId: newVoucher.id,
+          paymentUrl,
+          paymentId,
+          temporaryCode: voucherCode
+        }
+      };
+    } catch (error) {
+      console.error('Failed to create voucher purchase:', error);
+      return {
+        success: false,
+        error: 'Failed to create voucher purchase'
+      };
+    }
+  },
+
+  /**
+   * Validate a voucher code
+   */
+  async validateVoucherCode(
+    code: string
+  ): Promise<ApiResponse<VoucherValidationResult>> {
+    await delay(300);
+
+    try {
+      const { voucherService } = await import('./voucherService');
+      const validation = voucherService.validateVoucher(code);
+
+      return {
+        success: validation.isValid,
+        data: validation,
+        error: validation.isValid ? undefined : voucherService['getErrorMessage'](validation.errorReason)
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to validate voucher code',
+        data: {
+          isValid: false,
+          remainingValue: 0,
+          expiryDate: new Date(),
+          errorReason: 'not_found'
+        }
+      };
+    }
+  },
+
+  /**
+   * Apply voucher to a reservation
+   */
+  async applyVoucherToReservation(
+    voucherCode: string,
+    reservationId: string,
+    amountUsed: number
+  ): Promise<ApiResponse<VoucherApplicationResult>> {
+    await delay(200);
+
+    try {
+      // This would normally be called during reservation submission
+      const success = localStorageService.decrementVoucherValue(
+        voucherCode,
+        amountUsed,
+        reservationId
+      );
+
+      if (!success) {
+        return {
+          success: false,
+          error: 'Failed to apply voucher'
+        };
+      }
+
+      const voucher = localStorageService.findVoucherByCode(voucherCode);
+      if (!voucher) {
+        return {
+          success: false,
+          error: 'Voucher not found after update'
+        };
+      }
+
+      return {
+        success: true,
+        data: {
+          success: true,
+          newRemainingValue: voucher.remainingValue,
+          discountApplied: amountUsed,
+          voucher
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to apply voucher to reservation'
+      };
+    }
+  },
+
+  /**
+   * Get voucher status and usage history
+   */
+  async getVoucherStatus(
+    code: string
+  ): Promise<ApiResponse<VoucherStatusResponse>> {
+    await delay(200);
+
+    try {
+      const voucher = localStorageService.findVoucherByCode(code);
+      if (!voucher) {
+        return {
+          success: false,
+          error: 'Voucher not found'
+        };
+      }
+
+      // Get usage history from reservations
+      const reservations = localStorageService.getReservations()
+        .filter((r: Reservation) => voucher.usedInReservationIds?.includes(r.id));
+
+      const usageHistory: VoucherUsage[] = reservations.map((r: Reservation) => ({
+        reservationId: r.id,
+        eventDate: r.eventDate,
+        amountUsed: r.pricingSnapshot?.voucherAmount || 0,
+        usedAt: r.createdAt
+      }));
+
+      return {
+        success: true,
+        data: {
+          code: voucher.code,
+          initialValue: voucher.initialValue,
+          remainingValue: voucher.remainingValue,
+          status: voucher.status,
+          expiryDate: new Date(voucher.expiryDate),
+          issueDate: new Date(voucher.issueDate),
+          usageHistory
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to get voucher status'
+      };
+    }
+  },
+
+  /**
+   * Simulate payment webhook (in production, this would be called by payment provider)
+   */
+  async handleVoucherPaymentWebhook(
+    paymentId: string,
+    status: 'paid' | 'failed'
+  ): Promise<ApiResponse<void>> {
+    await delay(200);
+
+    try {
+      const voucher = localStorageService.findVoucherByPaymentId(paymentId);
+      if (!voucher) {
+        return {
+          success: false,
+          error: 'Voucher not found for payment'
+        };
+      }
+
+      if (status === 'paid') {
+        // Activate voucher
+        localStorageService.updateIssuedVoucher(voucher.id, {
+          status: 'active',
+          metadata: {
+            ...voucher.metadata,
+            paymentStatus: 'paid',
+            paymentId,
+            activatedAt: new Date()
+          }
+        });
+
+        // In production: Send email with voucher code
+        console.log('✅ Voucher activated and email sent:', voucher.code);
+
+        return {
+          success: true,
+          message: 'Voucher activated successfully'
+        };
+      } else {
+        // Payment failed
+        localStorageService.updateIssuedVoucher(voucher.id, {
+          status: 'expired',
+          metadata: {
+            ...voucher.metadata,
+            paymentStatus: 'failed'
+          }
+        });
+
+        return {
+          success: false,
+          error: 'Payment failed, voucher not activated'
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to process payment webhook'
       };
     }
   }

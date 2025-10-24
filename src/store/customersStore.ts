@@ -47,7 +47,41 @@ export const useCustomersStore = create<CustomersState & CustomersActions>()(
       try {
         const response = await apiService.getCustomers();
         if (response.success && response.data) {
-          set({ customers: response.data, isLoadingCustomers: false });
+          // ✨ NEW: Enrich customer data with calculated statistics (October 2025)
+          const enrichedCustomers = response.data.map((customer: any) => {
+            const reservations = customer.reservations || [];
+            const confirmedReservations = reservations.filter(
+              (r: Reservation) => r.status === 'confirmed' || r.status === 'checked-in'
+            );
+            
+            const totalBookings = confirmedReservations.length;
+            const totalSpent = confirmedReservations.reduce((sum: number, r: Reservation) => sum + r.totalPrice, 0);
+            const totalPersons = confirmedReservations.reduce((sum: number, r: Reservation) => sum + r.numberOfPersons, 0);
+            const averageGroupSize = totalBookings > 0 ? Math.round(totalPersons / totalBookings) : 0;
+            
+            // Calculate preferred arrangement (most booked)
+            const arrangementCounts = confirmedReservations.reduce((acc: Record<string, number>, r: Reservation) => {
+              acc[r.arrangement] = (acc[r.arrangement] || 0) + 1;
+              return acc;
+            }, {} as Record<string, number>);
+            
+            const preferredArrangement = Object.keys(arrangementCounts).length > 0
+              ? Object.entries(arrangementCounts).sort((a, b) => (b[1] as number) - (a[1] as number))[0][0]
+              : undefined;
+            
+            return {
+              ...customer,
+              totalBookings,
+              totalSpent,
+              averageGroupSize,
+              preferredArrangement,
+              reservations,
+              tags: customer.tags || [],
+              firstBooking: customer.firstBooking || customer.lastBooking
+            } as CustomerProfile;
+          });
+          
+          set({ customers: enrichedCustomers, isLoadingCustomers: false });
         } else {
           set({ isLoadingCustomers: false });
         }
@@ -59,9 +93,10 @@ export const useCustomersStore = create<CustomersState & CustomersActions>()(
 
     loadCustomer: async (email: string) => {
       try {
-        const response = await apiService.getCustomerProfile(email);
-        if (response.success && response.data) {
-          set({ selectedCustomer: response.data });
+        // Load customer from existing customers list
+        const customer = get().customers.find(c => c.email === email);
+        if (customer) {
+          set({ selectedCustomer: customer });
         }
       } catch (error) {
         console.error('Failed to load customer:', error);
@@ -73,28 +108,23 @@ export const useCustomersStore = create<CustomersState & CustomersActions>()(
     },
 
     updateCustomer: async (email: string, updates: Partial<CustomerProfile>) => {
-      const response = await apiService.updateCustomerProfile(email, updates);
-      if (response.success) {
-        set(state => ({
-          customers: state.customers.map(c =>
-            c.email === email ? { ...c, ...updates } : c
-          ),
-          selectedCustomer: state.selectedCustomer?.email === email
-            ? { ...state.selectedCustomer, ...updates }
-            : state.selectedCustomer
-        }));
-        return true;
-      }
-      return false;
+      // Update customer in state (no API call needed - customer data derived from reservations)
+      set(state => ({
+        customers: state.customers.map(c =>
+          c.email === email ? { ...c, ...updates } : c
+        ),
+        selectedCustomer: state.selectedCustomer?.email === email
+          ? { ...state.selectedCustomer, ...updates }
+          : state.selectedCustomer
+      }));
+      return true;
     },
 
     getCustomerReservations: async (email: string) => {
       try {
-        const response = await apiService.getCustomerReservations(email);
-        if (response.success && response.data) {
-          return response.data;
-        }
-        return [];
+        // Get reservations from existing customer data
+        const customer = get().customers.find(c => c.email === email);
+        return customer?.reservations || [];
       } catch (error) {
         console.error('Failed to load customer reservations:', error);
         return [];

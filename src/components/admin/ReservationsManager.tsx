@@ -14,7 +14,8 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Package
+  Package,
+  Archive
 } from 'lucide-react';
 import type { Reservation, MerchandiseItem, Event } from '../../types';
 import { apiService } from '../../services/apiService';
@@ -225,8 +226,21 @@ export const ReservationsManager: React.FC = () => {
     }
   };
 
+  const handleArchive = async (reservationId: string) => {
+    if (!confirm('Deze reservering archiveren? Je kunt deze later terugzetten vanuit het archief.')) return;
+
+    try {
+      const response = await apiService.archiveReservation(reservationId);
+      if (response.success) {
+        await loadReservations();
+      }
+    } catch (error) {
+      console.error('Failed to archive reservation:', error);
+    }
+  };
+
   const handleDelete = async (reservationId: string) => {
-    if (!confirm('Weet je zeker dat je deze reservering wilt verwijderen?')) return;
+    if (!confirm('⚠️ Deze reservering permanent verwijderen? Dit kan niet ongedaan worden gemaakt!')) return;
 
     try {
       const response = await apiService.deleteReservation(reservationId);
@@ -773,15 +787,24 @@ export const ReservationsManager: React.FC = () => {
                         <Eye className="w-4 h-4" />
                       </button>
                       
-                      {/* Delete - only for cancelled/rejected */}
+                      {/* Archive & Delete - only for cancelled/rejected */}
                       {(reservation.status === 'cancelled' || reservation.status === 'rejected') && (
-                        <button
-                          onClick={() => handleDelete(reservation.id)}
-                          className="p-2 hover:bg-red-100 rounded-lg text-red-600 transition-colors"
-                          title="Verwijder"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <>
+                          <button
+                            onClick={() => handleArchive(reservation.id)}
+                            className="p-2 hover:bg-orange-100 rounded-lg text-orange-600 transition-colors"
+                            title="Archiveren"
+                          >
+                            <Archive className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(reservation.id)}
+                            className="p-2 hover:bg-red-100 rounded-lg text-red-600 transition-colors"
+                            title="Permanent verwijderen"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>

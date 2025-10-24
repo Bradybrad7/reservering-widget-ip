@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Calendar, Users, X, Loader } from 'lucide-react';
-import { useAdminStore } from '../../store/adminStore';
+import { useEventsStore } from '../../store/eventsStore';
+import { useReservationsStore } from '../../store/reservationsStore';
+import { useCustomersStore } from '../../store/customersStore';
 import { formatDate, formatCurrency } from '../../utils';
 
 interface SearchResult {
@@ -26,7 +28,9 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onNavigate }) => {
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { events, reservations, customers } = useAdminStore();
+  const { events } = useEventsStore();
+  const { reservations } = useReservationsStore();
+  const { customers } = useCustomersStore();
 
   // Handle keyboard shortcuts (Cmd+K or Ctrl+K to open)
   useEffect(() => {

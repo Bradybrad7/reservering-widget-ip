@@ -11,7 +11,7 @@ import {
   CheckCircle,
   Tag
 } from 'lucide-react';
-import { useAdminStore } from '../../store/adminStore';
+import { useConfigStore } from '../../store/configStore';
 import { cn, formatCurrency } from '../../utils';
 import type { MerchandiseItem } from '../../types';
 
@@ -19,15 +19,15 @@ export const MerchandiseManager: React.FC = () => {
   const {
     merchandiseItems,
     isLoadingMerchandise,
-    isSubmitting,
     loadMerchandise,
     createMerchandise,
     updateMerchandise,
     deleteMerchandise
-  } = useAdminStore();
+  } = useConfigStore();
 
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<MerchandiseItem | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<Omit<MerchandiseItem, 'id'>>({
     name: '',
     description: '',

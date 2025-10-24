@@ -7,6 +7,8 @@ import { AddOnsManagerEnhanced } from './AddOnsManagerEnhanced';
 import { PricingConfigManager } from './PricingConfigManager';
 import { PromotionsManager } from './PromotionsManager';
 import { VouchersManager } from './VouchersManager';
+import { VoucherConfigManager } from './VoucherConfigManager';
+import { Settings } from 'lucide-react';
 
 interface ProductsManagerProps {
   activeTab?: string;
@@ -20,7 +22,8 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ activeTab: ini
     { id: 'addons', label: 'Add-ons', icon: ShoppingBag },
     { id: 'merchandise', label: 'Merchandise', icon: Package },
     { id: 'promotions', label: 'Promoties', icon: Tag },
-    { id: 'vouchers', label: 'Theaterbonnen', icon: Gift }
+    { id: 'vouchers', label: 'Theaterbonnen', icon: Gift },
+    { id: 'voucher-config', label: 'Voucher Instellingen', icon: Settings }
   ];
 
   const renderContent = () => {
@@ -35,6 +38,8 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ activeTab: ini
         return <PromotionsManager />;
       case 'vouchers':
         return <VouchersManager />;
+      case 'voucher-config':
+        return <VoucherConfigManager />;
       default:
         return <PricingConfigManager />;
     }

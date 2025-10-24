@@ -1,11 +1,11 @@
 import React, { useEffect } from 'react';
 import { ShoppingBag, ArrowRight, ArrowLeft } from 'lucide-react';
-import { useAdminStore } from '../store/adminStore';
+import { useConfigStore } from '../store/configStore';
 import { useReservationStore } from '../store/reservationStore';
 import { formatCurrency, cn } from '../utils';
 
 const MerchandiseStep: React.FC = () => {
-  const { merchandiseItems, loadMerchandise, isLoadingMerchandise } = useAdminStore();
+  const { merchandiseItems, loadMerchandise, isLoadingMerchandise } = useConfigStore();
   const { formData, updateFormData, goToNextStep, goToPreviousStep } = useReservationStore();
 
   useEffect(() => {
@@ -98,12 +98,31 @@ const MerchandiseStep: React.FC = () => {
               <div
                 key={item.id}
                 className={cn(
-                  'card-theatre rounded-2xl p-5 transition-all duration-300 border-2',
+                  'card-theatre rounded-2xl p-5 transition-all duration-300 relative',
                   isSelected
-                    ? 'border-gold-400/60 bg-gold-500/5 shadow-lg shadow-gold-500/10'
-                    : 'border-gold-400/20 hover:border-gold-400/40'
+                    ? 'border-4 border-gold-500 bg-gold-500/10 shadow-lg shadow-gold-500/20 ring-2 ring-gold-400/30'
+                    : 'border-2 border-gold-400/20 hover:border-gold-400/40'
                 )}
               >
+                {/* Selected Check - NIEUW: Visuele bevestiging */}
+                {isSelected && (
+                  <div className="absolute top-3 right-3">
+                    <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center shadow-lg ring-2 ring-green-400/50 animate-scale-in">
+                      <svg 
+                        className="w-5 h-5 text-white" 
+                        fill="currentColor" 
+                        viewBox="0 0 20 20"
+                      >
+                        <path 
+                          fillRule="evenodd" 
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" 
+                          clipRule="evenodd" 
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex gap-4">
                   {/* Image */}
                   {item.imageUrl && (
@@ -172,12 +191,12 @@ const MerchandiseStep: React.FC = () => {
         </div>
       )}
 
-      {/* Action Buttons */}
+      {/* Action Buttons - VERSTERKT: Duidelijk onderscheid primair/secundair */}
       <div className="card-theatre rounded-2xl border border-gold-400/20 p-6 shadow-lifted">
         <div className="flex flex-col sm:flex-row gap-3">
           <button
             onClick={goToPreviousStep}
-            className="flex-1 px-6 py-4 bg-neutral-700 hover:bg-neutral-600 text-white font-bold rounded-xl transition-all duration-200 border-2 border-neutral-600 hover:border-neutral-500 flex items-center justify-center gap-2"
+            className="flex-1 px-6 py-4 bg-transparent border-2 border-gold-500/50 text-gold-400 hover:bg-gold-500/10 hover:border-gold-500 font-bold rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
           >
             <ArrowLeft className="w-5 h-5" />
             <span>Vorige</span>
@@ -185,7 +204,7 @@ const MerchandiseStep: React.FC = () => {
           
           <button
             onClick={goToNextStep}
-            className="flex-1 px-6 py-4 bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-dark-900 font-bold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-[1.02] flex items-center justify-center gap-2"
+            className="flex-1 px-6 py-4 bg-gold-gradient shadow-gold-glow hover:shadow-gold text-white font-bold rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
           >
             <span>{hasSelection ? 'Doorgaan met bestelling' : 'Overslaan'}</span>
             <ArrowRight className="w-5 h-5" />

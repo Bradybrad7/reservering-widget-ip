@@ -29,11 +29,14 @@ const KEYS = {
   TEXT_CUSTOMIZATION: 'ip_text_customization',
   SHOWS: 'ip_shows',
   WAITLIST_ENTRIES: 'ip_waitlist_entries', // NEW
+  VOUCHER_TEMPLATES: 'ip_voucher_templates', // NEW
+  ISSUED_VOUCHERS: 'ip_issued_vouchers', // NEW
   VERSION: 'ip_storage_version',
   LAST_BACKUP: 'ip_last_backup',
   EVENT_ID_COUNTER: 'ip_event_counter',
   RESERVATION_ID_COUNTER: 'ip_reservation_counter',
-  WAITLIST_ID_COUNTER: 'ip_waitlist_counter' // NEW
+  WAITLIST_ID_COUNTER: 'ip_waitlist_counter', // NEW
+  VOUCHER_ID_COUNTER: 'ip_voucher_counter' // NEW
 };
 
 // Storage limits
@@ -905,6 +908,100 @@ class LocalStorageService {
    */
   remove(key: string): void {
     localStorage.removeItem(key);
+  }
+
+  // ============================================
+  // VOUCHER MANAGEMENT
+  // ============================================
+
+  /**
+   * Get all voucher templates
+   */
+  getVoucherTemplates(): any[] {
+    return this.get<any[]>(KEYS.VOUCHER_TEMPLATES) || [];
+  }
+
+  /**
+   * Save voucher templates
+   */
+  saveVoucherTemplates(templates: any[]): void {
+    this.set(KEYS.VOUCHER_TEMPLATES, templates);
+  }
+
+  /**
+   * Get all issued vouchers
+   */
+  getIssuedVouchers(): any[] {
+    return this.get<any[]>(KEYS.ISSUED_VOUCHERS) || [];
+  }
+
+  /**
+   * Add a new issued voucher
+   */
+  addIssuedVoucher(voucher: any): void {
+    const vouchers = this.getIssuedVouchers();
+    vouchers.push(voucher);
+    this.set(KEYS.ISSUED_VOUCHERS, vouchers);
+  }
+
+  /**
+   * Update an issued voucher
+   */
+  updateIssuedVoucher(id: string, updates: Partial<any>): boolean {
+    const vouchers = this.getIssuedVouchers();
+    const index = vouchers.findIndex((v: any) => v.id === id);
+    if (index === -1) return false;
+
+    vouchers[index] = { ...vouchers[index], ...updates, updatedAt: new Date() };
+    this.set(KEYS.ISSUED_VOUCHERS, vouchers);
+    return true;
+  }
+
+  /**
+   * Find voucher by code (case-insensitive)
+   */
+  findVoucherByCode(code: string): any | undefined {
+    return this.getIssuedVouchers().find((v: any) => v.code.toUpperCase() === code.toUpperCase());
+  }
+
+  /**
+   * Check if voucher code exists
+   */
+  voucherCodeExists(code: string): boolean {
+    return !!this.findVoucherByCode(code);
+  }
+
+  /**
+   * Find voucher by payment ID
+   */
+  findVoucherByPaymentId(paymentId: string): any | undefined {
+    return this.getIssuedVouchers().find((v: any) => v.metadata?.paymentId === paymentId);
+  }
+
+  /**
+   * Decrement voucher value and track usage
+   */
+  decrementVoucherValue(code: string, amount: number, reservationId: string): boolean {
+    const voucher = this.findVoucherByCode(code);
+    if (!voucher) return false;
+
+    const newRemaining = Math.max(0, voucher.remainingValue - amount);
+    const newStatus = newRemaining === 0 ? 'used' : 'active';
+
+    return this.updateIssuedVoucher(voucher.id, {
+      remainingValue: newRemaining,
+      status: newStatus,
+      usedInReservationIds: [...(voucher.usedInReservationIds || []), reservationId]
+    });
+  }
+
+  /**
+   * Get next voucher ID
+   */
+  private getNextVoucherId(): number {
+    const counter = parseInt(localStorage.getItem(KEYS.VOUCHER_ID_COUNTER) || '1');
+    localStorage.setItem(KEYS.VOUCHER_ID_COUNTER, (counter + 1).toString());
+    return counter;
   }
 }
 

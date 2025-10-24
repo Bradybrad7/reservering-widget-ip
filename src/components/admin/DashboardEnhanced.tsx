@@ -12,26 +12,38 @@ import {
   FileDown,
   RefreshCw,
   ArrowRight,
-  Star
+  Star,
+  CreditCard,
+  UserCheck
 } from 'lucide-react';
 import { useAdminStore } from '../../store/adminStore';
+import { useReservationsStore } from '../../store/reservationsStore';
+import { useEventsStore } from '../../store/eventsStore';
 import { useWaitlistStore } from '../../store/waitlistStore';
 import { formatCurrency, formatDate, cn } from '../../utils';
 import type { AdminSection } from '../../types';
 
 export const DashboardEnhanced: React.FC = () => {
-  const {
+  // UI state and stats from adminStore
+  const { 
+    setActiveSection,
     stats,
     isLoadingStats,
-    reservations,
-    events,
-    loadStats,
-    loadReservations,
-    loadEvents,
-    setActiveSection,
-    confirmReservation,
-    exportReservationsCSV
+    loadStats
   } = useAdminStore();
+  
+  // Data from specialized stores
+  const {
+    reservations,
+    loadReservations,
+    confirmReservation,
+    bulkExport
+  } = useReservationsStore();
+  
+  const {
+    events,
+    loadEvents
+  } = useEventsStore();
 
   useEffect(() => {
     loadStats();
@@ -88,7 +100,18 @@ export const DashboardEnhanced: React.FC = () => {
       label: 'Export Data',
       icon: FileDown,
       color: 'blue',
-      action: () => exportReservationsCSV()
+      action: async () => {
+        const allIds = reservations.map(r => r.id);
+        const blob = await bulkExport(allIds);
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `reserveringen-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }
     },
     {
       id: 'customers' as AdminSection,
@@ -196,12 +219,12 @@ export const DashboardEnhanced: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards - VERSTERKT: Betere visuele hiërarchie met functionele kleuren */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Total Revenue */}
-        <div className="bg-gradient-to-br from-gold-500/20 to-gold-600/10 border border-gold-500/30 rounded-lg p-6">
+        {/* Total Revenue - GROEN (positief) */}
+        <div className="bg-gradient-to-br from-green-500/20 to-green-600/10 border-2 border-green-500/30 rounded-lg p-6 hover:shadow-lg hover:shadow-green-500/20 transition-all">
           <div className="flex items-center justify-between mb-4">
-            <DollarSign className="w-8 h-8 text-gold-400" />
+            <DollarSign className="w-8 h-8 text-green-400" />
             {revenueGrowth !== 0 && (
               <div className={cn(
                 'flex items-center gap-1 text-sm font-medium',
@@ -215,52 +238,146 @@ export const DashboardEnhanced: React.FC = () => {
           <div className="text-3xl font-bold text-white mb-1">
             {formatCurrency(stats?.totalRevenue || 0)}
           </div>
-          <div className="text-sm text-neutral-400">Totale Omzet</div>
-          <div className="text-xs text-neutral-500 mt-2">
+          <div className="text-sm text-green-200 font-medium">Totale Omzet</div>
+          <div className="text-xs text-neutral-400 mt-2">
             Deze maand: {formatCurrency(thisMonthRevenue)}
           </div>
         </div>
 
-        {/* Total Reservations */}
-        <div className="bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-blue-500/30 rounded-lg p-6">
+        {/* Total Reservations - BLAUW (informatief) */}
+        <div className="bg-gradient-to-br from-blue-500/20 to-blue-600/10 border-2 border-blue-500/30 rounded-lg p-6 hover:shadow-lg hover:shadow-blue-500/20 transition-all">
           <div className="flex items-center justify-between mb-4">
             <CheckCircle className="w-8 h-8 text-blue-400" />
           </div>
           <div className="text-3xl font-bold text-white mb-1">
             {stats?.totalReservations || 0}
           </div>
-          <div className="text-sm text-neutral-400">Totale Reserveringen</div>
-          <div className="text-xs text-neutral-500 mt-2">
+          <div className="text-sm text-blue-200 font-medium">Totale Reserveringen</div>
+          <div className="text-xs text-neutral-400 mt-2">
             Gemiddelde groepsgrootte: {stats?.averageGroupSize || 0}
           </div>
         </div>
 
-        {/* Total Events */}
-        <div className="bg-gradient-to-br from-purple-500/20 to-purple-600/10 border border-purple-500/30 rounded-lg p-6">
+        {/* Total Events - PAARS (speciale status) */}
+        <div className="bg-gradient-to-br from-purple-500/20 to-purple-600/10 border-2 border-purple-500/30 rounded-lg p-6 hover:shadow-lg hover:shadow-purple-500/20 transition-all">
           <div className="flex items-center justify-between mb-4">
             <Calendar className="w-8 h-8 text-purple-400" />
           </div>
           <div className="text-3xl font-bold text-white mb-1">
             {stats?.totalEvents || 0}
           </div>
-          <div className="text-sm text-neutral-400">Totale Evenementen</div>
-          <div className="text-xs text-neutral-500 mt-2">
+          <div className="text-sm text-purple-200 font-medium">Totale Evenementen</div>
+          <div className="text-xs text-neutral-400 mt-2">
             Aankomend deze week: {urgentData.upcomingCount}
           </div>
         </div>
 
-        {/* Popular Arrangement */}
-        <div className="bg-gradient-to-br from-green-500/20 to-green-600/10 border border-green-500/30 rounded-lg p-6">
+        {/* Popular Arrangement - GOUD (branding) */}
+        <div className="bg-gradient-to-br from-gold-500/20 to-gold-600/10 border-2 border-gold-500/30 rounded-lg p-6 hover:shadow-lg hover:shadow-gold-500/20 transition-all">
           <div className="flex items-center justify-between mb-4">
-            <Users className="w-8 h-8 text-green-400" />
+            <Star className="w-8 h-8 text-gold-400" />
           </div>
           <div className="text-3xl font-bold text-white mb-1">
             {stats?.popularArrangement || 'BWF'}
           </div>
-          <div className="text-sm text-neutral-400">Populairste Arrangement</div>
-          <div className="text-xs text-neutral-500 mt-2">
+          <div className="text-sm text-gold-200 font-medium">Populairste Arrangement</div>
+          <div className="text-xs text-neutral-400 mt-2">
             Meest geboekt
           </div>
+        </div>
+      </div>
+
+      {/* ✨ VERSTERKT: Financial & Operations Widgets met functionele iconen */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Openstaande Betalingen - ORANJE met CreditCard icoon */}
+        <div className="bg-gradient-to-br from-orange-500/20 to-orange-600/10 border-2 border-orange-500/40 rounded-lg p-6 hover:shadow-lg hover:shadow-orange-500/20 transition-all">
+          <div className="flex items-center justify-between mb-4">
+            <CreditCard className="w-8 h-8 text-orange-400" />
+            <AlertCircle className="w-5 h-5 text-orange-400" />
+          </div>
+          <div className="text-3xl font-bold text-white mb-1">
+            {reservations.filter(r => 
+              r.paymentStatus === 'overdue' || r.paymentStatus === 'pending'
+            ).length}
+          </div>
+          <div className="text-sm text-orange-200 font-medium mb-2">Openstaande Betalingen</div>
+          <div className="text-xs text-neutral-400">
+            Totaal: {formatCurrency(
+              reservations
+                .filter(r => r.paymentStatus === 'overdue' || r.paymentStatus === 'pending')
+                .reduce((sum, r) => sum + r.totalPrice, 0)
+            )}
+          </div>
+          <button
+            onClick={() => setActiveSection('reservations')}
+            className="mt-3 w-full py-2 bg-orange-500/30 hover:bg-orange-500/40 text-orange-200 font-medium rounded-lg text-sm transition-colors"
+          >
+            Bekijk Openstaande
+          </button>
+        </div>
+
+        {/* Te Bevestigen Boekingen - ORANJE met Clock icoon */}
+        <div className="bg-gradient-to-br from-orange-500/20 to-orange-600/10 border-2 border-orange-500/40 rounded-lg p-6 hover:shadow-lg hover:shadow-orange-500/20 transition-all">
+          <div className="flex items-center justify-between mb-4">
+            <Clock className="w-8 h-8 text-orange-400" />
+            <CheckCircle className="w-5 h-5 text-orange-400" />
+          </div>
+          <div className="text-3xl font-bold text-white mb-1">
+            {reservations.filter(r => r.status === 'pending').length}
+          </div>
+          <div className="text-sm text-orange-200 font-medium mb-2">Te Bevestigen Boekingen</div>
+          <div className="text-xs text-neutral-400">
+            Waarde: {formatCurrency(
+              reservations
+                .filter(r => r.status === 'pending')
+                .reduce((sum, r) => sum + r.totalPrice, 0)
+            )}
+          </div>
+          <button
+            onClick={handleQuickConfirmAll}
+            disabled={urgentData.pendingCount === 0}
+            className="mt-3 w-full py-2 bg-orange-500/30 hover:bg-orange-500/40 text-orange-200 font-medium rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Bevestig Alles
+          </button>
+        </div>
+
+        {/* Vandaag Inchecken - BLAUW met UserCheck icoon */}
+        <div className="bg-gradient-to-br from-blue-500/20 to-blue-600/10 border-2 border-blue-500/40 rounded-lg p-6 hover:shadow-lg hover:shadow-blue-500/20 transition-all">
+          <div className="flex items-center justify-between mb-4">
+            <UserCheck className="w-8 h-8 text-blue-400" />
+            <Calendar className="w-5 h-5 text-blue-400" />
+          </div>
+          <div className="text-3xl font-bold text-white mb-1">
+            {reservations.filter(r => {
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const eventDate = new Date(r.eventDate);
+              eventDate.setHours(0, 0, 0, 0);
+              return eventDate.getTime() === today.getTime() && 
+                     (r.status === 'confirmed' || r.status === 'checked-in');
+            }).length}
+          </div>
+          <div className="text-sm text-blue-200 font-medium mb-2">Vandaag Inchecken</div>
+          <div className="text-xs text-neutral-400">
+            {reservations
+              .filter(r => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const eventDate = new Date(r.eventDate);
+                eventDate.setHours(0, 0, 0, 0);
+                return eventDate.getTime() === today.getTime() && 
+                       (r.status === 'confirmed' || r.status === 'checked-in');
+              })
+              .reduce((sum, r) => sum + r.numberOfPersons, 0)
+            } personen
+          </div>
+          <button
+            onClick={() => setActiveSection('reservations')}
+            className="mt-3 w-full py-2 bg-blue-500/30 hover:bg-blue-500/40 text-blue-200 font-medium rounded-lg text-sm transition-colors"
+          >
+            Toon Check-ins
+          </button>
         </div>
       </div>
 

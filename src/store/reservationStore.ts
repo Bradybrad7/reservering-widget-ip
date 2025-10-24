@@ -687,54 +687,9 @@ export const useReservationStore = create<ReservationStore>()(
             response.data.totalPrice = priceCalculation.totalPrice;
           }
           
-          // ⚡ CRM AUTOMATION: Check if customer is VIP/Corporate for auto-approval
-          try {
-            // Get all reservations for this customer to determine if they're a returning customer
-            const allReservations = await apiService.getAdminReservations();
-            
-            if (allReservations.success && allReservations.data && formData.email) {
-              const customerReservations = allReservations.data.filter(
-                (r: any) => r.email.toLowerCase() === formData.email!.toLowerCase()
-              );
-              
-              const previousBookings = customerReservations.length;
-              const hasVIPTag = customerReservations.some((r: any) => r.tags?.includes('VIP') || r.tags?.includes('Corporate'));
-              
-              if (hasVIPTag) {
-                console.log(`🌟 [VIP AUTO-APPROVAL] Customer ${formData.email} is VIP/Corporate, auto-confirming...`);
-                response.data.status = 'confirmed';
-                
-                // Add note to reservation
-                if (!response.data.communicationLog) {
-                  response.data.communicationLog = [];
-                }
-                response.data.communicationLog.push({
-                  id: `log-vip-${Date.now()}`,
-                  timestamp: new Date(),
-                  type: 'note',
-                  message: '🌟 Automatisch bevestigd - VIP/Corporate klant',
-                  author: 'System'
-                });
-              } else if (previousBookings > 0) {
-                console.log(`🔁 [RETURNING CUSTOMER] Customer ${formData.email} has ${previousBookings} previous bookings`);
-                
-                // Add note for admin visibility
-                if (!response.data.communicationLog) {
-                  response.data.communicationLog = [];
-                }
-                response.data.communicationLog.push({
-                  id: `log-returning-${Date.now()}`,
-                  timestamp: new Date(),
-                  type: 'note',
-                  message: `🔁 Terugkerende klant - ${previousBookings} eerdere ${previousBookings === 1 ? 'boeking' : 'boekingen'}`,
-                  author: 'System'
-                });
-              }
-            }
-          } catch (error) {
-            console.error('Failed to check customer history for VIP status:', error);
-            // Continue with normal flow if check fails
-          }
+          // ✅ REMOVED: VIP/Corporate check has been moved to backend
+          // The server should determine customer status and auto-approve if needed
+          // This prevents the frontend from downloading all admin reservations (security + performance issue)
           
           // ✨ IMPORTANT: Reload events to get updated capacity and waitlist status
           await get().loadEvents();

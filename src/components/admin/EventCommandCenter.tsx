@@ -27,6 +27,7 @@ export interface EventStats {
   pendingCount: number;
   confirmedCount: number;
   checkedInCount: number;
+  optionCount: number; // 🆕 Number of options (1-week holds)
   totalBookings: number;
   totalConfirmedPersons: number;
   
@@ -55,10 +56,11 @@ export const getEventComputedData = (
   const pendingCount = reservationsForEvent.filter(r => r.status === 'pending').length;
   const confirmedCount = reservationsForEvent.filter(r => r.status === 'confirmed').length;
   const checkedInCount = reservationsForEvent.filter(r => r.status === 'checked-in').length;
+  const optionCount = reservationsForEvent.filter(r => r.status === 'option').length; // 🆕
   
-  // Totaal aantal bevestigde personen (excl. pending)
+  // 🆕 Totaal aantal bevestigde personen inclusief opties (want opties reserveren ook plaatsen)
   const totalConfirmedPersons = reservationsForEvent
-    .filter(r => r.status === 'confirmed' || r.status === 'checked-in')
+    .filter(r => r.status === 'confirmed' || r.status === 'checked-in' || r.status === 'option')
     .reduce((sum, r) => sum + r.numberOfPersons, 0);
     
   // Totaal aantal personen op de wachtlijst
@@ -80,6 +82,7 @@ export const getEventComputedData = (
     pendingCount,
     confirmedCount,
     checkedInCount,
+    optionCount, // 🆕
     totalBookings: reservationsForEvent.length,
     totalConfirmedPersons,
     waitlistCount: waitlistForEvent.length,

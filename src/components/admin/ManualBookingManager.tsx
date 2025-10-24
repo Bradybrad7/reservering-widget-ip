@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Phone, User, Mail, Building2, Users, Calendar, DollarSign, AlertCircle, Check } from 'lucide-react';
-import { useAdminStore } from '../../store/adminStore';
+import { useEventsStore } from '../../store/eventsStore';
+import { useReservationsStore } from '../../store/reservationsStore';
 import type { AdminEvent, Arrangement, CustomerFormData, Reservation } from '../../types';
 import { priceService } from '../../services/priceService';
 import { formatCurrency, formatDate, cn } from '../../utils';
@@ -21,10 +22,14 @@ interface ManualBookingManagerProps {
 }
 
 export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onClose }) => {
-  const { events, loadEvents, loadReservations } = useAdminStore();
+  const { events, loadEvents } = useEventsStore();
+  const { loadReservations } = useReservationsStore();
   const [selectedEvent, setSelectedEvent] = useState<AdminEvent | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  
+  // 🆕 Booking Type: 'full' voor volledige boeking, 'option' voor 1-week optie
+  const [bookingType, setBookingType] = useState<'full' | 'option'>('full');
   
   // Form state
   const [formData, setFormData] = useState<Partial<CustomerFormData>>({
@@ -39,6 +44,9 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
     afterParty: { enabled: false, quantity: 0 },
     comments: ''
   });
+
+  // 🆕 Option notes
+  const [optionNotes, setOptionNotes] = useState('');
 
   // Price override
   const [priceOverride, setPriceOverride] = useState<number | null>(null);
@@ -64,32 +72,66 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!selectedEvent || !formData.email) {
-      return;
+    // Voor opties: alleen naam, telefoon en aantal personen verplicht
+    // Voor volledige bookings: ook email verplicht
+    if (!selectedEvent) return;
+    
+    if (bookingType === 'option') {
+      if (!formData.contactPerson || !formData.phone) {
+        alert('Voor een optie zijn naam en telefoonnummer verplicht');
+        return;
+      }
+    } else {
+      if (!formData.email) {
+        alert('Voor een volledige boeking is email verplicht');
+        return;
+      }
     }
 
     setIsSubmitting(true);
     
     try {
-      // Import apiService
+      // Import helpers
       const { apiService } = await import('../../services/apiService');
+      const { calculateOptionExpiryDate } = await import('../../utils/optionHelpers');
+      
+      // 🆕 For options: set expiry date (7 days from now)
+      const isOption = bookingType === 'option';
+      const optionPlacedAt = isOption ? new Date() : undefined;
+      const optionExpiresAt = isOption && optionPlacedAt ? calculateOptionExpiryDate(optionPlacedAt) : undefined;
       
       // Create the reservation
       const reservationData: Partial<Reservation> = {
         ...formData as CustomerFormData,
+        // 🆕 Voor opties: minimale gegevens, geen arrangement/pricing nodig
+        email: isOption && !formData.email ? `optie-${Date.now()}@temp.nl` : formData.email,
+        arrangement: isOption ? undefined as any : formData.arrangement,
         eventId: selectedEvent.id,
         eventDate: selectedEvent.date,
-        totalPrice: finalPrice,
-        status: 'confirmed', // Admin bookings are auto-confirmed
+        totalPrice: isOption ? 0 : finalPrice, // Geen prijs voor optie
+        status: isOption ? 'option' : 'confirmed', // Opties krijgen status 'option'
         createdAt: new Date(),
         updatedAt: new Date(),
-        tags: ['Admin Created', 'Phone Booking'],
+        tags: isOption 
+          ? ['Admin Created', 'Optie', 'Follow-up Required']
+          : ['Admin Created', 'Phone Booking'],
+        
+        // 🆕 Option-specific fields
+        ...(isOption && {
+          optionPlacedAt,
+          optionExpiresAt,
+          optionNotes,
+          optionFollowedUp: false
+        }),
+        
         communicationLog: [
           {
             id: `log-${Date.now()}`,
             timestamp: new Date(),
             type: 'note',
-            message: `📞 Handmatig aangemaakt door admin${priceOverride !== null ? ` - Prijs overschreven: ${formatCurrency(priceOverride)}` : ''}`,
+            message: isOption
+              ? `⏰ OPTIE geplaatst door admin - Verloopt op ${optionExpiresAt?.toLocaleDateString('nl-NL')}${optionNotes ? `\nNotities: ${optionNotes}` : ''}`
+              : `📞 Handmatig aangemaakt door admin${priceOverride !== null ? ` - Prijs overschreven: ${formatCurrency(priceOverride)}` : ''}`,
             author: 'Admin'
           }
         ]
@@ -138,10 +180,10 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Check capacity warning
+  // Check capacity warning - 🆕 Include options in capacity count
   const capacityWarning = selectedEvent && formData.numberOfPersons ? (() => {
     const totalBookedPersons = selectedEvent.reservations?.filter(r => 
-      r.status === 'confirmed' || r.status === 'pending' || r.status === 'checked-in'
+      r.status === 'confirmed' || r.status === 'pending' || r.status === 'checked-in' || r.status === 'option'
     ).reduce((sum, r) => sum + r.numberOfPersons, 0) || 0;
     
     const afterBooking = totalBookedPersons + (formData.numberOfPersons || 0);
@@ -198,6 +240,60 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* 🆕 Booking Type Selection */}
+        <div className="bg-neutral-800/50 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Type Boeking</h3>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={() => setBookingType('full')}
+              className={cn(
+                'p-4 rounded-lg border-2 transition-all',
+                bookingType === 'full'
+                  ? 'border-gold-500 bg-gold-500/20 text-white'
+                  : 'border-neutral-600 bg-neutral-700/50 text-neutral-300 hover:border-neutral-500'
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <Check className="w-5 h-5" />
+                <div className="text-left">
+                  <div className="font-semibold">Volledige Boeking</div>
+                  <div className="text-xs opacity-70">Direct bevestigen met arrangement</div>
+                </div>
+              </div>
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => setBookingType('option')}
+              className={cn(
+                'p-4 rounded-lg border-2 transition-all',
+                bookingType === 'option'
+                  ? 'border-gold-500 bg-gold-500/20 text-white'
+                  : 'border-neutral-600 bg-neutral-700/50 text-neutral-300 hover:border-neutral-500'
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5" />
+                <div className="text-left">
+                  <div className="font-semibold">Optie (1 week)</div>
+                  <div className="text-xs opacity-70">Plaatsen reserveren, volgt later</div>
+                </div>
+              </div>
+            </button>
+          </div>
+          
+          {bookingType === 'option' && (
+            <div className="mt-4 p-3 bg-blue-500/20 border border-blue-500/50 rounded-lg">
+              <p className="text-sm text-blue-300">
+                ⏰ <strong>Optie:</strong> Geldig voor 1 week. Minimale gegevens: naam, telefoon, aantal personen. 
+                Telt mee in capaciteit. Geen arrangement of pricing nodig.
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* Event Selection */}
         <div className="bg-neutral-800/50 rounded-xl p-6">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
@@ -217,7 +313,7 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
             <option value="">-- Kies een event --</option>
             {availableEvents.map(event => {
               const totalBookedPersons = event.reservations?.filter(r => 
-                r.status === 'confirmed' || r.status === 'pending' || r.status === 'checked-in'
+                r.status === 'confirmed' || r.status === 'pending' || r.status === 'checked-in' || r.status === 'option'
               ).reduce((sum, r) => sum + r.numberOfPersons, 0) || 0;
               
               return (
@@ -252,14 +348,14 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
             <div>
               <label className="block text-sm font-medium text-neutral-300 mb-2">
                 <Building2 className="w-4 h-4 inline mr-1" />
-                Bedrijfsnaam *
+                Bedrijfsnaam {bookingType === 'full' && '*'}
               </label>
               <input
                 type="text"
                 value={formData.companyName || ''}
                 onChange={(e) => updateFormField('companyName', e.target.value)}
                 className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold-500"
-                required
+                required={bookingType === 'full'}
               />
             </div>
 
@@ -280,43 +376,113 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
             <div>
               <label className="block text-sm font-medium text-neutral-300 mb-2">
                 <Mail className="w-4 h-4 inline mr-1" />
-                E-mail *
+                E-mail {bookingType === 'full' ? '*' : '(optioneel)'}
               </label>
               <input
                 type="email"
                 value={formData.email || ''}
                 onChange={(e) => updateFormField('email', e.target.value)}
                 className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold-500"
-                required
+                required={bookingType === 'full'}
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-neutral-300 mb-2">
                 <Phone className="w-4 h-4 inline mr-1" />
-                Telefoon
+                Telefoon *
               </label>
               <input
                 type="tel"
                 value={formData.phone || ''}
                 onChange={(e) => updateFormField('phone', e.target.value)}
                 className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold-500"
+                required
               />
             </div>
+            
+            {/* 🆕 Option Notes Field (only for options) */}
+            {bookingType === 'option' && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  <AlertCircle className="w-4 h-4 inline mr-1" />
+                  Optie Notities (bijv. adres indien gewenst)
+                </label>
+                <textarea
+                  value={optionNotes}
+                  onChange={(e) => setOptionNotes(e.target.value)}
+                  className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold-500"
+                  rows={2}
+                  placeholder="Bijv. adres, specifieke wensen, contacttijd..."
+                />
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Booking Details */}
-        <div className="bg-neutral-800/50 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <Users className="w-5 h-5 text-gold-500" />
-            Boeking Details
-          </h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Booking Details - Only show full details for full bookings */}
+        {bookingType === 'full' ? (
+          <div className="bg-neutral-800/50 rounded-xl p-6">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Users className="w-5 h-5 text-gold-500" />
+              Boeking Details
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  Aantal Personen *
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.numberOfPersons || 2}
+                  onChange={(e) => updateFormField('numberOfPersons', parseInt(e.target.value))}
+                  className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  Arrangement *
+                </label>
+                <select
+                  value={formData.arrangement || 'BWF'}
+                  onChange={(e) => updateFormField('arrangement', e.target.value as Arrangement)}
+                  className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold-500"
+                  required
+                >
+                  <option value="BWF">Borrel, Show & Buffet</option>
+                  <option value="BWFM">Borrel, Show, Buffet & Muziek</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-neutral-300 mb-2">
+                Opmerkingen
+              </label>
+              <textarea
+                value={formData.comments || ''}
+                onChange={(e) => updateFormField('comments', e.target.value)}
+                rows={3}
+                className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold-500 resize-none"
+                placeholder="Extra opmerkingen of wensen..."
+              />
+            </div>
+          </div>
+        ) : (
+          /* 🆕 Simplified section for options - only number of persons */
+          <div className="bg-neutral-800/50 rounded-xl p-6">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Users className="w-5 h-5 text-gold-500" />
+              Aantal Personen
+            </h3>
+            
             <div>
               <label className="block text-sm font-medium text-neutral-300 mb-2">
-                Aantal Personen *
+                Hoeveel personen wil de klant reserveren? *
               </label>
               <input
                 type="number"
@@ -326,91 +492,68 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
                 className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold-500"
                 required
               />
+              <p className="mt-2 text-sm text-neutral-400">
+                💡 Arrangement en prijs worden later bepaald wanneer de optie wordt bevestigd
+              </p>
             </div>
+          </div>
+        )}
 
-            <div>
-              <label className="block text-sm font-medium text-neutral-300 mb-2">
-                Arrangement *
-              </label>
-              <select
-                value={formData.arrangement || 'BWF'}
-                onChange={(e) => updateFormField('arrangement', e.target.value as Arrangement)}
-                className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold-500"
-                required
+        {/* Price Section - Only for full bookings */}
+        {bookingType === 'full' && (
+          <div className="bg-neutral-800/50 rounded-xl p-6">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-gold-500" />
+                Prijs
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowPriceOverride(!showPriceOverride)}
+                className="text-sm text-gold-400 hover:text-gold-300 underline"
               >
-                <option value="BWF">Borrel, Show & Buffet</option>
-                <option value="BWFM">Borrel, Show, Buffet & Muziek</option>
-              </select>
-            </div>
-          </div>
+                {showPriceOverride ? 'Reset naar berekende prijs' : 'Prijs handmatig aanpassen'}
+              </button>
+            </h3>
 
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-neutral-300 mb-2">
-              Opmerkingen
-            </label>
-            <textarea
-              value={formData.comments || ''}
-              onChange={(e) => updateFormField('comments', e.target.value)}
-              rows={3}
-              className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold-500 resize-none"
-              placeholder="Extra opmerkingen of wensen..."
-            />
-          </div>
-        </div>
-
-        {/* Price Section */}
-        <div className="bg-neutral-800/50 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <DollarSign className="w-5 h-5 text-gold-500" />
-              Prijs
-            </span>
-            <button
-              type="button"
-              onClick={() => setShowPriceOverride(!showPriceOverride)}
-              className="text-sm text-gold-400 hover:text-gold-300 underline"
-            >
-              {showPriceOverride ? 'Reset naar berekende prijs' : 'Prijs handmatig aanpassen'}
-            </button>
-          </h3>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-4 bg-neutral-700/50 rounded-lg">
-              <span className="text-neutral-300">Berekende prijs:</span>
-              <span className="text-xl font-bold text-white">{formatCurrency(calculatedPrice)}</span>
-            </div>
-
-            {showPriceOverride && (
-              <div>
-                <label className="block text-sm font-medium text-yellow-400 mb-2">
-                  ⚡ Prijs Override (admin)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={priceOverride !== null ? priceOverride : ''}
-                  onChange={(e) => setPriceOverride(e.target.value ? parseFloat(e.target.value) : null)}
-                  className="w-full px-4 py-2 bg-yellow-500/10 border-2 border-yellow-500/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                  placeholder={calculatedPrice.toFixed(2)}
-                />
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-4 bg-neutral-700/50 rounded-lg">
+                <span className="text-neutral-300">Berekende prijs:</span>
+                <span className="text-xl font-bold text-white">{formatCurrency(calculatedPrice)}</span>
               </div>
-            )}
 
-            {priceOverride !== null && priceOverride !== calculatedPrice && (
-              <div className="p-3 bg-yellow-500/20 border border-yellow-500/50 rounded-lg">
-                <p className="text-sm text-yellow-300 font-medium">
-                  ⚡ Prijs overschreven: {formatCurrency(calculatedPrice)} → {formatCurrency(priceOverride)}
-                </p>
+              {showPriceOverride && (
+                <div>
+                  <label className="block text-sm font-medium text-yellow-400 mb-2">
+                    ⚡ Prijs Override (admin)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={priceOverride !== null ? priceOverride : ''}
+                    onChange={(e) => setPriceOverride(e.target.value ? parseFloat(e.target.value) : null)}
+                    className="w-full px-4 py-2 bg-yellow-500/10 border-2 border-yellow-500/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    placeholder={calculatedPrice.toFixed(2)}
+                  />
+                </div>
+              )}
+
+              {priceOverride !== null && priceOverride !== calculatedPrice && (
+                <div className="p-3 bg-yellow-500/20 border border-yellow-500/50 rounded-lg">
+                  <p className="text-sm text-yellow-300 font-medium">
+                    ⚡ Prijs overschreven: {formatCurrency(calculatedPrice)} → {formatCurrency(priceOverride)}
+                  </p>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between p-4 bg-gold-500/10 border-2 border-gold-500/50 rounded-lg">
+                <span className="text-gold-300 font-semibold">TOTAAL:</span>
+                <span className="text-2xl font-bold text-gold-400">{formatCurrency(finalPrice)}</span>
               </div>
-            )}
-
-            <div className="flex items-center justify-between p-4 bg-gold-500/10 border-2 border-gold-500/50 rounded-lg">
-              <span className="text-gold-300 font-semibold">TOTAAL:</span>
-              <span className="text-2xl font-bold text-gold-400">{formatCurrency(finalPrice)}</span>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Submit Buttons */}
         <div className="flex items-center gap-4">
@@ -419,7 +562,9 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
             disabled={isSubmitting || !selectedEvent}
             className={cn(
               'flex-1 py-4 rounded-xl font-semibold text-white transition-all',
-              'bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700',
+              bookingType === 'option'
+                ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700'
+                : 'bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700',
               'shadow-lg hover:shadow-xl',
               'disabled:opacity-50 disabled:cursor-not-allowed'
             )}
@@ -430,12 +575,12 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                Aanmaken...
+                {bookingType === 'option' ? 'Optie plaatsen...' : 'Aanmaken...'}
               </span>
             ) : (
               <span className="flex items-center justify-center gap-2">
-                <Check className="w-5 h-5" />
-                Boeking Aanmaken & Bevestigen
+                {bookingType === 'option' ? <AlertCircle className="w-5 h-5" /> : <Check className="w-5 h-5" />}
+                {bookingType === 'option' ? '⏰ Optie Plaatsen (1 week)' : 'Boeking Aanmaken & Bevestigen'}
               </span>
             )}
           </button>

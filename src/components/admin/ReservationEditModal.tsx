@@ -11,9 +11,14 @@ import {
   FileText,
   User,
   Mail,
-  Tag
+  Tag,
+  DollarSign,
+  CreditCard,
+  Calendar,
+  FileText as Invoice,
+  Send
 } from 'lucide-react';
-import type { Reservation, MerchandiseItem, Event, Arrangement } from '../../types';
+import type { Reservation, MerchandiseItem, Event, Arrangement, PaymentStatus } from '../../types';
 import { formatCurrency, formatDate, cn } from '../../utils';
 import { nl } from '../../config/defaults';
 import { priceService } from '../../services/priceService';
@@ -103,7 +108,15 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
     // Other
     comments: reservation.comments || '',
     newsletterOptIn: reservation.newsletterOptIn || false,
-    acceptTerms: reservation.acceptTerms || true
+    acceptTerms: reservation.acceptTerms || true,
+    
+    // ✨ NEW: Payment fields (October 2025)
+    paymentStatus: reservation.paymentStatus || ('pending' as PaymentStatus),
+    invoiceNumber: reservation.invoiceNumber || '',
+    paymentMethod: reservation.paymentMethod || '',
+    paymentReceivedAt: reservation.paymentReceivedAt || undefined,
+    paymentDueDate: reservation.paymentDueDate || undefined,
+    paymentNotes: reservation.paymentNotes || ''
   });
 
   const [priceCalculation, setPriceCalculation] = useState<any>(null);
@@ -787,6 +800,163 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
             <p className="text-xs text-neutral-400 mt-2">
               Typ hier alle dieetwensen en allergieën voor deze reservering
             </p>
+          </div>
+
+          {/* ✨ NEW: Payment Management Section (October 2025) */}
+          <div className="card-theatre p-4 border-2 border-emerald-500/30">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <DollarSign className="w-6 h-6 text-emerald-400" />
+              💰 Betaalinformatie
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              {/* Payment Status */}
+              <div>
+                <label className="block text-sm text-neutral-300 mb-2">Betaalstatus *</label>
+                <select
+                  value={formData.paymentStatus}
+                  onChange={(e) => setFormData({ ...formData, paymentStatus: e.target.value as PaymentStatus })}
+                  className="w-full px-4 py-2 bg-dark-800 border border-emerald-500/30 rounded text-white"
+                >
+                  <option value="pending">⏳ In afwachting</option>
+                  <option value="paid">✅ Betaald</option>
+                  <option value="overdue">⚠️ Achterstallig</option>
+                  <option value="refunded">↩️ Terugbetaald</option>
+                  <option value="not_applicable">➖ Niet van toepassing</option>
+                </select>
+              </div>
+
+              {/* Invoice Number */}
+              <div>
+                <label className="block text-sm text-neutral-300 mb-2">Factuurnummer</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={formData.invoiceNumber}
+                    onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
+                    className="flex-1 px-4 py-2 bg-dark-800 border border-emerald-500/30 rounded text-white"
+                    placeholder="INV-2025-001"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const invoiceNum = `INV-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+                      setFormData({ ...formData, invoiceNumber: invoiceNum });
+                    }}
+                    className="px-3 py-2 bg-emerald-500/20 text-emerald-300 rounded hover:bg-emerald-500/30 transition-colors text-sm"
+                    title="Genereer automatisch factuurnummer"
+                  >
+                    <Invoice className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Payment Method */}
+              <div>
+                <label className="block text-sm text-neutral-300 mb-2">Betaalmethode</label>
+                <select
+                  value={formData.paymentMethod}
+                  onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
+                  className="w-full px-4 py-2 bg-dark-800 border border-emerald-500/30 rounded text-white"
+                >
+                  <option value="">Selecteer...</option>
+                  <option value="bank_transfer">🏦 Bankoverschrijving</option>
+                  <option value="ideal">💳 iDEAL</option>
+                  <option value="credit_card">💳 Creditcard</option>
+                  <option value="cash">💵 Contant</option>
+                  <option value="other">🔹 Anders</option>
+                </select>
+              </div>
+
+              {/* Payment Due Date */}
+              <div>
+                <label className="block text-sm text-neutral-300 mb-2">Betaaltermijn</label>
+                <input
+                  type="date"
+                  value={formData.paymentDueDate ? new Date(formData.paymentDueDate).toISOString().split('T')[0] : ''}
+                  onChange={(e) => setFormData({ 
+                    ...formData, 
+                    paymentDueDate: e.target.value ? new Date(e.target.value) : undefined 
+                  })}
+                  className="w-full px-4 py-2 bg-dark-800 border border-emerald-500/30 rounded text-white"
+                />
+              </div>
+
+              {/* Payment Received Date */}
+              <div className="md:col-span-2">
+                <label className="block text-sm text-neutral-300 mb-2">Betaling ontvangen op</label>
+                <input
+                  type="datetime-local"
+                  value={formData.paymentReceivedAt 
+                    ? new Date(formData.paymentReceivedAt).toISOString().slice(0, 16)
+                    : ''}
+                  onChange={(e) => setFormData({ 
+                    ...formData, 
+                    paymentReceivedAt: e.target.value ? new Date(e.target.value) : undefined 
+                  })}
+                  className="w-full px-4 py-2 bg-dark-800 border border-emerald-500/30 rounded text-white"
+                  disabled={formData.paymentStatus !== 'paid'}
+                />
+                {formData.paymentStatus !== 'paid' && (
+                  <p className="text-xs text-neutral-500 mt-1">
+                    ℹ️ Wordt automatisch ingevuld bij status "Betaald"
+                  </p>
+                )}
+              </div>
+
+              {/* Payment Notes */}
+              <div className="md:col-span-2">
+                <label className="block text-sm text-neutral-300 mb-2">Betalingsnotities</label>
+                <textarea
+                  value={formData.paymentNotes}
+                  onChange={(e) => setFormData({ ...formData, paymentNotes: e.target.value })}
+                  className="w-full px-4 py-3 bg-dark-800 border border-emerald-500/30 rounded text-white resize-none"
+                  rows={2}
+                  placeholder="Interne notities over de betaling..."
+                />
+              </div>
+            </div>
+
+            {/* Quick Payment Actions */}
+            <div className="flex gap-2 pt-4 border-t border-neutral-700">
+              <button
+                type="button"
+                onClick={async () => {
+                  const { markAsPaid } = useReservationsStore.getState();
+                  const success = await markAsPaid(reservation.id, formData.paymentMethod || 'bank_transfer');
+                  if (success) {
+                    setFormData({
+                      ...formData,
+                      paymentStatus: 'paid',
+                      paymentReceivedAt: new Date()
+                    });
+                    alert('✅ Betaling gemarkeerd als betaald!');
+                  }
+                }}
+                disabled={formData.paymentStatus === 'paid'}
+                className="flex-1 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <DollarSign className="w-4 h-4" />
+                Markeer als Betaald
+              </button>
+              
+              <button
+                type="button"
+                onClick={async () => {
+                  if (confirm(`Factuur versturen naar ${formData.email}?`)) {
+                    const { sendInvoiceEmail } = useReservationsStore.getState();
+                    const success = await sendInvoiceEmail(reservation.id);
+                    if (success) {
+                      alert('✅ Factuur verzonden!');
+                    }
+                  }
+                }}
+                className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+              >
+                <Send className="w-4 h-4" />
+                Verstuur Factuur
+              </button>
+            </div>
           </div>
 
           {/* Comments */}

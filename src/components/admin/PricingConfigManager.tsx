@@ -11,24 +11,30 @@ import {
   Check,
   X
 } from 'lucide-react';
-import { useAdminStore } from '../../store/adminStore';
+import { useConfigStore } from '../../store/configStore';
+import { useEventsStore } from '../../store/eventsStore';
 import { cn } from '../../utils';
 import type { Show, EventTypeConfig, Pricing } from '../../types';
 
 export const PricingConfigManager: React.FC = () => {
+  // Shows from eventsStore
   const { 
     shows, 
     loadShows, 
     createShow, 
     updateShow, 
     deleteShow,
+    isLoadingShows 
+  } = useEventsStore();
+  
+  // Config and pricing from configStore
+  const {
     eventTypesConfig,
     loadConfig,
     updateEventTypesConfig,
     pricing,
-    updatePricing,
-    isLoadingShows 
-  } = useAdminStore();
+    updatePricing
+  } = useConfigStore();
 
   const [activeSection, setActiveSection] = useState<'shows' | 'types' | 'pricing'>('shows');
   const [editingShow, setEditingShow] = useState<Show | null>(null);
@@ -94,7 +100,7 @@ export const PricingConfigManager: React.FC = () => {
 
   const handleUpdateShow = async (_show: Show) => {
     if (!editingShow) return;
-    await updateShow(editingShow);
+    await updateShow(editingShow.id, editingShow);
     setEditingShow(null);
   };
 

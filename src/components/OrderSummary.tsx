@@ -339,6 +339,42 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
       {/* Add-ons Info */}
       {renderAddOns()}
 
+      {/* ✨ Voucher Badge (Active Voucher from Redeem Flow) */}
+      {formData.voucherCode && !appliedCode && (
+        <div className="mb-4 pt-4 border-t border-gold-500/30">
+          <div className="p-4 bg-gradient-to-br from-gold-400/20 to-gold-600/10 border-2 border-gold-400/50 rounded-xl backdrop-blur-sm">
+            <div className="flex items-start justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-gold-400/20 rounded-lg flex items-center justify-center">
+                  <span className="text-lg">🎫</span>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-gold-400">
+                    Voucher Actief
+                  </p>
+                  <p className="text-xs text-text-muted">
+                    Code: {formData.voucherCode}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  updateFormData({ voucherCode: undefined });
+                  sessionStorage.removeItem('activeVoucher');
+                }}
+                className="p-1 hover:bg-danger-500/20 rounded transition-colors"
+                title="Voucher verwijderen"
+              >
+                <X className="w-4 h-4 text-text-muted hover:text-danger-400" />
+              </button>
+            </div>
+            <p className="text-xs text-text-secondary">
+              💡 De voucher waarde wordt automatisch van je totaal afgetrokken bij het afronden
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Discount Code Input */}
       <div className="mb-4 pt-4 border-t border-gold-500/30">
         {appliedCode ? (

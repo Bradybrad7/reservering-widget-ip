@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { ShoppingBag } from 'lucide-react';
-import { useAdminStore } from '../store/adminStore';
+import { useConfigStore } from '../store/configStore';
 import { useReservationStore } from '../store/reservationStore';
 import { formatCurrency, cn } from '../utils';
 
-export const MerchandiseUpsell: React.FC = () => {
-  const { merchandiseItems, loadMerchandise, isLoadingMerchandise } = useAdminStore();
+const MerchandiseUpsell: React.FC = () => {
+  const { merchandiseItems, loadMerchandise, isLoadingMerchandise } = useConfigStore();
   const { formData, updateFormData } = useReservationStore();
   const [isExpanded, setIsExpanded] = useState(false);
 

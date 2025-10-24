@@ -13,13 +13,15 @@ import {
   Clock,
   BarChart3,
   Package,
-  X
+  X,
+  ArrowUpDown
 } from 'lucide-react';
-import { useAdminStore } from '../../store/adminStore';
+import { useCustomersStore } from '../../store/customersStore';
 import { formatCurrency, formatDate, cn } from '../../utils';
 import type { CustomerProfile } from '../../types';
 
 export const CustomerManagerEnhanced: React.FC = () => {
+  // ✨ REFACTORED: Use customersStore instead of adminStore (October 2025)
   const {
     customers,
     selectedCustomer,
@@ -27,9 +29,8 @@ export const CustomerManagerEnhanced: React.FC = () => {
     loadCustomers,
     loadCustomer,
     selectCustomer,
-    updateCustomerTags,
-    updateCustomerNotes
-  } = useAdminStore();
+    updateCustomer
+  } = useCustomersStore();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredCustomers, setFilteredCustomers] = useState<CustomerProfile[]>([]);
@@ -92,14 +93,14 @@ export const CustomerManagerEnhanced: React.FC = () => {
 
   const handleSaveNotes = async () => {
     if (selectedCustomer) {
-      await updateCustomerNotes(selectedCustomer.email, notes);
+      await updateCustomer(selectedCustomer.email, { notes });
       setEditingNotes(false);
     }
   };
 
   const handleSaveTags = async () => {
     if (selectedCustomer) {
-      await updateCustomerTags(selectedCustomer.email, tags);
+      await updateCustomer(selectedCustomer.email, { tags });
       setEditingTags(false);
       await loadCustomer(selectedCustomer.email);
     }

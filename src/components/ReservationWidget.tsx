@@ -63,6 +63,32 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
         return;
       }
       
+      // ✨ NEW: Check for voucher from URL params (coming from voucher redeem flow)
+      const params = new URLSearchParams(window.location.search);
+      const fromVoucher = params.get('source') === 'voucher';
+      
+      if (fromVoucher) {
+        // Check sessionStorage for voucher data
+        const storedVoucher = sessionStorage.getItem('activeVoucher');
+        if (storedVoucher) {
+          try {
+            const voucherData = JSON.parse(storedVoucher);
+            
+            // Show welcome toast
+            success(
+              `Voucher ${voucherData.code} toegepast! 🎫`,
+              `Restwaarde: €${voucherData.remainingValue} - Start je boeking!`
+            );
+            
+            // Voucher is already in formData from VoucherRedeemFlow
+            // Just set the first step
+            setCurrentStep('calendar');
+          } catch (e) {
+            console.error('Failed to parse voucher data:', e);
+          }
+        }
+      }
+      
       // ✨ Check for draft reservation only if load succeeded
       const store = useReservationStore.getState();
       const draft = store.loadDraftReservation();
@@ -87,7 +113,7 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
     };
     
     loadInitialData();
-  }, [loadEvents, success, error, addToast]);
+  }, [loadEvents, success, error, addToast, setCurrentStep]);
 
   // Handle reservation completion callback
   useEffect(() => {

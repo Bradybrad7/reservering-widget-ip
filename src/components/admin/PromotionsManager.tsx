@@ -11,23 +11,22 @@ import {
   ToggleLeft,
   ToggleRight
 } from 'lucide-react';
-import { useAdminStore } from '../../store/adminStore';
+import { useConfigStore } from '../../store/configStore';
 import type { PromotionCode, EventType, Arrangement } from '../../types';
 
 export const PromotionsManager: React.FC = () => {
   const {
     promotions,
     isLoadingPromotions,
-    isSubmitting,
     loadPromotions,
     createPromotion,
     updatePromotion,
     deletePromotion
-  } = useAdminStore();
+  } = useConfigStore();
 
   const [showModal, setShowModal] = useState(false);
   const [editingPromotion, setEditingPromotion] = useState<PromotionCode | null>(null);
-  const [formData, setFormData] = useState<Omit<PromotionCode, 'id' | 'usedCount'>>({
+  const [formData, setFormData] = useState<Omit<PromotionCode, 'id' | 'createdAt'>>({
     code: '',
     description: '',
     type: 'percentage',
@@ -37,7 +36,8 @@ export const PromotionsManager: React.FC = () => {
     maxUses: undefined,
     minBookingAmount: undefined,
     applicableTo: {},
-    isActive: true
+    isActive: true,
+    usedCount: 0
   });
 
   useEffect(() => {
@@ -56,7 +56,8 @@ export const PromotionsManager: React.FC = () => {
       maxUses: undefined,
       minBookingAmount: undefined,
       applicableTo: {},
-      isActive: true
+      isActive: true,
+      usedCount: 0
     });
     setShowModal(true);
   };
@@ -73,7 +74,8 @@ export const PromotionsManager: React.FC = () => {
       maxUses: promotion.maxUses,
       minBookingAmount: promotion.minBookingAmount,
       applicableTo: promotion.applicableTo || {},
-      isActive: promotion.isActive
+      isActive: promotion.isActive,
+      usedCount: promotion.usedCount
     });
     setShowModal(true);
   };
@@ -109,15 +111,16 @@ export const PromotionsManager: React.FC = () => {
     return promotion.maxUses !== undefined && promotion.usedCount >= promotion.maxUses;
   };
 
-  if (isLoadingPromotions) {
+  if (isLoadingPromotions || !promotions) {
     return <div className="text-white">Laden...</div>;
   }
 
   // Group promotions
-  const activePromotions = promotions.filter(p => p.isActive && !isExpired(p.validUntil) && !isMaxedOut(p));
-  const inactivePromotions = promotions.filter(p => !p.isActive);
-  const expiredPromotions = promotions.filter(p => isExpired(p.validUntil));
-  const maxedOutPromotions = promotions.filter(p => isMaxedOut(p));
+  const safePromotions: PromotionCode[] = promotions || [];
+  const activePromotions = safePromotions.filter((p: PromotionCode) => p.isActive && !isExpired(p.validUntil) && !isMaxedOut(p));
+  const inactivePromotions = safePromotions.filter((p: PromotionCode) => !p.isActive);
+  const expiredPromotions = safePromotions.filter((p: PromotionCode) => isExpired(p.validUntil));
+  const maxedOutPromotions = safePromotions.filter((p: PromotionCode) => isMaxedOut(p));
 
   return (
     <div className="space-y-6">
@@ -190,7 +193,7 @@ export const PromotionsManager: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                promotions.map((promotion) => {
+                safePromotions.map((promotion: PromotionCode) => {
                   const expired = isExpired(promotion.validUntil);
                   const maxed = isMaxedOut(promotion);
                   const active = promotion.isActive && !expired && !maxed;
@@ -543,11 +546,10 @@ export const PromotionsManager: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
-                  className="px-4 py-2 bg-gold-500 text-white rounded-lg hover:bg-gold-600 transition-colors flex items-center gap-2 disabled:opacity-50"
+                  className="px-4 py-2 bg-gold-500 text-white rounded-lg hover:bg-gold-600 transition-colors flex items-center gap-2"
                 >
                   <Save className="w-4 h-4" />
-                  {isSubmitting ? 'Opslaan...' : 'Opslaan'}
+                  Opslaan
                 </button>
               </div>
             </form>

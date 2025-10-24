@@ -84,10 +84,10 @@ export const StepIndicator = memo<StepIndicatorProps>(({
                       'w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center font-bold transition-all duration-300 relative',
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-dark-950',
                       {
-                        // Current step - bright gold with glow
-                        'bg-gold-gradient shadow-gold-glow scale-110 ring-4 ring-gold-500/30': isCurrentStep,
-                        // Completed steps - solid gold
-                        'bg-gradient-to-br from-gold-500 to-gold-600 shadow-md': isCompleted && !isCurrentStep,
+                        // Current step - VERSTERKT: solide gouden cirkel met extra glow
+                        'bg-gold-gradient shadow-gold-glow scale-115 ring-4 ring-gold-400/40 border-2 border-gold-300': isCurrentStep,
+                        // Completed steps - solid gold met check icon
+                        'bg-gradient-to-br from-green-500 to-green-600 shadow-lg shadow-green-500/20': isCompleted && !isCurrentStep,
                         // Past steps
                         'bg-gradient-to-br from-gold-600/80 to-gold-700/80': isPast && !isCompleted,
                         // Upcoming steps - muted
@@ -132,8 +132,8 @@ export const StepIndicator = memo<StepIndicatorProps>(({
                     className={cn(
                       'text-xs font-bold transition-all duration-300 text-center whitespace-nowrap',
                       {
-                        'text-gold-400 scale-105 text-shadow-gold': isCurrentStep,
-                        'text-dark-50': isCompleted && !isCurrentStep,
+                        'text-gold-300 scale-110 text-shadow-gold drop-shadow-lg': isCurrentStep,
+                        'text-green-400': isCompleted && !isCurrentStep,
                         'text-dark-200': isPast && !isCompleted,
                         'text-dark-500 group-hover:text-dark-400': isUpcoming
                       }

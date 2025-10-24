@@ -6,54 +6,72 @@ import {
   Calendar,
   DollarSign,
   Search,
-  Filter,
   Download,
   Edit,
-  Trash2,
   Eye,
   X,
   CheckCircle,
   XCircle,
   AlertCircle,
-  Clock,
   Star,
   Building2,
   Tag,
   MessageSquare,
   Save,
-  MoreVertical,
   Send,
-  List,
   AlertTriangle,
   MapPin,
   ShoppingBag,
-  Plus
+  Plus,
+  Archive,
+  Trash2
 } from 'lucide-react';
 import type { Reservation, Event } from '../../types';
 import { apiService } from '../../services/apiService';
 import { formatCurrency, formatDate, cn } from '../../utils';
-import { useAdminStore } from '../../store/adminStore';
+import { useReservationsStore } from '../../store/reservationsStore';
+import { useConfigStore } from '../../store/configStore';
 import { ManualBookingManager } from './ManualBookingManager';
 import { ReservationEditModal } from './ReservationEditModal';
+import { StatusBadge, ActionRequiredIndicator } from '../ui/StatusBadge';
+import { 
+  isOptionExpired, 
+  isOptionExpiringSoon, 
+  getOptionStatusLabel,
+  getOptionsRequiringAction 
+} from '../../utils/optionHelpers';
 
 interface ReservationsManagerEnhancedProps {
   filter?: 'all' | 'pending' | 'confirmed' | 'waitlist';
 }
 
 export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedProps> = ({ filter = 'all' }) => {
+  // ✅ NEW: Use modular stores instead of monolithic adminStore
   const {
     reservations: storeReservations,
     loadReservations,
     confirmReservation,
     rejectReservation,
-    updateReservationStatus,
     updateReservationTags,
     addCommunicationLog,
     bulkUpdateStatus,
     deleteReservation,
-    exportReservationsCSV,
-    merchandiseItems
-  } = useAdminStore();
+    bulkExport,
+    markAsPaid
+  } = useReservationsStore();
+
+  // ✅ NEW: Get merchandise from config store
+  const { merchandiseItems } = useConfigStore();
+
+  // Archive function (not in store yet, use apiService directly)
+  const archiveReservation = async (reservationId: string) => {
+    const response = await apiService.archiveReservation(reservationId);
+    if (response.success) {
+      await loadReservations();
+      return true;
+    }
+    return false;
+  };
 
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [filteredReservations, setFilteredReservations] = useState<Reservation[]>([]);
@@ -61,6 +79,7 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<Reservation['status'] | 'all'>('all');
+  const [paymentFilter, setPaymentFilter] = useState<'all' | 'pending' | 'paid' | 'overdue'>('all');
   const [eventFilter, setEventFilter] = useState<string>('all');
   const [selectedReservations, setSelectedReservations] = useState<Set<string>>(new Set());
   const [showBulkActions, setShowBulkActions] = useState(false);
@@ -100,7 +119,7 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
 
   useEffect(() => {
     filterReservations();
-  }, [reservations, searchTerm, statusFilter, eventFilter]);
+  }, [reservations, searchTerm, statusFilter, paymentFilter, eventFilter]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -131,6 +150,11 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
       filtered = filtered.filter(r => r.status !== 'waitlist');
     }
 
+    // ✨ NEW: Payment filter (October 2025)
+    if (paymentFilter !== 'all') {
+      filtered = filtered.filter(r => r.paymentStatus === paymentFilter);
+    }
+
     // Event filter
     if (eventFilter !== 'all') {
       filtered = filtered.filter(r => r.eventId === eventFilter);
@@ -156,32 +180,6 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
   const getEventForReservation = (eventId: string) => {
     return events.find(e => e.id === eventId);
   };
-
-  const getStatusColor = (status: Reservation['status']) => {
-    const colors = {
-      confirmed: 'bg-green-500/20 text-green-400 border-green-500/30',
-      pending: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-      waitlist: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-      cancelled: 'bg-neutral-500/20 text-neutral-400 border-neutral-500/30',
-      rejected: 'bg-red-500/20 text-red-400 border-red-500/30',
-      request: 'bg-purple-500/20 text-purple-400 border-purple-500/30'
-    };
-    return colors[status] || colors.pending;
-  };
-
-  const getStatusIcon = (status: Reservation['status']) => {
-    const icons = {
-      confirmed: CheckCircle,
-      pending: Clock,
-      waitlist: List,
-      cancelled: XCircle,
-      rejected: XCircle,
-      request: AlertCircle
-    };
-    const Icon = icons[status] || Clock;
-    return <Icon className="w-4 h-4" />;
-  };
-
   const toggleSelectReservation = (reservationId: string) => {
     const newSelected = new Set(selectedReservations);
     if (newSelected.has(reservationId)) {
@@ -237,11 +235,6 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
     setShowCommunicationLog(true);
   };
 
-  const handleInlineEdit = (reservation: Reservation) => {
-    setEditingId(reservation.id);
-    setEditNotes(reservation.notes || '');
-  };
-
   const handleSaveInlineEdit = async () => {
     if (!editingId) return;
     
@@ -277,6 +270,25 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
         break;
     }
     await loadReservations();
+  };
+
+  // ✅ NEW: Export handler using bulkExport from new store
+  const handleExportCSV = async () => {
+    const idsToExport = filteredReservations.map(r => r.id);
+    if (idsToExport.length === 0) {
+      alert('Geen reserveringen om te exporteren');
+      return;
+    }
+
+    const blob = await bulkExport(idsToExport);
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reserveringen-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
   };
 
   // Visual tags/badges for special conditions
@@ -332,7 +344,7 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
             Handmatige Boeking
           </button>
           <button
-            onClick={() => exportReservationsCSV()}
+            onClick={handleExportCSV}
             className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
           >
             <Download className="w-4 h-4" />
@@ -356,7 +368,7 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
                 Deselecteer alles
               </button>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => handleBulkStatusChange('confirmed')}
                 className="px-3 py-1 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600 transition-colors"
@@ -375,6 +387,24 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
               >
                 Naar Wachtlijst
               </button>
+              {/* ✨ NEW: Payment Bulk Actions (October 2025) */}
+              <div className="border-l border-neutral-600 pl-2 ml-2 flex gap-2">
+                <button
+                  onClick={async () => {
+                    if (confirm(`Weet je zeker dat je ${selectedReservations.size} reservering(en) wilt markeren als betaald?`)) {
+                      for (const id of Array.from(selectedReservations)) {
+                        await markAsPaid(id, 'bank_transfer');
+                      }
+                      clearSelection();
+                      await loadReservations();
+                    }
+                  }}
+                  className="px-3 py-1 bg-emerald-500 text-white rounded-lg text-sm hover:bg-emerald-600 transition-colors flex items-center gap-1"
+                >
+                  <DollarSign className="w-4 h-4" />
+                  💰 Markeer Betaald
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -382,7 +412,7 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
 
       {/* Filters */}
       <div className="bg-neutral-800/50 rounded-lg p-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           {/* Search */}
           <div className="md:col-span-2">
             <div className="relative">
@@ -407,10 +437,25 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
               <option value="all">Alle Statussen</option>
               <option value="pending">Pending</option>
               <option value="confirmed">Bevestigd</option>
+              <option value="option">⏰ Opties (1 week)</option>
               <option value="waitlist">Wachtlijst</option>
               <option value="cancelled">Geannuleerd</option>
               <option value="rejected">Afgewezen</option>
               <option value="request">Aanvraag</option>
+            </select>
+          </div>
+
+          {/* ✨ NEW: Payment Filter (October 2025) */}
+          <div>
+            <select
+              value={paymentFilter}
+              onChange={(e) => setPaymentFilter(e.target.value as any)}
+              className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+            >
+              <option value="all">💰 Alle Betalingen</option>
+              <option value="paid">✅ Betaald</option>
+              <option value="pending">⏳ Wachtend</option>
+              <option value="overdue">⚠️ Te Laat</option>
             </select>
           </div>
 
@@ -444,6 +489,61 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
         )}
       </div>
 
+      {/* 🆕 Options Alert Section - Show expiring/expired options */}
+      {(() => {
+        const optionsNeedingAction = getOptionsRequiringAction(reservations);
+        if (optionsNeedingAction.length === 0) return null;
+        
+        return (
+          <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 border-2 border-orange-500/50 rounded-xl p-6 mb-6">
+            <div className="flex items-start gap-4">
+              <AlertTriangle className="w-8 h-8 text-orange-400 flex-shrink-0 mt-1" />
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-orange-300 mb-2">
+                  ⚠️ Opties Vereisen Actie ({optionsNeedingAction.length})
+                </h3>
+                <p className="text-orange-200 mb-4">
+                  De volgende opties zijn verlopen of verlopen binnenkort. Neem contact op met de klant!
+                </p>
+                <div className="space-y-2">
+                  {optionsNeedingAction.map(opt => (
+                    <div 
+                      key={opt.id}
+                      className="bg-black/30 rounded-lg p-3 flex items-center justify-between"
+                    >
+                      <div>
+                        <span className="font-semibold text-white">{opt.contactPerson}</span>
+                        <span className="text-neutral-300 mx-2">•</span>
+                        <span className="text-neutral-400">{opt.phone}</span>
+                        <span className="text-neutral-300 mx-2">•</span>
+                        <span className="text-neutral-400">{opt.numberOfPersons} personen</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={cn(
+                          'text-sm font-medium',
+                          isOptionExpired(opt) ? 'text-red-300' : 'text-orange-300'
+                        )}>
+                          {getOptionStatusLabel(opt)}
+                        </span>
+                        <button
+                          onClick={() => {
+                            setSelectedReservation(opt);
+                            setShowDetailModal(true);
+                          }}
+                          className="px-3 py-1 bg-gold-500 hover:bg-gold-600 rounded-lg text-white text-sm font-medium transition-colors"
+                        >
+                          Bekijk
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Reservations List */}
       <div className="space-y-3">
         {filteredReservations.length === 0 ? (
@@ -462,10 +562,16 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
               <div
                 key={reservation.id}
                 className={cn(
-                  'bg-neutral-800/50 rounded-lg p-4 border-2 transition-all hover:border-gold-500/30',
+                  'bg-neutral-800/50 rounded-lg p-4 border-2 transition-all hover:border-gold-500/30 relative',
                   isSelected ? 'border-gold-500' : 'border-transparent'
                 )}
               >
+                {/* ✨ NIEUW: Actie indicator voor rijen die actie vereisen */}
+                <ActionRequiredIndicator 
+                  status={reservation.status} 
+                  paymentStatus={reservation.paymentStatus as any}
+                />
+                
                 <div className="flex items-start gap-4">
                   {/* Checkbox */}
                   <input
@@ -485,14 +591,37 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
                             {reservation.companyName}
                           </h3>
                           
-                          {/* Status Badge */}
-                          <span className={cn(
-                            'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border',
-                            getStatusColor(reservation.status)
-                          )}>
-                            {getStatusIcon(reservation.status)}
-                            {reservation.status}
-                          </span>
+                          {/* ✨ VERSTERKT: Status Badge met functionele kleuren */}
+                          <StatusBadge 
+                            type="booking" 
+                            status={reservation.status} 
+                            size="md"
+                            showIcon={true}
+                          />
+
+                          {/* 🆕 Option Status Label (only for options) */}
+                          {reservation.status === 'option' && (
+                            <span className={cn(
+                              'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border-2',
+                              isOptionExpired(reservation)
+                                ? 'bg-red-500/20 text-red-300 border-red-500/50'
+                                : isOptionExpiringSoon(reservation)
+                                ? 'bg-orange-500/20 text-orange-300 border-orange-500/50'
+                                : 'bg-blue-500/20 text-blue-300 border-blue-500/50'
+                            )}>
+                              {getOptionStatusLabel(reservation)}
+                            </span>
+                          )}
+
+                          {/* ✨ VERSTERKT: Payment Status Badge (not for options) */}
+                          {reservation.status !== 'option' && reservation.paymentStatus && (
+                            <StatusBadge 
+                              type="payment" 
+                              status={reservation.paymentStatus as any}
+                              size="md"
+                              showIcon={true}
+                            />
+                          )}
 
                           {/* Special Badges */}
                           {badges.map((badge, idx) => {
@@ -593,23 +722,29 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
                         )}
                       </div>
 
-                      {/* Actions */}
+                      {/* Actions - VERSTERKT: Consistent icoongebruik */}
                       <div className="flex flex-col gap-2">
                         {reservation.status === 'pending' && (
                           <div className="flex gap-1">
                             <button
                               onClick={() => handleQuickAction(reservation.id, 'confirm')}
-                              className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                              className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors group relative"
                               title="Bevestigen"
                             >
                               <CheckCircle className="w-4 h-4" />
+                              <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-neutral-900 px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                                Bevestigen
+                              </span>
                             </button>
                             <button
                               onClick={() => handleQuickAction(reservation.id, 'reject')}
-                              className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                              className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors group relative"
                               title="Afwijzen"
                             >
                               <XCircle className="w-4 h-4" />
+                              <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-neutral-900 px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                                Afwijzen
+                              </span>
                             </button>
                           </div>
                         )}
@@ -617,28 +752,37 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
                         <div className="flex gap-1">
                           <button
                             onClick={() => handleViewDetails(reservation)}
-                            className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                            title="Details"
+                            className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors group relative"
+                            title="Details bekijken"
                           >
                             <Eye className="w-4 h-4" />
+                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-neutral-900 px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                              Details
+                            </span>
                           </button>
                           <button
                             onClick={() => handleEditReservation(reservation)}
-                            className="p-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
-                            title="Reservering bewerken"
+                            className="p-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors group relative"
+                            title="Wijzigen"
                           >
                             <Edit className="w-4 h-4" />
+                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-neutral-900 px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                              Wijzigen
+                            </span>
                           </button>
                           <button
                             onClick={() => handleEditTags(reservation)}
-                            className="p-2 bg-gold-500 text-white rounded-lg hover:bg-gold-600 transition-colors"
+                            className="p-2 bg-gold-500 text-white rounded-lg hover:bg-gold-600 transition-colors group relative"
                             title="Tags bewerken"
                           >
                             <Tag className="w-4 h-4" />
+                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-neutral-900 px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                              Tags
+                            </span>
                           </button>
                           <button
                             onClick={() => handleShowCommunication(reservation)}
-                            className="p-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors relative"
+                            className="p-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors relative group"
                             title="Communicatie"
                           >
                             <MessageSquare className="w-4 h-4" />
@@ -647,8 +791,45 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
                                 {reservation.communicationLog.length}
                               </span>
                             )}
+                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-neutral-900 px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                              Communicatie
+                            </span>
                           </button>
                         </div>
+
+                        {/* Archive & Delete Actions */}
+                        {(reservation.status === 'cancelled' || reservation.status === 'rejected') && (
+                          <div className="flex gap-1 mt-2">
+                            <button
+                              onClick={async () => {
+                                if (confirm('Deze reservering archiveren? Je kunt deze later terugzetten vanuit het archief.')) {
+                                  await archiveReservation(reservation.id);
+                                }
+                              }}
+                              className="p-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors group relative flex-1"
+                              title="Archiveren"
+                            >
+                              <Archive className="w-4 h-4 mx-auto" />
+                              <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-neutral-900 px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                                Archiveren
+                              </span>
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (confirm('⚠️ Deze reservering permanent verwijderen? Dit kan niet ongedaan worden gemaakt!')) {
+                                  await deleteReservation(reservation.id);
+                                }
+                              }}
+                              className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors group relative flex-1"
+                              title="Permanent verwijderen"
+                            >
+                              <Trash2 className="w-4 h-4 mx-auto" />
+                              <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-neutral-900 px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                                Verwijderen
+                              </span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

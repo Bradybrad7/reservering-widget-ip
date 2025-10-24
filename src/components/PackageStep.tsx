@@ -226,12 +226,12 @@ export const PackageStep: React.FC = () => {
               type="button"
               onClick={() => handleArrangementSelect(option.value)}
               className={cn(
-                'text-left p-6 rounded-2xl border-2 transition-all duration-300',
+                'text-left p-6 rounded-2xl transition-all duration-300',
                 'hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-gold-400/50',
                 'relative overflow-hidden group',
                 selectedArrangement === option.value
-                  ? 'bg-gold-gradient border-gold-400 shadow-gold-glow scale-[1.02]'
-                  : 'bg-neutral-800/50 border-dark-700 hover:border-gold-400/50 shadow-lifted'
+                  ? 'bg-gold-gradient border-4 border-gold-500 shadow-gold-glow scale-[1.02] ring-2 ring-gold-400/30'
+                  : 'bg-neutral-800/50 border-2 border-dark-700 hover:border-gold-400/50 shadow-lifted'
               )}
             >
               {/* Highlight Badge */}
@@ -243,11 +243,11 @@ export const PackageStep: React.FC = () => {
                 </div>
               )}
 
-              {/* Selected Check */}
+              {/* Selected Check - VERSTERKT met CheckCircle icoon */}
               {selectedArrangement === option.value && (
                 <div className="absolute top-4 left-4">
-                  <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-lg">
-                    <Check className="w-5 h-5 text-gold-600" />
+                  <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center shadow-lg ring-2 ring-green-400/50 animate-scale-in">
+                    <Check className="w-6 h-6 text-white" strokeWidth={3} />
                   </div>
                 </div>
               )}
@@ -465,13 +465,13 @@ export const PackageStep: React.FC = () => {
         </div>
       )}
 
-      {/* Navigation Buttons */}
+      {/* Navigation Buttons - VERSTERKT: Duidelijk onderscheid primair/secundair */}
       <div className="flex gap-4">
         <Button
           type="button"
           onClick={goToPreviousStep}
           variant="secondary"
-          className="flex-1"
+          className="flex-1 bg-transparent border-2 border-gold-500/50 text-gold-400 hover:bg-gold-500/10 hover:border-gold-500"
         >
           Vorige
         </Button>
@@ -479,7 +479,7 @@ export const PackageStep: React.FC = () => {
           type="button"
           onClick={handleContinue}
           variant="primary"
-          className="flex-1"
+          className="flex-1 bg-gold-gradient shadow-gold-glow hover:shadow-gold text-white font-bold"
           disabled={!selectedArrangement}
         >
           Volgende

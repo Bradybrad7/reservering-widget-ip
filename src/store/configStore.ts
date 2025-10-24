@@ -90,8 +90,7 @@ export const useConfigStore = create<ConfigState & ConfigActions>()(
           rulesRes,
           wizardRes,
           eventTypesRes,
-          textsRes,
-          emailRes
+          textsRes
         ] = await Promise.all([
           apiService.getConfig(),
           apiService.getPricing(),
@@ -99,8 +98,7 @@ export const useConfigStore = create<ConfigState & ConfigActions>()(
           apiService.getBookingRules(),
           apiService.getWizardConfig(),
           apiService.getEventTypesConfig(),
-          apiService.getTextCustomization(),
-          apiService.getEmailReminderConfig()
+          apiService.getTextCustomization()
         ]);
 
         set({
@@ -111,7 +109,7 @@ export const useConfigStore = create<ConfigState & ConfigActions>()(
           wizardConfig: wizardRes.success ? wizardRes.data : null,
           eventTypesConfig: eventTypesRes.success ? eventTypesRes.data : null,
           textCustomization: textsRes.success ? textsRes.data : null,
-          emailReminderConfig: emailRes.success ? emailRes.data : null,
+          emailReminderConfig: null, // Not implemented yet
           isLoadingConfig: false
         });
       } catch (error) {
