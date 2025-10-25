@@ -9,8 +9,10 @@
  */
 
 import React, { useState, useMemo } from 'react';
+import { Plus, Trash2, XCircle, CheckSquare, Square } from 'lucide-react';
 import type { AdminEvent, Reservation, WaitlistEntry, EventType } from '../../types';
 import { getEventComputedData } from './EventCommandCenter';
+import { useEventsStore } from '../../store/eventsStore';
 
 interface EventMasterListProps {
   events: AdminEvent[];
@@ -31,9 +33,12 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
   onCreateEvent,
   onBulkAdd,
 }) => {
+  const { bulkDeleteEvents, bulkCancelEvents } = useEventsStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'full' | 'waitlist' | 'closed'>('all');
   const [typeFilter, setTypeFilter] = useState<EventType | 'all'>('all');
+  const [selectedEvents, setSelectedEvents] = useState<Set<string>>(new Set());
+  const [showBulkActions, setShowBulkActions] = useState(false);
 
   // Filter en sorteer events
   const filteredAndSortedEvents = useMemo(() => {
@@ -97,12 +102,86 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
     }
   };
 
+  // Bulk selection helpers
+  const toggleEventSelection = (eventId: string) => {
+    setSelectedEvents(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(eventId)) {
+        newSet.delete(eventId);
+      } else {
+        newSet.add(eventId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedEvents.size === filteredAndSortedEvents.length) {
+      setSelectedEvents(new Set());
+    } else {
+      setSelectedEvents(new Set(filteredAndSortedEvents.map(e => e.id)));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedEvents(new Set());
+    setShowBulkActions(false);
+  };
+
+  const handleBulkDelete = async () => {
+    const count = selectedEvents.size;
+    const confirmMsg = `🚨 WAARSCHUWING: Je staat op het punt ${count} evenement(en) PERMANENT te VERWIJDEREN!\n\n⚠️ Dit zal ook alle gekoppelde reserveringen en wachtlijst entries verwijderen!\n\n⚠️ DIT KAN NIET ONGEDAAN GEMAAKT WORDEN!\n\nOverweeg eerst om ze te annuleren in plaats van verwijderen.`;
+    
+    if (!confirm(confirmMsg)) return;
+    
+    // Double confirmation for delete
+    const doubleCheck = prompt(`Type "VERWIJDER" (hoofdletters) om te bevestigen:`);
+    if (doubleCheck !== 'VERWIJDER') {
+      alert('❌ Verwijderen geannuleerd');
+      return;
+    }
+    
+    const result = await bulkDeleteEvents(Array.from(selectedEvents));
+    alert(`✅ ${result.success} van ${result.total} evenement(en) succesvol verwijderd`);
+    clearSelection();
+  };
+
+  const handleBulkCancel = async () => {
+    const count = selectedEvents.size;
+    const confirmMsg = `Weet je zeker dat je ${count} evenement(en) wilt ANNULEREN?\n\nDe evenementen blijven bestaan maar worden gemarkeerd als inactief.`;
+    
+    if (!confirm(confirmMsg)) return;
+    
+    const result = await bulkCancelEvents(Array.from(selectedEvents));
+    alert(`✅ ${result.success} van ${result.total} evenement(en) geannuleerd`);
+    clearSelection();
+  };
+
   return (
     <div className="flex flex-col h-full bg-gray-800 border-r border-gray-700">
       {/* Toolbar met filters */}
       <div className="p-4 border-b border-gray-700 space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-white">Evenementen</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-bold text-white">Evenementen</h2>
+            
+            {/* 🆕 Bulk Selection Toggle */}
+            <button
+              onClick={() => {
+                setShowBulkActions(!showBulkActions);
+                if (showBulkActions) clearSelection();
+              }}
+              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1 ${
+                showBulkActions 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              {showBulkActions ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+              {showBulkActions ? 'Klaar' : 'Selecteren'}
+            </button>
+          </div>
+          
           <div className="flex items-center gap-2">
             {onBulkAdd && (
               <button
@@ -110,9 +189,7 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
                 className="px-3 py-1.5 bg-gold-600 hover:bg-gold-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1"
                 title="Bulk evenementen toevoegen"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
+                <Plus className="w-4 h-4" />
                 Bulk
               </button>
             )}
@@ -126,6 +203,43 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
             )}
           </div>
         </div>
+
+        {/* 🆕 Bulk Actions Bar */}
+        {showBulkActions && selectedEvents.size > 0 && (
+          <div className="bg-blue-900/30 border border-blue-500/50 rounded-lg p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-white">
+                  {selectedEvents.size} {selectedEvents.size === 1 ? 'evenement' : 'evenementen'} geselecteerd
+                </span>
+                <button
+                  onClick={clearSelection}
+                  className="text-xs text-gray-400 hover:text-white transition-colors"
+                >
+                  Deselecteer alles
+                </button>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleBulkCancel}
+                  className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1"
+                >
+                  <XCircle className="w-4 h-4" />
+                  Annuleer
+                </button>
+                
+                <button
+                  onClick={handleBulkDelete}
+                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1 border-2 border-red-400"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Verwijder Permanent
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Zoekbalk */}
         <div className="relative">
@@ -169,8 +283,25 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
         </div>
 
         {/* Resultaat teller */}
-        <div className="text-xs text-gray-400">
-          {filteredAndSortedEvents.length} {filteredAndSortedEvents.length === 1 ? 'evenement' : 'evenementen'}
+        <div className="flex items-center justify-between text-xs">
+          <div className="text-gray-400">
+            {filteredAndSortedEvents.length} {filteredAndSortedEvents.length === 1 ? 'evenement' : 'evenementen'}
+          </div>
+          
+          {/* 🆕 Select All Checkbox */}
+          {showBulkActions && filteredAndSortedEvents.length > 0 && (
+            <button
+              onClick={toggleSelectAll}
+              className="flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors"
+            >
+              {selectedEvents.size === filteredAndSortedEvents.length ? (
+                <CheckSquare className="w-4 h-4" />
+              ) : (
+                <Square className="w-4 h-4" />
+              )}
+              <span>Selecteer alle {filteredAndSortedEvents.length}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -190,17 +321,40 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
           filteredAndSortedEvents.map(event => {
             const stats = getEventComputedData(event, allReservations, allWaitlistEntries);
             const isSelected = event.id === selectedEventId;
+            const isChecked = selectedEvents.has(event.id);
 
             return (
               <div
                 key={event.id}
-                className={`p-4 border-b border-gray-700 cursor-pointer transition-colors ${
+                className={`p-4 border-b border-gray-700 transition-colors ${
                   isSelected 
                     ? 'bg-blue-900/50 border-l-4 border-l-blue-500' 
                     : 'hover:bg-gray-700/50'
-                }`}
-                onClick={() => onSelectEvent(event.id)}
+                } ${isChecked ? 'bg-blue-900/30' : ''}`}
               >
+                <div className="flex items-start gap-3">
+                  {/* 🆕 Checkbox (alleen zichtbaar in bulk mode) */}
+                  {showBulkActions && (
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleEventSelection(event.id);
+                      }}
+                      className="flex-shrink-0 mt-1 cursor-pointer"
+                    >
+                      {isChecked ? (
+                        <CheckSquare className="w-5 h-5 text-blue-400" />
+                      ) : (
+                        <Square className="w-5 h-5 text-gray-500 hover:text-gray-400" />
+                      )}
+                    </div>
+                  )}
+
+                  {/* Event content - clickable voor detail view */}
+                  <div 
+                    className="flex-1 cursor-pointer"
+                    onClick={() => !showBulkActions && onSelectEvent(event.id)}
+                  >
                 {/* Header: Datum + Status */}
                 <div className="flex justify-between items-center mb-2">
                   <span className="font-bold text-white">
@@ -267,6 +421,8 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
                     }`}>
                       {stats.waitlistPersonCount} pers. ({stats.waitlistCount})
                     </div>
+                  </div>
+                </div>
                   </div>
                 </div>
               </div>

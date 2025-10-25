@@ -86,7 +86,19 @@ class LocalStorageService {
     localStorage.setItem(KEYS.EVENTS, JSON.stringify([]));
     localStorage.setItem(KEYS.RESERVATIONS, JSON.stringify([]));
     localStorage.setItem(KEYS.CONFIG, JSON.stringify(defaultConfig));
-    localStorage.setItem(KEYS.PRICING, JSON.stringify(defaultPricing));
+    
+    // ✨ IMPORTANT: Initialize pricing with correct keys for REGULAR events
+    // REGULAR events are mapped to weekday/weekend based on date
+    const initialPricing: Pricing = {
+      byDayType: {
+        'weekday': { BWF: 70, BWFM: 85 },      // REGULAR events on Sun-Thu
+        'weekend': { BWF: 80, BWFM: 95 },      // REGULAR events on Fri-Sat
+        'matinee': { BWF: 70, BWFM: 85 },      // MATINEE events
+        'care_heroes': { BWF: 65, BWFM: 80 }   // CARE_HEROES events
+      }
+    };
+    
+    localStorage.setItem(KEYS.PRICING, JSON.stringify(initialPricing));
     localStorage.setItem(KEYS.ADDONS, JSON.stringify(defaultAddOns));
     localStorage.setItem(KEYS.BOOKING_RULES, JSON.stringify(defaultBookingRules));
     localStorage.setItem(KEYS.MERCHANDISE, JSON.stringify([]));

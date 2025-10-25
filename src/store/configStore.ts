@@ -196,6 +196,9 @@ export const useConfigStore = create<ConfigState & ConfigActions>()(
         const response = await apiService.getMerchandise();
         if (response.success && response.data) {
           set({ merchandiseItems: response.data, isLoadingMerchandise: false });
+          // 🆕 Update priceService cache with latest merchandise items
+          const { setMerchandiseItems } = await import('../services/priceService');
+          setMerchandiseItems(response.data);
         } else {
           set({ isLoadingMerchandise: false });
         }
@@ -217,11 +220,15 @@ export const useConfigStore = create<ConfigState & ConfigActions>()(
     updateMerchandise: async (itemId: string, updates: Partial<MerchandiseItem>) => {
       const response = await apiService.updateMerchandise(itemId, updates);
       if (response.success) {
-        set(state => ({
-          merchandiseItems: state.merchandiseItems.map(item =>
-            item.id === itemId ? { ...item, ...updates } : item
-          )
-        }));
+        const updatedItems = get().merchandiseItems.map(item =>
+          item.id === itemId ? { ...item, ...updates } : item
+        );
+        set({ merchandiseItems: updatedItems });
+        
+        // 🆕 Update priceService cache
+        const { setMerchandiseItems } = await import('../services/priceService');
+        setMerchandiseItems(updatedItems);
+        
         return true;
       }
       return false;
@@ -230,9 +237,13 @@ export const useConfigStore = create<ConfigState & ConfigActions>()(
     deleteMerchandise: async (itemId: string) => {
       const response = await apiService.deleteMerchandise(itemId);
       if (response.success) {
-        set(state => ({
-          merchandiseItems: state.merchandiseItems.filter(item => item.id !== itemId)
-        }));
+        const filteredItems = get().merchandiseItems.filter(item => item.id !== itemId);
+        set({ merchandiseItems: filteredItems });
+        
+        // 🆕 Update priceService cache
+        const { setMerchandiseItems } = await import('../services/priceService');
+        setMerchandiseItems(filteredItems);
+        
         return true;
       }
       return false;

@@ -35,11 +35,12 @@ interface ReservationsState {
 interface ReservationsActions {
   loadReservations: () => Promise<void>;
   loadReservationsByEvent: (eventId: string) => Promise<void>;
-  updateReservation: (reservationId: string, updates: Partial<Reservation>, originalReservation?: Reservation) => Promise<boolean>;
+  updateReservation: (reservationId: string, updates: Partial<Reservation>, originalReservation?: Reservation, skipCommunicationLog?: boolean) => Promise<boolean>;
   updateReservationStatus: (reservationId: string, status: Reservation['status']) => Promise<boolean>;
   confirmReservation: (reservationId: string) => Promise<boolean>;
   rejectReservation: (reservationId: string) => Promise<boolean>;
   moveToWaitlist: (reservationId: string) => Promise<boolean>;
+  cancelReservation: (reservationId: string, reason?: string) => Promise<boolean>;
   deleteReservation: (reservationId: string) => Promise<boolean>;
   selectReservation: (reservation: Reservation | null) => void;
   
@@ -59,6 +60,7 @@ interface ReservationsActions {
   bulkSendEmail: (reservationIds: string[], emailData: { subject: string; body: string }) => Promise<boolean>;
   bulkExport: (reservationIds: string[]) => Promise<Blob>;
   bulkDelete: (reservationIds: string[]) => Promise<boolean>;
+  bulkArchive: (reservationIds: string[]) => Promise<{ success: number; total: number }>;
   
   // Check-in
   checkInReservation: (reservationId: string, adminName: string) => Promise<boolean>;
@@ -123,7 +125,7 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
       }
     },
 
-    updateReservation: async (reservationId: string, updates: Partial<Reservation>, originalReservation?: Reservation) => {
+    updateReservation: async (reservationId: string, updates: Partial<Reservation>, originalReservation?: Reservation, skipCommunicationLog = false) => {
       // Haal de originele reservering op als deze niet is meegestuurd
       const original = originalReservation || get().reservations.find(r => r.id === reservationId);
       
@@ -137,15 +139,19 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
         }));
         
         // 🔍 AUDIT LOGGING: Log de specifieke wijzigingen
-        if (original) {
+        // ⚠️ BELANGRIJK: Skip logging als we alleen communicationLog updaten (voorkomt oneindige lus)
+        if (original && !skipCommunicationLog) {
           const changes = findChanges(original, updates);
           
-          if (changes && changes.length > 0) {
+          // Filter uit: communicationLog updates om infinite loop te voorkomen
+          const meaningfulChanges = changes?.filter(c => c.field !== 'communicationLog');
+          
+          if (meaningfulChanges && meaningfulChanges.length > 0) {
             // Log naar audit logger
-            auditLogger.logReservationUpdated(reservationId, changes);
+            auditLogger.logReservationUpdated(reservationId, meaningfulChanges);
             
-            // Voeg ook een communicatielog toe aan de reservering
-            const logMessage = `Reservering bijgewerkt. Wijzigingen: ${changes.map(c => c.field).join(', ')}`;
+            // Voeg ook een communicatielog toe aan de reservering (alleen voor betekenisvolle wijzigingen)
+            const logMessage = `Reservering bijgewerkt. Wijzigingen: ${meaningfulChanges.map(c => c.field).join(', ')}`;
             await get().addCommunicationLog(reservationId, {
               type: 'note',
               message: logMessage,
@@ -251,6 +257,37 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
       return false;
     },
 
+    cancelReservation: async (reservationId: string, reason?: string) => {
+      const reservation = get().reservations.find(r => r.id === reservationId);
+      if (!reservation) return false;
+      
+      const response = await apiService.cancelReservation(reservationId, reason);
+      if (response.success) {
+        await get().loadReservations();
+        
+        // Log the cancellation
+        await get().addCommunicationLog(reservationId, {
+          type: 'note',
+          message: reason ? `Reservering geannuleerd: ${reason}` : 'Reservering geannuleerd',
+          author: 'Admin'
+        });
+        
+        // ⚡ AUTOMATION: Check waitlist when reservation is cancelled
+        console.log(`🔔 [AUTOMATION] Reservation ${reservationId} cancelled, checking waitlist...`);
+        
+        // Import waitlistStore dynamically to avoid circular dependency
+        const { useWaitlistStore } = await import('./waitlistStore');
+        const waitlistStore = useWaitlistStore.getState();
+        
+        // Capacity was freed, notify waitlist
+        const freedCapacity = reservation.numberOfPersons;
+        await waitlistStore.checkWaitlistForAvailableSpots(reservation.eventId, freedCapacity);
+        
+        return true;
+      }
+      return false;
+    },
+
     deleteReservation: async (reservationId: string) => {
       const reservation = get().reservations.find(r => r.id === reservationId);
       if (!reservation) return false;
@@ -297,9 +334,13 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
 
       const existingLogs = reservation.communicationLog || [];
       
-      return await get().updateReservation(reservationId, {
-        communicationLog: [...existingLogs, newLog]
-      });
+      // ⚠️ BELANGRIJK: Gebruik skipCommunicationLog=true om infinite loop te voorkomen
+      return await get().updateReservation(
+        reservationId, 
+        { communicationLog: [...existingLogs, newLog] },
+        undefined,
+        true // Skip auto-logging voor communicationLog updates
+      );
     },
 
     // Tags
@@ -445,6 +486,25 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
       const promises = reservationIds.map(id => get().deleteReservation(id));
       const results = await Promise.all(promises);
       return results.every(r => r === true);
+    },
+    
+    bulkArchive: async (reservationIds: string[]) => {
+      let successCount = 0;
+      const total = reservationIds.length;
+      
+      for (const id of reservationIds) {
+        const response = await apiService.archiveReservation(id);
+        if (response.success) {
+          successCount++;
+        }
+      }
+      
+      // Reload reservations after archiving
+      if (successCount > 0) {
+        await get().loadReservations();
+      }
+      
+      return { success: successCount, total };
     },
 
     // Check-in

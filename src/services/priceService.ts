@@ -4,22 +4,63 @@ import type {
   Arrangement,
   PriceCalculation,
   CustomerFormData,
-  Pricing
+  Pricing,
+  MerchandiseItem
 } from '../types';
 import { defaultPricing, defaultAddOns, defaultMerchandise } from '../config/defaults';
 import { promotionService } from './promotionService';
 import { localStorageService } from './localStorageService';
 
+// 🆕 Store for merchandise items (set by app during initialization)
+let merchandiseItemsCache: MerchandiseItem[] = [];
+
+// 🆕 Function to set merchandise items from external source (e.g., database)
+export const setMerchandiseItems = (items: MerchandiseItem[]) => {
+  merchandiseItemsCache = items;
+  console.log('💰 priceService - setMerchandiseItems:', items.length, 'items loaded');
+};
+
+// 🆕 Get current merchandise items (from cache or fallback to defaults)
+const getMerchandiseItems = (): MerchandiseItem[] => {
+  // If cache is populated, use it; otherwise fallback to defaults
+  return merchandiseItemsCache.length > 0 ? merchandiseItemsCache : [...defaultMerchandise];
+};
+
 // Get current pricing (from API/localStorage or fallback to defaults)
 const getCurrentPricing = (): Pricing => {
   const storedPricing = localStorageService.getPricing();
-  return storedPricing || defaultPricing;
+  const finalPricing = storedPricing || defaultPricing;
+  console.log('💰 priceService - getCurrentPricing:', {
+    hasStoredPricing: !!storedPricing,
+    pricing: finalPricing,
+    keys: Object.keys(finalPricing.byDayType)
+  });
+  return finalPricing;
 };
 
-// Determine day type for pricing (now uses event type key directly)
-export const getDayType = (_date: Date, eventType: EventType): string => {
-  // The eventType key is now used directly as the pricing key
-  // This maps to the dynamic pricing structure
+// Determine day type for pricing (maps event types to pricing keys)
+export const getDayType = (date: Date, eventType: EventType): string => {
+  const eventTypeUpper = eventType.toUpperCase();
+  
+  // Direct mapping for special event types
+  if (eventTypeUpper === 'MATINEE') {
+    return 'matinee';
+  }
+  if (eventTypeUpper === 'CARE_HEROES') {
+    return 'care_heroes';
+  }
+  
+  // For REGULAR events, determine weekday vs weekend based on date
+  if (eventTypeUpper === 'REGULAR') {
+    const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
+    // Friday (5) and Saturday (6) are weekend
+    if (dayOfWeek === 5 || dayOfWeek === 6) {
+      return 'weekend';
+    }
+    return 'weekday';
+  }
+  
+  // For custom event types, use lowercase key directly
   return eventType.toLowerCase();
 };
 
@@ -30,6 +71,7 @@ export const getArrangementPrice = (
 ): number => {
   // Check if event has custom pricing
   if (event.customPricing && event.customPricing[arrangement] !== undefined) {
+    console.log(`💰 priceService - Using custom pricing for ${arrangement}:`, event.customPricing[arrangement]);
     return event.customPricing[arrangement]!;
   }
   
@@ -38,6 +80,14 @@ export const getArrangementPrice = (
   
   // Use pricing based on event type
   const dayTypeKey = getDayType(event.date, event.type);
+  
+  console.log(`💰 priceService - getArrangementPrice:`, {
+    eventType: event.type,
+    dayTypeKey,
+    arrangement,
+    availableKeys: Object.keys(pricing.byDayType),
+    pricingForType: pricing.byDayType[dayTypeKey]
+  });
   
   // Get pricing from the dynamic byDayType object
   const pricingForType = pricing.byDayType[dayTypeKey];
@@ -83,8 +133,9 @@ export const calculatePrice = (
   }
 
   // Merchandise calculation
+  const merchandiseItems = getMerchandiseItems();
   const merchandiseTotal = merchandise.reduce((total, selection) => {
-    const item = defaultMerchandise.find(m => m.id === selection.itemId);
+    const item = merchandiseItems.find(m => m.id === selection.itemId);
     if (!item) {
       console.warn(`⚠️ Merchandise item with ID "${selection.itemId}" not found in catalog`);
     }
@@ -158,8 +209,9 @@ export const calculatePrice = (
 
   // Add merchandise to breakdown if any
   if (merchandise.length > 0) {
+    const merchandiseItems = getMerchandiseItems();
     const items = merchandise.map(selection => {
-      const item = defaultMerchandise.find(m => m.id === selection.itemId);
+      const item = merchandiseItems.find(m => m.id === selection.itemId);
       if (!item) {
         console.warn(`⚠️ Merchandise item with ID "${selection.itemId}" not found when creating breakdown`);
       }

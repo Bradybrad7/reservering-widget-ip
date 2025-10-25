@@ -824,22 +824,23 @@ export const PricingConfigManager: React.FC = () => {
   const renderPricing = () => {
     if (!editingPricing || !eventTypesConfig) return <div className="text-neutral-400">Laden...</div>;
 
-    // Use event types from config as day types
-    const dayTypes = eventTypesConfig.types
-      .filter(type => type.enabled)
-      .map(type => ({
-        key: type.key,
-        label: type.name,
-        color: type.color
-      }));
+    // ✨ IMPORTANT: Map event types to actual pricing keys
+    // REGULAR events use weekday/weekend pricing based on date
+    // Other event types use their lowercase key
+    const pricingKeys = [
+      { key: 'weekday', label: 'Doordeweeks (REGULAR zo-do)', color: '#F59E0B', eventType: 'REGULAR' },
+      { key: 'weekend', label: 'Weekend (REGULAR vr-za)', color: '#F59E0B', eventType: 'REGULAR' },
+      { key: 'matinee', label: 'Matinee', color: '#3B82F6', eventType: 'MATINEE' },
+      { key: 'care_heroes', label: 'Zorgzame Helden', color: '#10B981', eventType: 'CARE_HEROES' }
+    ];
 
-    // Ensure all event types have pricing entries
+    // Ensure all pricing keys have entries
     const ensurePricingEntries = () => {
       const updatedPricing = { ...editingPricing };
       
-      dayTypes.forEach(dayType => {
-        if (!updatedPricing.byDayType[dayType.key]) {
-          updatedPricing.byDayType[dayType.key] = {
+      pricingKeys.forEach(pricingKey => {
+        if (!updatedPricing.byDayType[pricingKey.key]) {
+          updatedPricing.byDayType[pricingKey.key] = {
             BWF: 0,
             BWFM: 0
           };
@@ -866,7 +867,15 @@ export const PricingConfigManager: React.FC = () => {
           </button>
         </div>
 
-        {dayTypes.length === 0 ? (
+        {/* Info banner */}
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+          <p className="text-sm text-blue-300">
+            ℹ️ <strong>Let op:</strong> REGULAR events gebruiken automatisch de "Doordeweeks" prijzen (zo-do) of "Weekend" prijzen (vr-za) op basis van de datum. 
+            MATINEE en Zorgzame Helden events hebben hun eigen prijzen.
+          </p>
+        </div>
+
+        {pricingKeys.length === 0 ? (
           <div className="bg-neutral-800/50 rounded-lg p-8 text-center">
             <Calendar className="w-12 h-12 text-neutral-600 mx-auto mb-3" />
             <p className="text-neutral-400">
@@ -879,7 +888,7 @@ export const PricingConfigManager: React.FC = () => {
               <thead className="bg-neutral-900/50">
                 <tr>
                   <th className="px-4 py-3 text-left text-sm font-medium text-neutral-300">
-                    Event Type
+                    Prijstype
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-neutral-300">
                     BWF (Standaard)
@@ -890,18 +899,18 @@ export const PricingConfigManager: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-700">
-                {dayTypes.map((dayType) => {
-                  const pricing = editingPricing.byDayType[dayType.key] || { BWF: 0, BWFM: 0 };
+                {pricingKeys.map((pricingKey) => {
+                  const pricing = editingPricing.byDayType[pricingKey.key] || { BWF: 0, BWFM: 0 };
                   
                   return (
-                    <tr key={dayType.key} className="hover:bg-neutral-700/30">
+                    <tr key={pricingKey.key} className="hover:bg-neutral-700/30">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div
                             className="w-3 h-3 rounded"
-                            style={{ backgroundColor: dayType.color }}
+                            style={{ backgroundColor: pricingKey.color }}
                           />
-                          <span className="text-white font-medium">{dayType.label}</span>
+                          <span className="text-white font-medium">{pricingKey.label}</span>
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -910,7 +919,7 @@ export const PricingConfigManager: React.FC = () => {
                           <input
                             type="number"
                             value={pricing.BWF}
-                            onChange={(e) => updatePrice(dayType.key, 'BWF', parseFloat(e.target.value) || 0)}
+                            onChange={(e) => updatePrice(pricingKey.key, 'BWF', parseFloat(e.target.value) || 0)}
                             className="w-24 px-3 py-1.5 bg-neutral-700 border border-neutral-600 rounded-lg text-white"
                             step="0.50"
                             min="0"
@@ -924,7 +933,7 @@ export const PricingConfigManager: React.FC = () => {
                           <input
                             type="number"
                             value={pricing.BWFM}
-                            onChange={(e) => updatePrice(dayType.key, 'BWFM', parseFloat(e.target.value) || 0)}
+                            onChange={(e) => updatePrice(pricingKey.key, 'BWFM', parseFloat(e.target.value) || 0)}
                             className="w-24 px-3 py-1.5 bg-neutral-700 border border-neutral-600 rounded-lg text-white"
                             step="0.50"
                             min="0"

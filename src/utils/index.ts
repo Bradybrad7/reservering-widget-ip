@@ -51,6 +51,40 @@ export function getText(key: string, defaultText?: string): string {
 }
 
 /**
+ * Get event type name - supports both default and custom event types
+ * @param eventType - The event type key (e.g., 'REGULAR', 'CUSTOM_1761217338750')
+ * @returns The display name for the event type
+ */
+export function getEventTypeName(eventType: EventType): string {
+  // First try to get from eventTypesConfig (supports custom types)
+  const eventTypesConfig = localStorageService.getEventTypesConfig();
+  if (eventTypesConfig) {
+    const config = eventTypesConfig.types.find(t => t.key === eventType);
+    if (config) {
+      return config.name;
+    }
+  }
+  
+  // Fallback to nl.eventTypes for default types
+  const nlName = (nl.eventTypes as any)[eventType];
+  if (nlName) {
+    return nlName;
+  }
+  
+  // Last resort: convert key to readable format
+  // CUSTOM_1761217338750 → Custom
+  if (eventType.startsWith('CUSTOM_')) {
+    return 'Custom Event';
+  }
+  
+  // Convert kebab-case or snake_case to Title Case
+  return eventType
+    .split(/[-_]/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+/**
  * Get all available text keys from nl object for customization UI
  */
 export function getAllTextKeys(): Array<{ key: string; value: string; category: string }> {

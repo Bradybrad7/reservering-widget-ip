@@ -16,7 +16,7 @@ import {
 import type { Event, EventType, Arrangement } from '../../types';
 import { useAdminStore } from '../../store/adminStore';
 import { useWaitlistStore } from '../../store/waitlistStore';
-import { formatDate, formatTime, cn } from '../../utils';
+import { formatDate, formatTime, cn, getEventTypeName } from '../../utils';
 import { nl, eventTypeConfig } from '../../config/defaults';
 import { BulkEventModal } from './BulkEventModal';
 import apiService from '../../services/apiService';
@@ -425,7 +425,7 @@ export const EventManager: React.FC = () => {
                         event.type === 'REQUEST' && 'bg-yellow-100 text-yellow-800',
                         event.type === 'UNAVAILABLE' && 'bg-red-100 text-red-800'
                       )}>
-                        {nl.eventTypes[event.type]}
+                        {getEventTypeName(event.type)}
                       </span>
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap">

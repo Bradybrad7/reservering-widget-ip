@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Package, Wine, PartyPopper, Check, Info } from 'lucide-react';
 import type { Arrangement } from '../types';
 import { useReservationStore } from '../store/reservationStore';
+import { useConfigStore } from '../store/configStore';
 import { getArrangementPrice } from '../services/priceService';
 import Button from './ui/Button';
 import { cn } from '../utils';
@@ -46,9 +47,41 @@ export const PackageStep: React.FC = () => {
     goToPreviousStep
   } = useReservationStore();
 
+  // ✨ Load latest pricing to ensure we show updated prices
+  const { loadConfig, pricing } = useConfigStore();
+
   const [selectedArrangement, setSelectedArrangement] = useState<Arrangement>(
     formData.arrangement || 'BWF'
   );
+  
+  // ✨ Track pricing version to force re-renders when prices change
+  const [pricingVersion, setPricingVersion] = useState(0);
+
+  // ✨ Reload config when component mounts to get latest prices
+  useEffect(() => {
+    loadConfig().then(() => {
+      setPricingVersion(v => v + 1);
+    });
+  }, [loadConfig]);
+
+  // ✨ Update pricing version when pricing changes
+  useEffect(() => {
+    if (pricing) {
+      setPricingVersion(v => v + 1);
+    }
+  }, [pricing]);
+
+  // ✨ Poll for pricing updates every 30 seconds to catch admin changes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('🔄 PackageStep - Checking for pricing updates...');
+      loadConfig().then(() => {
+        console.log('✅ PackageStep - Pricing refreshed');
+      });
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [loadConfig]);
 
   const preDrinkData = formData.preDrink || { enabled: false, quantity: 0 };
   const afterPartyData = formData.afterParty || { enabled: false, quantity: 0 };
@@ -93,7 +126,18 @@ export const PackageStep: React.FC = () => {
 
   const getPrice = (arrangement: Arrangement): number => {
     if (!selectedEvent) return 0;
-    return getArrangementPrice(selectedEvent, arrangement);
+    // Force recalculation when pricingVersion changes
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    pricingVersion; // Dependency to trigger re-render
+    const price = getArrangementPrice(selectedEvent, arrangement);
+    console.log(`💰 PackageStep - Getting price for ${arrangement}:`, {
+      eventId: selectedEvent.id,
+      eventType: selectedEvent.type,
+      arrangement,
+      price,
+      pricingVersion
+    });
+    return price;
   };
 
   const handleArrangementSelect = (arrangement: Arrangement) => {

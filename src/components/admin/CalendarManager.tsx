@@ -4,6 +4,7 @@ import type { AdminEvent, EventType, Reservation } from '../../types';
 import { apiService } from '../../services/apiService';
 import { useWaitlistStore } from '../../store/waitlistStore';
 import { nl } from '../../config/defaults';
+import { getEventTypeName } from '../../utils';
 
 interface CalendarDay {
   date: string;
@@ -375,7 +376,7 @@ export const CalendarManager: React.FC = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <span className="text-lg font-bold text-white">
-                          {nl.eventTypes[event.type]}
+                          {getEventTypeName(event.type)}
                         </span>
                         <span className={`
                           px-3 py-1 rounded-full text-xs font-semibold

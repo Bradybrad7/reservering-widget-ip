@@ -16,7 +16,8 @@ import {
 import { nl as nlLocale } from 'date-fns/locale';
 import type { Event, EventType, Arrangement } from '../../types';
 import apiService from '../../services/apiService';
-import { useAdminStore } from '../../store/adminStore';
+import { useConfigStore } from '../../store/configStore';
+import { useEventsStore } from '../../store/eventsStore';
 import { cn } from '../../utils';
 
 interface BulkEventModalProps {
@@ -26,7 +27,8 @@ interface BulkEventModalProps {
 }
 
 export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose, onSuccess }) => {
-  const { eventTypesConfig, loadConfig, events: existingEvents, loadEvents, shows, loadShows } = useAdminStore();
+  const { eventTypesConfig, loadConfig } = useConfigStore();
+  const { events: existingEvents, loadEvents, shows, loadShows } = useEventsStore();
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
@@ -48,7 +50,7 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
   
   // Set default show when shows are loaded
   useEffect(() => {
-    if (shows.length > 0 && !selectedShowId) {
+    if (shows && shows.length > 0 && !selectedShowId) {
       const defaultShow = shows.find(s => s.isActive) || shows[0];
       if (defaultShow) {
         setSelectedShowId(defaultShow.id);
@@ -57,7 +59,7 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
   }, [shows, selectedShowId]);
 
   // Get enabled event types
-  const enabledEventTypes = eventTypesConfig?.types.filter(t => t.enabled) || [];
+  const enabledEventTypes = eventTypesConfig?.types?.filter(t => t.enabled) || [];
 
   // Auto-update times when event type changes
   useEffect(() => {
@@ -72,6 +74,12 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
   // Group existing events by date for visualization
   const eventsByDate = useMemo(() => {
     const map = new Map<string, Event[]>();
+    
+    // 🔥 FIX: Guard against undefined existingEvents
+    if (!existingEvents || !Array.isArray(existingEvents)) {
+      return map;
+    }
+    
     existingEvents.forEach(event => {
       const dateKey = format(new Date(event.date), 'yyyy-MM-dd');
       const events = map.get(dateKey) || [];

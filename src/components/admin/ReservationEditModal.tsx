@@ -7,16 +7,17 @@ import {
   Wine,
   PartyPopper,
   AlertTriangle,
+  AlertCircle,
   MapPin,
   FileText,
   User,
   Mail,
   Tag,
   DollarSign,
-  CreditCard,
   Calendar,
   FileText as Invoice,
-  Send
+  Send,
+  XCircle
 } from 'lucide-react';
 import type { Reservation, MerchandiseItem, Event, Arrangement, PaymentStatus } from '../../types';
 import { formatCurrency, formatDate, cn } from '../../utils';
@@ -24,6 +25,7 @@ import { nl } from '../../config/defaults';
 import { priceService } from '../../services/priceService';
 import { apiService } from '../../services/apiService';
 import { useReservationsStore } from '../../store/reservationsStore';
+import { useToast } from '../Toast';
 
 interface ReservationEditModalProps {
   reservation: Reservation;
@@ -40,6 +42,7 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
   onClose,
   onSave
 }) => {
+  const toast = useToast();
   const [allEvents, setAllEvents] = useState<Event[]>([]);
   const [selectedEventId, setSelectedEventId] = useState(reservation.eventId);
   const [selectedEvent, setSelectedEvent] = useState<Event | undefined>(event);
@@ -122,6 +125,14 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
   const [priceCalculation, setPriceCalculation] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [capacityWarning, setCapacityWarning] = useState<string | null>(null);
+  
+  // 🆕 Option extension state
+  const [extendDays, setExtendDays] = useState(7);
+  const [showOptionExtension, setShowOptionExtension] = useState(false);
+  
+  // 🆕 Cancel reservation state
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
 
   // Load all events on mount
   useEffect(() => {
@@ -143,6 +154,12 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
   // Recalculate price when form data OR selected event changes
   useEffect(() => {
     if (!selectedEvent) return;
+    
+    // 🔥 IMPORTANT: Skip calculation for options (no arrangement yet)
+    if (reservation.status === 'option' && !formData.arrangement) {
+      setPriceCalculation(null);
+      return;
+    }
 
     const calculation = priceService.calculatePrice(selectedEvent, {
       numberOfPersons: formData.numberOfPersons,
@@ -156,7 +173,16 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
 
     // Check capacity
     checkCapacity();
-  }, [formData, selectedEvent]);
+  }, [
+    formData.numberOfPersons,
+    formData.arrangement,
+    formData.preDrink.enabled,
+    formData.preDrink.quantity,
+    formData.afterParty.enabled,
+    formData.afterParty.quantity,
+    formData.merchandise,
+    selectedEvent?.id
+  ]);
 
   const checkCapacity = async () => {
     if (!selectedEvent) return;
@@ -216,18 +242,52 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
     return item ? item.quantity : 0;
   };
 
+  const handleCancel = async () => {
+    if (!cancelReason.trim()) {
+      toast.warning('Reden verplicht', 'Geef een reden op voor de annulering');
+      return;
+    }
+
+    if (!confirm('Weet je zeker dat je deze reservering wilt annuleren?\n\nDit kan niet ongedaan worden gemaakt.')) {
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const cancelReservation = useReservationsStore.getState().cancelReservation;
+      const success = await cancelReservation(reservation.id, cancelReason);
+
+      if (success) {
+        toast.success(
+          'Reservering geannuleerd',
+          'Capaciteit is hersteld en eventuele wachtlijst is genotificeerd'
+        );
+        onSave(); // Refresh the list
+        onClose();
+      } else {
+        toast.error('Fout bij annuleren', 'Kon reservering niet annuleren');
+      }
+    } catch (error) {
+      console.error('Error cancelling reservation:', error);
+      toast.error('Fout opgetreden', 'Er ging iets mis bij het annuleren van de reservering');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSave = async () => {
     if (capacityWarning && !confirm(capacityWarning + '\n\nWil je toch doorgaan?')) {
       return;
     }
 
     if (formData.numberOfPersons < 1) {
-      alert('Aantal personen moet minimaal 1 zijn');
+      toast.warning('Ongeldig aantal', 'Aantal personen moet minimaal 1 zijn');
       return;
     }
 
     if (!formData.contactPerson.trim() || !formData.email.trim()) {
-      alert('Contactpersoon en email zijn verplicht');
+      toast.warning('Verplichte velden', 'Contactpersoon en email zijn verplicht');
       return;
     }
 
@@ -253,15 +313,15 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
       const success = await updateReservation(reservation.id, updateData, reservation);
 
       if (success) {
-        alert('✅ Reservering succesvol bijgewerkt!');
+        toast.success('Wijzigingen opgeslagen', 'Reservering succesvol bijgewerkt');
         onSave();
         onClose();
       } else {
-        alert('❌ Fout bij opslaan: Kon reservering niet bijwerken');
+        toast.error('Opslaan mislukt', 'Kon reservering niet bijwerken');
       }
     } catch (error) {
       console.error('Failed to update reservation:', error);
-      alert('❌ Fout bij opslaan van reservering');
+      toast.error('Fout opgetreden', 'Er ging iets mis bij het opslaan');
     } finally {
       setIsSaving(false);
     }
@@ -357,7 +417,9 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
 
           {/* Arrangement */}
           <div className="card-theatre p-4">
-            <label className="block text-sm font-semibold text-white mb-3">Arrangement</label>
+            <label className="block text-sm font-semibold text-white mb-3">
+              Arrangement {reservation.status === 'option' && <span className="text-orange-400">(optioneel voor opties)</span>}
+            </label>
             <div className="grid grid-cols-2 gap-3">
               {(['BWF', 'BWFM'] as Arrangement[]).map((arr) => (
                 <button
@@ -374,6 +436,11 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
                 </button>
               ))}
             </div>
+            {reservation.status === 'option' && !formData.arrangement && (
+              <p className="text-xs text-orange-300 mt-2">
+                💡 Voor een optie is arrangement niet verplicht. Voeg toe wanneer klant bevestigt.
+              </p>
+            )}
           </div>
 
           {/* Add-ons */}
@@ -959,6 +1026,185 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
             </div>
           </div>
 
+          {/* 🆕 OPTION MANAGEMENT SECTION (only show for options) */}
+          {reservation.status === 'option' && reservation.optionExpiresAt && (
+            <div className="card-theatre p-4 border-2 border-orange-500/30 bg-orange-500/5">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <AlertCircle className="w-6 h-6 text-orange-400" />
+                ⏰ Optie Beheer
+              </h3>
+              
+              {/* Current Expiry Info */}
+              <div className="bg-dark-800/50 rounded-lg p-4 mb-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-neutral-400">Geplaatst op:</span>
+                    <p className="text-white font-medium mt-1">
+                      {reservation.optionPlacedAt && new Date(reservation.optionPlacedAt).toLocaleDateString('nl-NL', {
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-neutral-400">Verloopt op:</span>
+                    <p className={cn(
+                      'font-medium mt-1',
+                      new Date(reservation.optionExpiresAt) < new Date()
+                        ? 'text-red-400'
+                        : new Date(reservation.optionExpiresAt) < new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
+                        ? 'text-orange-400'
+                        : 'text-green-400'
+                    )}>
+                      {new Date(reservation.optionExpiresAt).toLocaleDateString('nl-NL', {
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Expiry Status */}
+                <div className="mt-3 p-2 bg-black/30 rounded text-center">
+                  {(() => {
+                    const now = new Date();
+                    const expiryDate = new Date(reservation.optionExpiresAt);
+                    const diffTime = expiryDate.getTime() - now.getTime();
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    
+                    if (diffDays < 0) {
+                      return <span className="text-red-300 font-semibold">🔴 VERLOPEN ({Math.abs(diffDays)} {Math.abs(diffDays) === 1 ? 'dag' : 'dagen'} geleden)</span>;
+                    } else if (diffDays === 0) {
+                      return <span className="text-red-300 font-semibold">⚠️ VERLOOPT VANDAAG</span>;
+                    } else if (diffDays === 1) {
+                      return <span className="text-orange-300 font-semibold">⚠️ VERLOOPT MORGEN</span>;
+                    } else if (diffDays <= 2) {
+                      return <span className="text-orange-300 font-semibold">⚠️ Verloopt over {diffDays} dagen</span>;
+                    } else {
+                      return <span className="text-green-300 font-semibold">✓ Nog {diffDays} {diffDays === 1 ? 'dag' : 'dagen'} geldig</span>;
+                    }
+                  })()}
+                </div>
+              </div>
+
+              {/* Extend Option */}
+              {!showOptionExtension ? (
+                <button
+                  type="button"
+                  onClick={() => setShowOptionExtension(true)}
+                  className="w-full px-4 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium flex items-center justify-center gap-2"
+                >
+                  <Calendar className="w-5 h-5" />
+                  Vervaldatum Verlengen
+                </button>
+              ) : (
+                <div className="space-y-3">
+                  <div className="bg-dark-800/50 rounded-lg p-4">
+                    <label className="block text-sm text-neutral-300 mb-2">
+                      Verlengen met aantal dagen:
+                    </label>
+                    <div className="grid grid-cols-4 gap-2 mb-3">
+                      {[3, 7, 14, 30].map(days => (
+                        <button
+                          key={days}
+                          type="button"
+                          onClick={() => setExtendDays(days)}
+                          className={cn(
+                            'px-3 py-2 rounded-lg text-sm font-medium transition-all',
+                            extendDays === days
+                              ? 'bg-orange-500 text-white'
+                              : 'bg-neutral-600 text-neutral-300 hover:bg-neutral-500'
+                          )}
+                        >
+                          +{days}d
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="number"
+                      min="1"
+                      max="90"
+                      value={extendDays}
+                      onChange={(e) => setExtendDays(parseInt(e.target.value) || 7)}
+                      className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-orange-500"
+                      placeholder="Custom aantal dagen"
+                    />
+                    
+                    <div className="mt-3 p-3 bg-black/30 rounded text-sm text-center">
+                      <p className="text-neutral-400">Nieuwe vervaldatum:</p>
+                      <p className="text-orange-300 font-semibold mt-1">
+                        {new Date(new Date(reservation.optionExpiresAt).getTime() + extendDays * 24 * 60 * 60 * 1000).toLocaleDateString('nl-NL', {
+                          weekday: 'long',
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric'
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const { extendOptionExpiryDate } = await import('../../utils/optionHelpers');
+                          const newExpiryDate = extendOptionExpiryDate(
+                            new Date(reservation.optionExpiresAt!),
+                            extendDays
+                          );
+                          
+                          // Update reservation with new expiry date
+                          const response = await apiService.updateReservation(reservation.id, {
+                            optionExpiresAt: newExpiryDate
+                          });
+                          
+                          if (response.success) {
+                            alert(`✅ Vervaldatum verlengd met ${extendDays} dagen!`);
+                            setShowOptionExtension(false);
+                            onSave();
+                          }
+                        } catch (error) {
+                          console.error('Failed to extend option:', error);
+                          alert('❌ Fout bij verlengen van optie');
+                        }
+                      }}
+                      className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
+                    >
+                      ✓ Bevestig Verlenging
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowOptionExtension(false);
+                        setExtendDays(7);
+                      }}
+                      className="px-4 py-2 bg-neutral-600 text-white rounded-lg hover:bg-neutral-500 transition-colors"
+                    >
+                      Annuleren
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              {/* Option Notes */}
+              {reservation.optionNotes && (
+                <div className="mt-4 p-3 bg-dark-800/50 rounded-lg border border-orange-500/30">
+                  <p className="text-xs text-neutral-400 mb-1">Optie notities:</p>
+                  <p className="text-white text-sm">{reservation.optionNotes}</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Comments */}
           <div className="card-theatre p-4">
             <label className="block text-sm font-semibold text-white mb-3">Opmerkingen van klant</label>
@@ -1022,32 +1268,100 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="bg-neutral-900 p-6 border-t-2 border-gold-500/30 flex justify-end gap-4 sticky bottom-0">
-          <button
-            onClick={onClose}
-            disabled={isSaving}
-            className="px-6 py-3 bg-neutral-700 text-white rounded-lg hover:bg-neutral-600 transition-colors disabled:opacity-50"
-          >
-            Annuleren
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="px-6 py-3 bg-gradient-to-r from-gold-500 to-gold-600 text-white rounded-lg hover:from-gold-600 hover:to-gold-700 transition-all flex items-center gap-2 font-semibold shadow-lg disabled:opacity-50"
-          >
-            {isSaving ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Opslaan...
-              </>
-            ) : (
-              <>
-                <Save className="w-5 h-5" />
-                Wijzigingen Opslaan
-              </>
+        <div className="bg-neutral-900 p-6 border-t-2 border-gold-500/30 flex justify-between gap-4 sticky bottom-0">
+          <div className="flex gap-3">
+            {reservation.status !== 'cancelled' && reservation.status !== 'rejected' && (
+              <button
+                onClick={() => setShowCancelDialog(true)}
+                disabled={isSaving}
+                className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 font-semibold disabled:opacity-50"
+              >
+                <XCircle className="w-5 h-5" />
+                Annuleren Reservering
+              </button>
             )}
-          </button>
+          </div>
+          
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              disabled={isSaving}
+              className="px-6 py-3 bg-neutral-700 text-white rounded-lg hover:bg-neutral-600 transition-colors disabled:opacity-50"
+            >
+              Sluiten
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="px-6 py-3 bg-gradient-to-r from-gold-500 to-gold-600 text-white rounded-lg hover:from-gold-600 hover:to-gold-700 transition-all flex items-center gap-2 font-semibold shadow-lg disabled:opacity-50"
+            >
+              {isSaving ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Opslaan...
+                </>
+              ) : (
+                <>
+                  <Save className="w-5 h-5" />
+                  Wijzigingen Opslaan
+                </>
+              )}
+            </button>
+          </div>
         </div>
+
+        {/* Cancel Dialog */}
+        {showCancelDialog && (
+          <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-50">
+            <div className="bg-neutral-800 rounded-xl p-6 max-w-md w-full mx-4 border-2 border-red-500/50">
+              <div className="flex items-center gap-3 mb-4">
+                <AlertTriangle className="w-6 h-6 text-red-400" />
+                <h3 className="text-xl font-bold text-white">Reservering Annuleren</h3>
+              </div>
+              
+              <p className="text-neutral-300 mb-4">
+                Weet je zeker dat je deze reservering wilt annuleren? Dit kan niet ongedaan worden gemaakt.
+              </p>
+              
+              <p className="text-sm text-neutral-400 mb-4">
+                💡 De capaciteit wordt automatisch hersteld en eventuele wachtlijst entries worden genotificeerd.
+              </p>
+              
+              <div className="mb-6">
+                <label className="block text-sm text-neutral-300 mb-2">
+                  Annuleringsreden *
+                </label>
+                <textarea
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="Bijv: Gast heeft afgezegd, Dubbele boeking, Evenement geannuleerd..."
+                  className="w-full px-4 py-3 bg-neutral-900 border border-neutral-600 rounded-lg text-white placeholder:text-neutral-500 focus:border-red-500 focus:outline-none transition-colors"
+                  rows={3}
+                />
+              </div>
+              
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => {
+                    setShowCancelDialog(false);
+                    setCancelReason('');
+                  }}
+                  className="px-4 py-2 bg-neutral-700 text-white rounded-lg hover:bg-neutral-600 transition-colors"
+                >
+                  Terug
+                </button>
+                <button
+                  onClick={handleCancel}
+                  disabled={!cancelReason.trim()}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <XCircle className="w-4 h-4" />
+                  Bevestig Annulering
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

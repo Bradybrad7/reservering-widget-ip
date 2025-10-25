@@ -4,12 +4,33 @@
 import type { Reservation } from '../types';
 
 /**
- * Bereken de vervaldatum voor een optie (7 dagen vanaf plaatsingsdatum)
+ * Bereken de vervaldatum voor een optie (standaard 7 dagen vanaf plaatsingsdatum)
+ * @param placedAt - Datum waarop optie is geplaatst
+ * @param days - Aantal dagen geldigheid (standaard 7)
  */
-export function calculateOptionExpiryDate(placedAt: Date): Date {
+export function calculateOptionExpiryDate(placedAt: Date, days: number = 7): Date {
   const expiryDate = new Date(placedAt);
-  expiryDate.setDate(expiryDate.getDate() + 7);
+  expiryDate.setDate(expiryDate.getDate() + days);
   return expiryDate;
+}
+
+/**
+ * Verleng de vervaldatum van een bestaande optie
+ * @param currentExpiryDate - Huidige vervaldatum
+ * @param additionalDays - Aantal extra dagen toevoegen
+ */
+export function extendOptionExpiryDate(currentExpiryDate: Date, additionalDays: number): Date {
+  const newExpiryDate = new Date(currentExpiryDate);
+  newExpiryDate.setDate(newExpiryDate.getDate() + additionalDays);
+  return newExpiryDate;
+}
+
+/**
+ * Stel een nieuwe vervaldatum in (overschrijft bestaande datum)
+ * @param newExpiryDate - Nieuwe vervaldatum
+ */
+export function setCustomOptionExpiryDate(newExpiryDate: Date): Date {
+  return new Date(newExpiryDate);
 }
 
 /**

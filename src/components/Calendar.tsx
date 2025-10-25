@@ -13,7 +13,8 @@ import {
   formatTime,
   cn,
   getEventTypeColor,
-  hexToRgba
+  hexToRgba,
+  getEventTypeName
 } from '../utils';
 import { nl } from '../config/defaults';
 
@@ -245,7 +246,7 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
               disabled={!event || !event.isActive || availability?.bookingStatus === 'closed'}
               aria-label={
                 event 
-                  ? `${formatDate(date)} - ${nl.eventTypes[event.type]} - ${availability?.isAvailable ? 'Beschikbaar' : 'Niet beschikbaar'}`
+                  ? `${formatDate(date)} - ${getEventTypeName(event.type)} - ${availability?.isAvailable ? 'Beschikbaar' : 'Niet beschikbaar'}`
                   : formatDate(date)
               }
             >
@@ -298,7 +299,7 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
                           })}
                           style={!isSelected && eventColor ? { color: eventColor } : undefined}
                         >
-                          {nl.eventTypes[event.type]}
+                          {getEventTypeName(event.type)}
                         </div>
                       </div>
                     );

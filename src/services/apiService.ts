@@ -22,7 +22,9 @@ import type {
   VoucherValidationResult,
   VoucherApplicationResult,
   VoucherStatusResponse,
-  VoucherUsage
+  VoucherUsage,
+  PromotionCode,
+  Voucher
 } from '../types';
 import { localStorageService } from './localStorageService';
 import { checkReservationLimit } from './rateLimiter';
@@ -100,6 +102,36 @@ class MockDatabase {
       averageGroupSize: totalReservations > 0 ? totalPersons / totalReservations : 0,
       popularArrangement
     };
+  }
+
+  // ===== PROMOTIONS METHODS =====
+  getPromotions(): PromotionCode[] {
+    return localStorageService.get<PromotionCode[]>('promotionCodes') || [];
+  }
+
+  addPromotion(promotion: PromotionCode): void {
+    const promotions = this.getPromotions();
+    promotions.push(promotion);
+    localStorageService.set('promotionCodes', promotions);
+  }
+
+  updatePromotion(id: string, updates: Partial<PromotionCode>): PromotionCode | null {
+    const promotions = this.getPromotions();
+    const index = promotions.findIndex(p => p.id === id);
+    if (index === -1) return null;
+    
+    promotions[index] = { ...promotions[index], ...updates };
+    localStorageService.set('promotionCodes', promotions);
+    return promotions[index];
+  }
+
+  deletePromotion(id: string): boolean {
+    const promotions = this.getPromotions();
+    const filtered = promotions.filter(p => p.id !== id);
+    if (filtered.length === promotions.length) return false;
+    
+    localStorageService.set('promotionCodes', filtered);
+    return true;
   }
 }
 
@@ -886,6 +918,75 @@ export const apiService = {
     }
   },
 
+  // ✨ NEW: Cancel reservation (with capacity restoration)
+  async cancelReservation(reservationId: string, reason?: string): Promise<ApiResponse<Reservation>> {
+    await delay(300);
+    
+    try {
+      const reservations = mockDB.getReservations();
+      const reservation = reservations.find(r => r.id === reservationId);
+      
+      if (!reservation) {
+        return {
+          success: false,
+          error: 'Reservation not found'
+        };
+      }
+
+      const wasConfirmedOrOption = reservation.status === 'confirmed' || 
+                                     reservation.status === 'checked-in' ||
+                                     reservation.status === 'option';
+
+      // Update reservation status to cancelled
+      const updated = localStorageService.updateReservation(reservationId, {
+        status: 'cancelled',
+        notes: reason ? `Geannuleerd: ${reason}` : 'Geannuleerd',
+        updatedAt: new Date()
+      });
+
+      if (!updated) {
+        return {
+          success: false,
+          error: 'Failed to update reservation'
+        };
+      }
+
+      // ✨ RESTORE EVENT CAPACITY if reservation was confirmed/option/checked-in
+      // Options count toward capacity, so we need to restore when cancelled
+      if (wasConfirmedOrOption && reservation.eventId) {
+        const events = mockDB.getEvents();
+        const event = events.find(e => e.id === reservation.eventId);
+        
+        if (event) {
+          const currentRemaining = event.remainingCapacity ?? event.capacity;
+          const newRemaining = Math.min(
+            event.capacity, 
+            currentRemaining + reservation.numberOfPersons
+          );
+          
+          mockDB.updateEvent(event.id, {
+            remainingCapacity: newRemaining
+          });
+          
+          console.log(`✅ Capacity restored for event ${event.id}: ${currentRemaining} -> ${newRemaining} (freed ${reservation.numberOfPersons} spots)`);
+        }
+      }
+
+      console.log(`❌ Reservation ${reservationId} cancelled${reason ? `: ${reason}` : ''}`);
+
+      return {
+        success: true,
+        data: { ...reservation, status: 'cancelled' as const },
+        message: 'Reservation cancelled successfully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to cancel reservation'
+      };
+    }
+  },
+
   // Configuration management
   async getConfig(): Promise<ApiResponse<GlobalConfig>> {
     await delay(200);
@@ -1292,155 +1393,67 @@ export const apiService = {
     }
   },
 
-  // Promotions management
+  // ===== PROMOTIONS MANAGEMENT =====
   async getPromotions(): Promise<ApiResponse<PromotionCode[]>> {
     await delay(200);
-    
     try {
-      const promotions = localStorageService.getPromotions();
-      return {
-        success: true,
-        data: promotions
-      };
+      const promotions = mockDB.getPromotions();
+      return { success: true, data: promotions };
     } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to fetch promotions'
-      };
+      console.error('[API] Get promotions error:', error);
+      return { success: false, error: 'Failed to load promotions' };
     }
   },
 
-  async createPromotion(promo: Omit<PromotionCode, 'id' | 'createdAt'>): Promise<ApiResponse<PromotionCode>> {
-    await delay(300);
-    
+  async createPromotion(data: Omit<PromotionCode, 'id' | 'usedCount'>): Promise<ApiResponse<PromotionCode>> {
+    await delay(200);
     try {
       const newPromo: PromotionCode = {
-        ...promo,
-        id: `promo-${Date.now()}`,
-        createdAt: new Date()
+        ...data,
+        id: `promo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        usedCount: 0
       };
-      
-      const promotions = localStorageService.getPromotions();
-      promotions.push(newPromo);
-      localStorageService.savePromotions(promotions);
-      
-      return {
-        success: true,
-        data: newPromo,
-        message: 'Promotion created successfully'
-      };
+      mockDB.addPromotion(newPromo);
+      return { success: true, data: newPromo };
     } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to create promotion'
-      };
+      console.error('[API] Create promotion error:', error);
+      return { success: false, error: 'Failed to create promotion' };
     }
   },
 
-  async updatePromotion(promoId: string, updates: Partial<PromotionCode>): Promise<ApiResponse<PromotionCode>> {
-    await delay(300);
-    
-    try {
-      const promotions = localStorageService.getPromotions();
-      const index = promotions.findIndex(p => p.id === promoId);
-      
-      if (index === -1) {
-        return {
-          success: false,
-          error: 'Promotion not found'
-        };
-      }
-      
-      promotions[index] = { ...promotions[index], ...updates };
-      localStorageService.savePromotions(promotions);
-      
-      return {
-        success: true,
-        data: promotions[index],
-        message: 'Promotion updated successfully'
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to update promotion'
-      };
-    }
-  },
-
-  async deletePromotion(promoId: string): Promise<ApiResponse<void>> {
+  async updatePromotion(id: string, updates: Partial<PromotionCode>): Promise<ApiResponse<PromotionCode>> {
     await delay(200);
-    
     try {
-      const promotions = localStorageService.getPromotions();
-      const filtered = promotions.filter(p => p.id !== promoId);
-      
-      if (promotions.length === filtered.length) {
-        return {
-          success: false,
-          error: 'Promotion not found'
-        };
+      const updated = mockDB.updatePromotion(id, updates);
+      if (updated) {
+        return { success: true, data: updated };
       }
-      
-      localStorageService.savePromotions(filtered);
-      
-      return {
-        success: true,
-        message: 'Promotion deleted successfully'
-      };
+      return { success: false, error: 'Promotion not found' };
     } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to delete promotion'
-      };
+      console.error('[API] Update promotion error:', error);
+      return { success: false, error: 'Failed to update promotion' };
     }
   },
 
-  // Email Reminder Configuration
-  async getEmailReminderConfig(): Promise<ApiResponse<EmailReminderConfig>> {
+  async deletePromotion(id: string): Promise<ApiResponse<void>> {
     await delay(200);
-    
     try {
-      let config = localStorageService.getEmailReminderConfig();
-      
-      // Return default if not set
-      if (!config) {
-        config = {
-          enabled: false,
-          daysBeforeEvent: 3,
-          emailTemplate: 'Beste {name},\n\nDit is een herinnering voor uw reservering op {date}.\n\nMet vriendelijke groet,\nHet Theater Team'
-        };
+      const success = mockDB.deletePromotion(id);
+      if (success) {
+        return { success: true };
       }
-      
-      return {
-        success: true,
-        data: config
-      };
+      return { success: false, error: 'Promotion not found' };
     } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to fetch email reminder config'
-      };
+      console.error('[API] Delete promotion error:', error);
+      return { success: false, error: 'Failed to delete promotion' };
     }
   },
 
-  async updateEmailReminderConfig(config: EmailReminderConfig): Promise<ApiResponse<EmailReminderConfig>> {
-    await delay(300);
-    
-    try {
-      localStorageService.saveEmailReminderConfig(config);
-      
-      return {
-        success: true,
-        data: config,
-        message: 'Email reminder configuration updated successfully'
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to update email reminder config'
-      };
-    }
-  },
+  // Email Reminder Configuration (DISABLED - not implemented)
+  // async getEmailReminderConfig(): Promise<ApiResponse<any>> {
+  //   console.warn('Email reminders feature not implemented');
+  //   return { success: true, data: { enabled: false } };
+  // },
 
   // Customer management
   async getCustomers(): Promise<ApiResponse<Array<{

@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import type { Reservation, MerchandiseItem, Event } from '../../types';
 import { apiService } from '../../services/apiService';
-import { formatCurrency, formatDate, formatTime, cn } from '../../utils';
+import { formatCurrency, formatDate, formatTime, cn, getEventTypeName } from '../../utils';
 import { nl } from '../../config/defaults';
 import { ReservationEditModal } from './ReservationEditModal';
 
@@ -283,16 +283,19 @@ export const ReservationsManager: React.FC = () => {
       }
     }
     
-    // Calculate bookings (confirmed + pending)
+    // Calculate bookings - ALLE STATUSSEN TELLEN MEE (pending + confirmed)
     const confirmedBookings = allReservations.filter(r => r.status === 'confirmed');
     const pendingBookings = allReservations.filter(r => r.status === 'pending' && r.id !== reservation.id);
     
     const confirmedTotal = confirmedBookings.reduce((sum, r) => sum + r.numberOfPersons, 0);
     const pendingTotal = pendingBookings.reduce((sum, r) => sum + r.numberOfPersons, 0);
-    const newConfirmedTotal = confirmedTotal + reservation.numberOfPersons;
-    const totalWithAllPending = confirmedTotal + pendingTotal + reservation.numberOfPersons;
     
-    const remainingAfterConfirm = effectiveCapacity - newConfirmedTotal;
+    // 🆕 NIEUWE LOGICA: Pending boekingen tellen AL MEE bij huidige bezetting
+    const currentTotal = confirmedTotal + pendingTotal; // Beide tellen mee!
+    const newTotal = currentTotal + reservation.numberOfPersons; // Na deze bevestiging
+    
+    const currentRemaining = effectiveCapacity - currentTotal;
+    const remainingAfterConfirm = effectiveCapacity - newTotal;
     
     // Build capacity overview message
     let message = `📊 CAPACITEITSOVERZICHT\n\n`;
@@ -309,24 +312,25 @@ export const ReservationsManager: React.FC = () => {
     }
     
     message += `━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `📍 HUIDIGE BEZETTING:\n`;
     message += `✅ Bevestigd: ${confirmedTotal} personen (${confirmedBookings.length} reserv.)\n`;
-    message += `⏳ Pending (overig): ${pendingTotal} personen (${pendingBookings.length} reserv.)\n`;
+    message += `⏳ Pending: ${pendingTotal} personen (${pendingBookings.length} reserv.)\n`;
+    message += `📊 Totaal bezet: ${currentTotal} personen\n`;
+    message += `🟢 Beschikbaar: ${currentRemaining} plaatsen\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━━━━\n`;
     message += `➕ Deze boeking: ${reservation.numberOfPersons} personen\n`;
     message += `━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
     message += `📌 NA BEVESTIGING:\n`;
-    message += `Bevestigde totaal: ${newConfirmedTotal} / ${effectiveCapacity} personen\n`;
+    message += `Totaal bezet: ${newTotal} / ${effectiveCapacity} personen\n`;
     message += `Beschikbaar: ${remainingAfterConfirm} plaatsen\n`;
-    message += `Bezetting: ${Math.round((newConfirmedTotal / effectiveCapacity) * 100)}%\n\n`;
+    message += `Bezetting: ${Math.round((newTotal / effectiveCapacity) * 100)}%\n\n`;
     
     // Check if confirming will exceed capacity
-    if (newConfirmedTotal > effectiveCapacity) {
-      const overCapacity = newConfirmedTotal - effectiveCapacity;
+    if (newTotal > effectiveCapacity) {
+      const overCapacity = newTotal - effectiveCapacity;
       message += `⚠️ WAARSCHUWING: OVERBOEKING!\n`;
       message += `Deze bevestiging overschrijdt de capaciteit met ${overCapacity} personen!\n\n`;
       message += `Weet je zeker dat je wilt doorgaan?`;
-    } else if (totalWithAllPending > effectiveCapacity) {
-      message += `⚠️ Let op: Inclusief alle pending boekingen (${totalWithAllPending} pers.) wordt capaciteit overschreden.\n\n`;
-      message += `Bevestig deze boeking?`;
     } else {
       message += `✅ Voldoende capaciteit beschikbaar.\n\n`;
       message += `Bevestig deze boeking?`;
@@ -340,7 +344,7 @@ export const ReservationsManager: React.FC = () => {
     // Confirm the reservation
     const response = await apiService.confirmReservation(reservation.id);
     if (response.success) {
-      alert(`✅ Reservering bevestigd!\n\n📧 Klant ontvangt een bevestigingsmail.\n\n📊 Nieuwe bezetting: ${newConfirmedTotal} / ${effectiveCapacity} personen`);
+      alert(`✅ Reservering bevestigd!\n\n📧 Klant ontvangt een bevestigingsmail.\n\n📊 Nieuwe bezetting: ${newTotal} / ${effectiveCapacity} personen`);
       await loadReservations();
     } else {
       alert(`❌ Fout bij bevestigen: ${response.error || 'Onbekende fout'}`);
@@ -356,6 +360,8 @@ export const ReservationsManager: React.FC = () => {
     
     if (eventResponse.success && eventResponse.data) {
       const event = eventResponse.data;
+      const reservationsResponse = await apiService.getReservationsByEvent(event.id);
+      const allReservations = reservationsResponse.data || [];
       
       // Check for capacity override
       const overrideKey = `capacity-override-${event.id}`;
@@ -373,10 +379,21 @@ export const ReservationsManager: React.FC = () => {
         }
       }
       
+      // Calculate current bookings
+      const activeBookings = allReservations.filter(r => 
+        (r.status === 'confirmed' || r.status === 'pending') && r.id !== reservation.id
+      );
+      const currentTotal = activeBookings.reduce((sum, r) => sum + r.numberOfPersons, 0);
+      const afterRejection = currentTotal; // Blijft hetzelfde
+      
       capacityInfo = `\n\n📊 CAPACITEIT INFO:\n` +
                     `Effectieve capaciteit: ${effectiveCapacity} personen\n` +
-                    `ℹ️ Pending reserveringen tellen NIET mee bij capaciteit\n` +
-                    `Bij afwijzen blijft de capaciteit onveranderd.`;
+                    `📍 Huidige bezetting: ${currentTotal + reservation.numberOfPersons} personen\n` +
+                    `➖ Deze boeking: ${reservation.numberOfPersons} personen\n` +
+                    `━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                    `📌 NA AFWIJZING:\n` +
+                    `Totaal bezet: ${afterRejection} personen\n` +
+                    `🟢 Vrij: ${effectiveCapacity - afterRejection} plaatsen`;
     }
     
     if (!confirm(
@@ -385,14 +402,15 @@ export const ReservationsManager: React.FC = () => {
       `Personen: ${reservation.numberOfPersons}\n` +
       `Email: ${reservation.email}\n` +
       `${capacityInfo}\n\n` +
-      `❌ De klant ontvangt een afwijzingsmail.`
+      `❌ De klant ontvangt een afwijzingsmail.\n` +
+      `✅ De capaciteit wordt vrijgegeven.`
     )) {
       return;
     }
 
     const response = await apiService.rejectReservation(reservation.id);
     if (response.success) {
-      alert('✅ Reservering afgewezen. Klant ontvangt een afwijzingsmail.');
+      alert('✅ Reservering afgewezen.\n📧 Klant ontvangt een afwijzingsmail.\n🟢 Capaciteit is vrijgegeven.');
       await loadReservations();
     } else {
       alert(`❌ Fout bij afwijzen: ${response.error || 'Onbekende fout'}`);
@@ -540,32 +558,35 @@ export const ReservationsManager: React.FC = () => {
       </div>
 
       {/* Capacity Logic Info Banner */}
-      <div className="card-theatre p-5 bg-gradient-to-r from-blue-500/10 to-blue-600/5 border-2 border-blue-500/30">
+      <div className="card-theatre p-5 bg-gradient-to-r from-green-500/10 to-emerald-600/5 border-2 border-green-500/30">
         <div className="flex items-start gap-4">
-          <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-            <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+            <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
           <div className="flex-1">
-            <h3 className="text-lg font-bold text-blue-400 mb-2">💡 Capaciteit Management - Hoe werkt het?</h3>
+            <h3 className="text-lg font-bold text-green-400 mb-2">✅ Capaciteit Management - Actieve Bescherming</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-neutral-300">
-              <div className="p-3 bg-neutral-800/50 rounded-lg border border-blue-500/20">
-                <p className="font-semibold text-amber-400 mb-1">⏳ Pending (In afwachting)</p>
-                <p className="text-xs">Capaciteit wordt <strong className="text-amber-300">NIET</strong> afgetrokken. Wacht op goedkeuring.</p>
+              <div className="p-3 bg-neutral-800/50 rounded-lg border border-green-500/20">
+                <p className="font-semibold text-green-400 mb-1">📥 Nieuwe Boeking</p>
+                <p className="text-xs">Capaciteit wordt <strong className="text-green-300">DIRECT</strong> gereserveerd bij binnenkomst (pending status).</p>
               </div>
-              <div className="p-3 bg-neutral-800/50 rounded-lg border border-blue-500/20">
-                <p className="font-semibold text-green-400 mb-1">✅ Bevestigen</p>
-                <p className="text-xs">Capaciteit wordt <strong className="text-green-300">NU</strong> afgetrokken. Status wordt 'confirmed'.</p>
+              <div className="p-3 bg-neutral-800/50 rounded-lg border border-green-500/20">
+                <p className="font-semibold text-blue-400 mb-1">✅ Bevestigen</p>
+                <p className="text-xs">Status wordt 'confirmed'. Capaciteit blijft <strong className="text-blue-300">BEZET</strong>.</p>
               </div>
-              <div className="p-3 bg-neutral-800/50 rounded-lg border border-blue-500/20">
-                <p className="font-semibold text-red-400 mb-1">❌ Weigeren</p>
-                <p className="text-xs">Capaciteit blijft <strong className="text-neutral-300">onveranderd</strong> (was nooit afgetrokken).</p>
+              <div className="p-3 bg-neutral-800/50 rounded-lg border border-green-500/20">
+                <p className="font-semibold text-red-400 mb-1">❌ Afwijzen</p>
+                <p className="text-xs">Capaciteit wordt <strong className="text-red-300">VRIJGEGEVEN</strong>. Nieuwe boekingen mogelijk.</p>
               </div>
             </div>
-            <p className="text-xs text-blue-300 mt-3">
-              💡 <strong>Tip:</strong> Gebruik "Capaciteit Override" in het menu om tijdelijk extra plaatsen beschikbaar te maken tijdens import van bestaande reserveringen.
-            </p>
+            <div className="mt-3 p-3 bg-green-500/10 rounded-lg border border-green-500/30">
+              <p className="text-xs text-green-300">
+                <strong>🛡️ Anti-Overboeking:</strong> Alle binnenkomende boekingen (pending + confirmed) tellen direct mee bij de capaciteit. 
+                Dit voorkomt dat er te veel reserveringen worden geaccepteerd terwijl je pending boekingen aan het behandelen bent.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -600,7 +621,7 @@ export const ReservationsManager: React.FC = () => {
                 <option value="rejected">Afgewezen</option>
               </select>
 
-              <select
+                  <select
                 value={eventFilter}
                 onChange={(e) => setEventFilter(e.target.value)}
                 className="px-4 py-3 bg-dark-800 border-2 border-gold-500/20 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-400"
@@ -611,12 +632,10 @@ export const ReservationsManager: React.FC = () => {
                   .slice(0, 20)
                   .map(event => (
                     <option key={event.id} value={event.id}>
-                      {formatDate(event.date)} - {nl.eventTypes[event.type]}
+                      {formatDate(event.date)} - {getEventTypeName(event.type)}
                     </option>
                   ))}
-              </select>
-
-              <button
+              </select>              <button
                 onClick={exportToCSV}
                 className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all shadow-md"
               >
@@ -866,7 +885,7 @@ export const ReservationsManager: React.FC = () => {
                       </div>
                       <div>
                         <p className="text-neutral-100">Type</p>
-                        <p className="font-medium text-white">{nl.eventTypes[event.type]}</p>
+                        <p className="font-medium text-white">{getEventTypeName(event.type)}</p>
                       </div>
                       <div>
                         <p className="text-neutral-100">Aantal Personen</p>

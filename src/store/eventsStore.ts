@@ -4,7 +4,6 @@ import { subscribeWithSelector } from 'zustand/middleware';
 import type {
   AdminEvent,
   Event,
-  EventType,
   EventTemplate,
   Show
 } from '../types';
@@ -28,6 +27,8 @@ interface EventsActions {
   createEvent: (event: Omit<Event, 'id'>) => Promise<boolean>;
   updateEvent: (eventId: string, updates: Partial<Event>) => Promise<boolean>;
   deleteEvent: (eventId: string) => Promise<boolean>;
+  bulkDeleteEvents: (eventIds: string[]) => Promise<{ success: number; total: number }>;
+  bulkCancelEvents: (eventIds: string[]) => Promise<{ success: number; total: number }>;
   selectEvent: (event: AdminEvent | null) => void;
   bulkCreateEvents: (events: Omit<Event, 'id'>[]) => Promise<boolean>;
   duplicateEvent: (eventId: string, newDate: Date) => Promise<boolean>;
@@ -113,19 +114,72 @@ export const useEventsStore = create<EventsState & EventsActions>()(
       return false;
     },
 
+    bulkDeleteEvents: async (eventIds: string[]) => {
+      let successCount = 0;
+      const total = eventIds.length;
+
+      for (const eventId of eventIds) {
+        try {
+          const response = await apiService.deleteEvent(eventId);
+          if (response.success) {
+            successCount++;
+          }
+        } catch (error) {
+          console.error(`Failed to delete event ${eventId}:`, error);
+        }
+      }
+
+      // Reload events to get fresh data
+      await get().loadEvents();
+
+      return { success: successCount, total };
+    },
+
+    bulkCancelEvents: async (eventIds: string[]) => {
+      let successCount = 0;
+      const total = eventIds.length;
+
+      for (const eventId of eventIds) {
+        try {
+          const response = await apiService.updateEvent(eventId, { isActive: false });
+          if (response.success) {
+            successCount++;
+          }
+        } catch (error) {
+          console.error(`Failed to cancel event ${eventId}:`, error);
+        }
+      }
+
+      // Reload events to get fresh data
+      await get().loadEvents();
+
+      return { success: successCount, total };
+    },
+
     selectEvent: (event: AdminEvent | null) => {
       set({ selectedEvent: event });
     },
 
     bulkCreateEvents: async (events: Omit<Event, 'id'>[]) => {
       set({ isLoadingEvents: true });
-      const response = await apiService.bulkCreateEvents(events);
-      if (response.success) {
-        await get().loadEvents();
-        return true;
+      try {
+        // Create events one by one since bulkCreateEvents doesn't exist yet
+        let successCount = 0;
+        for (const event of events) {
+          const response = await apiService.createEvent(event);
+          if (response.success) successCount++;
+        }
+        
+        if (successCount > 0) {
+          await get().loadEvents();
+        }
+        set({ isLoadingEvents: false });
+        return successCount === events.length;
+      } catch (error) {
+        console.error('Failed to bulk create events:', error);
+        set({ isLoadingEvents: false });
+        return false;
       }
-      set({ isLoadingEvents: false });
-      return false;
     },
 
     duplicateEvent: async (eventId: string, newDate: Date) => {
@@ -141,69 +195,30 @@ export const useEventsStore = create<EventsState & EventsActions>()(
       return await get().createEvent(newEvent);
     },
 
-    // Templates
+    // Templates (DISABLED - TODO: Implement properly when needed)
     loadEventTemplates: async () => {
-      set({ isLoadingTemplates: true });
-      try {
-        const response = await apiService.getEventTemplates();
-        if (response.success && response.data) {
-          set({ eventTemplates: response.data, isLoadingTemplates: false });
-        }
-      } catch (error) {
-        console.error('Failed to load templates:', error);
-        set({ isLoadingTemplates: false });
-      }
+      // Template functionality not yet implemented
+      set({ eventTemplates: [], isLoadingTemplates: false });
     },
 
-    createEventTemplate: async (template: Omit<EventTemplate, 'id'>) => {
-      const response = await apiService.createEventTemplate(template);
-      if (response.success) {
-        await get().loadEventTemplates();
-        return true;
-      }
+    createEventTemplate: async (_template: Omit<EventTemplate, 'id'>) => {
+      console.warn('Event templates not yet implemented');
       return false;
     },
 
-    updateEventTemplate: async (templateId: string, updates: Partial<EventTemplate>) => {
-      const response = await apiService.updateEventTemplate(templateId, updates);
-      if (response.success) {
-        await get().loadEventTemplates();
-        return true;
-      }
+    updateEventTemplate: async (_templateId: string, _updates: Partial<EventTemplate>) => {
+      console.warn('Event templates not yet implemented');
       return false;
     },
 
-    deleteEventTemplate: async (templateId: string) => {
-      const response = await apiService.deleteEventTemplate(templateId);
-      if (response.success) {
-        set(state => ({
-          eventTemplates: state.eventTemplates.filter(t => t.id !== templateId)
-        }));
-        return true;
-      }
+    deleteEventTemplate: async (_templateId: string) => {
+      console.warn('Event templates not yet implemented');
       return false;
     },
 
-    applyTemplate: async (templateId: string, dates: Date[]) => {
-      const template = get().eventTemplates.find(t => t.id === templateId);
-      if (!template) return false;
-
-      const events: Omit<Event, 'id'>[] = dates.map(date => ({
-        date,
-        doorsOpen: template.defaultTimes.doorsOpen,
-        startsAt: template.defaultTimes.startsAt,
-        endsAt: template.defaultTimes.endsAt,
-        type: template.eventType,
-        showId: template.showId,
-        capacity: template.capacity,
-        remainingCapacity: template.capacity,
-        bookingOpensAt: null,
-        bookingClosesAt: null,
-        allowedArrangements: ['BWF', 'BWFM'],
-        isActive: true
-      }));
-
-      return await get().bulkCreateEvents(events);
+    applyTemplate: async (_templateId: string, _dates: Date[]) => {
+      console.warn('Event templates not yet implemented');
+      return false;
     },
 
     // Shows
@@ -221,7 +236,15 @@ export const useEventsStore = create<EventsState & EventsActions>()(
     },
 
     createShow: async (show: Omit<Show, 'id' | 'createdAt' | 'updatedAt'>) => {
-      const response = await apiService.createShow(show);
+      // Generate ID and timestamps before sending to API
+      const newShow: Show = {
+        ...show,
+        id: `show_${Date.now()}`,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      const response = await apiService.createShow(newShow);
       if (response.success) {
         await get().loadShows();
         return true;
@@ -230,7 +253,17 @@ export const useEventsStore = create<EventsState & EventsActions>()(
     },
 
     updateShow: async (showId: string, updates: Partial<Show>) => {
-      const response = await apiService.updateShow(showId, updates);
+      // Get current show to merge updates
+      const currentShow = get().shows.find(s => s.id === showId);
+      if (!currentShow) return false;
+      
+      const updatedShow: Show = {
+        ...currentShow,
+        ...updates,
+        updatedAt: new Date()
+      };
+      
+      const response = await apiService.updateShow(updatedShow);
       if (response.success) {
         await get().loadShows();
         return true;

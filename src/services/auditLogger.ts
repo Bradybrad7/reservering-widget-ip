@@ -25,24 +25,36 @@ class AuditLoggerService {
     description: string,
     changes?: AuditLogEntry['changes']
   ): void {
-    const entry: AuditLogEntry = {
-      id: `log-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-      timestamp: new Date(),
-      action,
-      entityType,
-      entityId,
-      actor: 'Admin', // TODO: Replace with actual user when auth is implemented
-      description,
-      changes
-    };
+    try {
+      const entry: AuditLogEntry = {
+        id: `log-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+        timestamp: new Date(),
+        action,
+        entityType,
+        entityId,
+        actor: 'Admin', // TODO: Replace with actual user when auth is implemented
+        description,
+        changes
+      };
 
-    const logs = this.getLogs();
-    logs.unshift(entry); // Add to beginning
-    
-    // Keep only last 1000 entries to prevent storage overflow
-    const trimmedLogs = logs.slice(0, 1000);
-    
-    localStorage.setItem(this.storageKey, JSON.stringify(trimmedLogs));
+      const logs = this.getLogs();
+      logs.unshift(entry); // Add to beginning
+      
+      // 🔥 REDUCED: Keep only last 100 entries to prevent storage overflow
+      // Old value was 1000, which caused QuotaExceededError
+      const trimmedLogs = logs.slice(0, 100);
+      
+      localStorage.setItem(this.storageKey, JSON.stringify(trimmedLogs));
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+        console.warn('⚠️ LocalStorage quota exceeded. Clearing old audit logs...');
+        // Clear all logs and try again with just this entry
+        localStorage.setItem(this.storageKey, JSON.stringify([]));
+        console.warn('✅ Audit logs cleared. Please try your action again.');
+      } else {
+        console.error('Failed to write audit log:', error);
+      }
+    }
   }
 
   /**
@@ -127,7 +139,23 @@ class AuditLoggerService {
   clearLogs(): void {
     if (confirm('Weet je zeker dat je alle audit logs wilt verwijderen? Dit kan niet ongedaan gemaakt worden.')) {
       localStorage.removeItem(this.storageKey);
+      console.log('✅ Audit logs cleared');
     }
+  }
+  
+  /**
+   * 🆕 Clear old logs (older than X days)
+   */
+  clearOldLogs(daysToKeep: number = 30): void {
+    const logs = this.getLogs();
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
+    
+    const recentLogs = logs.filter(log => new Date(log.timestamp) >= cutoffDate);
+    localStorage.setItem(this.storageKey, JSON.stringify(recentLogs));
+    
+    const removed = logs.length - recentLogs.length;
+    console.log(`✅ Cleared ${removed} old audit logs (kept ${recentLogs.length} from last ${daysToKeep} days)`);
   }
 
   /**
