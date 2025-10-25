@@ -35,7 +35,6 @@ export type StepKey =
   | 'merchandise' // 🛍️ Optionele merchandise stap
   | 'contact' // ✨ Essentiële contactgegevens (naam, bedrijf, email, telefoon)
   | 'details' // ✨ Extra details (adres, factuur, dieetwensen)
-  | 'form' // ⚠️ DEPRECATED: Wordt vervangen door contact + details
   | 'summary'
   | 'success'
   | 'waitlistPrompt'

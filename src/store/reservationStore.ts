@@ -139,7 +139,6 @@ const defaultWizardConfig: WizardConfig = {
     { key: 'package', label: 'Pakket & Opties', enabled: true, order: 3, required: true },
     { key: 'contact', label: 'Contactgegevens', enabled: true, order: 4, required: true },
     { key: 'details', label: 'Extra Details', enabled: true, order: 5, required: true },
-    { key: 'form', label: 'Gegevens (DEPRECATED)', enabled: false, order: 99, required: true },
     { key: 'summary', label: 'Bevestigen', enabled: true, order: 6, required: true },
     { key: 'success', label: 'Voltooid', enabled: true, order: 7, required: true },
     { key: 'waitlistPrompt', label: 'Wachtlijst', enabled: true, order: 8, required: false },
@@ -561,12 +560,6 @@ export const useReservationStore = create<ReservationStore>()(
           }
           break;
           
-        case 'form':
-          // ⚠️ DEPRECATED: Oude form step - redirect naar contact
-          console.warn('form step is deprecated, use contact + details instead');
-          set({ currentStep: 'contact' as StepKey });
-          break;
-          
         case 'summary':
           // Summary step triggers submission, not navigation
           break;
@@ -609,19 +602,6 @@ export const useReservationStore = create<ReservationStore>()(
           
         case 'persons':
           set({ currentStep: 'calendar', selectedEvent: null });
-          break;
-          
-        case 'form':
-          // ✨ WAITLIST: Go directly back to persons step
-          if (isWaitlist) {
-            console.log('📝 Waitlist mode - going back to persons');
-            set({ currentStep: 'persons' });
-            return;
-          }
-          // Normal mode: Go to previous enabled step
-          if (currentIndex > 0) {
-            set({ currentStep: enabledSteps[currentIndex - 1].key });
-          }
           break;
           
         case 'waitlistPrompt':

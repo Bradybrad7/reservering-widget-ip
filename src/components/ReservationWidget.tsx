@@ -238,12 +238,6 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
           </StepLayout>
         );
 
-      case 'form':
-        // ⚠️ DEPRECATED: Oude grote form - redirect naar contact
-        console.warn('form step is deprecated, redirecting to contact');
-        setCurrentStep('contact');
-        return null;
-
       case 'summary':
         return (
           <StepLayout

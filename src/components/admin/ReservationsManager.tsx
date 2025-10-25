@@ -427,12 +427,15 @@ export const ReservationsManager: React.FC = () => {
       return;
     }
 
-    const response = await apiService.moveToWaitlist(reservation.id);
-    if (response.success) {
+    // ✅ FIXED: Gebruik de nieuwe store-actie die een WaitlistEntry aanmaakt
+    const { useReservationsStore } = await import('../../store/reservationsStore');
+    const success = await useReservationsStore.getState().moveToWaitlist(reservation.id);
+    
+    if (success) {
       alert('✅ Reservering verplaatst naar wachtlijst.');
       await loadReservations();
     } else {
-      alert(`❌ Fout: ${response.error || 'Onbekende fout'}`);
+      alert(`❌ Fout: Kon reservering niet verplaatsen naar wachtlijst.`);
     }
   };
 

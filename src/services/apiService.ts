@@ -873,51 +873,6 @@ export const apiService = {
     }
   },
 
-  // ✨ NEW: Move reservation to waitlist
-  async moveToWaitlist(reservationId: string): Promise<ApiResponse<Reservation>> {
-    await delay(300);
-    
-    try {
-      const reservations = mockDB.getReservations();
-      const reservation = reservations.find(r => r.id === reservationId);
-      
-      if (!reservation) {
-        return {
-          success: false,
-          error: 'Reservation not found'
-        };
-      }
-
-      // Update reservation status to waitlist
-      const updated = localStorageService.updateReservation(reservationId, {
-        status: 'waitlist',
-        isWaitlist: true,
-        updatedAt: new Date()
-      });
-
-      if (!updated) {
-        return {
-          success: false,
-          error: 'Failed to update reservation'
-        };
-      }
-
-      // TODO: Send waitlist email
-      console.log(`⏳ Reservation ${reservationId} moved to waitlist.`);
-
-      return {
-        success: true,
-        data: { ...reservation, status: 'waitlist' as const, isWaitlist: true },
-        message: 'Reservation moved to waitlist'
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to move to waitlist'
-      };
-    }
-  },
-
   // ✨ NEW: Cancel reservation (with capacity restoration)
   async cancelReservation(reservationId: string, reason?: string): Promise<ApiResponse<Reservation>> {
     await delay(300);

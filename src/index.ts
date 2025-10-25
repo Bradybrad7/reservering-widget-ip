@@ -1,6 +1,6 @@
 // Main component exports
 export { default as ReservationWidget } from './components/ReservationWidget';
-export { default as BookingAdmin } from './components/BookingAdmin';
+export { default as BookingAdmin } from './components/BookingAdminNew2';
 
 // Individual component exports
 export { default as Calendar } from './components/Calendar';
