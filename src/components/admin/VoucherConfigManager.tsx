@@ -259,7 +259,7 @@ export const VoucherConfigManager: React.FC = () => {
                       {getEventTypeLabel(eventType)}
                     </h4>
                     <span className="text-sm text-gray-500">
-                      (Standaard: €{pricing.BWF} / Deluxe: €{pricing.BWFM})
+                      (Standaard: €{pricing.BWF} / Premium: €{pricing.BWFM})
                     </span>
                   </div>
                 </div>
@@ -305,7 +305,7 @@ export const VoucherConfigManager: React.FC = () => {
                     </div>
                   )}
                   <p className="text-xs text-gray-500 mt-1">
-                    Wordt weergegeven als: "{displayName} - Standaard" en "{displayName} - Deluxe"
+                    Wordt weergegeven als: "{displayName} - Standaard" en "{displayName} - Premium"
                   </p>
                 </div>
 
@@ -351,7 +351,7 @@ export const VoucherConfigManager: React.FC = () => {
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-medium text-gray-900">Deluxe</span>
+                      <span className="font-medium text-gray-900">Premium</span>
                       {bwfmAvailable ? (
                         <Eye className="w-4 h-4 text-green-600" />
                       ) : (
@@ -399,7 +399,7 @@ export const VoucherConfigManager: React.FC = () => {
               options.push(
                 <div key={`${eventType}-BWFM`} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
                   <span className="font-medium text-gray-900">
-                    {displayName} - Deluxe
+                    {displayName} - Premium
                   </span>
                   <span className="font-bold text-purple-600">
                     €{pricing.BWFM.toFixed(2)}

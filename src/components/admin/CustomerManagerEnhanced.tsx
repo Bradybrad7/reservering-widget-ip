@@ -17,6 +17,7 @@ import {
   ArrowUpDown
 } from 'lucide-react';
 import { useCustomersStore } from '../../store/customersStore';
+import { useAdminStore } from '../../store/adminStore';
 import { formatCurrency, formatDate, cn } from '../../utils';
 import type { CustomerProfile } from '../../types';
 
@@ -32,6 +33,9 @@ export const CustomerManagerEnhanced: React.FC = () => {
     updateCustomer
   } = useCustomersStore();
 
+  // Get selectedItemId from adminStore for deep linking from search
+  const { selectedItemId, clearSelectedItemId } = useAdminStore();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredCustomers, setFilteredCustomers] = useState<CustomerProfile[]>([]);
   const [sortBy, setSortBy] = useState<'name' | 'bookings' | 'spent' | 'lastBooking'>('lastBooking');
@@ -43,6 +47,19 @@ export const CustomerManagerEnhanced: React.FC = () => {
   useEffect(() => {
     loadCustomers();
   }, [loadCustomers]);
+
+  // ✨ NEW: Auto-select customer when coming from search
+  useEffect(() => {
+    if (selectedItemId && customers.length > 0) {
+      // selectedItemId is the email for customers
+      const customer = customers.find(c => c.email === selectedItemId);
+      if (customer) {
+        selectCustomer(customer);
+        // Clear the selectedItemId after selecting
+        clearSelectedItemId();
+      }
+    }
+  }, [selectedItemId, customers, selectCustomer, clearSelectedItemId]);
 
   useEffect(() => {
     filterAndSortCustomers();

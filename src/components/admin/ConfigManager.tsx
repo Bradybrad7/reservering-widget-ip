@@ -11,7 +11,7 @@ import {
   Tag,
   Languages
 } from 'lucide-react';
-import { useAdminStore } from '../../store/adminStore';
+import { useConfigStore } from '../../store/configStore';
 import { cn, getAllTextKeys } from '../../utils';
 import type { Pricing, AddOns, BookingRules, GlobalConfig, WizardConfig, EventTypesConfig, TextCustomization } from '../../types';
 
@@ -26,7 +26,6 @@ export const ConfigManager: React.FC = () => {
     wizardConfig,
     eventTypesConfig,
     textCustomization,
-    isSubmitting,
     loadConfig,
     updateConfig,
     updatePricing,
@@ -35,11 +34,12 @@ export const ConfigManager: React.FC = () => {
     updateWizardConfig,
     updateEventTypesConfig,
     updateTextCustomization
-  } = useAdminStore();
+  } = useConfigStore();
 
   const [activeSection, setActiveSection] = useState<ConfigSection>('pricing');
   const [hasChanges, setHasChanges] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Local state for editing
   const [localPricing, setLocalPricing] = useState<Pricing | null>(null);
@@ -65,36 +65,41 @@ export const ConfigManager: React.FC = () => {
   }, [pricing, addOns, bookingRules, config, wizardConfig, eventTypesConfig, textCustomization]);
 
   const handleSave = async () => {
+    setIsSubmitting(true);
     let success = false;
 
-    switch (activeSection) {
-      case 'pricing':
-        if (localPricing) success = await updatePricing(localPricing);
-        break;
-      case 'addons':
-        if (localAddOns) success = await updateAddOns(localAddOns);
-        break;
-      case 'booking':
-        if (localBookingRules) success = await updateBookingRules(localBookingRules);
-        break;
-      case 'general':
-        if (localConfig) success = await updateConfig(localConfig);
-        break;
-      case 'wizard':
-        if (localWizardConfig) success = await updateWizardConfig(localWizardConfig);
-        break;
-      case 'eventTypes':
-        if (localEventTypesConfig) success = await updateEventTypesConfig(localEventTypesConfig);
-        break;
-      case 'texts':
-        if (localTextCustomization) success = await updateTextCustomization(localTextCustomization);
-        break;
-    }
+    try {
+      switch (activeSection) {
+        case 'pricing':
+          if (localPricing) success = await updatePricing(localPricing);
+          break;
+        case 'addons':
+          if (localAddOns) success = await updateAddOns(localAddOns);
+          break;
+        case 'booking':
+          if (localBookingRules) success = await updateBookingRules(localBookingRules);
+          break;
+        case 'general':
+          if (localConfig) success = await updateConfig(localConfig);
+          break;
+        case 'wizard':
+          if (localWizardConfig) success = await updateWizardConfig(localWizardConfig);
+          break;
+        case 'eventTypes':
+          if (localEventTypesConfig) success = await updateEventTypesConfig(localEventTypesConfig);
+          break;
+        case 'texts':
+          if (localTextCustomization) success = await updateTextCustomization(localTextCustomization);
+          break;
+      }
 
-    if (success) {
-      setHasChanges(false);
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
+      if (success) {
+        setHasChanges(false);
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

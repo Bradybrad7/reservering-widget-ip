@@ -11,7 +11,8 @@ import {
   ArrowUp,
   ArrowDown
 } from 'lucide-react';
-import { useAdminStore } from '../../store/adminStore';
+import { useEventsStore } from '../../store/eventsStore';
+import { useReservationsStore } from '../../store/reservationsStore';
 import { formatCurrency, formatDate, cn } from '../../utils';
 
 /**
@@ -26,7 +27,8 @@ import { formatCurrency, formatDate, cn } from '../../utils';
  * - Month-over-month and year-over-year comparisons
  */
 const AdvancedAnalytics: React.FC = () => {
-  const { events, reservations, loadEvents, loadReservations } = useAdminStore();
+  const { events, loadEvents } = useEventsStore();
+  const { reservations, loadReservations } = useReservationsStore();
   
   const [dateRange, setDateRange] = useState({
     from: new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0],
@@ -42,7 +44,7 @@ const AdvancedAnalytics: React.FC = () => {
 
   // Calculate analytics data
   const analytics = useMemo(() => {
-    const confirmedReservations = reservations.filter(
+    const confirmedReservations = (reservations || []).filter(
       r => r.status === 'confirmed' || r.status === 'checked-in'
     );
 
@@ -54,7 +56,7 @@ const AdvancedAnalytics: React.FC = () => {
       return eventDate >= from && eventDate <= to;
     });
 
-    const filteredEvents = events.filter(e => {
+    const filteredEvents = (events || []).filter(e => {
       const eventDate = new Date(e.date);
       const from = new Date(dateRange.from);
       const to = new Date(dateRange.to);
@@ -144,7 +146,7 @@ const AdvancedAnalytics: React.FC = () => {
   const handleExportCSV = () => {
     // Create CSV content
     const headers = ['Datum', 'Klant', 'Gasten', 'Arrangement', 'Bedrag'];
-    const rows = reservations
+    const rows = (reservations || [])
       .filter(r => r.status === 'confirmed' || r.status === 'checked-in')
       .map(r => [
         formatDate(r.eventDate),
@@ -406,7 +408,7 @@ const AdvancedAnalytics: React.FC = () => {
             {Object.entries(analytics.arrangementCounts).map(([arrangement, count]) => {
               const total = Object.values(analytics.arrangementCounts).reduce((a, b) => a + b, 0);
               const percentage = total > 0 ? (count / total) * 100 : 0;
-              const label = arrangement === 'BWF' ? 'Standaard Arrangement' : 'Deluxe Arrangement';
+              const label = arrangement === 'BWF' ? 'Standaard Arrangement' : 'Premium Arrangement';
               
               return (
                 <div key={arrangement} className="p-4 bg-slate-900/50 border border-slate-700 rounded-lg">

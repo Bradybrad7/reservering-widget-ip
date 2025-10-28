@@ -226,6 +226,7 @@ export interface CustomerFormData {
   postalCode: string;
   city: string;
   country: string;
+  customCountry?: string; // For "other" country selection
   
   // Invoice Address (for businesses)
   invoiceAddress?: string;
@@ -237,6 +238,7 @@ export interface CustomerFormData {
   
   // Contact
   phoneCountryCode: string;
+  customCountryCode?: string; // For "other" country selection
   phone: string;
   email: string;
   
@@ -570,6 +572,7 @@ export type AdminSection =
   | 'events'         // All event management (tabs: overview, calendar, templates, shows, types)
   | 'reservations'   // All reservations with filter tabs (all, pending, confirmed, cancelled)
   | 'waitlist'       // Waitlist management (separate workflow)
+  | 'payments'       // Payment overview & deadline management (1 week before event)
   | 'archive'        // Archived/deleted reservations
   | 'checkin'        // Check-in system (day-of workflow)
   | 'customers'      // CRM & customer management

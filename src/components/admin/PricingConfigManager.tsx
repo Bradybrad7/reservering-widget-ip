@@ -894,7 +894,7 @@ export const PricingConfigManager: React.FC = () => {
                     BWF (Standaard)
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-neutral-300">
-                    BWFM (Deluxe)
+                    BWFM (Premium)
                   </th>
                 </tr>
               </thead>

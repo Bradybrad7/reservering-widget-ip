@@ -27,6 +27,9 @@ interface AdminState {
   activeSection: AdminSection;
   breadcrumbs: { label: string; section: AdminSection }[];
   
+  // Selected Item (for deep linking from search)
+  selectedItemId: string | null;
+  
   // UI Toggles
   sidebarCollapsed: boolean;
   showEventModal: boolean;
@@ -47,6 +50,8 @@ interface AdminActions {
   setActiveSection: (section: AdminSection) => void;
   setBreadcrumbs: (breadcrumbs: { label: string; section: AdminSection }[]) => void;
   goBack: () => void;
+  setSelectedItemId: (id: string | null) => void;
+  clearSelectedItemId: () => void;
   
   // UI Toggles
   toggleSidebar: () => void;
@@ -70,6 +75,7 @@ export const useAdminStore = create<AdminState & AdminActions>()(
     // Initial State
     activeSection: 'dashboard',
     breadcrumbs: [{ label: 'Dashboard', section: 'dashboard' }],
+    selectedItemId: null,
     sidebarCollapsed: false,
     showEventModal: false,
     showReservationModal: false,
@@ -87,6 +93,7 @@ export const useAdminStore = create<AdminState & AdminActions>()(
         'events': 'Evenementen',
         'reservations': 'Reserveringen',
         'waitlist': 'Wachtlijst',
+        'payments': 'Betalingen',
         'archive': 'Archief',
         'checkin': 'Check-in',
         'customers': 'Klanten',
@@ -117,6 +124,14 @@ export const useAdminStore = create<AdminState & AdminActions>()(
           activeSection: previousSection
         });
       }
+    },
+
+    setSelectedItemId: (id) => {
+      set({ selectedItemId: id });
+    },
+
+    clearSelectedItemId: () => {
+      set({ selectedItemId: null });
     },
 
     // UI Toggle Actions

@@ -69,7 +69,7 @@ const ARRANGEMENT_INFO: Record<Arrangement, { name: string; description: string;
     ]
   },
   BWFM: {
-    name: 'Deluxe',
+    name: 'Premium',
     description: 'Alles van standaard plus mixdranken en speciale bieren',
     features: [
       'Toegang tot de show',
@@ -362,11 +362,11 @@ export const VoucherPurchasePageNew: React.FC = () => {
           </ul>
         </div>
 
-        {/* Deluxe Uitleg */}
+        {/* Premium Uitleg */}
         <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
           <div className="flex items-center gap-3 mb-4">
             <Utensils className="w-8 h-8 text-gold-400" />
-            <h3 className="text-xl font-bold text-white">Deluxe</h3>
+            <h3 className="text-xl font-bold text-white">Premium</h3>
           </div>
           <p className="text-slate-300 text-sm mb-3">
             Alles van standaard plus mixdranken en speciale bieren

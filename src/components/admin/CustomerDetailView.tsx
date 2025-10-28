@@ -464,7 +464,7 @@ const CustomerDetailView: React.FC<CustomerDetailViewProps> = ({ customerEmail, 
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-400">
                       <span>{reservation.numberOfPersons} gasten</span>
                       <span>•</span>
-                      <span>{reservation.arrangement === 'BWF' ? 'Standaard Arrangement' : 'Deluxe Arrangement'}</span>
+                      <span>{reservation.arrangement === 'BWF' ? 'Standaard Arrangement' : 'Premium Arrangement'}</span>
                       {reservation.preDrink.enabled && (
                         <>
                           <span>•</span>

@@ -12,7 +12,7 @@ import {
   Wand2,
   FileText
 } from 'lucide-react';
-import { useAdminStore } from '../../store/adminStore';
+import { useConfigStore } from '../../store/configStore';
 import { getAllTextKeys, cn } from '../../utils';
 import type { Pricing, BookingRules, GlobalConfig, WizardConfig, TextCustomization, AdminSection } from '../../types';
 
@@ -31,14 +31,14 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
     bookingRules,
     wizardConfig,
     textCustomization,
-    isSubmitting,
+    isLoadingConfig,
     loadConfig,
     updateConfig,
     updatePricing,
     updateBookingRules,
     updateWizardConfig,
     updateTextCustomization
-  } = useAdminStore();
+  } = useConfigStore();
 
   // Map AdminSection to ConfigSection
   const [currentSection, setCurrentSection] = useState<ConfigSection>(activeTab);
@@ -57,6 +57,7 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
   const [localConfig, setLocalConfig] = useState<GlobalConfig | null>(null);
   const [localWizardConfig, setLocalWizardConfig] = useState<WizardConfig | null>(null);
   const [localTextCustomization, setLocalTextCustomization] = useState<TextCustomization | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     loadConfig();
@@ -75,30 +76,35 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
   }, [pricing, bookingRules, config, wizardConfig, textCustomization]);
 
   const handleSave = async () => {
+    setIsSubmitting(true);
     let success = false;
 
-    switch (currentSection) {
-      case 'pricing':
-        if (localPricing) success = await updatePricing(localPricing);
-        break;
-      case 'booking':
-        if (localBookingRules) success = await updateBookingRules(localBookingRules);
-        break;
-      case 'general':
-        if (localConfig) success = await updateConfig(localConfig);
-        break;
-      case 'wizard':
-        if (localWizardConfig) success = await updateWizardConfig(localWizardConfig);
-        break;
-      case 'texts':
-        if (localTextCustomization) success = await updateTextCustomization(localTextCustomization);
-        break;
-    }
+    try {
+      switch (currentSection) {
+        case 'pricing':
+          if (localPricing) success = await updatePricing(localPricing);
+          break;
+        case 'booking':
+          if (localBookingRules) success = await updateBookingRules(localBookingRules);
+          break;
+        case 'general':
+          if (localConfig) success = await updateConfig(localConfig);
+          break;
+        case 'wizard':
+          if (localWizardConfig) success = await updateWizardConfig(localWizardConfig);
+          break;
+        case 'texts':
+          if (localTextCustomization) success = await updateTextCustomization(localTextCustomization);
+          break;
+      }
 
-    if (success) {
-      setHasChanges(false);
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
+      if (success) {
+        setHasChanges(false);
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

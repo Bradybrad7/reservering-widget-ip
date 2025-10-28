@@ -239,6 +239,46 @@ export const DetailsStep: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* Land Selectie */}
+        <div>
+          <label htmlFor="country" className="block text-sm font-medium text-neutral-300 mb-2">
+            Land *
+          </label>
+          <select
+            id="country"
+            name="country"
+            value={formData.country || 'Nederland'}
+            onChange={(e) => handleFieldChange('country', e.target.value)}
+            className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20 transition-colors appearance-none"
+          >
+            <option value="Nederland">🇳🇱 Nederland</option>
+            <option value="België">🇧🇪 België</option>
+            <option value="other">🌍 Andere</option>
+          </select>
+        </div>
+
+        {/* Custom Land Input (als "Andere" geselecteerd) */}
+        {formData.country === 'other' && (
+          <div>
+            <label htmlFor="customCountry" className="block text-sm font-medium text-neutral-300 mb-2">
+              Landnaam *
+            </label>
+            <input
+              type="text"
+              id="customCountry"
+              name="customCountry"
+              placeholder="Duitsland"
+              value={formData.customCountry || ''}
+              onChange={(e) => handleFieldChange('customCountry', e.target.value)}
+              className={cn(
+                'w-full px-4 py-3 bg-neutral-800 border rounded-lg text-white placeholder-neutral-500 transition-colors',
+                'border-neutral-700 focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20'
+              )}
+              required
+            />
+          </div>
+        )}
       </div>
 
       {/* Dieetwensen - VEREENVOUDIGD */}

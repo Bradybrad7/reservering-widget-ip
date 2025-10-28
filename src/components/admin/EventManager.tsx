@@ -47,6 +47,8 @@ export const EventManager: React.FC = () => {
     pendingTotal: number;
     confirmedCount: number;
     pendingCount: number;
+    checkedInTotal: number;
+    checkedInCount: number;
   } | null>(null);
   const [formData, setFormData] = useState<Omit<Event, 'id'>>({
     date: new Date(),
@@ -61,6 +63,15 @@ export const EventManager: React.FC = () => {
     bookingClosesAt: null,
     allowedArrangements: ['BWF', 'BWFM'],
     isActive: true
+  });
+  
+  // ✨ NEW: Capacity Override State
+  const [capacityOverride, setCapacityOverride] = useState<{
+    enabled: boolean;
+    capacity: number;
+  }>({
+    enabled: false,
+    capacity: 230
   });
 
   useEffect(() => {
@@ -112,6 +123,21 @@ export const EventManager: React.FC = () => {
       isActive: event.isActive
     });
     
+    // ✨ NEW: Load capacity override from localStorage
+    const overrideKey = `capacity-override-${event.id}`;
+    const overrideData = localStorage.getItem(overrideKey);
+    if (overrideData) {
+      try {
+        const parsed = JSON.parse(overrideData);
+        setCapacityOverride(parsed);
+      } catch (e) {
+        console.error('Failed to parse capacity override:', e);
+        setCapacityOverride({ enabled: false, capacity: event.capacity });
+      }
+    } else {
+      setCapacityOverride({ enabled: false, capacity: event.capacity });
+    }
+    
     // Load booking statistics
     loadEventBookingStats(event.id);
     setShowModal(true);
@@ -122,14 +148,18 @@ export const EventManager: React.FC = () => {
     const reservations = reservationsResponse.data || [];
     const confirmedBookings = reservations.filter(r => r.status === 'confirmed');
     const pendingBookings = reservations.filter(r => r.status === 'pending');
+    const checkedInBookings = reservations.filter(r => r.status === 'checked-in');
     const confirmedTotal = confirmedBookings.reduce((sum, r) => sum + r.numberOfPersons, 0);
     const pendingTotal = pendingBookings.reduce((sum, r) => sum + r.numberOfPersons, 0);
+    const checkedInTotal = checkedInBookings.reduce((sum, r) => sum + r.numberOfPersons, 0);
     
     setEventBookingStats({
       confirmedTotal,
       pendingTotal,
       confirmedCount: confirmedBookings.length,
-      pendingCount: pendingBookings.length
+      pendingCount: pendingBookings.length,
+      checkedInTotal,
+      checkedInCount: checkedInBookings.length
     });
   };
 
@@ -199,8 +229,23 @@ export const EventManager: React.FC = () => {
     
     if (success) {
       console.log('✅ Event saved successfully, closing modal');
+      
+      // ✨ NEW: Save capacity override to localStorage if editing
+      if (editingEvent) {
+        const overrideKey = `capacity-override-${editingEvent.id}`;
+        if (capacityOverride.enabled) {
+          localStorage.setItem(overrideKey, JSON.stringify(capacityOverride));
+          console.log('💾 Capacity override saved:', capacityOverride);
+        } else {
+          localStorage.removeItem(overrideKey);
+          console.log('🗑️ Capacity override removed');
+        }
+      }
+      
       setShowModal(false);
       setEditingEvent(null);
+      setEventBookingStats(null);
+      setCapacityOverride({ enabled: false, capacity: 230 });
     } else {
       console.error('❌ Failed to save event');
       alert('Er is een fout opgetreden bij het opslaan van het evenement. Controleer de console voor meer details.');
@@ -713,6 +758,13 @@ export const EventManager: React.FC = () => {
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
+                        <span className="text-neutral-200 font-medium">Ingecheckt:</span>
+                        <span className="text-emerald-400 font-bold">
+                          {eventBookingStats.checkedInTotal}
+                          <span className="text-xs ml-1">({eventBookingStats.checkedInCount} reserv.)</span>
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
                         <span className="text-neutral-200 font-medium">Aanvragen (pending):</span>
                         <span className="text-orange-400 font-bold">
                           + {eventBookingStats.pendingTotal} ({eventBookingStats.pendingCount})
@@ -731,6 +783,72 @@ export const EventManager: React.FC = () => {
                           <p className="text-xs text-blue-300">
                             💡 {formData.capacity - eventBookingStats.confirmedTotal} plaatsen beschikbaar voor bevestiging
                           </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* ✨ NEW: Capacity Override Controls */}
+                  {editingEvent && (
+                    <div className="mt-4 p-4 bg-warning-500/10 border border-warning-500/30 rounded-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-sm font-semibold text-warning-400 flex items-center gap-2">
+                            🔧 Capaciteit Override
+                          </h4>
+                          <p className="text-xs text-warning-300 mt-1">
+                            Tijdelijk de capaciteit aanpassen voor dit specifieke event
+                          </p>
+                        </div>
+                        <label className="relative inline-block w-12 h-6">
+                          <input
+                            type="checkbox"
+                            checked={capacityOverride.enabled}
+                            onChange={(e) => setCapacityOverride({
+                              ...capacityOverride,
+                              enabled: e.target.checked
+                            })}
+                            className="peer sr-only"
+                          />
+                          <div className="w-12 h-6 bg-neutral-700 border border-neutral-600 rounded-full peer-checked:bg-warning-600 peer-checked:border-warning-600 transition-all"></div>
+                          <div className="absolute left-1 top-1 w-4 h-4 bg-neutral-400 rounded-full peer-checked:translate-x-6 peer-checked:bg-white transition-transform"></div>
+                        </label>
+                      </div>
+                      
+                      {capacityOverride.enabled && (
+                        <div className="space-y-2 animate-fade-in">
+                          <label className="block text-xs font-medium text-warning-300">
+                            Override Capaciteit
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="500"
+                            value={capacityOverride.capacity}
+                            onChange={(e) => setCapacityOverride({
+                              ...capacityOverride,
+                              capacity: parseInt(e.target.value) || 0
+                            })}
+                            className="w-full px-3 py-2 bg-neutral-800 border border-warning-500/50 rounded-lg focus:ring-2 focus:ring-warning-500 focus:border-transparent text-warning-100 font-medium"
+                          />
+                          <p className="text-xs text-warning-300">
+                            ℹ️ De override capaciteit ({capacityOverride.capacity}) wordt gebruikt in plaats van de basis capaciteit ({formData.capacity})
+                          </p>
+                          {eventBookingStats && (
+                            <div className="pt-2 border-t border-warning-500/30">
+                              <p className="text-xs text-warning-300">
+                                {capacityOverride.capacity >= eventBookingStats.confirmedTotal ? (
+                                  <>
+                                    ✅ Override capaciteit is voldoende ({capacityOverride.capacity - eventBookingStats.confirmedTotal} plaatsen beschikbaar)
+                                  </>
+                                ) : (
+                                  <>
+                                    ⚠️ Override capaciteit is lager dan huidige bezetting (tekort van {eventBookingStats.confirmedTotal - capacityOverride.capacity} plaatsen)
+                                  </>
+                                )}
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -760,7 +878,7 @@ export const EventManager: React.FC = () => {
                       onChange={() => toggleArrangement('BWFM')}
                       className="mr-2"
                     />
-                    <span>Deluxe Arrangement</span>
+                    <span>Premium Arrangement</span>
                   </label>
                 </div>
               </div>

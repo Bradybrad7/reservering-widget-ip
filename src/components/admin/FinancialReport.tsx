@@ -197,7 +197,7 @@ export const FinancialReport: React.FC = () => {
 
             <div>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium">Deluxe Arrangement</span>
+                <span className="text-sm font-medium">Premium Arrangement</span>
                 <span className="text-sm font-bold">{formatCurrency(bwfmRevenue)}</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-3">

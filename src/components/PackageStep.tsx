@@ -12,19 +12,19 @@ const arrangementOptions = [
     value: 'BWF' as Arrangement,
     label: 'Standaard Arrangement',
     shortLabel: 'Standaard',
-    description: 'Buffet show met Bier, wijn, fris plus sherry en martini',
+    description: 'Buffet show met bier, wijn, fris, port, martini en sherry',
     features: [
       'Toegang tot de voorstelling',
       'Buffet show',
       'Bier, wijn en frisdrank',
-      'Sherry en martini'
+      'Port, martini en sherry'
     ],
     highlight: false
   },
   {
     value: 'BWFM' as Arrangement,
-    label: 'Deluxe Arrangement',
-    shortLabel: 'Deluxe',
+    label: 'Premium Arrangement',
+    shortLabel: 'Premium',
     description: 'Met mix dranken en speciale bieren - slechts €15 per persoon meer voor nog meer genot',
     features: [
       'Alles van Standaard',

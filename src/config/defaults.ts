@@ -312,7 +312,7 @@ export const nl = {
   // Arrangements
   arrangements: {
     BWF: 'Standaard Arrangement',
-    BWFM: 'Deluxe Arrangement',
+    BWFM: 'Premium Arrangement',
     bwfDescription: 'Bier, wijn, fris, port & Martini',
     bwfmDescription: 'Bier, wijn, fris, sterke drank, speciale bieren en bubbels van het huis'
   },

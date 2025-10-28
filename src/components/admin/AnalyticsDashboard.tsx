@@ -10,18 +10,14 @@ import {
   PieChart
 } from 'lucide-react';
 import { useAdminStore } from '../../store/adminStore';
+import { useEventsStore } from '../../store/eventsStore';
+import { useReservationsStore } from '../../store/reservationsStore';
 import { formatCurrency, cn } from '../../utils';
 
 export const AnalyticsDashboard: React.FC = () => {
-  const {
-    stats,
-    events,
-    reservations,
-    isLoadingStats,
-    loadStats,
-    loadEvents,
-    loadReservations
-  } = useAdminStore();
+  const { stats, isLoadingStats, loadStats } = useAdminStore();
+  const { events, loadEvents } = useEventsStore();
+  const { reservations, loadReservations } = useReservationsStore();
 
   useEffect(() => {
     loadStats();
@@ -30,23 +26,23 @@ export const AnalyticsDashboard: React.FC = () => {
   }, [loadStats, loadEvents, loadReservations]);
 
   // Calculate additional metrics
-  const upcomingEvents = events.filter(e => new Date(e.date) > new Date()).length;
-  const confirmedReservations = reservations.filter(r => r.status === 'confirmed').length;
-  const pendingReservations = reservations.filter(r => r.status === 'pending').length;
-  const totalCapacity = events.reduce((sum, e) => sum + e.capacity, 0);
-  const bookedCapacity = events.reduce((sum, e) => sum + (e.capacity - (e.remainingCapacity || 0)), 0);
+  const upcomingEvents = (events || []).filter(e => new Date(e.date) > new Date()).length;
+  const confirmedReservations = (reservations || []).filter(r => r.status === 'confirmed').length;
+  const pendingReservations = (reservations || []).filter(r => r.status === 'pending').length;
+  const totalCapacity = (events || []).reduce((sum, e) => sum + e.capacity, 0);
+  const bookedCapacity = (events || []).reduce((sum, e) => sum + (e.capacity - (e.remainingCapacity || 0)), 0);
   const capacityUtilization = totalCapacity > 0 ? (bookedCapacity / totalCapacity * 100).toFixed(1) : 0;
 
   // Revenue by month
-  const revenueByMonth = reservations.reduce((acc, res) => {
+  const revenueByMonth = (reservations || []).reduce((acc, res) => {
     const month = new Date(res.eventDate).toLocaleDateString('nl-NL', { year: 'numeric', month: 'short' });
     acc[month] = (acc[month] || 0) + res.totalPrice;
     return acc;
   }, {} as Record<string, number>);
 
   // Add-ons popularity
-  const preDrinkCount = reservations.filter(r => r.preDrink.enabled).length;
-  const afterPartyCount = reservations.filter(r => r.afterParty.enabled).length;
+  const preDrinkCount = (reservations || []).filter(r => r.preDrink.enabled).length;
+  const afterPartyCount = (reservations || []).filter(r => r.afterParty.enabled).length;
 
   const StatCard: React.FC<{
     title: string;

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Calendar, CheckCircle, ArrowLeft, Clock } from 'lucide-react';
-import { useAdminStore } from '../../store/adminStore';
+import { useEventsStore } from '../../store/eventsStore';
 import { useReservationsStore } from '../../store/reservationsStore';
 import type { AdminEvent, Reservation } from '../../types';
 import { formatCurrency, formatDate, cn } from '../../utils';
@@ -20,8 +20,8 @@ interface TodayCheckInProps {
  * - Fast workflow
  */
 export const TodayCheckIn: React.FC<TodayCheckInProps> = ({ eventId, onBack }) => {
-  const { events, reservations, loadEvents, loadReservations } = useAdminStore();
-  const { checkInReservation } = useReservationsStore();
+  const { events, loadEvents } = useEventsStore();
+  const { reservations, loadReservations, checkInReservation } = useReservationsStore();
   const [selectedEvent, setSelectedEvent] = useState<AdminEvent | null>(null);
   const [adminName] = useState('Admin'); // Could be from auth context
 
@@ -36,7 +36,7 @@ export const TodayCheckIn: React.FC<TodayCheckInProps> = ({ eventId, onBack }) =
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const todaysEvents = events.filter(e => {
+  const todaysEvents = (events || []).filter(e => {
     const eventDate = new Date(e.date);
     eventDate.setHours(0, 0, 0, 0);
     return eventDate.getTime() === today.getTime() && e.isActive;
@@ -52,12 +52,12 @@ export const TodayCheckIn: React.FC<TodayCheckInProps> = ({ eventId, onBack }) =
 
   // Get reservations for selected event
   const eventReservations = selectedEvent
-    ? reservations.filter(r => r.eventId === selectedEvent.id && r.status !== 'cancelled' && r.status !== 'rejected')
+    ? (reservations || []).filter(r => r.eventId === selectedEvent.id && r.status !== 'cancelled' && r.status !== 'rejected')
         .sort((a, b) => {
           // Sort: checked-in last, confirmed first
           if (a.status === 'checked-in' && b.status !== 'checked-in') return 1;
           if (a.status !== 'checked-in' && b.status === 'checked-in') return -1;
-          return a.companyName.localeCompare(b.companyName);
+          return (a.companyName || '').localeCompare(b.companyName || '');
         })
     : [];
 
@@ -122,7 +122,7 @@ export const TodayCheckIn: React.FC<TodayCheckInProps> = ({ eventId, onBack }) =
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {todaysEvents.map(event => {
-            const eventReservs = reservations.filter(r => r.eventId === event.id && r.status !== 'cancelled' && r.status !== 'rejected');
+            const eventReservs = (reservations || []).filter(r => r.eventId === event.id && r.status !== 'cancelled' && r.status !== 'rejected');
             const checkedIn = eventReservs.filter(r => r.status === 'checked-in').length;
             const totalReservs = eventReservs.length;
             const totalPersons = eventReservs.reduce((sum, r) => sum + r.numberOfPersons, 0);
@@ -249,10 +249,10 @@ export const TodayCheckIn: React.FC<TodayCheckInProps> = ({ eventId, onBack }) =
                       'w-12 h-12 rounded-full flex items-center justify-center text-2xl font-bold',
                       isCheckedIn ? 'bg-green-500/20 text-green-400' : 'bg-neutral-700 text-white'
                     )}>
-                      {reservation.companyName.substring(0, 1).toUpperCase()}
+                      {(reservation.companyName || '?').substring(0, 1).toUpperCase()}
                     </div>
                     <div>
-                      <h4 className="font-semibold text-white">{reservation.companyName}</h4>
+                      <h4 className="font-semibold text-white">{reservation.companyName || 'Onbekend'}</h4>
                       <p className="text-sm text-neutral-400">
                         {reservation.contactPerson} • {reservation.numberOfPersons} personen • {formatCurrency(reservation.totalPrice)}
                       </p>

@@ -13,6 +13,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useEventsStore } from '../../store/eventsStore';
 import { useReservationsStore } from '../../store/reservationsStore';
 import { useWaitlistStore } from '../../store/waitlistStore';
+import { useAdminStore } from '../../store/adminStore';
 import type { AdminEvent, Reservation, WaitlistEntry } from '../../types';
 import { EventMasterList } from './EventMasterList';
 import { EventDetailPanel } from './EventDetailPanel';
@@ -101,6 +102,9 @@ export const EventCommandCenter: React.FC = () => {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [showBulkModal, setShowBulkModal] = useState(false);
 
+  // Get selectedItemId from adminStore for deep linking from search
+  const { selectedItemId, clearSelectedItemId } = useAdminStore();
+
   // Data ophalen uit alle stores
   const { events, loadEvents, isLoadingEvents } = useEventsStore();
   const { reservations, loadReservations, isLoadingReservations } = useReservationsStore();
@@ -112,6 +116,18 @@ export const EventCommandCenter: React.FC = () => {
     loadReservations();
     loadWaitlistEntries();
   }, [loadEvents, loadReservations, loadWaitlistEntries]);
+
+  // ✨ NEW: Auto-select event when coming from search
+  useEffect(() => {
+    if (selectedItemId && events.length > 0) {
+      const event = events.find(e => e.id === selectedItemId);
+      if (event) {
+        setSelectedEventId(selectedItemId);
+        // Clear the selectedItemId after selecting
+        clearSelectedItemId();
+      }
+    }
+  }, [selectedItemId, events, clearSelectedItemId]);
 
   // Bereken de data voor het detail paneel
   const selectedEventData = useMemo(() => {

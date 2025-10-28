@@ -14,6 +14,7 @@ import AdvancedAnalytics from './admin/AdvancedAnalytics';
 import { WaitlistManager } from './admin/WaitlistManager';
 import { TodayCheckIn } from './admin/TodayCheckIn';
 import { ArchivedReservationsManager } from './admin/ArchivedReservationsManager';
+import { PaymentOverview } from './admin/PaymentOverview';
 
 const BookingAdminNew: React.FC<BookingAdminProps> = () => {
   const { activeSection } = useAdminStore();
@@ -35,6 +36,10 @@ const BookingAdminNew: React.FC<BookingAdminProps> = () => {
       // Waitlist - Dedicated manager
       case 'waitlist':
         return <WaitlistManager />;
+
+      // Payments - Payment deadline management
+      case 'payments':
+        return <PaymentOverview />;
 
       // Archive - Archived/deleted reservations
       case 'archive':

@@ -73,10 +73,17 @@ const navigationGroups: NavigationGroup[] = [
     section: 'waitlist' as AdminSection
   },
   {
+    id: 'payments',
+    label: 'Betalingen',
+    icon: 'DollarSign',
+    order: 5,
+    section: 'payments' as AdminSection
+  },
+  {
     id: 'archive',
     label: 'Archief',
     icon: 'Archive',
-    order: 5,
+    order: 6,
     section: 'archive' as AdminSection
   },
   {
@@ -280,8 +287,12 @@ export const AdminLayoutNew: React.FC<AdminLayoutNewProps> = ({ children }) => {
               <div className="hidden md:flex items-center gap-3">
                 {/* Global Search */}
                 <div className="w-96">
-                  <GlobalSearch onNavigate={(section) => {
+                  <GlobalSearch onNavigate={(section, id) => {
                     setActiveSection(section as AdminSection);
+                    // Store the selected ID in adminStore for the component to use
+                    if (id) {
+                      useAdminStore.setState({ selectedItemId: id });
+                    }
                   }} />
                 </div>
 

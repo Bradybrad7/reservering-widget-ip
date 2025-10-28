@@ -9,10 +9,27 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { Plus, Trash2, XCircle, CheckSquare, Square } from 'lucide-react';
+import { 
+  Plus, 
+  Trash2, 
+  XCircle, 
+  CheckSquare, 
+  Square, 
+  Download, 
+  Copy, 
+  Eye, 
+  Calendar, 
+  List,
+  TrendingUp,
+  Users,
+  Clock,
+  AlertCircle,
+  ArrowUpDown
+} from 'lucide-react';
 import type { AdminEvent, Reservation, WaitlistEntry, EventType } from '../../types';
 import { getEventComputedData } from './EventCommandCenter';
 import { useEventsStore } from '../../store/eventsStore';
+import { EventCalendarView } from './EventCalendarView';
 
 interface EventMasterListProps {
   events: AdminEvent[];
@@ -39,6 +56,10 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
   const [typeFilter, setTypeFilter] = useState<EventType | 'all'>('all');
   const [selectedEvents, setSelectedEvents] = useState<Set<string>>(new Set());
   const [showBulkActions, setShowBulkActions] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [sortBy, setSortBy] = useState<'date' | 'capacity' | 'bookings'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [showStats, setShowStats] = useState(true);
 
   // Filter en sorteer events
   const filteredAndSortedEvents = useMemo(() => {
@@ -79,11 +100,54 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
       });
     }
 
-    // Sorteer op datum (nieuwste eerst)
-    filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    // Sorteer op basis van geselecteerde optie
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortBy) {
+        case 'date':
+          comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+          break;
+        case 'capacity': {
+          const statsA = getEventComputedData(a, allReservations, allWaitlistEntries);
+          const statsB = getEventComputedData(b, allReservations, allWaitlistEntries);
+          comparison = statsA.capacityPercentage - statsB.capacityPercentage;
+          break;
+        }
+        case 'bookings': {
+          const statsA = getEventComputedData(a, allReservations, allWaitlistEntries);
+          const statsB = getEventComputedData(b, allReservations, allWaitlistEntries);
+          comparison = statsA.totalBookings - statsB.totalBookings;
+          break;
+        }
+      }
+      
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
 
     return filtered;
-  }, [events, allReservations, allWaitlistEntries, searchTerm, statusFilter, typeFilter]);
+  }, [events, allReservations, allWaitlistEntries, searchTerm, statusFilter, typeFilter, sortBy, sortOrder]);
+
+  // 🆕 Bereken overall statistieken
+  const overallStats = useMemo(() => {
+    const totalEvents = events.length;
+    const activeEvents = events.filter(e => e.isActive).length;
+    const totalBookings = allReservations.length;
+    const confirmedBookings = allReservations.filter(r => r.status === 'confirmed' || r.status === 'checked-in').length;
+    const totalWaitlist = allWaitlistEntries.length;
+    const totalRevenue = allReservations
+      .filter(r => r.status === 'confirmed' || r.status === 'checked-in')
+      .reduce((sum, r) => sum + (r.totalPrice || 0), 0);
+    
+    return {
+      totalEvents,
+      activeEvents,
+      totalBookings,
+      confirmedBookings,
+      totalWaitlist,
+      totalRevenue,
+    };
+  }, [events, allReservations, allWaitlistEntries]);
 
   // Helper voor status badge kleur
   const getStatusBadgeClass = (color: string) => {
@@ -157,13 +221,180 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
     clearSelection();
   };
 
+  // 🆕 Export naar CSV
+  const exportToCSV = () => {
+    const csvData = filteredAndSortedEvents.map(event => {
+      const stats = getEventComputedData(event, allReservations, allWaitlistEntries);
+      return {
+        'Datum': new Date(event.date).toLocaleDateString('nl-NL'),
+        'Type': event.type,
+        'Start': event.startsAt,
+        'Eind': event.endsAt,
+        'Capaciteit': event.capacity,
+        'Geboekt': stats.totalConfirmedPersons,
+        'Percentage': `${Math.round(stats.capacityPercentage)}%`,
+        'Status': stats.status.text,
+        'Boekingen Bevestigd': stats.confirmedCount,
+        'Boekingen Pending': stats.pendingCount,
+        'Wachtlijst': stats.waitlistCount,
+        'Actief': event.isActive ? 'Ja' : 'Nee',
+      };
+    });
+
+    const headers = Object.keys(csvData[0] || {});
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => headers.map(h => `"${row[h as keyof typeof row]}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `evenementen_export_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+  };
+
+  // 🆕 Duplicate event
+  const duplicateEvent = async (event: AdminEvent) => {
+    // Format date to YYYY-MM-DD
+    let dateStr: string;
+    if (event.date instanceof Date) {
+      dateStr = event.date.toISOString().split('T')[0];
+    } else {
+      dateStr = new Date(event.date).toISOString().split('T')[0];
+    }
+    
+    const newDate = prompt('Nieuwe datum (YYYY-MM-DD):', dateStr);
+    if (!newDate) return;
+
+    const newEvent: Omit<AdminEvent, 'id'> = {
+      ...event,
+      date: new Date(newDate),
+    };
+    
+    // Remove the id property
+    const { id, ...eventWithoutId } = newEvent as any;
+
+    try {
+      await useEventsStore.getState().createEvent(eventWithoutId);
+      alert('✅ Evenement gedupliceerd!');
+    } catch (error) {
+      alert('❌ Fout bij dupliceren: ' + error);
+    }
+  };
+
+  // 🆕 Toggle sort order
+  const toggleSort = (newSortBy: typeof sortBy) => {
+    if (sortBy === newSortBy) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(newSortBy);
+      setSortOrder('desc');
+    }
+  };
+
+  // 🆕 Get event type color
+  const getEventTypeColor = (type: EventType) => {
+    switch (type) {
+      case 'mystery-dinner':
+        return 'bg-purple-500/10 border-purple-500/30 text-purple-400';
+      case 'pub-quiz':
+        return 'bg-blue-500/10 border-blue-500/30 text-blue-400';
+      case 'matinee':
+        return 'bg-pink-500/10 border-pink-500/30 text-pink-400';
+      case 'care-heroes':
+        return 'bg-green-500/10 border-green-500/30 text-green-400';
+      default:
+        return 'bg-gray-500/10 border-gray-500/30 text-gray-400';
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-gray-800 border-r border-gray-700">
+      {/* 🆕 Quick Stats Dashboard */}
+      {showStats && viewMode === 'list' && (
+        <div className="p-4 bg-gradient-to-r from-blue-900/30 to-purple-900/30 border-b border-gray-700">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+              <TrendingUp className="w-4 h-4" />
+              Overzicht
+            </h3>
+            <button
+              onClick={() => setShowStats(false)}
+              className="text-gray-400 hover:text-white text-xs"
+            >
+              Verberg
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-gray-900/50 rounded-lg p-3 border border-gray-700">
+              <div className="flex items-center gap-2 text-gray-400 text-xs mb-1">
+                <Calendar className="w-3 h-3" />
+                Events
+              </div>
+              <div className="text-white font-bold text-lg">
+                {overallStats.activeEvents} <span className="text-gray-500 text-sm font-normal">/ {overallStats.totalEvents}</span>
+              </div>
+            </div>
+            <div className="bg-gray-900/50 rounded-lg p-3 border border-gray-700">
+              <div className="flex items-center gap-2 text-gray-400 text-xs mb-1">
+                <Users className="w-3 h-3" />
+                Boekingen
+              </div>
+              <div className="text-white font-bold text-lg">
+                {overallStats.confirmedBookings} <span className="text-gray-500 text-sm font-normal">/ {overallStats.totalBookings}</span>
+              </div>
+            </div>
+            <div className="bg-gray-900/50 rounded-lg p-3 border border-gray-700">
+              <div className="flex items-center gap-2 text-gray-400 text-xs mb-1">
+                <Clock className="w-3 h-3" />
+                Wachtlijst
+              </div>
+              <div className="text-orange-400 font-bold text-lg">
+                {overallStats.totalWaitlist}
+              </div>
+            </div>
+            <div className="bg-gray-900/50 rounded-lg p-3 border border-gray-700">
+              <div className="flex items-center gap-2 text-gray-400 text-xs mb-1">
+                <TrendingUp className="w-3 h-3" />
+                Omzet
+              </div>
+              <div className="text-green-400 font-bold text-lg">
+                €{overallStats.totalRevenue.toLocaleString('nl-NL')}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Render Calendar or List View */}
+      {viewMode === 'calendar' ? (
+        <EventCalendarView
+          events={filteredAndSortedEvents}
+          allReservations={allReservations}
+          allWaitlistEntries={allWaitlistEntries}
+          onSelectEvent={onSelectEvent}
+          selectedEventId={selectedEventId}
+        />
+      ) : (
+        <>
       {/* Toolbar met filters */}
       <div className="p-4 border-b border-gray-700 space-y-3">
+        {/* Header Row */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-bold text-white">Evenementen</h2>
+            
+            {/* 🆕 Show Stats Button (when hidden) */}
+            {!showStats && (
+              <button
+                onClick={() => setShowStats(true)}
+                className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded flex items-center gap-1 transition-colors"
+              >
+                <TrendingUp className="w-3 h-3" />
+                Toon stats
+              </button>
+            )}
             
             {/* 🆕 Bulk Selection Toggle */}
             <button
@@ -183,6 +414,41 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
           </div>
           
           <div className="flex items-center gap-2">
+            {/* 🆕 View Mode Toggle */}
+            <div className="flex bg-gray-700 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`px-2 py-1 rounded transition-colors ${
+                  viewMode === 'list' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-gray-400 hover:text-white'
+                }`}
+                title="Lijstweergave"
+              >
+                <List className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('calendar')}
+                className={`px-2 py-1 rounded transition-colors ${
+                  viewMode === 'calendar' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-gray-400 hover:text-white'
+                }`}
+                title="Kalenderweergave"
+              >
+                <Calendar className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* 🆕 Export Button */}
+            <button
+              onClick={exportToCSV}
+              className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1"
+              title="Exporteer naar CSV"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+
             {onBulkAdd && (
               <button
                 onClick={onBulkAdd}
@@ -282,6 +548,44 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
           </select>
         </div>
 
+        {/* 🆕 Sort Controls */}
+        <div className="flex gap-2">
+          <div className="flex-1 flex items-center gap-2 bg-gray-700 border border-gray-600 rounded px-2 py-1.5">
+            <ArrowUpDown className="w-3 h-3 text-gray-400" />
+            <span className="text-xs text-gray-400">Sorteren:</span>
+          </div>
+          <button
+            onClick={() => toggleSort('date')}
+            className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+              sortBy === 'date'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+          >
+            Datum {sortBy === 'date' && (sortOrder === 'asc' ? '↑' : '↓')}
+          </button>
+          <button
+            onClick={() => toggleSort('capacity')}
+            className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+              sortBy === 'capacity'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+          >
+            Bezetting {sortBy === 'capacity' && (sortOrder === 'asc' ? '↑' : '↓')}
+          </button>
+          <button
+            onClick={() => toggleSort('bookings')}
+            className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+              sortBy === 'bookings'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+          >
+            Boekingen {sortBy === 'bookings' && (sortOrder === 'asc' ? '↑' : '↓')}
+          </button>
+        </div>
+
         {/* Resultaat teller */}
         <div className="flex items-center justify-between text-xs">
           <div className="text-gray-400">
@@ -326,7 +630,7 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
             return (
               <div
                 key={event.id}
-                className={`p-4 border-b border-gray-700 transition-colors ${
+                className={`group p-4 border-b border-gray-700 transition-colors ${
                   isSelected 
                     ? 'bg-blue-900/50 border-l-4 border-l-blue-500' 
                     : 'hover:bg-gray-700/50'
@@ -357,22 +661,58 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
                   >
                 {/* Header: Datum + Status */}
                 <div className="flex justify-between items-center mb-2">
-                  <span className="font-bold text-white">
-                    {new Date(event.date).toLocaleDateString('nl-NL', { 
-                      weekday: 'short',
-                      day: '2-digit', 
-                      month: 'short', 
-                      year: 'numeric' 
-                    })}
-                  </span>
-                  <span className={getStatusBadgeClass(stats.status.color)}>
-                    {stats.status.text}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-white">
+                      {new Date(event.date).toLocaleDateString('nl-NL', { 
+                        weekday: 'short',
+                        day: '2-digit', 
+                        month: 'short', 
+                        year: 'numeric' 
+                      })}
+                    </span>
+                    {/* 🆕 Event Type Badge */}
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${getEventTypeColor(event.type)}`}>
+                      {event.type === 'mystery-dinner' ? '🎭' : 
+                       event.type === 'pub-quiz' ? '🧠' : 
+                       event.type === 'matinee' ? '🎪' : 
+                       event.type === 'care-heroes' ? '💙' : '📅'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {/* 🆕 Quick Actions - Only visible when not in bulk mode */}
+                    {!showBulkActions && (
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            duplicateEvent(event);
+                          }}
+                          className="p-1 hover:bg-gray-600 rounded transition-colors"
+                          title="Dupliceer evenement"
+                        >
+                          <Copy className="w-3 h-3 text-gray-400 hover:text-white" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(`/preview.html?event=${event.id}`, '_blank');
+                          }}
+                          className="p-1 hover:bg-gray-600 rounded transition-colors"
+                          title="Preview evenement"
+                        >
+                          <Eye className="w-3 h-3 text-gray-400 hover:text-white" />
+                        </button>
+                      </div>
+                    )}
+                    <span className={getStatusBadgeClass(stats.status.color)}>
+                      {stats.status.text}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Event info */}
                 <p className="text-sm text-gray-300 mb-3">
-                  {event.type} • {event.startsAt} - {event.endsAt}
+                  {event.startsAt} - {event.endsAt}
                 </p>
                 
                 {/* Capaciteit Bar */}
@@ -390,10 +730,25 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
                 </div>
 
                 {/* Capaciteit tekst */}
-                <div className="text-xs text-gray-400 mb-3">
-                  Capaciteit: <span className="font-semibold text-white">{stats.totalConfirmedPersons}</span> / {event.capacity}
-                  {stats.capacityPercentage > 0 && (
-                    <span className="ml-1">({Math.round(stats.capacityPercentage)}%)</span>
+                <div className="flex items-center justify-between text-xs mb-3">
+                  <div className="text-gray-400">
+                    Capaciteit: <span className="font-semibold text-white">{stats.totalConfirmedPersons}</span> / {event.capacity}
+                    {stats.capacityPercentage > 0 && (
+                      <span className="ml-1">({Math.round(stats.capacityPercentage)}%)</span>
+                    )}
+                  </div>
+                  {/* 🆕 Capacity Warning Indicator */}
+                  {stats.capacityPercentage >= 90 && stats.capacityPercentage < 100 && (
+                    <div className="flex items-center gap-1 text-orange-400">
+                      <AlertCircle className="w-3 h-3" />
+                      <span className="text-xs font-medium">Bijna vol</span>
+                    </div>
+                  )}
+                  {stats.capacityPercentage >= 100 && (
+                    <div className="flex items-center gap-1 text-red-400">
+                      <AlertCircle className="w-3 h-3" />
+                      <span className="text-xs font-medium">Volledig</span>
+                    </div>
                   )}
                 </div>
 
@@ -430,6 +785,8 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
           })
         )}
       </div>
+        </>
+      )}
     </div>
   );
 };

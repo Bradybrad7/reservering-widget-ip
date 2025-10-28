@@ -222,6 +222,48 @@ export const ContactStep: React.FC = () => {
           )}
         </div>
 
+        {/* Landcode Selectie */}
+        <div>
+          <label htmlFor="phoneCountryCode" className="block text-sm font-medium text-neutral-300 mb-2">
+            Land *
+          </label>
+          <div className="relative">
+            <select
+              id="phoneCountryCode"
+              name="phoneCountryCode"
+              value={formData.phoneCountryCode || '+31'}
+              onChange={(e) => handleFieldChange('phoneCountryCode', e.target.value)}
+              className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20 transition-colors appearance-none"
+            >
+              <option value="+31">🇳🇱 Nederland (+31)</option>
+              <option value="+32">🇧🇪 België (+32)</option>
+              <option value="other">🌍 Andere</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Custom Land Input (als "Andere" geselecteerd) */}
+        {formData.phoneCountryCode === 'other' && (
+          <div>
+            <label htmlFor="customCountryCode" className="block text-sm font-medium text-neutral-300 mb-2">
+              Landcode *
+            </label>
+            <input
+              type="text"
+              id="customCountryCode"
+              name="customCountryCode"
+              placeholder="+49"
+              value={formData.customCountryCode || ''}
+              onChange={(e) => handleFieldChange('customCountryCode', e.target.value)}
+              className={cn(
+                'w-full px-4 py-3 bg-neutral-800 border rounded-lg text-white placeholder-neutral-500 transition-colors',
+                'border-neutral-700 focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20'
+              )}
+              required
+            />
+          </div>
+        )}
+
         {/* Telefoon */}
         <div>
           <label htmlFor="phone" className="block text-sm font-medium text-neutral-300 mb-2">

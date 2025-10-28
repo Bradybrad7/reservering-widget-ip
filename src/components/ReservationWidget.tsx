@@ -419,6 +419,19 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
                   </p>
                 )}
 
+                {/* Newsletter Opt-in Checkbox */}
+                <label className="flex items-start gap-3 p-4 bg-neutral-800/50 rounded-xl border border-neutral-600 cursor-pointer hover:border-gold-400/40 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={formData.newsletterOptIn || false}
+                    onChange={(e) => updateFormData({ newsletterOptIn: e.target.checked })}
+                    className="mt-1 w-5 h-5 rounded border-neutral-500 text-gold-500 focus:ring-2 focus:ring-gold-400/20 cursor-pointer"
+                  />
+                  <span className="flex-1 text-sm text-neutral-300">
+                    Ja, ik wil graag op de hoogte blijven van nieuws, aanbiedingen en evenementen van Inspiration Point
+                  </span>
+                </label>
+
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button

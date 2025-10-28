@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle, Calendar as CalendarIcon, Users, CreditCard, Download, ArrowLeft } from 'lucide-react';
+import { CheckCircle, Calendar as CalendarIcon, Download, ArrowLeft } from 'lucide-react';
 import { useReservationStore } from '../store/reservationStore';
 import { 
   formatCurrency, 
@@ -276,7 +276,7 @@ const SuccessPage: React.FC<SuccessPageProps> = ({ className, onNewReservation }
               {isWaitlist 
                 ? '🎭 Bedankt voor uw aanmelding op de wachtlijst! Deze datum is momenteel volledig volgeboekt. We nemen contact met u op zodra er een plek vrijkomt. U ontvangt binnenkort een bevestiging per e-mail.'
                 : isPending
-                ? '🎭 Bedankt voor uw aanvraag! Uw reservering is ontvangen en wordt beoordeeld door ons team. U ontvangt binnen 2 werkdagen een definitieve bevestiging of aanvullende informatie per e-mail.'
+                ? '🎭 Bedankt voor uw aanvraag! Uw reservering is ontvangen en wordt beoordeeld door ons team. U ontvangt binnen 3 werkdagen een definitieve bevestiging of aanvullende informatie per e-mail.'
                 : '🎭 Bedankt voor uw reservering! U ontvangt binnenkort een bevestiging per e-mail met alle details.'
               }
             </p>
@@ -299,7 +299,7 @@ const SuccessPage: React.FC<SuccessPageProps> = ({ className, onNewReservation }
                     <ul className="space-y-2 text-sm text-text-secondary">
                       <li className="flex items-start gap-2">
                         <span className="text-blue-400 mt-0.5">✓</span>
-                        <span>Uw aanvraag wordt <strong className="text-text-primary">binnen 2 werkdagen</strong> beoordeeld door ons team.</span>
+                        <span>Uw aanvraag wordt <strong className="text-text-primary">binnen 3 werkdagen</strong> beoordeeld door ons team.</span>
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="text-blue-400 mt-0.5">✓</span>
@@ -324,121 +324,139 @@ const SuccessPage: React.FC<SuccessPageProps> = ({ className, onNewReservation }
         </div>
       </div>
 
-      {/* 📋 Reservation Details met glassmorphism */}
-      <div className="card-theatre p-8 mb-8 rounded-2xl">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 bg-gold-gradient rounded-xl flex items-center justify-center shadow-gold">
-            <CalendarIcon className="w-5 h-5 text-neutral-950" />
+      {/* 📋 Twee kolommen layout: Boekingssamenvatting + Uitleg */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* LINKS: Boekingssamenvatting */}
+        <div className="card-theatre p-6 rounded-2xl">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-gold-gradient rounded-xl flex items-center justify-center shadow-gold">
+              <CalendarIcon className="w-5 h-5 text-neutral-950" />
+            </div>
+            <h2 className="text-xl font-bold text-text-primary">
+              Uw Boeking
+            </h2>
           </div>
-          <h2 className="text-2xl font-bold text-text-primary text-shadow">
-            {nl.successPage.details}
-          </h2>
-        </div>
 
-        <div className="space-y-4">
-          {/* Event Info */}
-          <div className="flex items-start space-x-3 pb-4 border-b border-border-default">
-            <CalendarIcon className="w-5 h-5 text-primary-500 mt-1" />
-            <div>
-              <p className="font-medium text-text-primary">
+          <div className="space-y-3">
+            {/* Event Info */}
+            <div className="pb-3 border-b border-border-default">
+              <p className="text-sm text-text-muted mb-1">Datum & Tijd</p>
+              <p className="font-semibold text-text-primary">
                 {formatDate(selectedEvent.date)}
               </p>
               <p className="text-sm text-text-secondary">
-                {getEventTypeName(selectedEvent.type)}
-              </p>
-              <p className="text-sm text-text-muted">
-                Deuren: {formatTime(selectedEvent.doorsOpen)} | 
-                Show: {formatTime(selectedEvent.startsAt)} - {formatTime(selectedEvent.endsAt)}
+                {getEventTypeName(selectedEvent.type)} • {formatTime(selectedEvent.startsAt)} - {formatTime(selectedEvent.endsAt)}
               </p>
             </div>
-          </div>
 
-          {/* Contact Info */}
-          <div className="pb-4 border-b border-border-default">
-            <h3 className="font-semibold text-primary-500 mb-2">Contactgegevens</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-text-secondary">
-              <div>
-                <p><strong className="text-text-primary">Bedrijf:</strong> {completedReservation.companyName}</p>
-                <p><strong className="text-text-primary">Contactpersoon:</strong> {completedReservation.salutation} {completedReservation.contactPerson}</p>
-              </div>
-              <div>
-                <p><strong className="text-text-primary">E-mail:</strong> {completedReservation.email}</p>
-                <p><strong className="text-text-primary">Telefoon:</strong> {completedReservation.phone}</p>
-              </div>
+            {/* Persons & Arrangement */}
+            <div className="pb-3 border-b border-border-default">
+              <p className="text-sm text-text-muted mb-1">Arrangement</p>
+              <p className="font-semibold text-text-primary">
+                {completedReservation.numberOfPersons} personen • {nl.arrangements[completedReservation.arrangement]}
+              </p>
+              {completedReservation.partyPerson && (
+                <p className="text-sm text-primary-400 mt-1">
+                  🎉 Feestvierder: {completedReservation.partyPerson}
+                </p>
+              )}
             </div>
-          </div>
 
-          {/* Booking Details */}
-          <div className="pb-4 border-b border-border-default">
-            <div className="flex items-center space-x-3 mb-2">
-              <Users className="w-5 h-5 text-primary-500" />
-              <h3 className="font-semibold text-primary-500">Reservering</h3>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-text-secondary">
-              <div>
-                <p><strong className="text-text-primary">Aantal personen:</strong> {completedReservation.numberOfPersons}</p>
-                <p><strong className="text-text-primary">Arrangement:</strong> {nl.arrangements[completedReservation.arrangement]}</p>
-                {completedReservation.partyPerson && (
-                  <p className="mt-2">
-                    <strong className="text-primary-500">🎉 Feestvierder:</strong>{' '}
-                    <span className="text-primary-400 font-medium">{completedReservation.partyPerson}</span>
-                  </p>
-                )}
-              </div>
-              <div>
+            {/* Add-ons */}
+            {(completedReservation.preDrink.enabled || completedReservation.afterParty.enabled) && (
+              <div className="pb-3 border-b border-border-default">
+                <p className="text-sm text-text-muted mb-1">Extra's</p>
                 {completedReservation.preDrink.enabled && (
-                  <p><strong className="text-text-primary">Voorborrel:</strong> {completedReservation.preDrink.quantity} personen</p>
+                  <p className="text-sm text-text-secondary">✓ Voorborrel ({completedReservation.preDrink.quantity} pers.)</p>
                 )}
                 {completedReservation.afterParty.enabled && (
-                  <p><strong className="text-text-primary">AfterParty:</strong> {completedReservation.afterParty.quantity} personen</p>
+                  <p className="text-sm text-text-secondary">✓ AfterParty ({completedReservation.afterParty.quantity} pers.)</p>
                 )}
               </div>
+            )}
+
+            {/* Contact */}
+            <div className="pb-3 border-b border-border-default">
+              <p className="text-sm text-text-muted mb-1">Contactgegevens</p>
+              <p className="text-sm text-text-secondary">{completedReservation.contactPerson}</p>
+              <p className="text-sm text-text-secondary">{completedReservation.email}</p>
+              <p className="text-sm text-text-secondary">{completedReservation.phone}</p>
             </div>
 
-            {/* Merchandise */}
-            {completedReservation.merchandise && completedReservation.merchandise.length > 0 && priceCalculation?.breakdown.merchandise && (
-              <div className="mt-4 p-3 bg-primary-500/10 rounded-lg border border-primary-500/30 backdrop-blur-sm">
-                <h4 className="font-semibold text-primary-500 mb-2">Merchandise Bestelling</h4>
-                <div className="space-y-1 text-sm text-text-secondary">
-                  {priceCalculation.breakdown.merchandise.items.map((item) => (
-                    <div key={item.id} className="flex justify-between">
-                      <span>{item.name} (x{item.quantity})</span>
-                      <span className="font-medium text-primary-400">{formatCurrency(item.total)}</span>
-                    </div>
-                  ))}
-                  <div className="pt-2 mt-2 border-t border-primary-500/20 flex justify-between font-semibold">
-                    <span className="text-text-primary">Merchandise Totaal:</span>
-                    <span className="text-primary-500">{formatCurrency(priceCalculation.breakdown.merchandise.total)}</span>
-                  </div>
+            {/* Price */}
+            {priceCalculation && (
+              <div className="pt-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-lg font-bold text-text-primary">Totaalprijs</span>
+                  <span className="text-2xl font-black text-primary-500">
+                    {formatCurrency(priceCalculation.totalPrice)}
+                  </span>
                 </div>
-              </div>
-            )}
-            
-            {completedReservation.comments && (
-              <div className="mt-3">
-                <p className="font-semibold text-primary-500 mb-2">Opmerkingen:</p>
-                <p className="text-sm text-text-secondary bg-bg-elevated p-3 rounded-lg border border-border-default backdrop-blur-sm">
-                  {completedReservation.comments}
-                </p>
+                <p className="text-xs text-text-muted mt-1">Inclusief BTW</p>
               </div>
             )}
           </div>
+        </div>
 
-          {/* Price Summary */}
-          {priceCalculation && (
-            <div className="flex items-center space-x-3">
-              <CreditCard className="w-5 h-5 text-primary-500" />
-              <div className="flex-1">
-                <h3 className="font-semibold text-primary-500">Totaalprijs</h3>
-                <p className="text-sm text-text-muted">Inclusief BTW</p>
+        {/* RECHTS: Wat gebeurt er nu? */}
+        <div className="card-theatre p-6 rounded-2xl">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-blue-gradient rounded-xl flex items-center justify-center shadow-lifted">
+              <span className="text-2xl">📋</span>
+            </div>
+            <h2 className="text-xl font-bold text-text-primary">
+              Wat gebeurt er nu?
+            </h2>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-primary-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-lg">1️⃣</span>
               </div>
-              <div className="text-right">
-                <p className="text-2xl font-bold text-primary-500 text-shadow">
-                  {formatCurrency(priceCalculation.totalPrice)}
+              <div>
+                <p className="font-semibold text-text-primary mb-1">Bevestiging per e-mail</p>
+                <p className="text-sm text-text-secondary">
+                  U ontvangt direct een automatische ontvangstbevestiging op {completedReservation.email}
                 </p>
               </div>
             </div>
-          )}
+
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-primary-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-lg">2️⃣</span>
+              </div>
+              <div>
+                <p className="font-semibold text-text-primary mb-1">Beoordeling door ons team</p>
+                <p className="text-sm text-text-secondary">
+                  Binnen <strong className="text-primary-400">3 werkdagen</strong> controleren wij uw aanvraag en beschikbare capaciteit
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-primary-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-lg">3️⃣</span>
+              </div>
+              <div>
+                <p className="font-semibold text-text-primary mb-1">Definitieve bevestiging</p>
+                <p className="text-sm text-text-secondary">
+                  U ontvangt een definitieve bevestiging met alle details en betaalinformatie
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 p-4 bg-blue-500/10 rounded-xl border border-blue-500/30">
+              <p className="text-sm text-blue-300 mb-2">
+                <strong>💡 Goed om te weten:</strong>
+              </p>
+              <ul className="text-sm text-text-secondary space-y-1.5">
+                <li>• Betaling vindt plaats na bevestiging</li>
+                <li>• Kosteloos wijzigen tot 3 weken voor de show</li>
+                <li>• Vragen? <a href="mailto:info@inspiration-point.nl" className="text-primary-400 hover:text-primary-300 underline">info@inspiration-point.nl</a></li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -479,7 +497,7 @@ const SuccessPage: React.FC<SuccessPageProps> = ({ className, onNewReservation }
               <br />
               <span className="text-base mt-2 block">
                 Wij hebben uw reservering ontvangen en moeten deze nog controleren op beschikbare capaciteit en details. 
-                U ontvangt binnen 2 werkdagen een definitieve bevestiging per e-mail.
+                U ontvangt binnen 3 werkdagen een definitieve bevestiging per e-mail.
               </span>
             </span>
           </li>
@@ -489,7 +507,7 @@ const SuccessPage: React.FC<SuccessPageProps> = ({ className, onNewReservation }
           </li>
           <li className="flex items-start gap-3">
             <span className="text-primary-500 font-bold text-xl">✓</span>
-            <span>Binnen <strong className="text-primary-400">2 werkdagen</strong> neemt ons team contact met u op voor de definitieve bevestiging</span>
+            <span>Binnen <strong className="text-primary-400">3 werkdagen</strong> neemt ons team contact met u op voor de definitieve bevestiging</span>
           </li>
           <li className="flex items-start gap-3">
             <span className="text-primary-500 font-bold text-xl">✓</span>
