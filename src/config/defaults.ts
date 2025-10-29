@@ -193,7 +193,11 @@ export const getDefaultEventTypesConfig = (): EventTypesConfig => ({
       },
       days: ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'],
       enabled: true,
-      showOnCalendar: false // REGULAR wordt niet getoond (is standaard)
+      showOnCalendar: false, // REGULAR wordt niet getoond (is standaard)
+      pricing: {
+        BWF: 75,
+        BWFM: 90
+      }
     },
     {
       key: 'MATINEE',
@@ -207,7 +211,11 @@ export const getDefaultEventTypesConfig = (): EventTypesConfig => ({
       },
       days: ['zondag'],
       enabled: true,
-      showOnCalendar: true // Matinee wel tonen (andere tijd/prijs)
+      showOnCalendar: true, // Matinee wel tonen (andere tijd/prijs)
+      pricing: {
+        BWF: 70,
+        BWFM: 85
+      }
     },
     {
       key: 'CARE_HEROES',
@@ -221,7 +229,11 @@ export const getDefaultEventTypesConfig = (): EventTypesConfig => ({
       },
       days: ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag'],
       enabled: true,
-      showOnCalendar: true // Speciale show, wel tonen
+      showOnCalendar: true, // Speciale show, wel tonen
+      pricing: {
+        BWF: 65,
+        BWFM: 80
+      }
     },
     {
       key: 'REQUEST',
@@ -235,7 +247,11 @@ export const getDefaultEventTypesConfig = (): EventTypesConfig => ({
       },
       days: [],
       enabled: true,
-      showOnCalendar: false // REQUEST niet tonen (op aanvraag)
+      showOnCalendar: false, // REQUEST niet tonen (op aanvraag)
+      pricing: {
+        BWF: 75,
+        BWFM: 90
+      }
     },
     {
       key: 'UNAVAILABLE',
@@ -249,7 +265,11 @@ export const getDefaultEventTypesConfig = (): EventTypesConfig => ({
       },
       days: [],
       enabled: true,
-      showOnCalendar: false // Niet beschikbaar, niet tonen
+      showOnCalendar: false, // Niet beschikbaar, niet tonen
+      pricing: {
+        BWF: 0,
+        BWFM: 0
+      }
     }
   ]
 });

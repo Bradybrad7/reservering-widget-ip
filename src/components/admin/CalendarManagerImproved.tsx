@@ -16,7 +16,9 @@ import {
 } from 'lucide-react';
 import type { Event, EventType, AdminEvent } from '../../types';
 import { useEventsStore } from '../../store/eventsStore';
-import { getEventTypeName, cn, formatDate } from '../../utils';
+import { getEventTypeName } from '../../config/defaults';
+import { cn, formatDate } from '../../utils';
+// 🔒 getDefaultPricingForEvent NIET meer nodig - customPricing is disabled!
 
 interface CalendarDay {
   date: Date;
@@ -159,6 +161,7 @@ export const CalendarManagerImproved: React.FC<CalendarManagerImprovedProps> = (
       bookingOpensAt: null,
       bookingClosesAt: null,
       allowedArrangements: ['BWF', 'BWFM'],
+      // 🔒 customPricing NIET meer - prijzen komen van PricingConfigManager!
       isActive: true
     });
     setShowEventModal(true);
@@ -178,7 +181,7 @@ export const CalendarManagerImproved: React.FC<CalendarManagerImprovedProps> = (
       bookingOpensAt: event.bookingOpensAt,
       bookingClosesAt: event.bookingClosesAt,
       allowedArrangements: event.allowedArrangements,
-      customPricing: event.customPricing,
+      // 🔒 customPricing NIET meer opnemen - prijzen komen van PricingConfigManager!
       notes: event.notes,
       isActive: event.isActive
     });
@@ -203,6 +206,7 @@ export const CalendarManagerImproved: React.FC<CalendarManagerImprovedProps> = (
     if (editingEvent) {
       success = await updateEvent(editingEvent.id, formData);
     } else {
+      // 🔒 customPricing NIET meer - prijzen komen van PricingConfigManager!
       success = await createEvent(formData);
     }
     
@@ -773,6 +777,21 @@ export const CalendarManagerImproved: React.FC<CalendarManagerImprovedProps> = (
                   className="w-full px-4 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-gold-500 resize-none"
                   placeholder="Optionele notities over dit event..."
                 />
+              </div>
+
+              {/* Info: Pricing wordt centraal beheerd */}
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <svg className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <div>
+                    <h4 className="text-sm font-semibold text-blue-300 mb-1">Prijzen worden centraal beheerd</h4>
+                    <p className="text-xs text-blue-200">
+                      De prijzen voor dit event worden automatisch bepaald op basis van het event type en de prijzen die je instelt in <strong>Producten en Prijzen → Prijzen</strong> tab.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Active Toggle */}

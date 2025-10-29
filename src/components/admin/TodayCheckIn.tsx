@@ -1,5 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Calendar, CheckCircle, ArrowLeft, Clock } from 'lucide-react';
+import { 
+  Calendar, 
+  CheckCircle, 
+  ArrowLeft, 
+  Clock
+} from 'lucide-react';
 import { useEventsStore } from '../../store/eventsStore';
 import { useReservationsStore } from '../../store/reservationsStore';
 import type { AdminEvent, Reservation } from '../../types';

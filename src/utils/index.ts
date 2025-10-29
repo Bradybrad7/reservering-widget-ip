@@ -2,7 +2,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import type { EventType } from '../types';
 import { nl } from '../config/defaults';
-import { localStorageService } from '../services/localStorageService';
+import { storageService } from '../services/storageService';
 
 // Re-export event color utilities
 export * from './eventColors';
@@ -21,9 +21,9 @@ export function cn(...inputs: ClassValue[]) {
  * @param defaultText - Fallback text if key not found
  * @returns The customized or default text
  */
-export function getText(key: string, defaultText?: string): string {
+export async function getText(key: string, defaultText?: string): Promise<string> {
   // Try to get custom text
-  const customTexts = localStorageService.getTextCustomization();
+  const customTexts = await storageService.getTextCustomization();
   
   if (customTexts && customTexts[key]) {
     return customTexts[key];
@@ -55,11 +55,11 @@ export function getText(key: string, defaultText?: string): string {
  * @param eventType - The event type key (e.g., 'REGULAR', 'CUSTOM_1761217338750')
  * @returns The display name for the event type
  */
-export function getEventTypeName(eventType: EventType): string {
+export async function getEventTypeName(eventType: EventType): Promise<string> {
   // First try to get from eventTypesConfig (supports custom types)
-  const eventTypesConfig = localStorageService.getEventTypesConfig();
+  const eventTypesConfig = await storageService.getEventTypesConfig();
   if (eventTypesConfig) {
-    const config = eventTypesConfig.types.find(t => t.key === eventType);
+    const config = eventTypesConfig.types.find((t: any) => t.key === eventType);
     if (config) {
       return config.name;
     }
@@ -326,7 +326,7 @@ export function downloadCSV(content: string, filename: string): void {
 
 // Get event type color
 export function getEventTypeColor(eventType: EventType): string {
-  const colors = {
+  const colors: Record<string, string> = {
     REGULAR: '#2563eb',
     MATINEE: '#06b6d4',
     CARE_HEROES: '#10b981',

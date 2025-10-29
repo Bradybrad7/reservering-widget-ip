@@ -12,7 +12,7 @@ import { useAdminStore } from '../store/adminStore';
 // ✨ Nieuwe features
 import AdvancedAnalytics from './admin/AdvancedAnalytics';
 import { WaitlistManager } from './admin/WaitlistManager';
-import { TodayCheckIn } from './admin/TodayCheckIn';
+import { HostCheckIn } from './admin/HostCheckIn';
 import { ArchivedReservationsManager } from './admin/ArchivedReservationsManager';
 import { PaymentOverview } from './admin/PaymentOverview';
 
@@ -47,7 +47,7 @@ const BookingAdminNew: React.FC<BookingAdminProps> = () => {
 
       // Check-in - Today's check-in + Manual booking
       case 'checkin':
-        return <TodayCheckIn />;
+        return <HostCheckIn />;
 
       // Customers - CRM overview
       case 'customers':

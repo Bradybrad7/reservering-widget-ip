@@ -8,18 +8,29 @@
  * - Details view
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type { IssuedVoucher } from '../../types';
-import { localStorageService } from '../../services/localStorageService';
+import { storageService } from '../../services/storageService';
 import { voucherService } from '../../services/voucherService';
 
 export const IssuedVouchersTable: React.FC = () => {
-  const [vouchers, setVouchers] = useState<IssuedVoucher[]>(() => 
-    localStorageService.getIssuedVouchers()
-  );
+  const [vouchers, setVouchers] = useState<IssuedVoucher[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'date' | 'value' | 'status'>('date');
+
+  // Load vouchers on mount
+  useEffect(() => {
+    loadVouchers();
+  }, []);
+
+  const loadVouchers = async () => {
+    setIsLoading(true);
+    const data = await storageService.getIssuedVouchers();
+    setVouchers(data);
+    setIsLoading(false);
+  };
 
   // Filter and sort vouchers
   const filteredVouchers = useMemo(() => {
@@ -96,8 +107,16 @@ export const IssuedVouchersTable: React.FC = () => {
   }, [vouchers]);
 
   const handleRefresh = () => {
-    setVouchers(localStorageService.getIssuedVouchers());
+    loadVouchers();
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold-400"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

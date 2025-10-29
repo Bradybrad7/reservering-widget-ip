@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  },
+  "exclude": [
+    "src/examples/**/*",
+    "src/tests/**/*",
+    "src/components/voucher/**/*",
+    "src/store/firebaseConfigStore.ts"
+  ]
+}

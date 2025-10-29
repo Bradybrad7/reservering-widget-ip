@@ -428,7 +428,7 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
                 <List className="w-4 h-4" />
               </button>
               <button
-                onClick={() => setViewMode('calendar')}
+                onClick={() => setViewMode('calendar' as 'list' | 'calendar')}
                 className={`px-2 py-1 rounded transition-colors ${
                   viewMode === 'calendar' 
                     ? 'bg-blue-600 text-white' 

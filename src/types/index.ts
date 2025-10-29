@@ -170,6 +170,11 @@ export interface EventTypeConfig {
   days: string[];
   enabled: boolean;
   showOnCalendar: boolean; // Whether to display on public calendar
+  // 🆕 SIMPEL PRICING SYSTEEM - Vaste prijzen per event type!
+  pricing: {
+    BWF: number;
+    BWFM: number;
+  };
 }
 
 export interface EventTypesConfig {

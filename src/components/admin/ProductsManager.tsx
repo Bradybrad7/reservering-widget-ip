@@ -4,7 +4,7 @@ import { cn } from '../../utils';
 // import type { AdminSection } from '../../types'; // Unused
 import { MerchandiseManager } from './MerchandiseManager';
 import { AddOnsManagerEnhanced } from './AddOnsManagerEnhanced';
-import { PricingConfigManager } from './PricingConfigManager';
+import { SimplePricingManager } from './SimplePricingManager'; // 🆕 NIEUWE SIMPELE PRICING MANAGER
 import { PromotionsManager } from './PromotionsManager';
 import { VouchersManager } from './VouchersManager';
 import { VoucherConfigManager } from './VoucherConfigManager';
@@ -29,7 +29,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ activeTab: ini
   const renderContent = () => {
     switch (activeTab) {
       case 'pricing':
-        return <PricingConfigManager />;
+        return <SimplePricingManager />;
       case 'addons':
         return <AddOnsManagerEnhanced />;
       case 'merchandise':
@@ -41,7 +41,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ activeTab: ini
       case 'voucher-config':
         return <VoucherConfigManager />;
       default:
-        return <PricingConfigManager />;
+        return <SimplePricingManager />;
     }
   };
 

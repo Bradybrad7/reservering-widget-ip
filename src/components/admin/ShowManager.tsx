@@ -9,7 +9,7 @@ import {
   ToggleRight,
   Film
 } from 'lucide-react';
-import { useAdminStore } from '../../store/adminStore';
+import { useEventsStore } from '../../store/eventsStore';
 import { cn } from '../../utils';
 import type { Show } from '../../types';
 
@@ -21,7 +21,7 @@ export const ShowManager: React.FC = () => {
     createShow,
     updateShow,
     deleteShow
-  } = useAdminStore();
+  } = useEventsStore();
 
   const [editingShow, setEditingShow] = useState<Show | null>(null);
   const [showModal, setShowModal] = useState(false);

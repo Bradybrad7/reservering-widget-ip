@@ -47,41 +47,72 @@ export const PackageStep: React.FC = () => {
     goToPreviousStep
   } = useReservationStore();
 
-  // ✨ Load latest pricing to ensure we show updated prices
-  const { loadConfig, pricing } = useConfigStore();
+  // ✨ Load latest config to ensure we show updated prices
+  const { loadConfig, eventTypesConfig } = useConfigStore();
 
   const [selectedArrangement, setSelectedArrangement] = useState<Arrangement>(
     formData.arrangement || 'BWF'
   );
   
-  // ✨ Track pricing version to force re-renders when prices change
-  const [pricingVersion, setPricingVersion] = useState(0);
+  // ✨ Store actual prices in state (not promises!)
+  const [arrangementPrices, setArrangementPrices] = useState<Record<Arrangement, number>>({
+    BWF: 0,
+    BWFM: 0
+  });
 
-  // ✨ Reload config when component mounts to get latest prices
+  // ✨ Load prices when component mounts or event changes
   useEffect(() => {
-    loadConfig().then(() => {
-      setPricingVersion(v => v + 1);
-    });
-  }, [loadConfig]);
+    const loadPrices = async () => {
+      if (!selectedEvent) return;
+      
+      console.log('💰 PackageStep - Loading prices for event:', selectedEvent.id);
+      
+      try {
+        // Load latest config first
+        await loadConfig();
+        
+        // Fetch prices for both arrangements
+        const bwfPrice = await getArrangementPrice(selectedEvent, 'BWF');
+        const bwfmPrice = await getArrangementPrice(selectedEvent, 'BWFM');
+        
+        console.log('💰 PackageStep - Prices loaded:', { BWF: bwfPrice, BWFM: bwfmPrice });
+        
+        setArrangementPrices({
+          BWF: bwfPrice,
+          BWFM: bwfmPrice
+        });
+      } catch (error) {
+        console.error('❌ PackageStep - Error loading prices:', error);
+        // Fallback to 0 if there's an error
+        setArrangementPrices({ BWF: 0, BWFM: 0 });
+      }
+    };
 
-  // ✨ Update pricing version when pricing changes
+    loadPrices();
+  }, [selectedEvent, loadConfig]);
+
+  // ✨ Reload prices when eventTypesConfig changes (after admin updates pricing)
   useEffect(() => {
-    if (pricing) {
-      setPricingVersion(v => v + 1);
-    }
-  }, [pricing]);
+    const loadPrices = async () => {
+      if (!selectedEvent || !eventTypesConfig) return;
+      
+      console.log('🔄 PackageStep - Event types config changed, reloading prices');
+      
+      try {
+        const bwfPrice = await getArrangementPrice(selectedEvent, 'BWF');
+        const bwfmPrice = await getArrangementPrice(selectedEvent, 'BWFM');
+        
+        setArrangementPrices({
+          BWF: bwfPrice,
+          BWFM: bwfmPrice
+        });
+      } catch (error) {
+        console.error('❌ PackageStep - Error reloading prices:', error);
+      }
+    };
 
-  // ✨ Poll for pricing updates every 30 seconds to catch admin changes
-  useEffect(() => {
-    const interval = setInterval(() => {
-      console.log('🔄 PackageStep - Checking for pricing updates...');
-      loadConfig().then(() => {
-        console.log('✅ PackageStep - Pricing refreshed');
-      });
-    }, 30000); // Check every 30 seconds
-
-    return () => clearInterval(interval);
-  }, [loadConfig]);
+    loadPrices();
+  }, [eventTypesConfig, selectedEvent]);
 
   const preDrinkData = formData.preDrink || { enabled: false, quantity: 0 };
   const afterPartyData = formData.afterParty || { enabled: false, quantity: 0 };
@@ -124,20 +155,9 @@ export const PackageStep: React.FC = () => {
     selectedEvent.allowedArrangements.includes(opt.value)
   );
 
+  // Get price from state (already loaded asynchronously)
   const getPrice = (arrangement: Arrangement): number => {
-    if (!selectedEvent) return 0;
-    // Force recalculation when pricingVersion changes
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    pricingVersion; // Dependency to trigger re-render
-    const price = getArrangementPrice(selectedEvent, arrangement);
-    console.log(`💰 PackageStep - Getting price for ${arrangement}:`, {
-      eventId: selectedEvent.id,
-      eventType: selectedEvent.type,
-      arrangement,
-      price,
-      pricingVersion
-    });
-    return price;
+    return arrangementPrices[arrangement] || 0;
   };
 
   const handleArrangementSelect = (arrangement: Arrangement) => {

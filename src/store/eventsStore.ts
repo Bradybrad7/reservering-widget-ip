@@ -95,23 +95,39 @@ export const useEventsStore = create<EventsState & EventsActions>()(
     },
 
     updateEvent: async (eventId: string, updates: Partial<Event>) => {
-      const response = await apiService.updateEvent(eventId, updates);
-      if (response.success) {
-        await get().loadEvents();
-        return true;
+      try {
+        console.log('🔄 Updating event:', eventId, updates);
+        const response = await apiService.updateEvent(eventId, updates);
+        console.log('✅ Update response:', response);
+        if (response.success) {
+          await get().loadEvents();
+          return true;
+        }
+        console.error('❌ Update failed:', response.error);
+        return false;
+      } catch (error) {
+        console.error('❌ Update error:', error);
+        return false;
       }
-      return false;
     },
 
     deleteEvent: async (eventId: string) => {
-      const response = await apiService.deleteEvent(eventId);
-      if (response.success) {
-        set(state => ({
-          events: state.events.filter(e => e.id !== eventId)
-        }));
-        return true;
+      try {
+        console.log('🗑️ Deleting event:', eventId);
+        const response = await apiService.deleteEvent(eventId);
+        console.log('✅ Delete response:', response);
+        if (response.success) {
+          set(state => ({
+            events: state.events.filter(e => e.id !== eventId)
+          }));
+          return true;
+        }
+        console.error('❌ Delete failed:', response.error);
+        return false;
+      } catch (error) {
+        console.error('❌ Delete error:', error);
+        return false;
       }
-      return false;
     },
 
     bulkDeleteEvents: async (eventIds: string[]) => {

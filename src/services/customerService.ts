@@ -1,5 +1,5 @@
-import type { CustomerProfile, Arrangement } from '../types';
-import { localStorageService } from './localStorageService';
+import type { CustomerProfile, Arrangement, Reservation } from '../types';
+import { storageService } from './storageService';
 
 /**
  * 👥 CUSTOMER SERVICE (CRM)
@@ -16,21 +16,21 @@ import { localStorageService } from './localStorageService';
 
 class CustomerService {
   /**
-   * Get all unique customer profiles aggregated from reservations
+   * Get all unique customers from reservations
    */
-  getAllCustomers(): CustomerProfile[] {
-    const reservations = localStorageService.getReservations();
+  async getAllCustomers(): Promise<CustomerProfile[]> {
+    const reservations = await storageService.getReservations();
     const customerMap = new Map<string, CustomerProfile>();
 
     // Group reservations by email
-    reservations.forEach(reservation => {
+    reservations.forEach((reservation: Reservation) => {
       const email = reservation.email.toLowerCase();
       
       if (!customerMap.has(email)) {
         // Create new customer profile
         customerMap.set(email, {
           email,
-          companyName: reservation.companyName,
+          companyName: reservation.companyName || '',
           contactPerson: reservation.contactPerson,
           totalBookings: 0,
           totalSpent: 0,
@@ -97,63 +97,63 @@ class CustomerService {
   /**
    * Get a single customer profile by email
    */
-  getCustomerByEmail(email: string): CustomerProfile | null {
-    const customers = this.getAllCustomers();
-    return customers.find(c => c.email.toLowerCase() === email.toLowerCase()) || null;
+  async getCustomerByEmail(email: string): Promise<CustomerProfile | null> {
+    const customers = await this.getAllCustomers();
+    return customers.find((c: CustomerProfile) => c.email.toLowerCase() === email.toLowerCase()) || null;
   }
 
   /**
    * Get customer statistics
    */
-  getCustomerStats() {
-    const customers = this.getAllCustomers();
+  async getCustomerStats() {
+    const customers = await this.getAllCustomers();
     
     return {
       totalCustomers: customers.length,
-      totalRevenue: customers.reduce((sum, c) => sum + c.totalSpent, 0),
+      totalRevenue: customers.reduce((sum: number, c: CustomerProfile) => sum + c.totalSpent, 0),
       averageLifetimeValue: customers.length > 0 
-        ? customers.reduce((sum, c) => sum + c.totalSpent, 0) / customers.length 
+        ? customers.reduce((sum: number, c: CustomerProfile) => sum + c.totalSpent, 0) / customers.length 
         : 0,
-      repeatCustomers: customers.filter(c => c.totalBookings > 1).length,
-      vipCustomers: customers.filter(c => c.tags.includes('VIP')).length,
-      corporateCustomers: customers.filter(c => c.tags.includes('Corporate') || c.tags.includes('Bedrijf')).length
+      repeatCustomers: customers.filter((c: CustomerProfile) => c.totalBookings > 1).length,
+      vipCustomers: customers.filter((c: CustomerProfile) => c.tags.includes('VIP')).length,
+      corporateCustomers: customers.filter((c: CustomerProfile) => c.tags.includes('Corporate') || c.tags.includes('Bedrijf')).length
     };
   }
 
   /**
    * Get top customers by total spent
    */
-  getTopCustomers(limit: number = 10): CustomerProfile[] {
-    const customers = this.getAllCustomers();
+  async getTopCustomers(limit: number = 10): Promise<CustomerProfile[]> {
+    const customers = await this.getAllCustomers();
     return customers
-      .sort((a, b) => b.totalSpent - a.totalSpent)
+      .sort((a: CustomerProfile, b: CustomerProfile) => b.totalSpent - a.totalSpent)
       .slice(0, limit);
   }
 
   /**
    * Get repeat customers (more than 1 booking)
    */
-  getRepeatCustomers(): CustomerProfile[] {
-    const customers = this.getAllCustomers();
-    return customers.filter(c => c.totalBookings > 1);
+  async getRepeatCustomers(): Promise<CustomerProfile[]> {
+    const customers = await this.getAllCustomers();
+    return customers.filter((c: CustomerProfile) => c.totalBookings > 1);
   }
 
   /**
    * Get customers by tag
    */
-  getCustomersByTag(tag: string): CustomerProfile[] {
-    const customers = this.getAllCustomers();
-    return customers.filter(c => c.tags.includes(tag));
+  async getCustomersByTag(tag: string): Promise<CustomerProfile[]> {
+    const customers = await this.getAllCustomers();
+    return customers.filter((c: CustomerProfile) => c.tags.includes(tag));
   }
 
   /**
    * Search customers by name, email, or company
    */
-  searchCustomers(query: string): CustomerProfile[] {
-    const customers = this.getAllCustomers();
+  async searchCustomers(query: string): Promise<CustomerProfile[]> {
+    const customers = await this.getAllCustomers();
     const lowerQuery = query.toLowerCase();
     
-    return customers.filter(c => 
+    return customers.filter((c: CustomerProfile) => 
       c.email.toLowerCase().includes(lowerQuery) ||
       c.contactPerson.toLowerCase().includes(lowerQuery) ||
       c.companyName.toLowerCase().includes(lowerQuery)
@@ -163,9 +163,9 @@ class CustomerService {
   /**
    * Add a tag to a customer (updates all their reservations)
    */
-  addTagToCustomer(email: string, tag: string): void {
-    const reservations = localStorageService.getReservations();
-    const updatedReservations = reservations.map(res => {
+  async addTagToCustomer(email: string, tag: string): Promise<void> {
+    const reservations = await storageService.getReservations();
+    const updatedReservations = reservations.map((res: Reservation) => {
       if (res.email.toLowerCase() === email.toLowerCase()) {
         const tags = res.tags || [];
         if (!tags.includes(tag)) {
@@ -178,33 +178,33 @@ class CustomerService {
       return res;
     });
     
-    localStorageService.saveReservations(updatedReservations);
+    storageService.saveReservations(updatedReservations);
   }
 
   /**
    * Remove a tag from a customer (updates all their reservations)
    */
-  removeTagFromCustomer(email: string, tag: string): void {
-    const reservations = localStorageService.getReservations();
-    const updatedReservations = reservations.map(res => {
+  async removeTagFromCustomer(email: string, tag: string): Promise<void> {
+    const reservations = await storageService.getReservations();
+    const updatedReservations = reservations.map((res: Reservation) => {
       if (res.email.toLowerCase() === email.toLowerCase()) {
         return {
           ...res,
-          tags: (res.tags || []).filter(t => t !== tag)
+          tags: (res.tags || []).filter((t: string) => t !== tag)
         };
       }
       return res;
     });
     
-    localStorageService.saveReservations(updatedReservations);
+    await storageService.saveReservations(updatedReservations);
   }
 
   /**
    * Add a note to all reservations of a customer
    */
-  addNoteToCustomer(email: string, note: string): void {
-    const reservations = localStorageService.getReservations();
-    const updatedReservations = reservations.map(res => {
+  async addNoteToCustomer(email: string, note: string): Promise<void> {
+    const reservations = await storageService.getReservations();
+    const updatedReservations = reservations.map((res: Reservation) => {
       if (res.email.toLowerCase() === email.toLowerCase()) {
         return {
           ...res,
@@ -214,19 +214,19 @@ class CustomerService {
       return res;
     });
     
-    localStorageService.saveReservations(updatedReservations);
+    await storageService.saveReservations(updatedReservations);
   }
 
   /**
    * Get customer segments
    */
-  getCustomerSegments() {
-    const customers = this.getAllCustomers();
+  async getCustomerSegments() {
+    const customers = await this.getAllCustomers();
     
     // Segment by value
-    const highValue = customers.filter(c => c.totalSpent >= 500);
-    const mediumValue = customers.filter(c => c.totalSpent >= 200 && c.totalSpent < 500);
-    const lowValue = customers.filter(c => c.totalSpent < 200);
+    const highValue = customers.filter((c: CustomerProfile) => c.totalSpent >= 500);
+    const mediumValue = customers.filter((c: CustomerProfile) => c.totalSpent >= 200 && c.totalSpent < 500);
+    const lowValue = customers.filter((c: CustomerProfile) => c.totalSpent < 200);
     
     // Segment by frequency
     const frequent = customers.filter(c => c.totalBookings >= 3);
@@ -261,12 +261,12 @@ class CustomerService {
   /**
    * Get available tags from all customers
    */
-  getAllTags(): string[] {
-    const customers = this.getAllCustomers();
+  async getAllTags(): Promise<string[]> {
+    const customers = await this.getAllCustomers();
     const tags = new Set<string>();
     
-    customers.forEach(customer => {
-      customer.tags.forEach(tag => tags.add(tag));
+    customers.forEach((customer: CustomerProfile) => {
+      customer.tags.forEach((tag: string) => tags.add(tag));
     });
     
     return Array.from(tags).sort();
@@ -275,8 +275,8 @@ class CustomerService {
   /**
    * Get customer growth over time (by month)
    */
-  getCustomerGrowth(): { month: string; newCustomers: number; totalCustomers: number }[] {
-    const customers = this.getAllCustomers();
+  async getCustomerGrowth(): Promise<{ month: string; newCustomers: number; totalCustomers: number }[]> {
+    const customers = await this.getAllCustomers();
     const monthlyData = new Map<string, { new: number; total: Set<string> }>();
     
     customers.forEach(customer => {

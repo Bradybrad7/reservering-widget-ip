@@ -271,8 +271,16 @@ export const QuickBooking: React.FC<QuickBookingProps> = ({ onClose }) => {
                 <label className="block text-sm font-medium text-neutral-300 mb-2">Aantal Personen <span className="text-red-400">*</span></label>
                 <div className="relative">
                   <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
-                  <input type="number" min="1" max="100" value={numberOfPersons} onChange={(e) => setNumberOfPersons(parseInt(e.target.value) || 1)} className="w-full pl-10 pr-4 py-3 bg-neutral-800 border border-neutral-700 rounded-xl text-white focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all" required />
+                  <input type="number" min="1" value={numberOfPersons} onChange={(e) => setNumberOfPersons(parseInt(e.target.value) || 1)} className="w-full pl-10 pr-4 py-3 bg-neutral-800 border border-neutral-700 rounded-xl text-white focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all" required />
                 </div>
+                {selectedEvent && selectedEvent.remainingCapacity !== undefined && (
+                  <p className="mt-2 text-xs text-neutral-400">
+                    📊 Na boeking: {selectedEvent.capacity - selectedEvent.remainingCapacity + numberOfPersons} / {selectedEvent.capacity} personen
+                    {(numberOfPersons > selectedEvent.remainingCapacity) && (
+                      <span className="text-amber-400"> (⚠️ {numberOfPersons - selectedEvent.remainingCapacity} over capaciteit)</span>
+                    )}
+                  </p>
+                )}
               </div>
             </div>
 

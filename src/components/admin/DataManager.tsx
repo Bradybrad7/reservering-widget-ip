@@ -11,7 +11,7 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import apiService from '../../services/apiService';
-import { localStorageService } from '../../services/localStorageService';
+import { storageService } from '../../services/storageService';
 
 export const DataManager: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -213,7 +213,7 @@ export const DataManager: React.FC = () => {
     }
   };
 
-  const storageInfo = localStorageService.checkStorageAvailable();
+  const storageInfo = storageService.checkStorageAvailable();
   const usagePercent = (storageInfo.used / storageInfo.limit) * 100;
 
   return (

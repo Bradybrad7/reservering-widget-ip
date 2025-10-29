@@ -1,5 +1,5 @@
 import type { PromotionCode, Voucher, Event, Arrangement } from '../types';
-import { localStorageService } from './localStorageService';
+import { storageService } from './storageService';
 
 /**
  * 🎟️ PROMOTION & VOUCHER SERVICE
@@ -233,7 +233,7 @@ class PromotionService {
   // ===== ADMIN: PROMOTION CODES CRUD =====
 
   getAllPromotionCodes(): PromotionCode[] {
-    return localStorageService.get<PromotionCode[]>(this.PROMOTION_CODES_KEY) || [];
+    return storageService.get<PromotionCode[]>(this.PROMOTION_CODES_KEY) || [];
   }
 
   getPromotionCodeById(id: string): PromotionCode | undefined {
@@ -278,13 +278,13 @@ class PromotionService {
   }
 
   private savePromotionCodes(promotionCodes: PromotionCode[]): void {
-    localStorageService.set(this.PROMOTION_CODES_KEY, promotionCodes);
+    storageService.set(this.PROMOTION_CODES_KEY, promotionCodes);
   }
 
   // ===== ADMIN: VOUCHERS CRUD =====
 
   getAllVouchers(): Voucher[] {
-    return localStorageService.get<Voucher[]>(this.VOUCHERS_KEY) || [];
+    return storageService.get<Voucher[]>(this.VOUCHERS_KEY) || [];
   }
 
   getVoucherById(id: string): Voucher | undefined {
@@ -330,7 +330,7 @@ class PromotionService {
   }
 
   private saveVouchers(vouchers: Voucher[]): void {
-    localStorageService.set(this.VOUCHERS_KEY, vouchers);
+    storageService.set(this.VOUCHERS_KEY, vouchers);
   }
 
   // ===== BULK OPERATIONS =====

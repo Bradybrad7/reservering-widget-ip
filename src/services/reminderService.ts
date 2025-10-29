@@ -1,5 +1,5 @@
 import type { Reservation, Event } from '../types';
-import { localStorageService } from './localStorageService';
+import { storageService } from './storageService';
 
 /**
  * 📅 REMINDER SERVICE
@@ -114,8 +114,8 @@ class ReminderService {
    * Send a specific reminder
    */
   private async sendReminder(job: ReminderJob): Promise<void> {
-    const reservations = localStorageService.getReservations();
-    const events = localStorageService.getEvents();
+    const reservations = storageService.getReservations();
+    const events = storageService.getEvents();
 
     const reservation = reservations.find(r => r.id === job.reservationId);
     const event = events.find(e => e.id === job.eventId);
@@ -257,7 +257,7 @@ class ReminderService {
    * Get all reminder jobs
    */
   getAllReminders(): ReminderJob[] {
-    return localStorageService.get<ReminderJob[]>(this.REMINDERS_KEY) || [];
+    return storageService.get<ReminderJob[]>(this.REMINDERS_KEY) || [];
   }
 
   /**
@@ -309,7 +309,7 @@ class ReminderService {
    * Save all reminder jobs
    */
   private saveAllReminders(jobs: ReminderJob[]): void {
-    localStorageService.set(this.REMINDERS_KEY, jobs);
+    storageService.set(this.REMINDERS_KEY, jobs);
   }
 
   /**

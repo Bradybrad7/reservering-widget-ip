@@ -69,7 +69,9 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
     };
     
     loadWaitlistData();
-  }, [events, currentMonth, loadWaitlistStatusForDates]);
+    // ⚠️ Intentionally excluding loadWaitlistStatusForDates from deps to prevent infinite loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, currentMonth]);
 
   // Load availability for events in current view
   useEffect(() => {
@@ -77,12 +79,15 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
       isInCurrentMonth(event.date, currentMonth)
     );
     
+    // Only load availability once per event, don't re-run when loadEventAvailability changes
     currentMonthEvents.forEach(event => {
       if (!eventAvailability[event.id]) {
         loadEventAvailability(event.id);
       }
     });
-  }, [events, currentMonth, eventAvailability, loadEventAvailability]);
+    // ⚠️ Intentionally excluding loadEventAvailability from deps to prevent infinite loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, currentMonth, eventAvailability]);
 
   const navigateMonth = useCallback((direction: 'prev' | 'next') => {
     const newMonth = new Date(currentMonth);

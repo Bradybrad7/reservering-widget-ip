@@ -158,6 +158,17 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
       );
     }
 
+    // Safety check: if no arrangement breakdown, show error
+    if (!priceCalculation.breakdown?.arrangement) {
+      return (
+        <div className="text-center py-3 text-text-muted">
+          <Calculator className="w-8 h-8 mx-auto mb-2 text-text-disabled" />
+          <p className="text-sm">Prijsinformatie niet beschikbaar</p>
+          <p className="text-xs mt-1 text-red-400">Configureer eerst de prijzen in het admin panel</p>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-2">
         {/* Section Header - Dark Mode */}
@@ -270,7 +281,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
           </div>
           
           {/* Savings Badge */}
-          {priceCalculation.breakdown.arrangement.persons >= 50 && (
+          {priceCalculation.breakdown?.arrangement && priceCalculation.breakdown.arrangement.persons >= 50 && (
             <div className="mt-2 pt-2 border-t border-neutral-800/20">
               <p className="text-xs text-success-700 font-semibold flex items-center gap-1">
                 <span>✨</span>

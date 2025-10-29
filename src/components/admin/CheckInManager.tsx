@@ -11,7 +11,8 @@ import {
   AlertCircle,
   Filter
 } from 'lucide-react';
-import { useAdminStore } from '../../store/adminStore';
+import { useEventsStore } from '../../store/eventsStore';
+import { useReservationsStore } from '../../store/reservationsStore';
 import type { Reservation } from '../../types';
 
 /**
@@ -32,13 +33,16 @@ import type { Reservation } from '../../types';
 const CheckInManager: React.FC = () => {
   const { 
     events, 
-    reservations, 
     loadEvents, 
+    isLoadingEvents 
+  } = useEventsStore();
+  
+  const {
+    reservations,
     loadReservations,
     updateReservation,
-    isLoadingEvents,
-    isLoadingReservations 
-  } = useAdminStore();
+    isLoadingReservations
+  } = useReservationsStore();
 
   const [selectedEventId, setSelectedEventId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -77,7 +81,7 @@ const CheckInManager: React.FC = () => {
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(r => 
-        r.companyName.toLowerCase().includes(term) ||
+        (r.companyName && r.companyName.toLowerCase().includes(term)) ||
         r.contactPerson.toLowerCase().includes(term) ||
         r.email.toLowerCase().includes(term) ||
         r.id.toLowerCase().includes(term)
@@ -89,7 +93,11 @@ const CheckInManager: React.FC = () => {
       filtered = filtered.filter(r => r.status !== 'checked-in');
     }
 
-    return filtered.sort((a, b) => a.companyName.localeCompare(b.companyName));
+    return filtered.sort((a, b) => {
+      const nameA = a.companyName || a.contactPerson || '';
+      const nameB = b.companyName || b.contactPerson || '';
+      return nameA.localeCompare(nameB);
+    });
   }, [selectedEventId, reservations, searchTerm, showOnlyPending]);
 
   // Calculate statistics

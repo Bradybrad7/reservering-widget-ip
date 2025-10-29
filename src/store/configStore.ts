@@ -172,12 +172,20 @@ export const useConfigStore = create<ConfigState & ConfigActions>()(
     },
 
     updateEventTypesConfig: async (config: EventTypesConfig) => {
-      const response = await apiService.updateEventTypesConfig(config);
-      if (response.success) {
-        set({ eventTypesConfig: config });
-        return true;
+      try {
+        console.log('🔄 Updating event types config:', config);
+        const response = await apiService.updateEventTypesConfig(config);
+        console.log('✅ Update event types response:', response);
+        if (response.success) {
+          set({ eventTypesConfig: config });
+          return true;
+        }
+        console.error('❌ Update event types failed:', response.error);
+        return false;
+      } catch (error) {
+        console.error('❌ Update event types error:', error);
+        return false;
       }
-      return false;
     },
 
     updateTextCustomization: async (texts: TextCustomization) => {

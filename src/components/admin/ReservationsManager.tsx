@@ -25,6 +25,7 @@ import { formatCurrency, formatDate, formatTime, cn, getEventTypeName } from '..
 import { nl } from '../../config/defaults';
 import { ReservationEditModal } from './ReservationEditModal';
 import { ConfirmationModal, type ConfirmationAction } from './ConfirmationModal';
+import { useReservationsStore } from '../../store/reservationsStore';
 import { useAdminStore } from '../../store/adminStore';
 
 export const ReservationsManager: React.FC = () => {

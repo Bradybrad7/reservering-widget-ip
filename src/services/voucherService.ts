@@ -13,7 +13,7 @@ import type {
   VoucherTemplate,
   VoucherValidationResult 
 } from '../types';
-import { localStorageService } from './localStorageService';
+import { storageService } from './storageService';
 
 class VoucherService {
   /**
@@ -21,7 +21,7 @@ class VoucherService {
    * Format: XXXX-XXXX-XXXX (12 characters in 3 segments)
    * Characters: A-Z, 2-9 (excluding confusing characters: I, O, 0, 1)
    */
-  generateUniqueVoucherCode(): string {
+  async generateUniqueVoucherCode(): Promise<string> {
     const characters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     const segments = 3;
     const segmentLength = 4;
@@ -36,7 +36,7 @@ class VoucherService {
     }
     
     // Check if code already exists (collision detection)
-    const exists = localStorageService.voucherCodeExists(code);
+    const exists = await storageService.voucherCodeExists(code);
     if (exists) {
       // Recursively try again if collision detected
       console.warn('⚠️ Voucher code collision detected, generating new code...');
@@ -50,9 +50,9 @@ class VoucherService {
    * Validate a voucher code
    * Checks: existence, status, expiry, remaining value
    */
-  validateVoucher(code: string): VoucherValidationResult {
+  async validateVoucher(code: string): Promise<VoucherValidationResult> {
     // Find voucher
-    const voucher = localStorageService.findVoucherByCode(code);
+    const voucher = await storageService.findVoucherByCode(code);
     
     if (!voucher) {
       return {
@@ -109,13 +109,13 @@ class VoucherService {
    * Apply voucher to a reservation
    * Returns the amount that was actually applied
    */
-  applyVoucher(
+  async applyVoucher(
     voucherCode: string,
     reservationTotal: number,
     reservationId: string
-  ): { success: boolean; amountApplied: number; newRemainingValue: number; error?: string } {
+  ): Promise<{ success: boolean; amountApplied: number; newRemainingValue: number; error?: string }> {
     // Validate voucher first
-    const validation = this.validateVoucher(voucherCode);
+    const validation = await this.validateVoucher(voucherCode);
     
     if (!validation.isValid || !validation.voucher) {
       return {
@@ -130,10 +130,9 @@ class VoucherService {
     const amountToApply = Math.min(validation.remainingValue, reservationTotal);
 
     // Update voucher in database
-    const success = localStorageService.decrementVoucherValue(
+    const success = await storageService.decrementVoucherValue(
       voucherCode,
-      amountToApply,
-      reservationId
+      amountToApply
     );
 
     if (!success) {
@@ -146,7 +145,7 @@ class VoucherService {
     }
 
     // Get updated voucher
-    const updatedVoucher = localStorageService.findVoucherByCode(voucherCode);
+    const updatedVoucher = await storageService.findVoucherByCode(voucherCode);
 
     return {
       success: true,
@@ -253,13 +252,13 @@ class VoucherService {
    * Create a new issued voucher (without payment integration)
    * Used for admin-created vouchers or testing
    */
-  createIssuedVoucher(
+  async createIssuedVoucher(
     template: VoucherTemplate,
     issuedTo: string,
     metadata?: Partial<IssuedVoucher['metadata']>
-  ): IssuedVoucher {
+  ): Promise<IssuedVoucher> {
     const now = new Date();
-    const code = this.generateUniqueVoucherCode();
+    const code = await this.generateUniqueVoucherCode();
     const expiryDate = this.calculateExpiryDate(now, template.validityDays);
 
     const voucher: IssuedVoucher = {

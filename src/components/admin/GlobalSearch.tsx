@@ -126,7 +126,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onNavigate }) => {
     // Search Reservations
     reservations.forEach(reservation => {
       if (
-        reservation.companyName.toLowerCase().includes(lowerQuery) ||
+        reservation.companyName?.toLowerCase().includes(lowerQuery) ||
         reservation.contactPerson.toLowerCase().includes(lowerQuery) ||
         reservation.email.toLowerCase().includes(lowerQuery) ||
         reservation.phone?.toLowerCase().includes(lowerQuery) ||
@@ -135,7 +135,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onNavigate }) => {
         searchResults.push({
           id: reservation.id,
           type: 'reservation',
-          title: reservation.companyName,
+          title: reservation.companyName || reservation.email,
           subtitle: `${reservation.contactPerson} • ${formatDate(reservation.eventDate)}`,
           metadata: `${reservation.numberOfPersons} personen • ${formatCurrency(reservation.totalPrice)}`,
           data: reservation

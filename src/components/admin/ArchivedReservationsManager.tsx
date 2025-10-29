@@ -17,14 +17,13 @@ import {
 import type { Reservation, Event, Show } from '../../types';
 import { apiService } from '../../services/apiService';
 import { formatCurrency, formatDate, cn } from '../../utils';
-import { useAdminStore } from '../../store/adminStore';
+import { useReservationsStore } from '../../store/reservationsStore';
 
 export const ArchivedReservationsManager: React.FC = () => {
   const {
-    unarchiveReservation,
     deleteReservation,
-    loadArchivedReservations
-  } = useAdminStore();
+    loadReservations
+  } = useReservationsStore();
 
   const [archivedReservations, setArchivedReservations] = useState<Reservation[]>([]);
   const [filteredReservations, setFilteredReservations] = useState<Reservation[]>([]);
@@ -49,7 +48,6 @@ export const ArchivedReservationsManager: React.FC = () => {
       setIsLoading(true);
       
       // Load archived reservations
-      await loadArchivedReservations();
       const archivedResponse = await apiService.getArchivedReservations();
       if (archivedResponse.success && archivedResponse.data) {
         setArchivedReservations(archivedResponse.data);
@@ -107,8 +105,8 @@ export const ArchivedReservationsManager: React.FC = () => {
   const handleRestore = async (reservationId: string) => {
     if (!confirm('Deze reservering herstellen naar actieve lijst?')) return;
 
-    const success = await unarchiveReservation(reservationId);
-    if (success) {
+    const response = await apiService.unarchiveReservation(reservationId);
+    if (response.success) {
       await loadData(); // Reload data
     }
   };

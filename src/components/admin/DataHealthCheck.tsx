@@ -8,7 +8,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { apiService } from '../../services/apiService';
-import { localStorageService } from '../../services/localStorageService';
+import { storageService } from '../../services/storageService';
 import { cn, formatDate } from '../../utils';
 interface HealthIssue {
   id: string;
@@ -24,6 +24,7 @@ export const DataHealthCheck: React.FC = () => {
   const [isChecking, setIsChecking] = useState(false);
   const [issues, setIssues] = useState<HealthIssue[]>([]);
   const [lastCheck, setLastCheck] = useState<Date | null>(null);
+  const [dataCounts, setDataCounts] = useState({ events: 0, reservations: 0, merchandise: 0 });
 
   useEffect(() => {
     runHealthCheck();
@@ -37,6 +38,19 @@ export const DataHealthCheck: React.FC = () => {
       // Get data
       const eventsResponse = await apiService.getEvents();
       const reservationsResponse = await apiService.getAdminReservations();
+      
+      // Get counts for display
+      const [eventsData, reservationsData, merchandiseData] = await Promise.all([
+        storageService.getEvents(),
+        storageService.getReservations(),
+        storageService.getMerchandise()
+      ]);
+      
+      setDataCounts({
+        events: eventsData.length,
+        reservations: reservationsData.length,
+        merchandise: merchandiseData.length
+      });
       
       if (!eventsResponse.success || !reservationsResponse.success) {
         foundIssues.push({
@@ -106,7 +120,7 @@ export const DataHealthCheck: React.FC = () => {
       });
 
       // Check 3: Data Integrity
-      const storageCheck = localStorageService.checkStorageAvailable();
+      const storageCheck = storageService.checkStorageAvailable();
       if (!storageCheck.available) {
         foundIssues.push({
           id: 'storage-full',
@@ -415,17 +429,17 @@ export const DataHealthCheck: React.FC = () => {
       <div className="card-theatre p-4">
         <div className="flex items-center gap-3 mb-3">
           <Database className="w-5 h-5 text-gold-400" />
-          <h3 className="font-bold text-white">LocalStorage Info</h3>
+          <h3 className="font-bold text-white">Firestore Info</h3>
         </div>
         <div className="space-y-2 text-sm text-gray-300">
           <p>
-            Events: {localStorageService.getEvents().length}
+            Events: {dataCounts.events}
           </p>
           <p>
-            Reserveringen: {localStorageService.getReservations().length}
+            Reserveringen: {dataCounts.reservations}
           </p>
           <p>
-            Merchandise: {localStorageService.getMerchandise().length}
+            Merchandise: {dataCounts.merchandise}
           </p>
         </div>
       </div>

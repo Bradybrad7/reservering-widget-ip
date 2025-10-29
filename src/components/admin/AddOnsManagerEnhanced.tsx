@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Save, X, DollarSign, Users } from 'lucide-react';
-import { useAdminStore } from '../../store/adminStore';
+import { useConfigStore } from '../../store/configStore';
 import type { AddOns, AddOn } from '../../types';
 
 export const AddOnsManagerEnhanced: React.FC = () => {
   const {
     addOns,
-    isSubmitting,
     loadConfig,
     updateAddOns
-  } = useAdminStore();
+  } = useConfigStore();
 
   const [localAddOns, setLocalAddOns] = useState<AddOns | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     loadConfig();

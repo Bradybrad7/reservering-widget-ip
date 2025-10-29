@@ -14,29 +14,39 @@ import {
   Trash
 } from 'lucide-react';
 import type { Event, EventType, Arrangement } from '../../types';
-import { useAdminStore } from '../../store/adminStore';
+import { useEventsStore } from '../../store/eventsStore';
+import { useConfigStore } from '../../store/configStore';
 import { useWaitlistStore } from '../../store/waitlistStore';
 import { formatDate, formatTime, cn, getEventTypeName } from '../../utils';
 import { nl, eventTypeConfig } from '../../config/defaults';
+// 🔒 getDefaultPricingForEvent NIET meer nodig - customPricing is disabled!
 import { BulkEventModal } from './BulkEventModal';
 import apiService from '../../services/apiService';
 
+
 export const EventManager: React.FC = () => {
   const {
+    events,
     isLoadingEvents,
-    filters,
     loadEvents,
     createEvent,
     updateEvent,
     deleteEvent,
-    setEventTypeFilter,
-    setDateRangeFilter,
-    getFilteredEvents,
-    eventTypesConfig,
-    loadConfig,
     shows,
     loadShows
-  } = useAdminStore();
+  } = useEventsStore();
+
+  // ✨ Load dynamic event types config
+  const { eventTypesConfig, loadConfig } = useConfigStore();
+
+  // Local filter state
+  const [filters, setFilters] = useState({
+    eventType: 'all' as EventType | 'all',
+    dateRange: {
+      start: null as Date | null,
+      end: null as Date | null
+    }
+  });
 
   const [showModal, setShowModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -62,6 +72,7 @@ export const EventManager: React.FC = () => {
     bookingOpensAt: null,
     bookingClosesAt: null,
     allowedArrangements: ['BWF', 'BWFM'],
+    // 🔒 customPricing NIET meer - prijzen komen van PricingConfigManager!
     isActive: true
   });
   
@@ -76,29 +87,41 @@ export const EventManager: React.FC = () => {
 
   useEffect(() => {
     loadEvents();
-    loadConfig();
     loadShows();
-  }, [loadEvents, loadConfig, loadShows]);
+    loadConfig(); // ✨ Load dynamic event types
+  }, [loadEvents, loadShows, loadConfig]);
 
-  const filteredEvents = getFilteredEvents();
+  // Filter events locally
+  const filteredEvents = events.filter(event => {
+    if (filters.eventType !== 'all' && event.type !== filters.eventType) return false;
+    if (filters.dateRange.start && new Date(event.date) < filters.dateRange.start) return false;
+    if (filters.dateRange.end && new Date(event.date) > filters.dateRange.end) return false;
+    return true;
+  });
 
   const handleCreate = () => {
     setEditingEvent(null);
     setEventBookingStats(null);
     // Get first active show or first show as default
     const defaultShow = shows.find(s => s.isActive) || shows[0];
+    
+    // ✨ Get first enabled event type from dynamic config, fallback to 'REGULAR'
+    const defaultType = eventTypesConfig?.types.find(t => t.enabled)?.key || 'REGULAR';
+    const defaultTypeConfig = eventTypesConfig?.types.find(t => t.key === defaultType);
+    
     setFormData({
       date: new Date(),
-      doorsOpen: '19:00',
-      startsAt: '20:00',
-      endsAt: '22:30',
-      type: 'REGULAR',
+      doorsOpen: defaultTypeConfig?.defaultTimes.doorsOpen || '19:00',
+      startsAt: defaultTypeConfig?.defaultTimes.startsAt || '20:00',
+      endsAt: defaultTypeConfig?.defaultTimes.endsAt || '22:30',
+      type: defaultType,
       showId: defaultShow?.id || '',
       capacity: 230,
       remainingCapacity: 230,
       bookingOpensAt: null,
       bookingClosesAt: null,
       allowedArrangements: ['BWF', 'BWFM'],
+      // 🔒 customPricing NIET meer - prijzen komen van PricingConfigManager!
       isActive: true
     });
     setShowModal(true);
@@ -118,7 +141,7 @@ export const EventManager: React.FC = () => {
       bookingOpensAt: event.bookingOpensAt,
       bookingClosesAt: event.bookingClosesAt,
       allowedArrangements: event.allowedArrangements,
-      customPricing: event.customPricing,
+      // 🔒 customPricing NIET meer opnemen - prijzen komen van PricingConfigManager!
       notes: event.notes,
       isActive: event.isActive
     });
@@ -223,6 +246,7 @@ export const EventManager: React.FC = () => {
       success = await updateEvent(editingEvent.id, formData);
       console.log('✏️ Update result:', success);
     } else {
+      // 🔒 customPricing is NIET meer nodig - prijzen komen van PricingConfigManager
       success = await createEvent(formData);
       console.log('➕ Create result:', success);
     }
@@ -253,14 +277,37 @@ export const EventManager: React.FC = () => {
   };
 
   const handleTypeChange = (type: EventType) => {
-    const config = eventTypeConfig[type];
-    setFormData({
-      ...formData,
-      type,
-      doorsOpen: config.defaultTimes.doorsOpen,
-      startsAt: config.defaultTimes.startsAt,
-      endsAt: config.defaultTimes.endsAt
-    });
+    // ✨ Try to get config from dynamic eventTypesConfig first
+    let typeConfig = eventTypesConfig?.types.find(t => t.key === type);
+    
+    // Fallback to hardcoded config if not found in dynamic config
+    if (!typeConfig && eventTypeConfig[type as keyof typeof eventTypeConfig]) {
+      const hardcodedConfig = eventTypeConfig[type as keyof typeof eventTypeConfig];
+      if (hardcodedConfig) {
+        setFormData({
+          ...formData,
+          type,
+          doorsOpen: hardcodedConfig.defaultTimes.doorsOpen,
+          startsAt: hardcodedConfig.defaultTimes.startsAt,
+          endsAt: hardcodedConfig.defaultTimes.endsAt
+        });
+        return;
+      }
+    }
+    
+    // Use dynamic config if found
+    if (typeConfig) {
+      setFormData({
+        ...formData,
+        type,
+        doorsOpen: typeConfig.defaultTimes.doorsOpen,
+        startsAt: typeConfig.defaultTimes.startsAt,
+        endsAt: typeConfig.defaultTimes.endsAt
+      });
+    } else {
+      // Just set the type without changing times
+      setFormData({ ...formData, type });
+    }
   };
 
   const toggleArrangement = (arrangement: Arrangement) => {
@@ -347,15 +394,21 @@ export const EventManager: React.FC = () => {
             </label>
             <select
               value={filters.eventType}
-              onChange={(e) => setEventTypeFilter(e.target.value as EventType | 'all')}
+              onChange={(e) => setFilters({ ...filters, eventType: e.target.value as EventType | 'all' })}
               className="w-full px-3 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
               <option value="all">Alle types</option>
-              {eventTypesConfig?.types.filter(t => t.enabled).map(type => (
-                <option key={type.key} value={type.key}>
-                  {type.name}
-                </option>
-              )) || Object.entries(nl.eventTypes).map(([type, label]) => (
+              {/* ✨ Use dynamic event types from config */}
+              {eventTypesConfig?.types
+                .filter(type => type.enabled)
+                .map((type) => (
+                  <option key={type.key} value={type.key}>
+                    {type.name}
+                  </option>
+                ))
+              }
+              {/* Fallback to hardcoded types if config not loaded */}
+              {!eventTypesConfig && Object.entries(nl.eventTypes).map(([type, label]) => (
                 <option key={type} value={type}>{label}</option>
               ))}
             </select>
@@ -370,7 +423,7 @@ export const EventManager: React.FC = () => {
               value={filters.dateRange.start?.toISOString().split('T')[0] || ''}
               onChange={(e) => {
                 const date = e.target.value ? new Date(e.target.value) : null;
-                setDateRangeFilter(date, filters.dateRange.end);
+                setFilters({ ...filters, dateRange: { ...filters.dateRange, start: date } });
               }}
               className="w-full px-3 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
@@ -385,7 +438,7 @@ export const EventManager: React.FC = () => {
               value={filters.dateRange.end?.toISOString().split('T')[0] || ''}
               onChange={(e) => {
                 const date = e.target.value ? new Date(e.target.value) : null;
-                setDateRangeFilter(filters.dateRange.start, date);
+                setFilters({ ...filters, dateRange: { ...filters.dateRange, end: date } });
               }}
               className="w-full px-3 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
@@ -656,11 +709,17 @@ export const EventManager: React.FC = () => {
                   onChange={(e) => handleTypeChange(e.target.value as EventType)}
                   className="w-full px-3 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
-                  {eventTypesConfig?.types.filter(t => t.enabled).map(type => (
-                    <option key={type.key} value={type.key}>
-                      {type.name}
-                    </option>
-                  )) || Object.entries(nl.eventTypes).map(([type, label]) => (
+                  {/* ✨ Use dynamic event types from config */}
+                  {eventTypesConfig?.types
+                    .filter(type => type.enabled)
+                    .map((type) => (
+                      <option key={type.key} value={type.key}>
+                        {type.name}
+                      </option>
+                    ))
+                  }
+                  {/* Fallback to hardcoded types if config not loaded */}
+                  {!eventTypesConfig && Object.entries(nl.eventTypes).map(([type, label]) => (
                     <option key={type} value={type}>{label}</option>
                   ))}
                 </select>
@@ -910,6 +969,21 @@ export const EventManager: React.FC = () => {
                   className="w-full px-3 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   placeholder="Optionele notities over dit evenement..."
                 />
+              </div>
+
+              {/* Info: Pricing wordt centraal beheerd */}
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <svg className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <div>
+                    <h4 className="text-sm font-semibold text-blue-300 mb-1">Prijzen worden centraal beheerd</h4>
+                    <p className="text-xs text-blue-200">
+                      De prijzen voor dit event worden automatisch bepaald op basis van het event type en de prijzen die je instelt in <strong>Producten en Prijzen → Prijzen</strong> tab.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Actions */}

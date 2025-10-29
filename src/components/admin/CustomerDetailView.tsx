@@ -15,7 +15,7 @@ import {
   Save,
   X
 } from 'lucide-react';
-import { useAdminStore } from '../../store/adminStore';
+import { useCustomersStore } from '../../store/customersStore';
 import { formatCurrency, formatDate, cn } from '../../utils';
 
 interface CustomerDetailViewProps {
@@ -40,7 +40,7 @@ const CustomerDetailView: React.FC<CustomerDetailViewProps> = ({ customerEmail, 
     loadCustomer,
     updateCustomerTags,
     updateCustomerNotes
-  } = useAdminStore();
+  } = useCustomersStore();
 
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notes, setNotes] = useState('');

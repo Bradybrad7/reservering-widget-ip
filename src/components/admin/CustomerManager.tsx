@@ -9,11 +9,11 @@ import {
   Search,
   TrendingUp
 } from 'lucide-react';
-import { useAdminStore } from '../../store/adminStore';
+import { useCustomersStore } from '../../store/customersStore';
 import { formatCurrency, formatDate } from '../../utils';
 
 export const CustomerManager: React.FC = () => {
-  const { customers, isLoadingCustomers, loadCustomers } = useAdminStore();
+  const { customers, isLoadingCustomers, loadCustomers } = useCustomersStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'bookings' | 'spent' | 'recent'>('recent');
 

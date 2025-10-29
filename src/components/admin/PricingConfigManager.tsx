@@ -17,14 +17,18 @@ import { cn } from '../../utils';
 import type { Show, EventTypeConfig, Pricing } from '../../types';
 
 export const PricingConfigManager: React.FC = () => {
-  // Shows from eventsStore
+  // Shows and events from eventsStore
   const { 
     shows, 
     loadShows, 
     createShow, 
     updateShow, 
     deleteShow,
-    isLoadingShows 
+    isLoadingShows,
+    events,
+    loadEvents,
+    updateEvent,
+    isLoadingEvents
   } = useEventsStore();
   
   // Config and pricing from configStore
@@ -69,14 +73,38 @@ export const PricingConfigManager: React.FC = () => {
 
   useEffect(() => {
     loadShows();
+    loadEvents();
     loadConfig();
-  }, [loadShows, loadConfig]);
+  }, [loadShows, loadEvents, loadConfig]);
 
   useEffect(() => {
-    if (pricing && !editingPricing) {
-      setEditingPricing(pricing);
+    if (pricing && !editingPricing && eventTypesConfig) {
+      console.log('📥 PricingConfigManager - Pricing loaded from store:', pricing);
+      console.log('📥 byDayType keys:', Object.keys(pricing.byDayType));
+      console.log('📥 Full byDayType:', JSON.stringify(pricing.byDayType, null, 2));
+      
+      // ✨ IMPORTANT: Ensure all event types have pricing entries
+      // Add missing event types with default 0 pricing
+      const pricingWithAllTypes = { ...pricing };
+      let modified = false;
+      
+      eventTypesConfig.types.forEach(type => {
+        if (!pricingWithAllTypes.byDayType[type.key]) {
+          console.warn(`⚠️ Adding missing pricing entry for event type: ${type.key}`);
+          pricingWithAllTypes.byDayType[type.key] = { BWF: 0, BWFM: 0 };
+          modified = true;
+        }
+      });
+      
+      if (modified) {
+        console.log('🔧 Updated pricing with missing event types');
+        // Save the updated pricing to Firebase
+        updatePricing(pricingWithAllTypes as Pricing);
+      }
+      
+      setEditingPricing(pricingWithAllTypes as Pricing);
     }
-  }, [pricing]);
+  }, [pricing, eventTypesConfig]);
 
   // ==================== SHOWS BEHEER ====================
   const handleCreateShow = async () => {
@@ -154,21 +182,25 @@ export const PricingConfigManager: React.FC = () => {
     });
     
     if (success) {
-      // Also add default pricing for this new event type
-      if (pricing) {
-        const updatedPricing = {
-          ...pricing,
-          byDayType: {
-            ...pricing.byDayType,
-            [newEventType.key]: {
-              BWF: 0,
-              BWFM: 0
-            }
+      // ✨ Add pricing entry for this new event type
+      // Get current pricing or start with empty structure
+      const currentPricing = pricing || {
+        byDayType: {}
+      };
+      
+      const updatedPricing = {
+        ...currentPricing,
+        byDayType: {
+          ...currentPricing.byDayType,
+          [newEventType.key!]: {
+            BWF: 0,
+            BWFM: 0
           }
-        };
-        
-        await updatePricing(updatedPricing);
-      }
+        }
+      };
+      
+      console.log('💾 Creating pricing entry for new event type:', newEventType.key, updatedPricing);
+      await updatePricing(updatedPricing as Pricing);
       
       setIsAddingType(false);
       setNewEventType({
@@ -233,13 +265,54 @@ export const PricingConfigManager: React.FC = () => {
   const savePricing = async () => {
     if (!editingPricing) return;
     
+    console.log('💾 PricingConfigManager - Saving pricing:', editingPricing);
+    console.log('💾 byDayType keys:', Object.keys(editingPricing.byDayType));
+    console.log('💾 Full byDayType:', JSON.stringify(editingPricing.byDayType, null, 2));
+    
     const success = await updatePricing(editingPricing);
     
     if (success) {
       alert('Prijzen succesvol opgeslagen');
+      console.log('✅ Pricing saved successfully');
       await loadConfig();
     } else {
       alert('Fout bij opslaan van prijzen');
+      console.error('❌ Failed to save pricing');
+    }
+  };
+
+  // ✨ NEW: Clean up old pricing entries that don't match any event type
+  const cleanupOldPricing = async () => {
+    if (!editingPricing || !eventTypesConfig) return;
+    
+    const validKeys = eventTypesConfig.types.map(t => t.key);
+    const currentKeys = Object.keys(editingPricing.byDayType);
+    const invalidKeys = currentKeys.filter(key => !validKeys.includes(key));
+    
+    if (invalidKeys.length === 0) {
+      alert('Geen oude pricing entries gevonden om op te schonen.');
+      return;
+    }
+    
+    if (!confirm(`Wil je ${invalidKeys.length} oude pricing entries verwijderen?\n\nTe verwijderen: ${invalidKeys.join(', ')}`)) {
+      return;
+    }
+    
+    const cleanedPricing = { ...editingPricing };
+    invalidKeys.forEach(key => {
+      delete cleanedPricing.byDayType[key];
+    });
+    
+    console.log('🧹 Cleaning up old pricing entries:', invalidKeys);
+    
+    const success = await updatePricing(cleanedPricing as Pricing);
+    
+    if (success) {
+      alert(`${invalidKeys.length} oude pricing entries verwijderd!`);
+      setEditingPricing(cleanedPricing as Pricing);
+      await loadConfig();
+    } else {
+      alert('Fout bij opschonen van pricing');
     }
   };
 
@@ -784,7 +857,7 @@ export const PricingConfigManager: React.FC = () => {
                 
                 <p className="text-sm text-neutral-400 mb-2">{type.description}</p>
                 
-                <div className="flex items-center gap-4 text-sm text-neutral-400">
+                <div className="flex items-center gap-4 text-sm text-neutral-400 mb-2">
                   <div className="flex items-center gap-1">
                     <Clock className="w-4 h-4" />
                     <span>Deuren: {type.defaultTimes.doorsOpen}</span>
@@ -822,137 +895,153 @@ export const PricingConfigManager: React.FC = () => {
   );
 
   const renderPricing = () => {
-    if (!editingPricing || !eventTypesConfig) return <div className="text-neutral-400">Laden...</div>;
+    if (!editingPricing) {
+      return (
+        <div className="bg-neutral-800/50 rounded-lg p-8 text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gold-500 mb-3"></div>
+          <p className="text-neutral-400">Laden...</p>
+        </div>
+      );
+    }
 
-    // ✨ IMPORTANT: Map event types to actual pricing keys
-    // REGULAR events use weekday/weekend pricing based on date
-    // Other event types use their lowercase key
-    const pricingKeys = [
-      { key: 'weekday', label: 'Doordeweeks (REGULAR zo-do)', color: '#F59E0B', eventType: 'REGULAR' },
-      { key: 'weekend', label: 'Weekend (REGULAR vr-za)', color: '#F59E0B', eventType: 'REGULAR' },
-      { key: 'matinee', label: 'Matinee', color: '#3B82F6', eventType: 'MATINEE' },
-      { key: 'care_heroes', label: 'Zorgzame Helden', color: '#10B981', eventType: 'CARE_HEROES' }
-    ];
-
-    // Ensure all pricing keys have entries
-    const ensurePricingEntries = () => {
-      const updatedPricing = { ...editingPricing };
-      
-      pricingKeys.forEach(pricingKey => {
-        if (!updatedPricing.byDayType[pricingKey.key]) {
-          updatedPricing.byDayType[pricingKey.key] = {
-            BWF: 0,
-            BWFM: 0
-          };
-        }
-      });
-      
-      if (JSON.stringify(updatedPricing) !== JSON.stringify(editingPricing)) {
-        setEditingPricing(updatedPricing);
-      }
-    };
-
-    ensurePricingEntries();
+    // Get all event type keys from config
+    const eventTypeKeys = eventTypesConfig?.types.map(t => t.key) || [];
+    
+    // Check for old/invalid pricing entries
+    const currentPricingKeys = Object.keys(editingPricing.byDayType);
+    const oldKeys = currentPricingKeys.filter(key => !eventTypeKeys.includes(key));
+    const hasOldEntries = oldKeys.length > 0;
 
     return (
       <div className="space-y-4">
+        {/* Header */}
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white">Prijzen per Event Type</h3>
-          <button
-            onClick={savePricing}
-            className="flex items-center gap-2 px-4 py-2 bg-gold-500 hover:bg-gold-600 text-white rounded-lg transition-colors"
-          >
-            <Save className="w-4 h-4" />
-            Opslaan
-          </button>
-        </div>
-
-        {/* Info banner */}
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-          <p className="text-sm text-blue-300">
-            ℹ️ <strong>Let op:</strong> REGULAR events gebruiken automatisch de "Doordeweeks" prijzen (zo-do) of "Weekend" prijzen (vr-za) op basis van de datum. 
-            MATINEE en Zorgzame Helden events hebben hun eigen prijzen.
-          </p>
-        </div>
-
-        {pricingKeys.length === 0 ? (
-          <div className="bg-neutral-800/50 rounded-lg p-8 text-center">
-            <Calendar className="w-12 h-12 text-neutral-600 mx-auto mb-3" />
-            <p className="text-neutral-400">
-              Geen actieve event types gevonden. Voeg eerst event types toe.
+          <div>
+            <h3 className="text-lg font-semibold text-white">Standaard Prijzen per Event Type</h3>
+            <p className="text-sm text-neutral-400 mt-1">
+              Stel standaard prijzen in voor elk event type. Deze worden gebruikt bij het maken van nieuwe evenementen.
             </p>
           </div>
-        ) : (
-          <div className="bg-neutral-800/50 rounded-lg overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-neutral-900/50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-neutral-300">
-                    Prijstype
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-neutral-300">
-                    BWF (Standaard)
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-neutral-300">
-                    BWFM (Premium)
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-700">
-                {pricingKeys.map((pricingKey) => {
-                  const pricing = editingPricing.byDayType[pricingKey.key] || { BWF: 0, BWFM: 0 };
-                  
-                  return (
-                    <tr key={pricingKey.key} className="hover:bg-neutral-700/30">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="w-3 h-3 rounded"
-                            style={{ backgroundColor: pricingKey.color }}
-                          />
-                          <span className="text-white font-medium">{pricingKey.label}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-neutral-400">€</span>
-                          <input
-                            type="number"
-                            value={pricing.BWF}
-                            onChange={(e) => updatePrice(pricingKey.key, 'BWF', parseFloat(e.target.value) || 0)}
-                            className="w-24 px-3 py-1.5 bg-neutral-700 border border-neutral-600 rounded-lg text-white"
-                            step="0.50"
-                            min="0"
-                          />
-                          <span className="text-neutral-400 text-sm">per persoon</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-neutral-400">€</span>
-                          <input
-                            type="number"
-                            value={pricing.BWFM}
-                            onChange={(e) => updatePrice(pricingKey.key, 'BWFM', parseFloat(e.target.value) || 0)}
-                            className="w-24 px-3 py-1.5 bg-neutral-700 border border-neutral-600 rounded-lg text-white"
-                            step="0.50"
-                            min="0"
-                          />
-                          <span className="text-neutral-400 text-sm">per persoon</span>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="flex gap-2">
+            <button
+              onClick={cleanupOldPricing}
+              className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+              title="Verwijder oude pricing entries die niet meer bestaan"
+            >
+              <Trash2 className="w-4 h-4" />
+              Opschonen
+            </button>
+            <button
+              onClick={savePricing}
+              className="flex items-center gap-2 px-4 py-2 bg-gold-500 hover:bg-gold-600 text-white rounded-lg transition-colors"
+            >
+              <Save className="w-4 h-4" />
+              Prijzen Opslaan
+            </button>
+          </div>
+        </div>
+
+        {/* Warning for old entries */}
+        {hasOldEntries && (
+          <div className="bg-orange-500/20 border-2 border-orange-500/50 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                <svg className="w-6 h-6 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h4 className="text-orange-300 font-semibold mb-1">Oude Pricing Entries Gedetecteerd</h4>
+                <p className="text-orange-200 text-sm mb-2">
+                  Er zijn {oldKeys.length} pricing entries gevonden die niet meer bij een event type horen:
+                </p>
+                <ul className="text-orange-200 text-sm list-disc list-inside mb-3">
+                  {oldKeys.map(key => (
+                    <li key={key}><code className="bg-orange-900/30 px-2 py-1 rounded">{key}</code></li>
+                  ))}
+                </ul>
+                <p className="text-orange-200 text-sm">
+                  ⚠️ Deze kunnen zorgen voor onverwachte prijzen op de boekingspagina. Klik op <strong>"Opschonen"</strong> om ze te verwijderen.
+                </p>
+              </div>
+            </div>
           </div>
         )}
 
+        {/* Pricing Table */}
+        <div className="bg-neutral-800/50 rounded-lg overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-neutral-900/50">
+              <tr>
+                <th className="px-4 py-3 text-left text-sm font-medium text-neutral-300">
+                  Event Type
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-neutral-300">
+                  BWF (Standaard) - per persoon
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-neutral-300">
+                  BWFM (Premium) - per persoon
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-700">
+              {eventTypeKeys.map((dayType) => {
+                const typeConfig = eventTypesConfig?.types.find(t => t.key === dayType);
+                const pricingForType = editingPricing.byDayType[dayType] || { BWF: 0, BWFM: 0 };
+                
+                return (
+                  <tr key={dayType} className="hover:bg-neutral-700/30">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        {typeConfig && (
+                          <div
+                            className="w-3 h-3 rounded"
+                            style={{ backgroundColor: typeConfig.color }}
+                          />
+                        )}
+                        <span className="text-white font-medium">
+                          {typeConfig?.name || dayType}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-neutral-400">€</span>
+                        <input
+                          type="number"
+                          value={pricingForType.BWF || 0}
+                          onChange={(e) => updatePrice(dayType, 'BWF', parseFloat(e.target.value) || 0)}
+                          className="w-24 px-3 py-1.5 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
+                          step="0.50"
+                          min="0"
+                        />
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-neutral-400">€</span>
+                        <input
+                          type="number"
+                          value={pricingForType.BWFM || 0}
+                          onChange={(e) => updatePrice(dayType, 'BWFM', parseFloat(e.target.value) || 0)}
+                          className="w-24 px-3 py-1.5 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:border-gold-500 focus:ring-1 focus:ring-gold-500"
+                          step="0.50"
+                          min="0"
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Info */}
         <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
           <p className="text-sm text-blue-300">
-            💡 <strong>Tip:</strong> Deze prijzen worden gebruikt als standaard voor alle evenementen. 
-            Je kunt per evenement ook custom prijzen instellen.
+            💡 <strong>Tip:</strong> Deze prijzen worden automatisch gebruikt wanneer je een nieuw evenement aanmaakt. 
+            Je kunt de prijzen later nog aanpassen in het event formulier zelf.
           </p>
         </div>
       </div>

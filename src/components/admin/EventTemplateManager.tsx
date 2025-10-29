@@ -9,7 +9,7 @@ import {
   Copy,
   Calendar
 } from 'lucide-react';
-import { useAdminStore } from '../../store/adminStore';
+import { useEventsStore } from '../../store/eventsStore';
 import { cn } from '../../utils';
 import type { EventTemplate, EventType, Arrangement } from '../../types';
 
@@ -23,7 +23,7 @@ export const EventTemplateManager: React.FC = () => {
     updateEventTemplate,
     deleteEventTemplate,
     createEventFromTemplate
-  } = useAdminStore();
+  } = useEventsStore();
 
   const [showModal, setShowModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<EventTemplate | null>(null);
@@ -70,7 +70,7 @@ export const EventTemplateManager: React.FC = () => {
       endsAt: template.endsAt,
       capacity: template.capacity,
       allowedArrangements: template.allowedArrangements,
-      customPricing: template.customPricing,
+      // 🔒 customPricing NIET meer - prijzen komen van PricingConfigManager!
       notes: template.notes
     });
     setShowModal(true);
@@ -373,6 +373,21 @@ export const EventTemplateManager: React.FC = () => {
                   rows={2}
                   className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent"
                 />
+              </div>
+
+              {/* Info: Pricing wordt centraal beheerd */}
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <svg className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <div>
+                    <h4 className="text-xs font-semibold text-blue-300 mb-0.5">Prijzen worden centraal beheerd</h4>
+                    <p className="text-xs text-blue-200">
+                      Prijzen worden bepaald in <strong>Producten en Prijzen → Prijzen</strong> tab.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-4">

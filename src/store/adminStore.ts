@@ -11,12 +11,20 @@
  * 
  * This store is now clean and focused on its responsibility:
  * Managing the admin panel's UI state (navigation, modals, etc.)
+ * 
+ * 🔧 COMPATIBILITY LAYER: Temporary re-exports to avoid breaking changes
  */
 
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import type { AdminSection, AdminStats } from '../types';
 import { apiService } from '../services/apiService';
+
+// Import other stores for compatibility layer
+import { useEventsStore } from './eventsStore';
+import { useReservationsStore } from './reservationsStore';
+import { useCustomersStore } from './customersStore';
+import { useConfigStore } from './configStore';
 
 // ============================================================================
 // STATE: UI State Only
@@ -164,6 +172,30 @@ export const useAdminStore = create<AdminState & AdminActions>()(
     }
   }))
 );
+
+// ============================================================================
+// 🔧 COMPATIBILITY LAYER - Re-exports for gradual migration
+// ============================================================================
+/**
+ * These helper functions provide backward compatibility by exposing
+ * data from specialized stores through the admin store.
+ * Components can gradually migrate to import from specialized stores directly.
+ */
+
+// Helper to get events (delegates to eventsStore)
+export const getEvents = () => useEventsStore.getState().events;
+export const getShows = () => useEventsStore.getState().shows;
+
+// Helper to get reservations (delegates to reservationsStore)
+export const getReservations = () => useReservationsStore.getState().reservations;
+
+// Helper to get customers (delegates to customersStore)
+export const getCustomers = () => useCustomersStore.getState().customers;
+
+// Helper to get config (delegates to configStore)
+export const getConfig = () => useConfigStore.getState().config;
+export const getPricing = () => useConfigStore.getState().pricing;
+export const getAddOns = () => useConfigStore.getState().addOns;
 
 // ============================================================================
 // MIGRATION NOTES

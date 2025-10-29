@@ -16,6 +16,7 @@ import {
 import { nl as nlLocale } from 'date-fns/locale';
 import type { Event, EventType, Arrangement } from '../../types';
 import apiService from '../../services/apiService';
+// 🔒 getDefaultPricingForEvent NIET meer nodig - customPricing is disabled!
 import { useConfigStore } from '../../store/configStore';
 import { useEventsStore } from '../../store/eventsStore';
 import { cn } from '../../utils';
@@ -149,20 +150,24 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
     setError(null);
 
     try {
-      const events: Omit<Event, 'id'>[] = selectedDates.map(date => ({
-        date,
-        doorsOpen,
-        startsAt,
-        endsAt,
-        type: eventType,
-        showId: selectedShowId,
-        capacity,
-        remainingCapacity: capacity,
-        bookingOpensAt: null,
-        bookingClosesAt: null,
-        allowedArrangements: ['BWF', 'BWFM'] as Arrangement[],
-        isActive: true
-      }));
+      // Create events with default pricing
+      const events: Omit<Event, 'id'>[] = await Promise.all(
+        selectedDates.map(async (date) => ({
+          date,
+          doorsOpen,
+          startsAt,
+          endsAt,
+          type: eventType,
+          showId: selectedShowId,
+          capacity,
+          remainingCapacity: capacity,
+          bookingOpensAt: null,
+          bookingClosesAt: null,
+          allowedArrangements: ['BWF', 'BWFM'] as Arrangement[],
+          // 🔒 customPricing NIET meer - prijzen komen van PricingConfigManager!
+          isActive: true
+        }))
+      );
 
       const response = await apiService.bulkAddEvents(events);
 

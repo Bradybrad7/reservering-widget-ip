@@ -1,9 +1,9 @@
 // Bulk Capacity Override Component
 import React, { useState } from 'react';
 import { Calendar, Users, AlertTriangle, Check, X, Save, RotateCcw } from 'lucide-react';
-import { useAdminStore } from '../../store/adminStore';
+import { useEventsStore } from '../../store/eventsStore';
 import { cn, formatDate, formatShortDate } from '../../utils';
-import type { Event } from '../../types';
+import type { AdminEvent } from '../../types';
 
 interface CapacityOverride {
   eventId: string;
@@ -15,7 +15,7 @@ interface CapacityOverride {
 }
 
 export const BulkCapacityManager: React.FC = () => {
-  const { events, updateEvent } = useAdminStore();
+  const { events, updateEvent } = useEventsStore();
   const [overrides, setOverrides] = useState<Map<string, CapacityOverride>>(
     () => {
       // Load from localStorage

@@ -1,113 +1,171 @@
-import type {
-  Event,
-  EventType,
-  Arrangement,
-  PriceCalculation,
+/**
+ * 🆕 NIEUWE SIMPELE PRICING SERVICE
+ * 
+ * CONCEPT:
+ * - Elk event type heeft VASTE prijzen (BWF + BWFM)
+ * - Deze staan in eventTypesConfig.types[].pricing
+ * - GEEN complexe byDayType/weekday/weekend logica meer
+ * - Event type → prijs. KLAAR.
+ */
+
+import type { 
+  Event, 
+  Arrangement, 
+  EventTypeConfig, 
+  PriceCalculation, 
   CustomerFormData,
-  Pricing,
-  MerchandiseItem
+  MerchandiseItem 
 } from '../types';
-import { defaultPricing, defaultAddOns, defaultMerchandise } from '../config/defaults';
+import { storageService } from './storageService';
+import { defaultAddOns, defaultMerchandise } from '../config/defaults';
 import { promotionService } from './promotionService';
-import { localStorageService } from './localStorageService';
 
 // 🆕 Store for merchandise items (set by app during initialization)
 let merchandiseItemsCache: MerchandiseItem[] = [];
 
-// 🆕 Function to set merchandise items from external source (e.g., database)
+// 🆕 Function to set merchandise items from external source
 export const setMerchandiseItems = (items: MerchandiseItem[]) => {
   merchandiseItemsCache = items;
   console.log('💰 priceService - setMerchandiseItems:', items.length, 'items loaded');
 };
 
-// 🆕 Get current merchandise items (from cache or fallback to defaults)
+// 🆕 Get current merchandise items
 const getMerchandiseItems = (): MerchandiseItem[] => {
-  // If cache is populated, use it; otherwise fallback to defaults
   return merchandiseItemsCache.length > 0 ? merchandiseItemsCache : [...defaultMerchandise];
 };
 
-// Get current pricing (from API/localStorage or fallback to defaults)
-const getCurrentPricing = (): Pricing => {
-  const storedPricing = localStorageService.getPricing();
-  const finalPricing = storedPricing || defaultPricing;
-  console.log('💰 priceService - getCurrentPricing:', {
-    hasStoredPricing: !!storedPricing,
-    pricing: finalPricing,
-    keys: Object.keys(finalPricing.byDayType)
-  });
-  return finalPricing;
-};
-
-// Determine day type for pricing (maps event types to pricing keys)
-export const getDayType = (date: Date, eventType: EventType): string => {
-  const eventTypeUpper = eventType.toUpperCase();
-  
-  // Direct mapping for special event types
-  if (eventTypeUpper === 'MATINEE') {
-    return 'matinee';
-  }
-  if (eventTypeUpper === 'CARE_HEROES') {
-    return 'care_heroes';
-  }
-  
-  // For REGULAR events, determine weekday vs weekend based on date
-  if (eventTypeUpper === 'REGULAR') {
-    const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
-    // Friday (5) and Saturday (6) are weekend
-    if (dayOfWeek === 5 || dayOfWeek === 6) {
-      return 'weekend';
+/**
+ * Haal de pricing op voor een specifiek event type
+ */
+export const getPricingForEventType = async (eventTypeKey: string): Promise<{ BWF: number; BWFM: number } | null> => {
+  try {
+    // Haal eventTypesConfig op
+    const config = await storageService.getEventTypesConfig();
+    
+    if (!config || !config.types) {
+      console.error('❌ Geen eventTypesConfig gevonden in Firebase!');
+      return null;
     }
-    return 'weekday';
+
+    // Zoek het juiste event type
+    const eventType = config.types.find(t => t.key === eventTypeKey);
+    
+    if (!eventType) {
+      console.error(`❌ Event type '${eventTypeKey}' niet gevonden in config!`);
+      console.error('📋 Beschikbare types:', config.types.map(t => t.key).join(', '));
+      return null;
+    }
+
+    // Check of pricing bestaat
+    if (!eventType.pricing) {
+      console.error(`❌ Geen pricing ingesteld voor event type '${eventTypeKey}'!`);
+      return null;
+    }
+
+    console.log(`💰 Pricing voor '${eventTypeKey}':`, eventType.pricing);
+    return eventType.pricing;
+  } catch (error) {
+    console.error('❌ Fout bij ophalen pricing:', error);
+    return null;
   }
-  
-  // For custom event types, use lowercase key directly
-  return eventType.toLowerCase();
 };
 
-// Get arrangement price for a specific event
-export const getArrangementPrice = (
+/**
+ * Haal de prijs op voor een specifiek arrangement bij een event
+ */
+export const getArrangementPrice = async (
   event: Event,
   arrangement: Arrangement
-): number => {
-  // Check if event has custom pricing
-  if (event.customPricing && event.customPricing[arrangement] !== undefined) {
-    console.log(`💰 priceService - Using custom pricing for ${arrangement}:`, event.customPricing[arrangement]);
-    return event.customPricing[arrangement]!;
-  }
+): Promise<number> => {
+  console.log(`💰 Getting price for event type '${event.type}', arrangement '${arrangement}'`);
   
-  // Get current pricing configuration
-  const pricing = getCurrentPricing();
+  const pricing = await getPricingForEventType(event.type);
   
-  // Use pricing based on event type
-  const dayTypeKey = getDayType(event.date, event.type);
-  
-  console.log(`💰 priceService - getArrangementPrice:`, {
-    eventType: event.type,
-    dayTypeKey,
-    arrangement,
-    availableKeys: Object.keys(pricing.byDayType),
-    pricingForType: pricing.byDayType[dayTypeKey]
-  });
-  
-  // Get pricing from the dynamic byDayType object
-  const pricingForType = pricing.byDayType[dayTypeKey];
-  
-  // Fallback to 0 if pricing not found (should be configured in admin)
-  if (!pricingForType) {
-    console.warn(`⚠️ No pricing found for event type: ${dayTypeKey}. Please configure pricing in admin panel.`);
+  if (!pricing) {
+    console.error(`❌ Geen pricing gevonden voor event type '${event.type}'!`);
+    console.error('⚠️ Ga naar Admin → Producten en Prijzen om prijzen in te stellen!');
     return 0;
   }
+
+  const price = pricing[arrangement];
   
-  return pricingForType[arrangement];
+  if (price === undefined || price === null) {
+    console.error(`❌ Geen prijs voor arrangement '${arrangement}' bij type '${event.type}'!`);
+    return 0;
+  }
+
+  console.log(`✅ Prijs voor ${event.type} - ${arrangement}: €${price}`);
+  return price;
 };
 
-// Calculate total price for a reservation
-export const calculatePrice = (
+/**
+ * Update pricing voor een specifiek event type
+ */
+export const updateEventTypePricing = async (
+  eventTypeKey: string,
+  pricing: { BWF: number; BWFM: number }
+): Promise<boolean> => {
+  try {
+    console.log(`💾 Updating pricing for event type '${eventTypeKey}':`, pricing);
+    
+    // Haal huidige config op
+    const config = await storageService.getEventTypesConfig();
+    
+    if (!config || !config.types) {
+      console.error('❌ Geen eventTypesConfig gevonden!');
+      return false;
+    }
+
+    // Vind het event type en update pricing
+    const typeIndex = config.types.findIndex(t => t.key === eventTypeKey);
+    
+    if (typeIndex === -1) {
+      console.error(`❌ Event type '${eventTypeKey}' niet gevonden!`);
+      return false;
+    }
+
+    // Update pricing
+    config.types[typeIndex].pricing = pricing;
+
+    // Sla op in Firebase
+    await storageService.saveEventTypesConfig(config);
+    
+    console.log(`✅ Pricing voor '${eventTypeKey}' succesvol bijgewerkt!`);
+    return true;
+  } catch (error) {
+    console.error('❌ Fout bij updaten pricing:', error);
+    return false;
+  }
+};
+
+/**
+ * Haal alle event types met hun pricing op
+ */
+export const getAllEventTypesWithPricing = async (): Promise<EventTypeConfig[]> => {
+  try {
+    const config = await storageService.getEventTypesConfig();
+    
+    if (!config || !config.types) {
+      console.error('❌ Geen eventTypesConfig gevonden!');
+      return [];
+    }
+
+    return config.types;
+  } catch (error) {
+    console.error('❌ Fout bij ophalen event types:', error);
+    return [];
+  }
+};
+
+/**
+ * Calculate total price for a reservation
+ */
+export const calculatePrice = async (
   event: Event,
   formData: Partial<CustomerFormData>,
   promotionCode?: string,
   voucherCode?: string
-): PriceCalculation => {
+): Promise<PriceCalculation> => {
   const {
     numberOfPersons = 0,
     arrangement = 'BWF',
@@ -117,7 +175,7 @@ export const calculatePrice = (
   } = formData;
 
   // Base arrangement price
-  const pricePerPerson = getArrangementPrice(event, arrangement);
+  const pricePerPerson = await getArrangementPrice(event, arrangement);
   const basePrice = pricePerPerson * numberOfPersons;
 
   // Pre-drink calculation
@@ -136,9 +194,6 @@ export const calculatePrice = (
   const merchandiseItems = getMerchandiseItems();
   const merchandiseTotal = merchandise.reduce((total, selection) => {
     const item = merchandiseItems.find(m => m.id === selection.itemId);
-    if (!item) {
-      console.warn(`⚠️ Merchandise item with ID "${selection.itemId}" not found in catalog`);
-    }
     return total + (item ? item.price * selection.quantity : 0);
   }, 0);
 
@@ -156,7 +211,7 @@ export const calculatePrice = (
       event,
       arrangement,
       numberOfPersons,
-      1 // numberOfArrangements - currently always 1
+      1
     );
     if (promoResult.isValid && promoResult.discountAmount) {
       discountAmount += promoResult.discountAmount;
@@ -177,9 +232,8 @@ export const calculatePrice = (
     }
   }
 
-  // Final totals (all prices are inclusive of VAT)
-  const vatAmount = 0; // Not calculated separately - prices are inclusive
-  const totalPrice = Math.max(0, subtotal - discountAmount); // Can't go below 0
+  const vatAmount = 0;
+  const totalPrice = Math.max(0, subtotal - discountAmount);
 
   // Create breakdown
   const breakdown: PriceCalculation['breakdown'] = {
@@ -207,14 +261,9 @@ export const calculatePrice = (
     };
   }
 
-  // Add merchandise to breakdown if any
   if (merchandise.length > 0) {
-    const merchandiseItems = getMerchandiseItems();
     const items = merchandise.map(selection => {
       const item = merchandiseItems.find(m => m.id === selection.itemId);
-      if (!item) {
-        console.warn(`⚠️ Merchandise item with ID "${selection.itemId}" not found when creating breakdown`);
-      }
       return {
         id: selection.itemId,
         name: item?.name || 'Unknown Item',
@@ -230,7 +279,6 @@ export const calculatePrice = (
     };
   }
 
-  // Add discount to breakdown if applicable
   if (discountAmount > 0) {
     breakdown.discount = {
       description: discountDescription,
@@ -251,96 +299,41 @@ export const calculatePrice = (
   };
 };
 
-// ✨ NEW: Create pricing snapshot for reservation
-// This captures all pricing details at time of booking to protect against future price changes
-export const createPricingSnapshot = (
+/**
+ * Create pricing snapshot for a reservation
+ */
+export const createPricingSnapshot = async (
   event: Event,
-  formData: Partial<CustomerFormData>,
-  calculation: PriceCalculation,
-  _promotionCode?: string,
-  voucherCode?: string
-) => {
-  const {
-    numberOfPersons = 0,
-    arrangement = 'BWF',
-    preDrink = { enabled: false, quantity: 0 },
-    afterParty = { enabled: false, quantity: 0 }
-  } = formData;
-
-  const pricePerPerson = getArrangementPrice(event, arrangement);
+  arrangement: Arrangement,
+  numberOfPersons: number
+): Promise<{ BWF: number; BWFM: number; selectedPrice: number }> => {
+  const pricing = await getPricingForEventType(event.type);
+  
+  if (!pricing) {
+    console.error('❌ Cannot create pricing snapshot - no pricing found!');
+    return {
+      BWF: 0,
+      BWFM: 0,
+      selectedPrice: 0
+    };
+  }
 
   return {
-    basePrice: pricePerPerson,
-    pricePerPerson: pricePerPerson,
-    numberOfPersons: numberOfPersons,
-    arrangement: arrangement,
-    arrangementTotal: calculation.basePrice,
-    preDrinkPrice: preDrink.enabled ? defaultAddOns.preDrink.pricePerPerson : undefined,
-    preDrinkTotal: calculation.preDrinkTotal > 0 ? calculation.preDrinkTotal : undefined,
-    afterPartyPrice: afterParty.enabled ? defaultAddOns.afterParty.pricePerPerson : undefined,
-    afterPartyTotal: calculation.afterPartyTotal > 0 ? calculation.afterPartyTotal : undefined,
-    merchandiseTotal: calculation.merchandiseTotal > 0 ? calculation.merchandiseTotal : undefined,
-    subtotal: calculation.subtotal,
-    discountAmount: (calculation.discountAmount || 0) > 0 ? calculation.discountAmount : undefined,
-    discountDescription: calculation.breakdown?.discount?.description,
-    voucherAmount: voucherCode && (calculation.discountAmount || 0) > 0 ? calculation.discountAmount : undefined,
-    finalTotal: calculation.totalPrice,
-    calculatedAt: new Date()
+    BWF: pricing.BWF,
+    BWFM: pricing.BWFM,
+    selectedPrice: pricing[arrangement]
   };
 };
 
-// ✨ NEW: Get display price for a reservation
-// IMPORTANT: Always use the stored pricingSnapshot if available, not current prices
-// This ensures price changes don't affect existing reservations
-export const getReservationDisplayPrice = (reservation: any): number => {
-  // Use pricingSnapshot if available (post-implementation)
-  if (reservation.pricingSnapshot?.finalTotal !== undefined) {
-    return reservation.pricingSnapshot.finalTotal;
-  }
-  
-  // Fallback to totalPrice (legacy reservations)
-  return reservation.totalPrice || 0;
-};
-
-// Validate add-ons
-export const validateAddOns = (formData: Partial<CustomerFormData>) => {
-  const errors: string[] = [];
-
-  if (formData.preDrink?.enabled) {
-    if (formData.preDrink.quantity < defaultAddOns.preDrink.minPersons) {
-      errors.push(`Voorborrel is alleen beschikbaar vanaf ${defaultAddOns.preDrink.minPersons} personen`);
-    }
-  }
-
-  if (formData.afterParty?.enabled) {
-    if (formData.afterParty.quantity < defaultAddOns.afterParty.minPersons) {
-      errors.push(`AfterParty is alleen beschikbaar vanaf ${defaultAddOns.afterParty.minPersons} personen`);
-    }
-  }
-
-  return errors;
-};
-
-// Check if arrangement is available for event
-export const isArrangementAvailable = (event: Event, arrangement: Arrangement): boolean => {
-  return event.allowedArrangements.includes(arrangement);
-};
-
-// Get available arrangements for event
-export const getAvailableArrangements = (event: Event): Arrangement[] => {
-  return event.allowedArrangements;
-};
-
-// Price service object
+/**
+ * Export for backwards compatibility
+ */
 export const priceService = {
-  getDayType,
   getArrangementPrice,
   calculatePrice,
   createPricingSnapshot,
-  getReservationDisplayPrice,
-  validateAddOns,
-  isArrangementAvailable,
-  getAvailableArrangements
+  setMerchandiseItems,
+  getPricingForEventType,
+  updateEventTypePricing,
+  getAllEventTypesWithPricing
 };
-
-export default priceService;

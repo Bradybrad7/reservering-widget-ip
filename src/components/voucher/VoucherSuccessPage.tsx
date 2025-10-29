@@ -8,7 +8,7 @@
 import React, { useEffect, useState } from 'react';
 import type { IssuedVoucher } from '../../types';
 import { VoucherCodeDisplay } from './VoucherCodeDisplay';
-import { localStorageService } from '../../services/localStorageService';
+import { storageService } from '../../services/storageService';
 
 interface VoucherSuccessPageProps {
   voucherId?: string;
@@ -27,10 +27,14 @@ export const VoucherSuccessPage: React.FC<VoucherSuccessPageProps> = ({
   useEffect(() => {
     // If voucherId provided but no voucher, fetch it
     if (voucherId && !propVoucher) {
-      const vouchers = localStorageService.getIssuedVouchers();
-      const found = vouchers.find((v: IssuedVoucher) => v.id === voucherId);
-      setVoucher(found || null);
-      setIsLoading(false);
+      const fetchVoucher = async () => {
+        const vouchers = await storageService.getIssuedVouchers();
+        const found = vouchers.find((v: IssuedVoucher) => v.id === voucherId);
+        setVoucher(found || null);
+        setIsLoading(false);
+      };
+      
+      fetchVoucher();
     }
   }, [voucherId, propVoucher]);
 

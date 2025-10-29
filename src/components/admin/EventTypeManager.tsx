@@ -46,7 +46,7 @@ export const EventTypeManager: React.FC = () => {
 
   const handleAddNew = () => {
     const newType: EventTypeConfig = {
-      key: ('CUSTOM_' + Date.now()) as EventType,
+      key: '',  // Will be filled in modal
       name: 'Nieuw Event Type',
       description: 'Beschrijving van het nieuwe event type',
       color: '#F59E0B', // Default gold color
@@ -57,7 +57,12 @@ export const EventTypeManager: React.FC = () => {
       },
       days: ['vrijdag', 'zaterdag'],
       enabled: true,
-      showOnCalendar: true // Default to showing on calendar
+      showOnCalendar: true, // Default to showing on calendar
+      // 🆕 ALTIJD PRICING INITIALISEREN!
+      pricing: {
+        BWF: 0,
+        BWFM: 0
+      }
     };
     setEditingType(newType);
     setIsNewType(true);
@@ -78,6 +83,24 @@ export const EventTypeManager: React.FC = () => {
 
   const handleSaveType = () => {
     if (!editingType || !localConfig) return;
+
+    // 🆕 VALIDATIE: Key mag niet leeg zijn!
+    if (!editingType.key || editingType.key.trim() === '') {
+      alert('❌ Key is verplicht! Vul een unieke key in (bijv. teest, chat, care_heroes)');
+      return;
+    }
+
+    // 🆕 VALIDATIE: Key moet uniek zijn bij nieuwe types
+    if (isNewType && localConfig.types.some(t => t.key === editingType.key)) {
+      alert(`❌ Key "${editingType.key}" bestaat al! Kies een andere unieke key.`);
+      return;
+    }
+
+    // 🆕 VALIDATIE: Naam mag niet leeg zijn
+    if (!editingType.name || editingType.name.trim() === '') {
+      alert('❌ Naam is verplicht!');
+      return;
+    }
 
     let updatedTypes;
     if (isNewType) {
@@ -338,6 +361,30 @@ export const EventTypeManager: React.FC = () => {
                   placeholder="bijv. Zorgzame Helden"
                   className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent"
                 />
+              </div>
+
+              {/* 🆕 KEY INPUT - VERPLICHT! */}
+              <div>
+                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  Key (Uniek ID) *
+                </label>
+                <input
+                  type="text"
+                  value={editingType.key}
+                  onChange={(e) => setEditingType({ ...editingType, key: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '') })}
+                  placeholder="bijv. teest, chat, care_heroes"
+                  disabled={!isNewType} // Kan alleen bij nieuw type worden ingesteld
+                  className={cn(
+                    "w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent font-mono",
+                    !isNewType && "opacity-50 cursor-not-allowed"
+                  )}
+                />
+                <p className="text-xs text-neutral-500 mt-1">
+                  {isNewType 
+                    ? "⚠️ Let op: De key kan later niet meer worden gewijzigd! Gebruik kleine letters, cijfers, _ en -"
+                    : "De key kan niet worden gewijzigd na aanmaken"
+                  }
+                </p>
               </div>
 
               <div>

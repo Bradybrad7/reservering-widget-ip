@@ -4,7 +4,8 @@ export { default as BookingAdmin } from './components/BookingAdminNew2';
 
 // Individual component exports
 export { default as Calendar } from './components/Calendar';
-export { default as ReservationForm } from './components/ReservationForm';
+// Export reservation form when available
+// export { default as ReservationForm } from './components/ReservationForm';
 export { default as OrderSummary } from './components/OrderSummary';
 export { default as SuccessPage } from './components/SuccessPage';
 export { ToastProvider, useToast, useFormErrorHandler } from './components/Toast';

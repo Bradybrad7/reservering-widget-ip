@@ -1,9 +1,11 @@
 import React from 'react';
-import { useAdminStore } from '../../store/adminStore';
+import { useReservationsStore } from '../../store/reservationsStore';
+import { useEventsStore } from '../../store/eventsStore';
 import { addDays, format, isSameDay } from 'date-fns';
 
 export const QuickActions: React.FC = () => {
-  const { reservations, events } = useAdminStore();
+  const { reservations } = useReservationsStore();
+  const { events } = useEventsStore();
   
   // Simple navigation handler (adjust based on your routing setup)
   const handleNavigate = (path: string) => {

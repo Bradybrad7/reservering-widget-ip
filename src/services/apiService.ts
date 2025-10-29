@@ -26,62 +26,65 @@ import type {
   PromotionCode,
   Voucher
 } from '../types';
-import { localStorageService } from './localStorageService';
+import { storageService } from './storageService';
 import { checkReservationLimit } from './rateLimiter';
 import { calculatePrice, createPricingSnapshot } from './priceService';
 
-// Mock data storage - now using LocalStorage
+// Mock data storage - now using Firestore
 class MockDatabase {
-  constructor() {
-    // Initialize localStorage
-    localStorageService.initialize();
+  async initialize(): Promise<void> {
+    // Initialize Firestore
+    await storageService.initialize();
     
     // ✅ CHANGED: Start with EMPTY database (no mock data)
     // Admin can add events manually via the admin interface
     console.log('📦 Database initialized (empty - ready for your data)');
   }
 
-  getEvents(): Event[] {
-    return localStorageService.getEvents();
+  async getEvents(): Promise<Event[]> {
+    return await storageService.getEvents();
   }
 
-  getEventById(id: string): Event | undefined {
-    return localStorageService.getEvents().find(event => event.id === id);
+  async getEventById(id: string): Promise<Event | undefined> {
+    const events = await storageService.getEvents();
+    return events.find(event => event.id === id);
   }
 
-  getEventsInDateRange(startDate: Date, endDate: Date): Event[] {
-    return localStorageService.getEvents().filter(event => 
+  async getEventsInDateRange(startDate: Date, endDate: Date): Promise<Event[]> {
+    const events = await storageService.getEvents();
+    return events.filter(event => 
       event.date >= startDate && event.date <= endDate
     );
   }
 
-  getReservations(): Reservation[] {
-    return localStorageService.getReservations();
+  async getReservations(): Promise<Reservation[]> {
+    return await storageService.getReservations();
   }
 
-  getReservationsByEvent(eventId: string): Reservation[] {
-    return localStorageService.getReservations().filter(res => res.eventId === eventId);
+  async getReservationsByEvent(eventId: string): Promise<Reservation[]> {
+    const reservations = await storageService.getReservations();
+    return reservations.filter(res => res.eventId === eventId);
   }
 
-  addReservation(reservation: Reservation): void {
-    localStorageService.addReservation(reservation);
+  async addReservation(reservation: Reservation): Promise<void> {
+    await storageService.addReservation(reservation);
   }
 
-  addEvent(event: Event): void {
-    localStorageService.addEvent(event);
+  async addEvent(event: Event): Promise<void> {
+    await storageService.addEvent(event);
   }
 
-  updateEvent(eventId: string, updates: Partial<Event>): boolean {
-    return localStorageService.updateEvent(eventId, updates);
+  async updateEvent(eventId: string, updates: Partial<Event>): Promise<boolean> {
+    return await storageService.updateEvent(eventId, updates);
   }
 
-  deleteEvent(eventId: string): boolean {
-    return localStorageService.deleteEvent(eventId);
+  async deleteEvent(eventId: string): Promise<boolean> {
+    return await storageService.deleteEvent(eventId);
   }
 
-  getAdminStats(): AdminStats {
-    const events = localStorageService.getEvents();
-    const reservations = localStorageService.getReservations();
+  async getAdminStats(): Promise<AdminStats> {
+    const events = await storageService.getEvents();
+    const reservations = await storageService.getReservations();
     const totalReservations = reservations.length;
     const totalRevenue = reservations.reduce((sum, res) => sum + res.totalPrice, 0);
     const totalPersons = reservations.reduce((sum, res) => sum + res.numberOfPersons, 0);
@@ -93,7 +96,7 @@ class MockDatabase {
     }, {} as Record<string, number>);
     
     const popularArrangement = Object.entries(arrangementCounts)
-      .sort(([,a], [,b]) => b - a)[0]?.[0] as 'BWF' | 'BWFM' || 'BWF';
+      .sort(([,a], [,b]) => (b as number) - (a as number))[0]?.[0] as 'BWF' | 'BWFM' || 'BWF';
 
     return {
       totalEvents: events.length,
@@ -105,38 +108,46 @@ class MockDatabase {
   }
 
   // ===== PROMOTIONS METHODS =====
-  getPromotions(): PromotionCode[] {
-    return localStorageService.get<PromotionCode[]>('promotionCodes') || [];
+  async getPromotions(): Promise<PromotionCode[]> {
+    const promotions = await storageService.get<PromotionCode[]>('promotionCodes');
+    return promotions || [];
   }
 
-  addPromotion(promotion: PromotionCode): void {
-    const promotions = this.getPromotions();
+  async addPromotion(promotion: PromotionCode): Promise<void> {
+    const promotions = await this.getPromotions();
     promotions.push(promotion);
-    localStorageService.set('promotionCodes', promotions);
+    await storageService.set('promotionCodes', promotions);
   }
 
-  updatePromotion(id: string, updates: Partial<PromotionCode>): PromotionCode | null {
-    const promotions = this.getPromotions();
+  async updatePromotion(id: string, updates: Partial<PromotionCode>): Promise<PromotionCode | null> {
+    const promotions = await this.getPromotions();
     const index = promotions.findIndex(p => p.id === id);
     if (index === -1) return null;
     
     promotions[index] = { ...promotions[index], ...updates };
-    localStorageService.set('promotionCodes', promotions);
+    await storageService.set('promotionCodes', promotions);
     return promotions[index];
   }
 
-  deletePromotion(id: string): boolean {
-    const promotions = this.getPromotions();
+  async deletePromotion(id: string): Promise<boolean> {
+    const promotions = await this.getPromotions();
     const filtered = promotions.filter(p => p.id !== id);
     if (filtered.length === promotions.length) return false;
     
-    localStorageService.set('promotionCodes', filtered);
+    await storageService.set('promotionCodes', filtered);
     return true;
   }
 }
 
 // Singleton instance
 const mockDB = new MockDatabase();
+
+// Initialize database (wrapped in IIFE for UMD compatibility)
+(async () => {
+  await mockDB.initialize().catch(err => {
+    console.error('Failed to initialize database:', err);
+  });
+})();
 
 // Utility functions
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -174,7 +185,7 @@ export const apiService = {
     await delay(300); // Simulate network delay
     
     try {
-      const events = mockDB.getEvents();
+      const events = await mockDB.getEvents();
       return {
         success: true,
         data: events
@@ -195,7 +206,7 @@ export const apiService = {
       const startDate = new Date(year, month, 1);
       const endDate = new Date(year, month + 1, 0, 23, 59, 59);
       
-      const events = mockDB.getEventsInDateRange(startDate, endDate);
+      const events = await mockDB.getEventsInDateRange(startDate, endDate);
       return {
         success: true,
         data: events
@@ -212,7 +223,7 @@ export const apiService = {
   async getEvent(eventId: string): Promise<ApiResponse<Event>> {
     await delay(150);
     
-    const event = mockDB.getEventById(eventId);
+    const event = await mockDB.getEventById(eventId);
     if (!event) {
       return {
         success: false,
@@ -230,7 +241,7 @@ export const apiService = {
   async getAvailability(eventId: string): Promise<ApiResponse<Availability>> {
     await delay(100);
     
-    const event = mockDB.getEventById(eventId);
+    const event = await mockDB.getEventById(eventId);
     if (!event) {
       return {
         success: false,
@@ -281,7 +292,7 @@ export const apiService = {
         };
       }
 
-      const event = mockDB.getEventById(eventId);
+      const event = await mockDB.getEventById(eventId);
       if (!event) {
         return {
           success: false,
@@ -290,7 +301,7 @@ export const apiService = {
       }
 
       // ✨ NEW: Check for duplicate booking
-      const existingReservations = mockDB.getReservationsByEvent(eventId);
+      const existingReservations = await mockDB.getReservationsByEvent(eventId);
       const duplicate = existingReservations.find(
         r => r.email.toLowerCase() === formData.email.toLowerCase() && 
              r.status !== 'cancelled' && r.status !== 'rejected'
@@ -325,10 +336,10 @@ export const apiService = {
       );
       
       // ✨ NEW: Create pricing snapshot to protect against future price changes
-      const pricingSnapshot = createPricingSnapshot(
+      const pricingSnapshot = await createPricingSnapshot(
         event,
         formData,
-        priceCalculation,
+        await priceCalculation,
         formData.promotionCode,
         formData.voucherCode
       );
@@ -343,7 +354,7 @@ export const apiService = {
         id: `res-${Date.now()}`,
         eventId,
         eventDate: event.date,
-        totalPrice: priceCalculation.totalPrice,
+        totalPrice: (await priceCalculation).totalPrice,
         pricingSnapshot, // ✨ CRITICAL: Store pricing at time of booking
         status: 'pending', // Always pending - admin must confirm
         requestedOverCapacity, // Flag for admin review
@@ -359,18 +370,18 @@ export const apiService = {
         paymentNotes: ''
       };
 
-      mockDB.addReservation(reservation);
+      await mockDB.addReservation(reservation);
 
       // ✨ FIXED: Capacity IS updated immediately when reservation is placed
       // This prevents overbooking by ensuring all pending reservations count toward capacity
-      // Note: localStorageService.addReservation() handles the capacity update automatically
+      // Note: await storageService.addReservation() handles the capacity update automatically
 
       // ✨ NEW: Auto-activate waitlist if capacity is now exhausted or exceeded
       // Check AFTER reservation is added and capacity is updated
-      const updatedEvent = mockDB.getEventById(eventId);
+      const updatedEvent = await mockDB.getEventById(eventId);
       if (updatedEvent && updatedEvent.remainingCapacity !== undefined && updatedEvent.remainingCapacity <= 0) {
         // Capacity is now 0 or negative - activate waitlist immediately
-        mockDB.updateEvent(eventId, { waitlistActive: true });
+        await mockDB.updateEvent(eventId, { waitlistActive: true });
         console.log(`🔴 Waitlist AUTO-ACTIVATED for event ${eventId} - Remaining capacity: ${updatedEvent.remainingCapacity}`);
       }
 
@@ -394,9 +405,9 @@ export const apiService = {
     await delay(300);
     
     try {
-      const events = mockDB.getEvents();
-      const adminEvents: AdminEvent[] = events.map(event => {
-        const reservations = mockDB.getReservationsByEvent(event.id);
+      const events = await mockDB.getEvents();
+      const adminEvents: AdminEvent[] = await Promise.all(events.map(async event => {
+        const reservations = await mockDB.getReservationsByEvent(event.id);
         const revenue = reservations.reduce((sum, res) => sum + res.totalPrice, 0);
         
         return {
@@ -404,7 +415,7 @@ export const apiService = {
           reservations,
           revenue
         };
-      });
+      }));
 
       return {
         success: true,
@@ -422,7 +433,7 @@ export const apiService = {
     await delay(200);
     
     try {
-      const stats = mockDB.getAdminStats();
+      const stats = await mockDB.getAdminStats();
       return {
         success: true,
         data: stats
@@ -447,7 +458,7 @@ export const apiService = {
       };
       
       console.log('📝 Adding event to mockDB:', newEvent);
-      mockDB.addEvent(newEvent);
+      await mockDB.addEvent(newEvent);
       
       console.log('✅ Event added successfully');
       return {
@@ -468,7 +479,7 @@ export const apiService = {
     await delay(300);
     
     try {
-      const success = mockDB.updateEvent(eventId, updates);
+      const success = await mockDB.updateEvent(eventId, updates);
       if (!success) {
         return {
           success: false,
@@ -476,7 +487,7 @@ export const apiService = {
         };
       }
       
-      const updatedEvent = mockDB.getEventById(eventId)!;
+      const updatedEvent = await mockDB.getEventById(eventId)!;
       return {
         success: true,
         data: updatedEvent,
@@ -494,7 +505,7 @@ export const apiService = {
     await delay(200);
     
     try {
-      const success = mockDB.deleteEvent(eventId);
+      const success = await mockDB.deleteEvent(eventId);
       if (!success) {
         return {
           success: false,
@@ -519,7 +530,7 @@ export const apiService = {
     await delay(300);
     
     try {
-      const reservations = mockDB.getReservations();
+      const reservations = await mockDB.getReservations();
       // Exclude archived reservations from default view
       const activeReservations = reservations.filter(r => !r.isArchived);
       return {
@@ -538,7 +549,7 @@ export const apiService = {
     await delay(200);
     
     try {
-      const reservations = mockDB.getReservationsByEvent(eventId);
+      const reservations = await mockDB.getReservationsByEvent(eventId);
       return {
         success: true,
         data: reservations
@@ -555,7 +566,7 @@ export const apiService = {
     await delay(300);
     
     try {
-      const success = localStorageService.updateReservation(reservationId, { 
+      const success = await storageService.updateReservation(reservationId, { 
         status,
         updatedAt: new Date()
       });
@@ -567,7 +578,8 @@ export const apiService = {
         };
       }
       
-      const reservation = localStorageService.getReservations().find(r => r.id === reservationId)!;
+      const reservations = await storageService.getReservations();
+      const reservation = reservations.find(r => r.id === reservationId)!;
       
       return {
         success: true,
@@ -586,7 +598,7 @@ export const apiService = {
     await delay(300);
     
     try {
-      const success = localStorageService.updateReservation(reservationId, {
+      const success = await storageService.updateReservation(reservationId, {
         ...updates,
         updatedAt: new Date()
       });
@@ -598,7 +610,8 @@ export const apiService = {
         };
       }
       
-      const reservation = localStorageService.getReservations().find(r => r.id === reservationId);
+      const reservations = await storageService.getReservations();
+      const reservation = reservations.find(r => r.id === reservationId);
       
       if (!reservation) {
         return {
@@ -624,7 +637,7 @@ export const apiService = {
     await delay(200);
     
     try {
-      const success = localStorageService.deleteReservation(reservationId);
+      const success = await storageService.deleteReservation(reservationId);
       
       if (!success) {
         return {
@@ -649,7 +662,7 @@ export const apiService = {
     await delay(200);
     
     try {
-      const reservations = localStorageService.getReservations();
+      const reservations = await storageService.getReservations();
       const reservation = reservations.find(r => r.id === reservationId);
       
       if (!reservation) {
@@ -667,7 +680,7 @@ export const apiService = {
         updatedAt: new Date()
       };
       
-      const success = localStorageService.updateReservation(reservationId, updatedReservation);
+      const success = await storageService.updateReservation(reservationId, updatedReservation);
       
       if (!success) {
         return {
@@ -693,7 +706,7 @@ export const apiService = {
     await delay(200);
     
     try {
-      const reservations = localStorageService.getReservations();
+      const reservations = await storageService.getReservations();
       const reservation = reservations.find(r => r.id === reservationId);
       
       if (!reservation) {
@@ -711,7 +724,7 @@ export const apiService = {
         updatedAt: new Date()
       };
       
-      const success = localStorageService.updateReservation(reservationId, updatedReservation);
+      const success = await storageService.updateReservation(reservationId, updatedReservation);
       
       if (!success) {
         return {
@@ -737,7 +750,7 @@ export const apiService = {
     await delay(300);
     
     try {
-      const reservations = localStorageService.getReservations();
+      const reservations = await storageService.getReservations();
       const archived = reservations.filter(r => r.isArchived === true);
       
       return {
@@ -757,7 +770,7 @@ export const apiService = {
     await delay(300);
     
     try {
-      const reservations = mockDB.getReservations();
+      const reservations = await mockDB.getReservations();
       const reservation = reservations.find(r => r.id === reservationId);
       
       if (!reservation) {
@@ -774,7 +787,7 @@ export const apiService = {
         };
       }
 
-      const event = mockDB.getEventById(reservation.eventId);
+      const event = await mockDB.getEventById(reservation.eventId);
       if (!event) {
         return {
           success: false,
@@ -783,7 +796,7 @@ export const apiService = {
       }
 
       // Update reservation status to confirmed
-      const updated = localStorageService.updateReservation(reservationId, {
+      const updated = await storageService.updateReservation(reservationId, {
         status: 'confirmed',
         updatedAt: new Date()
       });
@@ -799,7 +812,7 @@ export const apiService = {
       const currentRemaining = event.remainingCapacity ?? event.capacity;
       const newRemaining = Math.max(0, currentRemaining - reservation.numberOfPersons);
       
-      mockDB.updateEvent(event.id, {
+      await mockDB.updateEvent(event.id, {
         remainingCapacity: newRemaining
       });
 
@@ -824,7 +837,7 @@ export const apiService = {
     await delay(300);
     
     try {
-      const reservations = mockDB.getReservations();
+      const reservations = await mockDB.getReservations();
       const reservation = reservations.find(r => r.id === reservationId);
       
       if (!reservation) {
@@ -835,7 +848,7 @@ export const apiService = {
       }
 
       // Update reservation status to rejected
-      const updated = localStorageService.updateReservation(reservationId, {
+      const updated = await storageService.updateReservation(reservationId, {
         status: 'rejected',
         updatedAt: new Date()
       });
@@ -849,7 +862,7 @@ export const apiService = {
 
       // 🆕 AUTOMATICALLY DELETE (ARCHIVE) REJECTED RESERVATION
       // Rejected reservations are moved to archive by removing them from active list
-      const deleted = localStorageService.deleteReservation(reservationId);
+      const deleted = await storageService.deleteReservation(reservationId);
       
       if (deleted) {
         console.log(`📦 Rejected reservation ${reservationId} automatically archived (deleted from active list).`);
@@ -878,7 +891,7 @@ export const apiService = {
     await delay(300);
     
     try {
-      const reservations = mockDB.getReservations();
+      const reservations = await mockDB.getReservations();
       const reservation = reservations.find(r => r.id === reservationId);
       
       if (!reservation) {
@@ -893,7 +906,7 @@ export const apiService = {
                                      reservation.status === 'option';
 
       // Update reservation status to cancelled
-      const updated = localStorageService.updateReservation(reservationId, {
+      const updated = await storageService.updateReservation(reservationId, {
         status: 'cancelled',
         notes: reason ? `Geannuleerd: ${reason}` : 'Geannuleerd',
         updatedAt: new Date()
@@ -909,7 +922,7 @@ export const apiService = {
       // ✨ RESTORE EVENT CAPACITY if reservation was confirmed/option/checked-in
       // Options count toward capacity, so we need to restore when cancelled
       if (wasConfirmedOrOption && reservation.eventId) {
-        const events = mockDB.getEvents();
+        const events = await mockDB.getEvents();
         const event = events.find(e => e.id === reservation.eventId);
         
         if (event) {
@@ -919,7 +932,7 @@ export const apiService = {
             currentRemaining + reservation.numberOfPersons
           );
           
-          mockDB.updateEvent(event.id, {
+          await mockDB.updateEvent(event.id, {
             remainingCapacity: newRemaining
           });
           
@@ -947,7 +960,7 @@ export const apiService = {
     await delay(200);
     
     try {
-      const config = localStorageService.getConfig();
+      const config = await storageService.getConfig();
       return {
         success: true,
         data: config
@@ -964,7 +977,7 @@ export const apiService = {
     await delay(200);
     
     try {
-      const pricing = localStorageService.getPricing();
+      const pricing = await storageService.getPricing();
       return {
         success: true,
         data: pricing
@@ -981,7 +994,7 @@ export const apiService = {
     await delay(200);
     
     try {
-      const addOns = localStorageService.getAddOns();
+      const addOns = await storageService.getAddOns();
       return {
         success: true,
         data: addOns
@@ -998,7 +1011,7 @@ export const apiService = {
     await delay(200);
     
     try {
-      const bookingRules = localStorageService.getBookingRules();
+      const bookingRules = await storageService.getBookingRules();
       return {
         success: true,
         data: bookingRules
@@ -1015,9 +1028,9 @@ export const apiService = {
     await delay(300);
     
     try {
-      const currentConfig = localStorageService.getConfig();
+      const currentConfig = await storageService.getConfig();
       const updatedConfig = { ...currentConfig, ...configUpdates };
-      localStorageService.saveConfig(updatedConfig);
+      await storageService.saveConfig(updatedConfig);
       
       return {
         success: true,
@@ -1036,9 +1049,9 @@ export const apiService = {
     await delay(300);
     
     try {
-      const currentPricing = localStorageService.getPricing();
+      const currentPricing = await storageService.getPricing();
       const updatedPricing = { ...currentPricing, ...pricingUpdates };
-      localStorageService.savePricing(updatedPricing);
+      await storageService.savePricing(updatedPricing);
       
       return {
         success: true,
@@ -1057,9 +1070,9 @@ export const apiService = {
     await delay(300);
     
     try {
-      const currentAddOns = localStorageService.getAddOns();
+      const currentAddOns = await storageService.getAddOns();
       const updatedAddOns = { ...currentAddOns, ...addOnsUpdates };
-      localStorageService.saveAddOns(updatedAddOns);
+      await storageService.saveAddOns(updatedAddOns);
       
       return {
         success: true,
@@ -1078,9 +1091,9 @@ export const apiService = {
     await delay(300);
     
     try {
-      const currentRules = localStorageService.getBookingRules();
+      const currentRules = await storageService.getBookingRules();
       const updatedRules = { ...currentRules, ...rulesUpdates };
-      localStorageService.saveBookingRules(updatedRules);
+      await storageService.saveBookingRules(updatedRules);
       
       return {
         success: true,
@@ -1100,7 +1113,7 @@ export const apiService = {
     await delay(200);
     
     try {
-      let config = localStorageService.getWizardConfig();
+      let config = await storageService.getWizardConfig();
       if (!config) {
         const { getDefaultWizardConfig } = await import('../config/defaults');
         config = getDefaultWizardConfig();
@@ -1122,7 +1135,7 @@ export const apiService = {
     await delay(300);
     
     try {
-      localStorageService.saveWizardConfig(config);
+      await storageService.saveWizardConfig(config);
       
       return {
         success: true,
@@ -1142,7 +1155,7 @@ export const apiService = {
     await delay(200);
     
     try {
-      let config = localStorageService.getEventTypesConfig();
+      let config = await storageService.getEventTypesConfig();
       if (!config) {
         const { getDefaultEventTypesConfig } = await import('../config/defaults');
         config = getDefaultEventTypesConfig();
@@ -1164,7 +1177,7 @@ export const apiService = {
     await delay(300);
     
     try {
-      localStorageService.saveEventTypesConfig(config);
+      await storageService.saveEventTypesConfig(config);
       
       return {
         success: true,
@@ -1184,7 +1197,7 @@ export const apiService = {
     await delay(200);
     
     try {
-      const texts = localStorageService.getTextCustomization() || {};
+      const texts = await storageService.getTextCustomization() || {};
       
       return {
         success: true,
@@ -1202,7 +1215,7 @@ export const apiService = {
     await delay(300);
     
     try {
-      localStorageService.saveTextCustomization(texts);
+      await storageService.saveTextCustomization(texts);
       
       return {
         success: true,
@@ -1223,14 +1236,14 @@ export const apiService = {
     
     try {
       // ✅ FIX: Load from localStorage instead of hardcoded
-      let merchandise = localStorageService.getMerchandise();
+      let merchandise = await storageService.getMerchandise();
       
       // If empty, initialize with defaults
       if (merchandise.length === 0) {
         console.log('🎁 Initializing merchandise with defaults...');
         const { defaultMerchandise } = await import('../config/defaults');
         merchandise = defaultMerchandise.map(item => ({ ...item }));
-        localStorageService.saveMerchandise(merchandise);
+        await storageService.saveMerchandise(merchandise);
       }
       
       return {
@@ -1251,7 +1264,7 @@ export const apiService = {
     
     try {
       // ✅ FIX: Actually save to localStorage
-      const merchandise = localStorageService.getMerchandise();
+      const merchandise = await storageService.getMerchandise();
       
       const newItem: MerchandiseItem = {
         ...item,
@@ -1259,7 +1272,7 @@ export const apiService = {
       };
       
       merchandise.push(newItem);
-      localStorageService.saveMerchandise(merchandise);
+      await storageService.saveMerchandise(merchandise);
       
       console.log('✅ Merchandise created:', newItem);
       
@@ -1282,7 +1295,7 @@ export const apiService = {
     
     try {
       // ✅ FIX: Actually update in localStorage
-      const merchandise = localStorageService.getMerchandise();
+      const merchandise = await storageService.getMerchandise();
       const index = merchandise.findIndex(m => m.id === itemId);
       
       if (index === -1) {
@@ -1299,7 +1312,7 @@ export const apiService = {
       };
       
       merchandise[index] = updatedItem;
-      localStorageService.saveMerchandise(merchandise);
+      await storageService.saveMerchandise(merchandise);
       
       console.log('✅ Merchandise updated:', updatedItem);
       
@@ -1322,7 +1335,7 @@ export const apiService = {
     
     try {
       // ✅ FIX: Actually delete from localStorage
-      const merchandise = localStorageService.getMerchandise();
+      const merchandise = await storageService.getMerchandise();
       const filteredMerchandise = merchandise.filter(m => m.id !== itemId);
       
       if (merchandise.length === filteredMerchandise.length) {
@@ -1332,7 +1345,7 @@ export const apiService = {
         };
       }
       
-      localStorageService.saveMerchandise(filteredMerchandise);
+      await storageService.saveMerchandise(filteredMerchandise);
       
       console.log('✅ Merchandise deleted:', itemId);
       
@@ -1352,7 +1365,7 @@ export const apiService = {
   async getPromotions(): Promise<ApiResponse<PromotionCode[]>> {
     await delay(200);
     try {
-      const promotions = mockDB.getPromotions();
+      const promotions = await mockDB.getPromotions();
       return { success: true, data: promotions };
     } catch (error) {
       console.error('[API] Get promotions error:', error);
@@ -1368,7 +1381,7 @@ export const apiService = {
         id: `promo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         usedCount: 0
       };
-      mockDB.addPromotion(newPromo);
+      await mockDB.addPromotion(newPromo);
       return { success: true, data: newPromo };
     } catch (error) {
       console.error('[API] Create promotion error:', error);
@@ -1379,7 +1392,7 @@ export const apiService = {
   async updatePromotion(id: string, updates: Partial<PromotionCode>): Promise<ApiResponse<PromotionCode>> {
     await delay(200);
     try {
-      const updated = mockDB.updatePromotion(id, updates);
+      const updated = await mockDB.updatePromotion(id, updates);
       if (updated) {
         return { success: true, data: updated };
       }
@@ -1393,7 +1406,7 @@ export const apiService = {
   async deletePromotion(id: string): Promise<ApiResponse<void>> {
     await delay(200);
     try {
-      const success = mockDB.deletePromotion(id);
+      const success = await mockDB.deletePromotion(id);
       if (success) {
         return { success: true };
       }
@@ -1423,7 +1436,7 @@ export const apiService = {
     await delay(300);
     
     try {
-      const reservations = mockDB.getReservations();
+      const reservations = await mockDB.getReservations();
       
       // Group by email to get unique customers
       const customerMap = new Map<string, {
@@ -1476,7 +1489,7 @@ export const apiService = {
     await delay(500);
     
     try {
-      const addedEvents = localStorageService.bulkAddEvents(events);
+      const addedEvents = await storageService.bulkAddEvents(events);
       
       return {
         success: true,
@@ -1495,7 +1508,7 @@ export const apiService = {
     await delay(400);
     
     try {
-      localStorageService.bulkDeleteEvents(eventIds);
+      await storageService.bulkDeleteEvents(eventIds);
       
       return {
         success: true,
@@ -1514,7 +1527,7 @@ export const apiService = {
     await delay(300);
     
     try {
-      localStorageService.resetAll();
+      await storageService.resetAll();
       
       return {
         success: true,
@@ -1532,7 +1545,7 @@ export const apiService = {
     await delay(200);
     
     try {
-      localStorageService.resetEvents();
+      await storageService.resetEvents();
       
       return {
         success: true,
@@ -1550,7 +1563,7 @@ export const apiService = {
     await delay(200);
     
     try {
-      localStorageService.resetReservations();
+      await storageService.resetReservations();
       
       return {
         success: true,
@@ -1569,7 +1582,7 @@ export const apiService = {
     await delay(300);
     
     try {
-      localStorageService.createBackup();
+      await storageService.createBackup();
       
       return {
         success: true,
@@ -1587,7 +1600,7 @@ export const apiService = {
     await delay(100);
     
     try {
-      const backup = localStorageService.getLastBackup();
+      const backup = await storageService.getLastBackup();
       
       if (!backup) {
         return {
@@ -1612,7 +1625,7 @@ export const apiService = {
     await delay(400);
     
     try {
-      const backup = localStorageService.getLastBackup();
+      const backup = await storageService.getLastBackup();
       
       if (!backup) {
         return {
@@ -1621,7 +1634,7 @@ export const apiService = {
         };
       }
       
-      localStorageService.restoreBackup(backup);
+      await storageService.restoreBackup(backup);
       
       return {
         success: true,
@@ -1639,7 +1652,7 @@ export const apiService = {
     await delay(200);
     
     try {
-      const jsonData = localStorageService.exportToJSON();
+      const jsonData = await storageService.exportToJSON();
       
       return {
         success: true,
@@ -1658,7 +1671,7 @@ export const apiService = {
     await delay(500);
     
     try {
-      const success = localStorageService.importFromJSON(jsonData);
+      const success = storageService.importFromJSON(jsonData);
       
       if (!success) {
         return {
@@ -1683,7 +1696,7 @@ export const apiService = {
     await delay(200);
     
     try {
-      const csv = localStorageService.exportEventsToCSV();
+      const csv = await storageService.exportEventsToCSV();
       
       return {
         success: true,
@@ -1702,7 +1715,7 @@ export const apiService = {
     await delay(200);
     
     try {
-      const csv = localStorageService.exportReservationsToCSV();
+      const csv = await storageService.exportReservationsToCSV();
       
       return {
         success: true,
@@ -1721,7 +1734,7 @@ export const apiService = {
     await delay(500);
     
     try {
-      const result = localStorageService.importEventsFromCSV(csvData);
+      const result = await storageService.importEventsFromCSV(csvData);
       
       if (!result.success && result.errors.length > 0) {
         return {
@@ -1732,8 +1745,8 @@ export const apiService = {
       
       return {
         success: true,
-        data: { added: result.added, errors: result.errors },
-        message: `${result.added} events geïmporteerd`
+        data: { added: result.imported, errors: result.errors },
+        message: `${result.imported} events geïmporteerd`
       };
     } catch (error) {
       return {
@@ -1748,7 +1761,7 @@ export const apiService = {
     await delay(200);
     
     try {
-      const shows = localStorageService.getShows();
+      const shows = await storageService.getShows();
       
       return {
         success: true,
@@ -1766,7 +1779,7 @@ export const apiService = {
     await delay(300);
     
     try {
-      localStorageService.addShow(show);
+      await storageService.addShow(show);
       
       return {
         success: true,
@@ -1785,7 +1798,7 @@ export const apiService = {
     await delay(300);
     
     try {
-      const success = localStorageService.updateShow(show.id, show);
+      const success = await storageService.updateShow(show.id, show);
       
       if (!success) {
         return {
@@ -1811,7 +1824,7 @@ export const apiService = {
     await delay(300);
     
     try {
-      const success = localStorageService.deleteShow(showId);
+      const success = await storageService.deleteShow(showId);
       
       if (!success) {
         return {
@@ -1841,7 +1854,7 @@ export const apiService = {
     await delay(200);
 
     try {
-      const entries = localStorageService.getWaitlistEntries();
+      const entries = await storageService.getWaitlistEntries();
       return {
         success: true,
         data: entries
@@ -1858,7 +1871,7 @@ export const apiService = {
     await delay(150);
 
     try {
-      const entries = localStorageService.getWaitlistEntriesByEvent(eventId);
+      const entries = await storageService.getWaitlistEntriesByEvent(eventId);
       return {
         success: true,
         data: entries
@@ -1876,12 +1889,13 @@ export const apiService = {
 
     try {
       const statusMap: Record<string, number> = {};
-      dates.forEach(date => {
-        const count = localStorageService.getWaitlistCountForDate(date);
+      
+      for (const date of dates) {
+        const count = await storageService.getWaitlistCountForDate(date);
         if (count > 0) {
           statusMap[date] = count;
         }
-      });
+      }
 
       return {
         success: true,
@@ -1902,10 +1916,11 @@ export const apiService = {
       console.log('🔍 DEBUG: Creating waitlist entry:', entry);
       console.log('📦 Will be saved to: ip_waitlist_entries');
       
-      const newEntry = localStorageService.addWaitlistEntry(entry);
+      const newEntry = await storageService.addWaitlistEntry(entry);
       
       console.log('✅ Waitlist entry created:', newEntry);
-      console.log('📋 Current waitlist entries:', localStorageService.getWaitlistEntries().length);
+      const allEntries = await storageService.getWaitlistEntries();
+      console.log('📋 Current waitlist entries:', allEntries.length);
       
       return {
         success: true,
@@ -1925,7 +1940,7 @@ export const apiService = {
     await delay(200);
 
     try {
-      const success = localStorageService.updateWaitlistEntry(entryId, updates);
+      const success = await storageService.updateWaitlistEntry(entryId, updates);
 
       if (!success) {
         return {
@@ -1950,7 +1965,7 @@ export const apiService = {
     await delay(200);
 
     try {
-      const success = localStorageService.deleteWaitlistEntry(entryId);
+      const success = await storageService.deleteWaitlistEntry(entryId);
 
       if (!success) {
         return {
@@ -1976,13 +1991,13 @@ export const apiService = {
 
     try {
       // In production, this would send emails
-      entryIds.forEach(id => {
-        localStorageService.updateWaitlistEntry(id, {
+      for (const id of entryIds) {
+        await storageService.updateWaitlistEntry(id, {
           status: 'contacted',
           contactedAt: new Date(),
           contactedBy: 'Admin'
         });
-      });
+      }
 
       return {
         success: true,
@@ -2007,8 +2022,8 @@ export const apiService = {
     await delay(200);
 
     try {
-      const templates = localStorageService.getVoucherTemplates()
-        .filter((t: VoucherTemplate) => t.isActive);
+      const allTemplates = await storageService.getVoucherTemplates();
+      const templates = allTemplates.filter((t: VoucherTemplate) => t.isActive);
 
       return {
         success: true,
@@ -2033,7 +2048,7 @@ export const apiService = {
 
     try {
       // Get template
-      const templates = localStorageService.getVoucherTemplates();
+      const templates = await storageService.getVoucherTemplates();
       const template = templates.find((t: VoucherTemplate) => t.id === purchaseData.templateId);
 
       if (!template || !template.isActive) {
@@ -2054,7 +2069,7 @@ export const apiService = {
       // Create IssuedVoucher
       const newVoucher: IssuedVoucher = {
         id: voucherService.generateVoucherId(),
-        code: voucherCode,
+        code: await voucherCode,
         templateId: template.id,
         issuedTo: purchaseData.recipientName || purchaseData.buyerName,
         issueDate,
@@ -2078,7 +2093,7 @@ export const apiService = {
       };
 
       // Save to database
-      localStorageService.addIssuedVoucher(newVoucher);
+      await storageService.addIssuedVoucher(newVoucher);
 
       // In production, initiate payment here
       // For now, simulate payment URL
@@ -2091,7 +2106,7 @@ export const apiService = {
           voucherId: newVoucher.id,
           paymentUrl,
           paymentId,
-          temporaryCode: voucherCode
+          temporaryCode: await voucherCode
         }
       };
     } catch (error) {
@@ -2113,7 +2128,7 @@ export const apiService = {
 
     try {
       const { voucherService } = await import('./voucherService');
-      const validation = voucherService.validateVoucher(code);
+      const validation = await voucherService.validateVoucher(code);
 
       return {
         success: validation.isValid,
@@ -2146,10 +2161,9 @@ export const apiService = {
 
     try {
       // This would normally be called during reservation submission
-      const success = localStorageService.decrementVoucherValue(
+      const success = await storageService.decrementVoucherValue(
         voucherCode,
-        amountUsed,
-        reservationId
+        amountUsed
       );
 
       if (!success) {
@@ -2159,11 +2173,11 @@ export const apiService = {
         };
       }
 
-      const voucher = localStorageService.findVoucherByCode(voucherCode);
+      const voucher = await storageService.findVoucherByCode(voucherCode);
       if (!voucher) {
         return {
           success: false,
-          error: 'Voucher not found after update'
+          error: 'Voucher not found after applying'
         };
       }
 
@@ -2193,7 +2207,7 @@ export const apiService = {
     await delay(200);
 
     try {
-      const voucher = localStorageService.findVoucherByCode(code);
+      const voucher = await storageService.findVoucherByCode(code);
       if (!voucher) {
         return {
           success: false,
@@ -2202,8 +2216,8 @@ export const apiService = {
       }
 
       // Get usage history from reservations
-      const reservations = localStorageService.getReservations()
-        .filter((r: Reservation) => voucher.usedInReservationIds?.includes(r.id));
+      const allReservations = await storageService.getReservations();
+      const reservations = allReservations.filter((r: Reservation) => voucher.usedInReservationIds?.includes(r.id));
 
       const usageHistory: VoucherUsage[] = reservations.map((r: Reservation) => ({
         reservationId: r.id,
@@ -2242,7 +2256,7 @@ export const apiService = {
     await delay(200);
 
     try {
-      const voucher = localStorageService.findVoucherByPaymentId(paymentId);
+      const voucher = await storageService.findVoucherByPaymentId(paymentId);
       if (!voucher) {
         return {
           success: false,
@@ -2252,12 +2266,18 @@ export const apiService = {
 
       if (status === 'paid') {
         // Activate voucher
-        localStorageService.updateIssuedVoucher(voucher.id, {
+        await storageService.updateIssuedVoucher(voucher.id, {
           status: 'active',
           metadata: {
-            ...voucher.metadata,
-            paymentStatus: 'paid',
+            buyerName: voucher.metadata?.buyerName || '',
+            buyerEmail: voucher.metadata?.buyerEmail || '',
+            buyerPhone: voucher.metadata?.buyerPhone || '',
+            recipientEmail: voucher.metadata?.recipientEmail,
+            personalMessage: voucher.metadata?.personalMessage,
+            deliveryMethod: voucher.metadata?.deliveryMethod || 'email',
+            quantity: voucher.metadata?.quantity || 1,
             paymentId,
+            paymentStatus: 'paid',
             activatedAt: new Date()
           }
         });
@@ -2271,11 +2291,19 @@ export const apiService = {
         };
       } else {
         // Payment failed
-        localStorageService.updateIssuedVoucher(voucher.id, {
+        await storageService.updateIssuedVoucher(voucher.id, {
           status: 'expired',
           metadata: {
-            ...voucher.metadata,
-            paymentStatus: 'failed'
+            buyerName: (voucher.metadata?.buyerName || '') as string,
+            buyerEmail: (voucher.metadata?.buyerEmail || '') as string,
+            buyerPhone: (voucher.metadata?.buyerPhone || '') as string,
+            recipientEmail: voucher.metadata?.recipientEmail,
+            personalMessage: voucher.metadata?.personalMessage,
+            deliveryMethod: (voucher.metadata?.deliveryMethod || 'email') as 'email' | 'physical',
+            quantity: (voucher.metadata?.quantity || 1) as number,
+            paymentId: voucher.metadata?.paymentId,
+            paymentStatus: 'failed' as const,
+            activatedAt: voucher.metadata?.activatedAt
           }
         });
 

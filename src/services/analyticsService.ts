@@ -1,5 +1,5 @@
 import type { Event, Reservation, Arrangement, EventType } from '../types';
-import { localStorageService } from './localStorageService';
+import { storageService } from './storageService';
 import { customerService } from './customerService';
 
 /**
@@ -53,8 +53,8 @@ class AnalyticsService {
   /**
    * Get revenue breakdown by month
    */
-  getRevenueByMonth(startDate?: Date, endDate?: Date): RevenueByMonth[] {
-    const reservations = this.getFilteredReservations(startDate, endDate);
+  async getRevenueByMonth(startDate?: Date, endDate?: Date): Promise<RevenueByMonth[]> {
+    const reservations = await this.getFilteredReservations(startDate, endDate);
     const monthlyData = new Map<string, { revenue: number; bookings: number }>();
 
     reservations.forEach(res => {
@@ -82,13 +82,13 @@ class AnalyticsService {
   /**
    * Get revenue breakdown by event type
    */
-  getRevenueByEventType(startDate?: Date, endDate?: Date): RevenueByEventType[] {
-    const reservations = this.getFilteredReservations(startDate, endDate);
-    const events = localStorageService.getEvents();
+  async getRevenueByEventType(startDate?: Date, endDate?: Date): Promise<RevenueByEventType[]> {
+    const reservations = await this.getFilteredReservations(startDate, endDate);
+    const events = await storageService.getEvents();
     const typeData = new Map<EventType, { revenue: number; bookings: number; totalPersons: number }>();
 
     reservations.forEach(res => {
-      const event = events.find(e => e.id === res.eventId);
+      const event = events.find((e: Event) => e.id === res.eventId);
       if (!event) return;
 
       const eventType = event.type;
@@ -116,8 +116,8 @@ class AnalyticsService {
   /**
    * Get revenue breakdown by arrangement
    */
-  getRevenueByArrangement(startDate?: Date, endDate?: Date): RevenueByArrangement[] {
-    const reservations = this.getFilteredReservations(startDate, endDate);
+  async getRevenueByArrangement(startDate?: Date, endDate?: Date): Promise<RevenueByArrangement[]> {
+    const reservations = await this.getFilteredReservations(startDate, endDate);
     const arrangementData = new Map<Arrangement, { revenue: number; bookings: number }>();
     let totalRevenue = 0;
 
@@ -145,12 +145,12 @@ class AnalyticsService {
   /**
    * Get occupancy metrics
    */
-  getOccupancyMetrics(startDate?: Date, endDate?: Date): OccupancyMetrics {
-    const events = this.getFilteredEvents(startDate, endDate);
-    const reservations = this.getFilteredReservations(startDate, endDate);
+  async getOccupancyMetrics(startDate?: Date, endDate?: Date): Promise<OccupancyMetrics> {
+    const events = await this.getFilteredEvents(startDate, endDate);
+    const reservations = await this.getFilteredReservations(startDate, endDate);
 
-    const totalCapacity = events.reduce((sum, event) => sum + event.capacity, 0);
-    const bookedSeats = reservations.reduce((sum, res) => sum + res.numberOfPersons, 0);
+    const totalCapacity = events.reduce((sum: number, event: Event) => sum + event.capacity, 0);
+    const bookedSeats = reservations.reduce((sum: number, res: Reservation) => sum + res.numberOfPersons, 0);
     const totalBookings = reservations.length;
 
     return {
@@ -164,13 +164,13 @@ class AnalyticsService {
   /**
    * Get popular time slots (by hour)
    */
-  getPopularTimeslots(startDate?: Date, endDate?: Date): PopularTimeslot[] {
-    const events = this.getFilteredEvents(startDate, endDate);
-    const reservations = this.getFilteredReservations(startDate, endDate);
+  async getPopularTimeslots(startDate?: Date, endDate?: Date): Promise<PopularTimeslot[]> {
+    const events = await this.getFilteredEvents(startDate, endDate);
+    const reservations = await this.getFilteredReservations(startDate, endDate);
     const timeslotData = new Map<number, number>();
 
     reservations.forEach(res => {
-      const event = events.find(e => e.id === res.eventId);
+      const event = events.find((e: Event) => e.id === res.eventId);
       if (!event) return;
 
       const hour = parseInt(event.startsAt.split(':')[0]);
@@ -185,32 +185,32 @@ class AnalyticsService {
   /**
    * Get comprehensive dashboard statistics
    */
-  getDashboardStats(startDate?: Date, endDate?: Date) {
-    const reservations = this.getFilteredReservations(startDate, endDate);
-    const events = this.getFilteredEvents(startDate, endDate);
+  async getDashboardStats(startDate?: Date, endDate?: Date) {
+    const reservations = await this.getFilteredReservations(startDate, endDate);
+    const events = await this.getFilteredEvents(startDate, endDate);
     const customerStats = customerService.getCustomerStats();
 
-    const totalRevenue = reservations.reduce((sum, res) => sum + res.totalPrice, 0);
+    const totalRevenue = reservations.reduce((sum: number, res: Reservation) => sum + res.totalPrice, 0);
     const totalBookings = reservations.length;
-    const totalGuests = reservations.reduce((sum, res) => sum + res.numberOfPersons, 0);
+    const totalGuests = reservations.reduce((sum: number, res: Reservation) => sum + res.numberOfPersons, 0);
     const avgBookingValue = totalBookings > 0 ? totalRevenue / totalBookings : 0;
 
     // Get confirmed vs pending
-    const confirmed = reservations.filter(r => r.status === 'confirmed').length;
-    const pending = reservations.filter(r => r.status === 'pending').length;
-    const cancelled = reservations.filter(r => r.status === 'cancelled').length;
+    const confirmed = reservations.filter((r: Reservation) => r.status === 'confirmed').length;
+    const pending = reservations.filter((r: Reservation) => r.status === 'pending').length;
+    const cancelled = reservations.filter((r: Reservation) => r.status === 'cancelled').length;
 
     // Get add-ons statistics
-    const preDrinkBookings = reservations.filter(r => r.preDrink?.enabled).length;
-    const afterPartyBookings = reservations.filter(r => r.afterParty?.enabled).length;
+    const preDrinkBookings = reservations.filter((r: Reservation) => r.preDrink?.enabled).length;
+    const afterPartyBookings = reservations.filter((r: Reservation) => r.afterParty?.enabled).length;
 
     return {
       revenue: {
         total: totalRevenue,
         average: avgBookingValue,
-        byMonth: this.getRevenueByMonth(startDate, endDate),
-        byEventType: this.getRevenueByEventType(startDate, endDate),
-        byArrangement: this.getRevenueByArrangement(startDate, endDate)
+        byMonth: await this.getRevenueByMonth(startDate, endDate),
+        byEventType: await this.getRevenueByEventType(startDate, endDate),
+        byArrangement: await this.getRevenueByArrangement(startDate, endDate)
       },
       bookings: {
         total: totalBookings,
@@ -219,11 +219,11 @@ class AnalyticsService {
         cancelled,
         totalGuests
       },
-      occupancy: this.getOccupancyMetrics(startDate, endDate),
+      occupancy: await this.getOccupancyMetrics(startDate, endDate),
       events: {
         total: events.length,
-        upcoming: events.filter(e => new Date(e.date) > new Date()).length,
-        past: events.filter(e => new Date(e.date) <= new Date()).length
+        upcoming: events.filter((e: Event) => new Date(e.date) > new Date()).length,
+        past: events.filter((e: Event) => new Date(e.date) <= new Date()).length
       },
       customers: customerStats,
       addOns: {
@@ -236,24 +236,24 @@ class AnalyticsService {
           rate: totalBookings > 0 ? (afterPartyBookings / totalBookings) * 100 : 0
         }
       },
-      popularTimeslots: this.getPopularTimeslots(startDate, endDate)
+      popularTimeslots: await this.getPopularTimeslots(startDate, endDate)
     };
   }
 
   /**
    * Get year-over-year comparison
    */
-  getYearOverYearComparison(year: number) {
+  async getYearOverYearComparison(year: number) {
     const currentYearStart = new Date(year, 0, 1);
     const currentYearEnd = new Date(year, 11, 31);
     const previousYearStart = new Date(year - 1, 0, 1);
     const previousYearEnd = new Date(year - 1, 11, 31);
 
-    const currentYearRevenue = this.getRevenueByMonth(currentYearStart, currentYearEnd);
-    const previousYearRevenue = this.getRevenueByMonth(previousYearStart, previousYearEnd);
+    const currentYearRevenue = await this.getRevenueByMonth(currentYearStart, currentYearEnd);
+    const previousYearRevenue = await this.getRevenueByMonth(previousYearStart, previousYearEnd);
 
-    const currentTotal = currentYearRevenue.reduce((sum, m) => sum + m.revenue, 0);
-    const previousTotal = previousYearRevenue.reduce((sum, m) => sum + m.revenue, 0);
+    const currentTotal = currentYearRevenue.reduce((sum: number, m: RevenueByMonth) => sum + m.revenue, 0);
+    const previousTotal = previousYearRevenue.reduce((sum: number, m: RevenueByMonth) => sum + m.revenue, 0);
 
     const growth = previousTotal > 0 
       ? ((currentTotal - previousTotal) / previousTotal) * 100 
@@ -263,13 +263,13 @@ class AnalyticsService {
       currentYear: {
         year,
         revenue: currentTotal,
-        bookings: currentYearRevenue.reduce((sum, m) => sum + m.bookings, 0),
+        bookings: currentYearRevenue.reduce((sum: number, m: RevenueByMonth) => sum + m.bookings, 0),
         monthly: currentYearRevenue
       },
       previousYear: {
         year: year - 1,
         revenue: previousTotal,
-        bookings: previousYearRevenue.reduce((sum, m) => sum + m.bookings, 0),
+        bookings: previousYearRevenue.reduce((sum: number, m: RevenueByMonth) => sum + m.bookings, 0),
         monthly: previousYearRevenue
       },
       growth: {
@@ -282,20 +282,20 @@ class AnalyticsService {
   /**
    * Get best performing events (by revenue)
    */
-  getBestPerformingEvents(limit: number = 10): Array<{
+  async getBestPerformingEvents(limit: number = 10): Promise<Array<{
     event: Event;
     revenue: number;
     bookings: number;
     occupancyRate: number;
-  }> {
-    const events = localStorageService.getEvents();
-    const reservations = localStorageService.getReservations();
+  }>> {
+    const events = await storageService.getEvents();
+    const reservations = await storageService.getReservations();
 
-    const eventPerformance = events.map(event => {
-      const eventReservations = reservations.filter(r => r.eventId === event.id);
-      const revenue = eventReservations.reduce((sum, r) => sum + r.totalPrice, 0);
+    const eventPerformance = events.map((event: Event) => {
+      const eventReservations = reservations.filter((r: Reservation) => r.eventId === event.id);
+      const revenue = eventReservations.reduce((sum: number, r: Reservation) => sum + r.totalPrice, 0);
       const bookings = eventReservations.length;
-      const bookedSeats = eventReservations.reduce((sum, r) => sum + r.numberOfPersons, 0);
+      const bookedSeats = eventReservations.reduce((sum: number, r: Reservation) => sum + r.numberOfPersons, 0);
       const occupancyRate = (bookedSeats / event.capacity) * 100;
 
       return {
@@ -307,20 +307,20 @@ class AnalyticsService {
     });
 
     return eventPerformance
-      .sort((a, b) => b.revenue - a.revenue)
+      .sort((a: any, b: any) => b.revenue - a.revenue)
       .slice(0, limit);
   }
 
   /**
    * Get booking conversion funnel
    */
-  getConversionFunnel() {
-    const reservations = localStorageService.getReservations();
+  async getConversionFunnel() {
+    const reservations = await storageService.getReservations();
 
     const total = reservations.length;
-    const confirmed = reservations.filter(r => r.status === 'confirmed').length;
-    const cancelled = reservations.filter(r => r.status === 'cancelled').length;
-    const checkedIn = reservations.filter(r => r.checkedInAt).length;
+    const confirmed = reservations.filter((r: Reservation) => r.status === 'confirmed').length;
+    const cancelled = reservations.filter((r: Reservation) => r.status === 'cancelled').length;
+    const checkedIn = reservations.filter((r: Reservation) => r.checkedInAt).length;
 
     return {
       total,
@@ -341,12 +341,12 @@ class AnalyticsService {
 
   // ===== HELPER METHODS =====
 
-  private getFilteredReservations(startDate?: Date, endDate?: Date): Reservation[] {
-    const reservations = localStorageService.getReservations();
+  private async getFilteredReservations(startDate?: Date, endDate?: Date): Promise<Reservation[]> {
+    const reservations = await storageService.getReservations();
     
     if (!startDate && !endDate) return reservations;
 
-    return reservations.filter(res => {
+    return reservations.filter((res: Reservation) => {
       const resDate = new Date(res.eventDate);
       if (startDate && resDate < startDate) return false;
       if (endDate && resDate > endDate) return false;
@@ -354,12 +354,12 @@ class AnalyticsService {
     });
   }
 
-  private getFilteredEvents(startDate?: Date, endDate?: Date): Event[] {
-    const events = localStorageService.getEvents();
+  private async getFilteredEvents(startDate?: Date, endDate?: Date): Promise<Event[]> {
+    const events = await storageService.getEvents();
     
     if (!startDate && !endDate) return events;
 
-    return events.filter(event => {
+    return events.filter((event: Event) => {
       const eventDate = new Date(event.date);
       if (startDate && eventDate < startDate) return false;
       if (endDate && eventDate > endDate) return false;
