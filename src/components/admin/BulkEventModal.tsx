@@ -41,12 +41,19 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
   const [selectedShowId, setSelectedShowId] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // 🆕 Store pricing for selected event type
+  const [selectedTypePricing, setSelectedTypePricing] = useState<{ BWF: number; BWFM: number } | null>(null);
 
   // Load event types config, existing events, and shows on mount
   useEffect(() => {
-    loadConfig();
-    loadEvents();
-    loadShows();
+    const loadAll = async () => {
+      await loadConfig();
+      await loadEvents();
+      await loadShows();
+      console.log('🔄 BulkEventModal - Loaded config, events, and shows');
+    };
+    loadAll();
   }, [loadConfig, loadEvents, loadShows]);
   
   // Set default show when shows are loaded
@@ -61,14 +68,45 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
 
   // Get enabled event types
   const enabledEventTypes = eventTypesConfig?.types?.filter(t => t.enabled) || [];
+  
+  // 🆕 Debug log voor enabled types
+  useEffect(() => {
+    if (eventTypesConfig) {
+      console.log(`📋 BulkEventModal - Event types config loaded:`, eventTypesConfig.types.length, 'types');
+      console.log(`✅ Enabled types (${enabledEventTypes.length}):`, enabledEventTypes.map(t => `${t.name} (${t.key})`));
+    }
+  }, [eventTypesConfig]);
 
-  // Auto-update times when event type changes
+  // 🆕 Set default event type to first enabled type
+  useEffect(() => {
+    if (enabledEventTypes.length > 0 && eventType === 'REGULAR') {
+      // Only set if we're still on the hardcoded default
+      const firstType = enabledEventTypes[0];
+      console.log(`🎯 BulkEventModal - Setting default event type to: ${firstType.key}`);
+      setEventType(firstType.key as EventType);
+    }
+  }, [enabledEventTypes]);
+
+  // Auto-update times and pricing when event type changes
   useEffect(() => {
     const selectedType = enabledEventTypes.find(t => t.key === eventType);
     if (selectedType) {
       setDoorsOpen(selectedType.defaultTimes.doorsOpen);
       setStartsAt(selectedType.defaultTimes.startsAt);
       setEndsAt(selectedType.defaultTimes.endsAt);
+      
+      // 🆕 Update pricing display
+      if (selectedType.pricing) {
+        setSelectedTypePricing(selectedType.pricing);
+        console.log(`💰 BulkEventModal - Pricing voor '${selectedType.name}':`, selectedType.pricing);
+      } else {
+        setSelectedTypePricing(null);
+        console.warn(`⚠️ BulkEventModal - Geen pricing ingesteld voor '${selectedType.name}'!`);
+      }
+    } else {
+      // No matching type found - might be using old hardcoded value
+      console.warn(`⚠️ BulkEventModal - Event type '${eventType}' niet gevonden in enabled types!`);
+      setSelectedTypePricing(null);
     }
   }, [eventType, enabledEventTypes]);
 
@@ -146,10 +184,18 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
       return;
     }
 
+    // 🆕 Validatie: Check of het event type pricing heeft
+    if (!selectedTypePricing || selectedTypePricing.BWF === 0 || selectedTypePricing.BWFM === 0) {
+      setError('⚠️ Dit event type heeft geen geldige prijzen ingesteld! Ga naar Producten → Event Types om prijzen in te stellen.');
+      return;
+    }
+
     setIsProcessing(true);
     setError(null);
 
     try {
+      console.log(`🎯 BulkEventModal - Creating events with type '${eventType}' and pricing:`, selectedTypePricing);
+      
       // Create events with default pricing
       const events: Omit<Event, 'id'>[] = await Promise.all(
         selectedDates.map(async (date) => ({
@@ -164,7 +210,7 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
           bookingOpensAt: null,
           bookingClosesAt: null,
           allowedArrangements: ['BWF', 'BWFM'] as Arrangement[],
-          // 🔒 customPricing NIET meer - prijzen komen van PricingConfigManager!
+          // 🔒 customPricing NIET meer - prijzen komen van EventTypeConfig via priceService!
           isActive: true
         }))
       );
@@ -519,6 +565,37 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
               <p className="mt-1 text-xs text-neutral-400">
                 Tip: Configureer event types in <strong>Producten → Prijzen → Event Types</strong>
               </p>
+            )}
+            
+            {/* 🆕 PRICING DISPLAY */}
+            {selectedTypePricing && (
+              <div className="mt-3 p-3 bg-gold-500/10 border border-gold-500/30 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium text-gold-300">💰 Prijzen voor dit event type:</div>
+                  <div className="flex gap-4">
+                    <div className="text-right">
+                      <div className="text-xs text-neutral-400">BWF</div>
+                      <div className="text-white font-bold">€{selectedTypePricing.BWF}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs text-neutral-400">BWFM</div>
+                      <div className="text-white font-bold">€{selectedTypePricing.BWFM}</div>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-neutral-400 mt-2">
+                  ✅ Deze prijzen worden automatisch gebruikt voor alle bulk-toegevoegde evenementen
+                </p>
+              </div>
+            )}
+            
+            {!selectedTypePricing && eventType && (
+              <div className="mt-3 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <p className="text-sm text-red-300 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  ⚠️ Geen prijzen ingesteld voor dit event type! Ga naar <strong>Producten → Prijzen → Event Types</strong> om prijzen in te stellen.
+                </p>
+              </div>
             )}
           </div>
 

@@ -187,6 +187,11 @@ export const SimplePricingManager: React.FC = () => {
           <li>• Nieuwe boekingen gebruiken de nieuwe prijzen</li>
           <li>• Bestaande boekingen behouden hun originele prijs</li>
         </ul>
+        <div className="mt-3 pt-3 border-t border-blue-500/30">
+          <p className="text-blue-300 text-sm">
+            💡 <strong>Event Types toevoegen, bewerken of verwijderen?</strong> Ga naar de tab <strong>"Event Types"</strong> hierboven.
+          </p>
+        </div>
       </div>
     </div>
   );

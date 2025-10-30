@@ -436,21 +436,29 @@ class StorageService {
       const docRef = doc(firestoreService.db, 'generic_data', key);
       const docSnap = await getDoc(docRef);
       
-      if (!docSnap.exists()) return null;
+      if (!docSnap.exists()) {
+        console.log(`📭 No data found for key '${key}' in generic_data collection`);
+        return null;
+      }
+      
+      console.log(`✅ Retrieved data for key '${key}' from Firestore`);
       return docSnap.data() as T;
     } catch (error) {
-      console.error(`Error getting ${key}:`, error);
+      console.error(`❌ Error getting ${key}:`, error);
       return null;
     }
   }
 
   async set<T>(key: string, value: T): Promise<void> {
     try {
+      console.log(`💾 Saving '${key}' to Firestore generic_data collection...`);
       const { doc, setDoc } = await import('firebase/firestore');
       const docRef = doc(firestoreService.db, 'generic_data', key);
       await setDoc(docRef, value as any);
+      console.log(`✅ Successfully saved '${key}' to Firestore`);
     } catch (error) {
-      console.error(`Error setting ${key}:`, error);
+      console.error(`❌ Error setting ${key}:`, error);
+      throw error; // Re-throw to let caller handle it
     }
   }
 

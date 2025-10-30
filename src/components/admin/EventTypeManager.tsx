@@ -28,9 +28,11 @@ export const EventTypeManager: React.FC = () => {
   const [hasChanges, setHasChanges] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // 🔧 FIX: Load config only once on mount, not on every render
   useEffect(() => {
     loadConfig();
-  }, [loadConfig]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array = run only once on mount
 
   useEffect(() => {
     if (eventTypesConfig) {
@@ -39,7 +41,12 @@ export const EventTypeManager: React.FC = () => {
   }, [eventTypesConfig]);
 
   const handleEdit = (type: EventTypeConfig) => {
-    setEditingType({ ...type });
+    // Ensure all properties have safe defaults
+    setEditingType({ 
+      ...type,
+      days: type.days || [], // Fallback to empty array if undefined
+      pricing: type.pricing || { BWF: 0, BWFM: 0 } // Fallback to zero pricing
+    });
     setIsNewType(false);
     setShowModal(true);
   };
@@ -69,7 +76,7 @@ export const EventTypeManager: React.FC = () => {
     setShowModal(true);
   };
 
-  const handleDeleteType = (typeKey: EventType) => {
+  const handleDeleteType = async (typeKey: EventType) => {
     if (!localConfig) return;
     
     if (!confirm('Weet u zeker dat u dit event type wilt verwijderen?')) {
@@ -77,11 +84,34 @@ export const EventTypeManager: React.FC = () => {
     }
 
     const updatedTypes = localConfig.types.filter(t => t.key !== typeKey);
-    setLocalConfig({ ...localConfig, types: updatedTypes });
-    setHasChanges(true);
+    const updatedConfig = { ...localConfig, types: updatedTypes };
+    setLocalConfig(updatedConfig);
+    
+    // 🆕 AUTO-SAVE: Sla direct op naar Firebase
+    console.log('💾 Auto-saving after delete to Firebase...');
+    setIsSubmitting(true);
+    
+    try {
+      const success = await updateEventTypesConfig(updatedConfig);
+      if (success) {
+        setHasChanges(false);
+        console.log('✅ Event type deleted and saved successfully');
+        alert('✅ Event type succesvol verwijderd!');
+      } else {
+        setHasChanges(true);
+        console.error('❌ Failed to save after delete');
+        alert('❌ Fout bij opslaan. Klik op "Wijzigingen Opslaan" om opnieuw te proberen.');
+      }
+    } catch (error) {
+      setHasChanges(true);
+      console.error('❌ Error saving after delete:', error);
+      alert('❌ Er is een fout opgetreden bij het opslaan.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleSaveType = () => {
+  const handleSaveType = async () => {
     if (!editingType || !localConfig) return;
 
     // 🆕 VALIDATIE: Key mag niet leeg zijn!
@@ -102,6 +132,25 @@ export const EventTypeManager: React.FC = () => {
       return;
     }
 
+    // 🆕 VALIDATIE: Pricing is verplicht!
+    if (!editingType.pricing || !editingType.pricing.BWF || !editingType.pricing.BWFM) {
+      alert('❌ Prijzen zijn verplicht! Vul zowel BWF als BWFM prijs in.');
+      return;
+    }
+
+    // 🆕 VALIDATIE: Prijzen moeten positief zijn
+    if (editingType.pricing.BWF <= 0 || editingType.pricing.BWFM <= 0) {
+      alert('❌ Prijzen moeten hoger dan €0 zijn!');
+      return;
+    }
+
+    // 🆕 VALIDATIE: BWFM moet hoger zijn dan BWF (logische check)
+    if (editingType.pricing.BWFM < editingType.pricing.BWF) {
+      if (!confirm('⚠️ Premium (BWFM) prijs is lager dan Standaard (BWF) prijs. Weet u zeker dat dit correct is?')) {
+        return;
+      }
+    }
+
     let updatedTypes;
     if (isNewType) {
       // Add new type
@@ -113,11 +162,34 @@ export const EventTypeManager: React.FC = () => {
       );
     }
 
-    setLocalConfig({ ...localConfig, types: updatedTypes });
-    setHasChanges(true);
+    const updatedConfig = { ...localConfig, types: updatedTypes };
+    setLocalConfig(updatedConfig);
     setShowModal(false);
     setEditingType(null);
     setIsNewType(false);
+    
+    // 🆕 AUTO-SAVE: Sla direct op naar Firebase
+    console.log('💾 Auto-saving event type changes to Firebase...');
+    setIsSubmitting(true);
+    
+    try {
+      const success = await updateEventTypesConfig(updatedConfig);
+      if (success) {
+        setHasChanges(false);
+        console.log('✅ Event type saved successfully');
+        alert('✅ Event type succesvol opgeslagen!');
+      } else {
+        setHasChanges(true); // Keep changes flag if save failed
+        console.error('❌ Failed to save event type');
+        alert('❌ Fout bij opslaan. Klik op "Wijzigingen Opslaan" om opnieuw te proberen.');
+      }
+    } catch (error) {
+      setHasChanges(true); // Keep changes flag if save failed
+      console.error('❌ Error saving event type:', error);
+      alert('❌ Er is een fout opgetreden bij het opslaan.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleToggleEnabled = (typeKey: EventType) => {
@@ -134,12 +206,26 @@ export const EventTypeManager: React.FC = () => {
   const handleSaveAll = async () => {
     if (!localConfig) return;
 
-    const success = await updateEventTypesConfig(localConfig);
-    if (success) {
-      setHasChanges(false);
-      alert('Event Type configuratie opgeslagen!');
-    } else {
-      alert('Fout bij opslaan');
+    setIsSubmitting(true);
+    console.log('💾 EventTypeManager - Saving config:', localConfig);
+    
+    try {
+      const success = await updateEventTypesConfig(localConfig);
+      if (success) {
+        setHasChanges(false);
+        // Reload to verify
+        await loadConfig();
+        alert('✅ Event Type configuratie succesvol opgeslagen!');
+        console.log('✅ EventTypeManager - Config saved successfully');
+      } else {
+        alert('❌ Fout bij opslaan van configuratie');
+        console.error('❌ EventTypeManager - Save failed');
+      }
+    } catch (error) {
+      console.error('❌ EventTypeManager - Save error:', error);
+      alert('❌ Er is een fout opgetreden bij het opslaan');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -207,12 +293,21 @@ export const EventTypeManager: React.FC = () => {
             <strong>Event Types</strong> bepalen welk soort voorstelling het is (bijv. Reguliere Show, Zorgzame Helden, Matinee).
           </p>
           <p>
-            <strong>Prijzen per dag/type</strong> worden beheerd onder <strong>Instellingen → Prijzen</strong>.
-            Daar kunt u verschillende prijzen instellen voor weekdagen, weekenden, matinees en zorgzame helden shows.
+            <strong>💰 NIEUW PRIJSSYSTEEM:</strong> Elk event type heeft nu zijn eigen vaste prijzen (BWF & BWFM).
+            Deze prijzen worden automatisch gebruikt voor alle evenementen van dat type.
           </p>
           <p>
-            <strong>Custom prijzen per event</strong> kunnen worden ingesteld bij het aanmaken/bewerken van individuele evenementen.
+            <strong>Custom prijzen per event</strong> kunnen nog steeds worden ingesteld bij het bewerken van individuele evenementen 
+            (deze overschrijven de event type prijzen voor dat specifieke evenement).
           </p>
+          <p className="text-gold-300 font-semibold">
+            ✅ Geen complexe weekdag/weekend logica meer - gewoon event type → prijs!
+          </p>
+          <div className="mt-2 pt-2 border-t border-blue-500/30">
+            <p className="text-blue-300 text-sm">
+              💡 <strong>Alleen prijzen aanpassen?</strong> Ga naar de tab <strong>"Prijzen"</strong> hierboven voor een snelle tabel-weergave.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -276,6 +371,33 @@ export const EventTypeManager: React.FC = () => {
                 </div>
                 <p className="text-neutral-400 text-sm mb-4">{type.description}</p>
 
+                {/* 🆕 PRICING DISPLAY */}
+                <div className="mb-4 p-3 bg-gold-500/10 border border-gold-500/30 rounded-lg">
+                  <div className="flex items-center gap-4">
+                    <div className="text-xs text-gold-300 font-semibold">💰 PRIJZEN:</div>
+                    <div className="flex gap-4">
+                      <div>
+                        <span className="text-xs text-neutral-400">BWF:</span>
+                        <span className="ml-1 text-white font-bold">€{type.pricing?.BWF || 0}</span>
+                      </div>
+                      <div>
+                        <span className="text-xs text-neutral-400">BWFM:</span>
+                        <span className="ml-1 text-white font-bold">€{type.pricing?.BWFM || 0}</span>
+                      </div>
+                      {type.pricing?.BWF && type.pricing?.BWFM && (
+                        <div className="text-xs text-gold-300">
+                          (+€{(type.pricing.BWFM - type.pricing.BWF).toFixed(2)} upgrade)
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {(!type.pricing || !type.pricing.BWF || !type.pricing.BWFM) && (
+                    <div className="mt-2 text-xs text-red-400 font-semibold">
+                      ⚠️ Prijzen niet ingesteld! Klik op bewerken om prijzen toe te voegen.
+                    </div>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
                     <div className="text-xs text-neutral-500 mb-1">Deuren Open</div>
@@ -302,7 +424,7 @@ export const EventTypeManager: React.FC = () => {
                     <div className="text-xs text-neutral-500 mb-1">Dagen</div>
                     <div className="text-white font-medium flex items-center gap-1">
                       <Calendar className="w-4 h-4" />
-                      {type.days.join(', ')}
+                      {type.days && type.days.length > 0 ? type.days.join(', ') : 'Geen dagen geselecteerd'}
                     </div>
                   </div>
                 </div>
@@ -465,11 +587,12 @@ export const EventTypeManager: React.FC = () => {
                     <label key={day} className="flex items-center gap-2 text-sm text-white cursor-pointer hover:bg-neutral-700 p-2 rounded">
                       <input
                         type="checkbox"
-                        checked={editingType.days.includes(day)}
+                        checked={(editingType.days || []).includes(day)}
                         onChange={(e) => {
+                          const currentDays = editingType.days || [];
                           const days = e.target.checked
-                            ? [...editingType.days, day]
-                            : editingType.days.filter(d => d !== day);
+                            ? [...currentDays, day]
+                            : currentDays.filter(d => d !== day);
                           setEditingType({ ...editingType, days });
                         }}
                         className="w-4 h-4 text-gold-500 bg-neutral-700 border-neutral-600 rounded focus:ring-gold-500"
@@ -531,6 +654,83 @@ export const EventTypeManager: React.FC = () => {
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* 🆕 PRICING SECTIE - VERPLICHT! */}
+              <div className="border-t border-neutral-700 pt-4 mt-4">
+                <h4 className="text-sm font-medium text-neutral-300 mb-3 flex items-center gap-2">
+                  💰 Prijzen (per persoon) *
+                </h4>
+                <p className="text-xs text-neutral-400 mb-4">
+                  Stel de standaard prijzen in voor dit event type. Deze prijzen worden gebruikt voor alle evenementen van dit type, tenzij er een event-specifieke prijs is ingesteld.
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">
+                      BWF (Standaard) *
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">€</span>
+                      <input
+                        type="number"
+                        value={editingType.pricing?.BWF || 0}
+                        onChange={(e) => setEditingType({
+                          ...editingType,
+                          pricing: {
+                            ...editingType.pricing,
+                            BWF: parseFloat(e.target.value) || 0,
+                            BWFM: editingType.pricing?.BWFM || 0
+                          }
+                        })}
+                        min={0}
+                        step={0.01}
+                        required
+                        placeholder="70.00"
+                        className="w-full pl-8 pr-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+                      />
+                    </div>
+                    <p className="text-xs text-neutral-500 mt-1">
+                      Buffet show + bier, wijn, fris
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">
+                      BWFM (Premium) *
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">€</span>
+                      <input
+                        type="number"
+                        value={editingType.pricing?.BWFM || 0}
+                        onChange={(e) => setEditingType({
+                          ...editingType,
+                          pricing: {
+                            BWF: editingType.pricing?.BWF || 0,
+                            BWFM: parseFloat(e.target.value) || 0
+                          }
+                        })}
+                        min={0}
+                        step={0.01}
+                        required
+                        placeholder="85.00"
+                        className="w-full pl-8 pr-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+                      />
+                    </div>
+                    <p className="text-xs text-neutral-500 mt-1">
+                      + Mix dranken & speciale bieren
+                    </p>
+                  </div>
+                </div>
+
+                {/* Preview van prijs verschil */}
+                {editingType.pricing?.BWF && editingType.pricing?.BWFM && (
+                  <div className="mt-3 p-3 bg-gold-500/10 border border-gold-500/30 rounded-lg">
+                    <p className="text-xs text-gold-300">
+                      💡 Upgrade naar Premium: <strong>€{(editingType.pricing.BWFM - editingType.pricing.BWF).toFixed(2)}</strong> extra per persoon
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Calendar Display Options */}

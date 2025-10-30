@@ -72,6 +72,10 @@ export const getPricingForEventType = async (eventTypeKey: string): Promise<{ BW
 
 /**
  * Haal de prijs op voor een specifiek arrangement bij een event
+ * 
+ * PRIORITEIT:
+ * 1. Event-specifieke customPricing (als ingesteld)
+ * 2. EventTypeConfig pricing (standaard prijs voor dit type)
  */
 export const getArrangementPrice = async (
   event: Event,
@@ -79,6 +83,14 @@ export const getArrangementPrice = async (
 ): Promise<number> => {
   console.log(`💰 Getting price for event type '${event.type}', arrangement '${arrangement}'`);
   
+  // 🔥 PRIORITEIT 1: Check of dit event een customPricing heeft (override)
+  if (event.customPricing && event.customPricing[arrangement] !== undefined) {
+    const customPrice = event.customPricing[arrangement];
+    console.log(`✅ Custom prijs voor dit specifieke event: €${customPrice}`);
+    return customPrice;
+  }
+  
+  // 🔥 PRIORITEIT 2: Gebruik de standaard EventTypeConfig pricing
   const pricing = await getPricingForEventType(event.type);
   
   if (!pricing) {
@@ -94,7 +106,7 @@ export const getArrangementPrice = async (
     return 0;
   }
 
-  console.log(`✅ Prijs voor ${event.type} - ${arrangement}: €${price}`);
+  console.log(`✅ Standaard prijs voor ${event.type} - ${arrangement}: €${price}`);
   return price;
 };
 
@@ -301,12 +313,32 @@ export const calculatePrice = async (
 
 /**
  * Create pricing snapshot for a reservation
+ * Gebruikt customPricing als override, anders EventTypeConfig pricing
  */
 export const createPricingSnapshot = async (
   event: Event,
   arrangement: Arrangement,
   numberOfPersons: number
 ): Promise<{ BWF: number; BWFM: number; selectedPrice: number }> => {
+  // Check voor customPricing eerst
+  if (event.customPricing) {
+    const bwfPrice = event.customPricing.BWF !== undefined 
+      ? event.customPricing.BWF 
+      : await getArrangementPrice(event, 'BWF');
+    const bwfmPrice = event.customPricing.BWFM !== undefined 
+      ? event.customPricing.BWFM 
+      : await getArrangementPrice(event, 'BWFM');
+    
+    console.log('💰 Pricing snapshot (custom):', { BWF: bwfPrice, BWFM: bwfmPrice });
+    
+    return {
+      BWF: bwfPrice,
+      BWFM: bwfmPrice,
+      selectedPrice: arrangement === 'BWF' ? bwfPrice : bwfmPrice
+    };
+  }
+  
+  // Anders gebruik EventTypeConfig pricing
   const pricing = await getPricingForEventType(event.type);
   
   if (!pricing) {
@@ -318,6 +350,8 @@ export const createPricingSnapshot = async (
     };
   }
 
+  console.log('💰 Pricing snapshot (event type):', pricing);
+  
   return {
     BWF: pricing.BWF,
     BWFM: pricing.BWFM,

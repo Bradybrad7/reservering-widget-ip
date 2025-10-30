@@ -1156,9 +1156,44 @@ export const apiService = {
     
     try {
       let config = await storageService.getEventTypesConfig();
+      const { getDefaultEventTypesConfig } = await import('../config/defaults');
+      const defaults = getDefaultEventTypesConfig();
+      
       if (!config) {
-        const { getDefaultEventTypesConfig } = await import('../config/defaults');
-        config = getDefaultEventTypesConfig();
+        // No config exists, use defaults
+        config = defaults;
+        console.log('📋 No event types config found, using defaults');
+      } else {
+        // 🆕 MIGRATIE: Merge oude config met nieuwe defaults
+        console.log('🔄 Migrating event types config...');
+        
+        const migratedTypes = config.types.map(existingType => {
+          // Check if this type has pricing
+          if (!existingType.pricing || existingType.pricing.BWF === undefined || existingType.pricing.BWFM === undefined) {
+            // Find default pricing for this type
+            const defaultType = defaults.types.find(t => t.key === existingType.key);
+            if (defaultType) {
+              console.log(`✅ Adding default pricing to ${existingType.key}: BWF €${defaultType.pricing.BWF}, BWFM €${defaultType.pricing.BWFM}`);
+              return {
+                ...existingType,
+                pricing: defaultType.pricing,
+                days: existingType.days || defaultType.days || [], // Ensure days exists
+              };
+            }
+          }
+          
+          // Ensure days exists
+          return {
+            ...existingType,
+            days: existingType.days || []
+          };
+        });
+        
+        config = { types: migratedTypes };
+        
+        // Save migrated config back to storage
+        await storageService.saveEventTypesConfig(config);
+        console.log('✅ Event types config migrated and saved');
       }
       
       return {
