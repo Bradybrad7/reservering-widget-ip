@@ -111,8 +111,20 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
         });
         
         if (response.success && response.data) {
-          console.log('✅ [STORE] Setting reservations in state:', response.data.length);
-          set({ reservations: response.data, isLoadingReservations: false });
+          // 🔧 FIX: Filter out any old timestamp-based IDs (these are invalid)
+          // Only keep reservations with counter-based IDs (res-1, res-2, etc.)
+          const validReservations = response.data.filter(r => {
+            const isValid = /^res-\d{1,6}$/.test(r.id);
+            if (!isValid) {
+              console.warn('⚠️ [STORE] Filtering out invalid reservation ID:', r.id);
+            }
+            return isValid;
+          });
+          
+          console.log('✅ [STORE] Setting reservations in state:', validReservations.length);
+          console.log('🔍 [STORE] Valid IDs:', validReservations.map(r => r.id).join(', '));
+          
+          set({ reservations: validReservations, isLoadingReservations: false });
         } else {
           console.error('❌ [STORE] API call failed:', response.error);
           set({ isLoadingReservations: false });
@@ -220,10 +232,17 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
       const reservation = get().reservations.find(r => r.id === reservationId);
       if (!reservation) {
         console.error('❌ [STORE] Reservation not found in store:', reservationId);
+        console.log('🔍 [STORE] Available reservations:', get().reservations.map(r => ({ id: r.id, contact: r.contactPerson })));
         return false;
       }
       
       console.log('🟡 [STORE] Current reservation status:', reservation.status);
+      console.log('🟡 [STORE] Current reservation details:', {
+        id: reservation.id,
+        contactPerson: reservation.contactPerson,
+        eventId: reservation.eventId,
+        status: reservation.status
+      });
       console.log('🟡 [STORE] Calling updateReservation with status:', status);
 
       const success = await get().updateReservation(reservationId, { status });
@@ -263,6 +282,30 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
     confirmReservation: async (reservationId: string) => {
       console.log('🔵 [STORE] confirmReservation called for:', reservationId);
       
+      // 🔧 CHECK: Validate ID format - reject timestamp-based IDs immediately
+      if (/res-\d{13,}/.test(reservationId)) {
+        console.error('❌ [STORE] INVALID ID FORMAT: Timestamp-based ID detected:', reservationId);
+        console.error('⚠️ [STORE] This is an old ID that should not exist. Please reload the page.');
+        alert('⚠️ Ongeldige reservering gedetecteerd!\n\nDeze reservering heeft een oud ID-formaat.\nDe pagina wordt nu herladen om de data te vernieuwen.');
+        window.location.reload();
+        return false;
+      }
+      
+      // First check if reservation exists in local store
+      const reservation = get().reservations.find(r => r.id === reservationId);
+      if (!reservation) {
+        console.error('❌ [STORE] Reservation not found in store:', reservationId);
+        console.log('🔍 [STORE] Available reservation IDs:', get().reservations.map(r => r.id));
+        return false;
+      }
+      
+      console.log('✅ [STORE] Reservation found in store:', {
+        id: reservation.id,
+        status: reservation.status,
+        contactPerson: reservation.contactPerson,
+        eventId: reservation.eventId
+      });
+      
       // 🔍 DEBUG: First do a DIRECT Firestore check
       console.log('🔍 [STORE] Running direct Firestore debug check...');
       const { reservationsService } = await import('../services/firestoreService');
@@ -271,19 +314,12 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
       
       if (!debugResult.exists) {
         console.error('❌ [STORE] CRITICAL: Document does NOT exist in Firestore!');
-        console.log('🔍 [STORE] Checking if reservation exists in store...');
-        const reservation = get().reservations.find(r => r.id === reservationId);
-        if (reservation) {
-          console.error('⚠️ [STORE] MISMATCH: Reservation exists in store but NOT in Firestore!');
-          console.log('📋 [STORE] Store reservation:', {
-            id: reservation.id,
-            status: reservation.status,
-            contactPerson: reservation.contactPerson,
-            eventId: reservation.eventId
-          });
-        } else {
-          console.error('❌ [STORE] Reservation also missing from store');
-        }
+        console.error('⚠️ [STORE] The reservation was not found in the database.');
+        console.error('📋 [STORE] Reloading to fetch fresh data...');
+        
+        // Don't try to recover - just reload to get fresh data
+        alert('⚠️ Reservering niet gevonden in database!\n\nDe pagina wordt herladen om de data te vernieuwen.');
+        await get().loadReservations();
         return false;
       }
       
@@ -306,6 +342,22 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
 
     rejectReservation: async (reservationId: string) => {
       console.log('🔴 [STORE] rejectReservation called for:', reservationId);
+      
+      // 🔧 CHECK: Validate ID format
+      if (/res-\d{13,}/.test(reservationId)) {
+        console.error('❌ [STORE] INVALID ID FORMAT: Timestamp-based ID detected:', reservationId);
+        alert('⚠️ Ongeldige reservering gedetecteerd!\n\nDeze reservering heeft een oud ID-formaat.\nDe pagina wordt nu herladen om de data te vernieuwen.');
+        window.location.reload();
+        return false;
+      }
+      
+      // Check if reservation exists in local store
+      const reservation = get().reservations.find(r => r.id === reservationId);
+      if (!reservation) {
+        console.error('❌ [STORE] Reservation not found in store:', reservationId);
+        return false;
+      }
+      
       const result = await get().updateReservationStatus(reservationId, 'rejected');
       console.log('🔴 [STORE] rejectReservation result:', result);
       return result;
@@ -391,6 +443,14 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
 
     deleteReservation: async (reservationId: string) => {
       try {
+        // 🔧 CHECK: Validate ID format
+        if (/res-\d{13,}/.test(reservationId)) {
+          console.error('❌ [STORE] INVALID ID FORMAT: Timestamp-based ID detected:', reservationId);
+          alert('⚠️ Ongeldige reservering gedetecteerd!\n\nDeze reservering heeft een oud ID-formaat.\nDe pagina wordt nu herladen om de data te vernieuwen.');
+          window.location.reload();
+          return false;
+        }
+        
         const allReservations = get().reservations;
         console.log('🗑️ [STORE] Looking for reservation to delete:', {
           searchId: reservationId,

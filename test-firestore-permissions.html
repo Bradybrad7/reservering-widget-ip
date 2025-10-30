@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Firestore Permissions Test</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #0a0e27;
+      color: #e0e6ed;
+    }
+    .test-section {
+      background: #1a1f3a;
+      border: 1px solid #2d3461;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    button {
+      background: #4a90e2;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 5px;
+      font-size: 14px;
+    }
+    button:hover {
+      background: #357abd;
+    }
+    button:disabled {
+      background: #666;
+      cursor: not-allowed;
+    }
+    .success {
+      color: #4caf50;
+      font-weight: bold;
+    }
+    .error {
+      color: #f44336;
+      font-weight: bold;
+    }
+    .warning {
+      color: #ff9800;
+      font-weight: bold;
+    }
+    .info {
+      color: #2196f3;
+    }
+    #results {
+      background: #0f1329;
+      border: 1px solid #2d3461;
+      border-radius: 5px;
+      padding: 15px;
+      margin-top: 20px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      max-height: 500px;
+      overflow-y: auto;
+    }
+    h1 {
+      color: #4a90e2;
+      border-bottom: 2px solid #2d3461;
+      padding-bottom: 10px;
+    }
+    h2 {
+      color: #7ba7d9;
+      margin-top: 0;
+    }
+    .status-indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    .status-success { background: #4caf50; }
+    .status-error { background: #f44336; }
+    .status-pending { background: #ff9800; }
+  </style>
+</head>
+<body>
+  <h1>🔥 Firestore Permissions & Operations Test</h1>
+  
+  <div class="test-section">
+    <h2>1. Connection Test</h2>
+    <button onclick="testConnection()">Test Firebase Connection</button>
+    <div id="connection-status"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>2. Read Operations</h2>
+    <button onclick="testReadReservations()">Read Reservations</button>
+    <button onclick="testReadEvents()">Read Events</button>
+    <div id="read-status"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>3. Write Operations</h2>
+    <button onclick="testCreateReservation()">Create Test Reservation</button>
+    <button onclick="testUpdateReservation()">Update Test Reservation</button>
+    <button onclick="testDeleteReservation()">Delete Test Reservation</button>
+    <div id="write-status"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>4. Transaction Test</h2>
+    <button onclick="testTransaction()">Test Transaction (Update + Capacity)</button>
+    <div id="transaction-status"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>5. Security Rules Test</h2>
+    <button onclick="testSecurityRules()">Test All Security Rules</button>
+    <div id="security-status"></div>
+  </div>
+
+  <div id="results">
+    <div class="info">🔍 Test results will appear here...</div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { 
+      getFirestore, 
+      collection, 
+      doc, 
+      getDoc,
+      getDocs, 
+      addDoc,
+      setDoc,
+      updateDoc, 
+      deleteDoc,
+      runTransaction,
+      serverTimestamp,
+      Timestamp
+    } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyCaH8VZJZhuJtMKSjC44VX6QWmPfAdlJ80",
+      authDomain: "dinner-theater-booking.firebaseapp.com",
+      projectId: "dinner-theater-booking",
+      storageBucket: "dinner-theater-booking.firebasestorage.app",
+      messagingSenderId: "802367293541",
+      appId: "1:802367293541:web:5d2928c0cb6fa2c8bbde8c",
+      measurementId: "G-83WTWDTX7V"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let testReservationId = null;
+    const resultsDiv = document.getElementById('results');
+
+    function log(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      const colors = {
+        success: '#4caf50',
+        error: '#f44336',
+        warning: '#ff9800',
+        info: '#2196f3'
+      };
+      
+      const entry = document.createElement('div');
+      entry.style.color = colors[type];
+      entry.style.marginBottom = '5px';
+      entry.innerHTML = `[${timestamp}] ${message}`;
+      resultsDiv.appendChild(entry);
+      resultsDiv.scrollTop = resultsDiv.scrollHeight;
+    }
+
+    window.testConnection = async function() {
+      log('🔄 Testing Firebase connection...', 'info');
+      const statusDiv = document.getElementById('connection-status');
+      
+      try {
+        const testDoc = doc(db, 'config', 'global');
+        const snapshot = await getDoc(testDoc);
+        
+        if (snapshot.exists()) {
+          log('✅ Firebase connection successful!', 'success');
+          log(`✅ Config document exists with ${Object.keys(snapshot.data()).length} fields`, 'success');
+          statusDiv.innerHTML = '<span class="status-indicator status-success"></span><span class="success">Connected</span>';
+        } else {
+          log('⚠️ Connected but config document does not exist', 'warning');
+          statusDiv.innerHTML = '<span class="status-indicator status-error"></span><span class="warning">Connected (no config)</span>';
+        }
+      } catch (error) {
+        log(`❌ Connection failed: ${error.message}`, 'error');
+        log(`❌ Error code: ${error.code}`, 'error');
+        statusDiv.innerHTML = '<span class="status-indicator status-error"></span><span class="error">Failed</span>';
+      }
+    };
+
+    window.testReadReservations = async function() {
+      log('🔄 Testing read reservations...', 'info');
+      const statusDiv = document.getElementById('read-status');
+      
+      try {
+        const reservationsRef = collection(db, 'reservations');
+        const snapshot = await getDocs(reservationsRef);
+        
+        log(`✅ Read successful! Found ${snapshot.size} reservations`, 'success');
+        
+        if (snapshot.size > 0) {
+          const sampleDoc = snapshot.docs[0];
+          log(`📋 Sample reservation ID: ${sampleDoc.id}`, 'info');
+          log(`📋 Sample data: ${JSON.stringify(sampleDoc.data()).substring(0, 100)}...`, 'info');
+          testReservationId = sampleDoc.id; // Store for later tests
+        }
+        
+        statusDiv.innerHTML = '<span class="status-indicator status-success"></span><span class="success">Read OK (' + snapshot.size + ' docs)</span>';
+      } catch (error) {
+        log(`❌ Read failed: ${error.message}`, 'error');
+        log(`❌ Error code: ${error.code}`, 'error');
+        statusDiv.innerHTML = '<span class="status-indicator status-error"></span><span class="error">Read Failed</span>';
+      }
+    };
+
+    window.testReadEvents = async function() {
+      log('🔄 Testing read events...', 'info');
+      const statusDiv = document.getElementById('read-status');
+      
+      try {
+        const eventsRef = collection(db, 'events');
+        const snapshot = await getDocs(eventsRef);
+        
+        log(`✅ Read successful! Found ${snapshot.size} events`, 'success');
+        
+        if (snapshot.size > 0) {
+          const sampleDoc = snapshot.docs[0];
+          log(`📋 Sample event ID: ${sampleDoc.id}`, 'info');
+        }
+        
+        statusDiv.innerHTML = '<span class="status-indicator status-success"></span><span class="success">Read OK (' + snapshot.size + ' events)</span>';
+      } catch (error) {
+        log(`❌ Read failed: ${error.message}`, 'error');
+        log(`❌ Error code: ${error.code}`, 'error');
+        statusDiv.innerHTML = '<span class="status-indicator status-error"></span><span class="error">Read Failed</span>';
+      }
+    };
+
+    window.testCreateReservation = async function() {
+      log('🔄 Testing create reservation...', 'info');
+      const statusDiv = document.getElementById('write-status');
+      
+      try {
+        const testData = {
+          contactPerson: 'Test User',
+          email: 'test@example.com',
+          phone: '0612345678',
+          numberOfPersons: 2,
+          eventId: 'test-event',
+          eventDate: Timestamp.now(),
+          status: 'pending',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        };
+        
+        const docRef = doc(db, 'reservations', 'test-reservation-' + Date.now());
+        await setDoc(docRef, testData);
+        
+        testReservationId = docRef.id;
+        
+        log(`✅ Create successful! ID: ${docRef.id}`, 'success');
+        statusDiv.innerHTML = '<span class="status-indicator status-success"></span><span class="success">Create OK</span>';
+      } catch (error) {
+        log(`❌ Create failed: ${error.message}`, 'error');
+        log(`❌ Error code: ${error.code}`, 'error');
+        if (error.code === 'permission-denied') {
+          log(`⚠️ PERMISSION DENIED - Check Firestore Security Rules!`, 'error');
+        }
+        statusDiv.innerHTML = '<span class="status-indicator status-error"></span><span class="error">Create Failed</span>';
+      }
+    };
+
+    window.testUpdateReservation = async function() {
+      if (!testReservationId) {
+        log('❌ No test reservation ID. Create one first!', 'error');
+        return;
+      }
+      
+      log('🔄 Testing update reservation...', 'info');
+      const statusDiv = document.getElementById('write-status');
+      
+      try {
+        const docRef = doc(db, 'reservations', testReservationId);
+        await updateDoc(docRef, {
+          status: 'confirmed',
+          updatedAt: serverTimestamp()
+        });
+        
+        log(`✅ Update successful! ID: ${testReservationId}`, 'success');
+        statusDiv.innerHTML = '<span class="status-indicator status-success"></span><span class="success">Update OK</span>';
+      } catch (error) {
+        log(`❌ Update failed: ${error.message}`, 'error');
+        log(`❌ Error code: ${error.code}`, 'error');
+        if (error.code === 'permission-denied') {
+          log(`⚠️ PERMISSION DENIED - Check Firestore Security Rules!`, 'error');
+        }
+        statusDiv.innerHTML = '<span class="status-indicator status-error"></span><span class="error">Update Failed</span>';
+      }
+    };
+
+    window.testDeleteReservation = async function() {
+      if (!testReservationId) {
+        log('❌ No test reservation ID. Create one first!', 'error');
+        return;
+      }
+      
+      log('🔄 Testing delete reservation...', 'info');
+      const statusDiv = document.getElementById('write-status');
+      
+      try {
+        const docRef = doc(db, 'reservations', testReservationId);
+        await deleteDoc(docRef);
+        
+        log(`✅ Delete successful! ID: ${testReservationId}`, 'success');
+        statusDiv.innerHTML = '<span class="status-indicator status-success"></span><span class="success">Delete OK</span>';
+        testReservationId = null;
+      } catch (error) {
+        log(`❌ Delete failed: ${error.message}`, 'error');
+        log(`❌ Error code: ${error.code}`, 'error');
+        if (error.code === 'permission-denied') {
+          log(`⚠️ PERMISSION DENIED - Check Firestore Security Rules!`, 'error');
+        }
+        statusDiv.innerHTML = '<span class="status-indicator status-error"></span><span class="error">Delete Failed</span>';
+      }
+    };
+
+    window.testTransaction = async function() {
+      log('🔄 Testing transaction (atomic update)...', 'info');
+      const statusDiv = document.getElementById('transaction-status');
+      
+      try {
+        // First, get a real event and reservation
+        const eventsSnapshot = await getDocs(collection(db, 'events'));
+        const reservationsSnapshot = await getDocs(collection(db, 'reservations'));
+        
+        if (eventsSnapshot.empty || reservationsSnapshot.empty) {
+          log('⚠️ Need at least 1 event and 1 reservation to test transactions', 'warning');
+          return;
+        }
+        
+        const eventId = eventsSnapshot.docs[0].id;
+        const reservationId = reservationsSnapshot.docs[0].id;
+        
+        log(`📋 Testing transaction with event: ${eventId}`, 'info');
+        log(`📋 Testing transaction with reservation: ${reservationId}`, 'info');
+        
+        await runTransaction(db, async (transaction) => {
+          // Read
+          const eventRef = doc(db, 'events', eventId);
+          const reservationRef = doc(db, 'reservations', reservationId);
+          
+          const eventDoc = await transaction.get(eventRef);
+          const reservationDoc = await transaction.get(reservationRef);
+          
+          if (!eventDoc.exists() || !reservationDoc.exists()) {
+            throw new Error('Document does not exist!');
+          }
+          
+          log('✅ Transaction read phase successful', 'success');
+          
+          // Write
+          transaction.update(reservationRef, {
+            status: 'confirmed',
+            updatedAt: serverTimestamp()
+          });
+          
+          const currentCapacity = eventDoc.data().remainingCapacity || 0;
+          transaction.update(eventRef, {
+            remainingCapacity: currentCapacity - 1,
+            updatedAt: serverTimestamp()
+          });
+          
+          log('✅ Transaction write phase queued', 'success');
+        });
+        
+        log('✅ Transaction committed successfully!', 'success');
+        statusDiv.innerHTML = '<span class="status-indicator status-success"></span><span class="success">Transaction OK</span>';
+      } catch (error) {
+        log(`❌ Transaction failed: ${error.message}`, 'error');
+        log(`❌ Error code: ${error.code}`, 'error');
+        if (error.code === 'permission-denied') {
+          log(`⚠️ PERMISSION DENIED - Transactions require read AND write permissions!`, 'error');
+        }
+        statusDiv.innerHTML = '<span class="status-indicator status-error"></span><span class="error">Transaction Failed</span>';
+      }
+    };
+
+    window.testSecurityRules = async function() {
+      log('🔄 Testing all security rules...', 'info');
+      const statusDiv = document.getElementById('security-status');
+      
+      const collections = [
+        'events',
+        'reservations',
+        'config',
+        'pricing',
+        'addons',
+        'bookingRules',
+        'merchandise',
+        'counters'
+      ];
+      
+      let passed = 0;
+      let failed = 0;
+      
+      for (const collectionName of collections) {
+        try {
+          const testRef = collection(db, collectionName);
+          const snapshot = await getDocs(testRef);
+          log(`✅ ${collectionName}: Read OK (${snapshot.size} docs)`, 'success');
+          passed++;
+        } catch (error) {
+          log(`❌ ${collectionName}: Read FAILED - ${error.code}`, 'error');
+          failed++;
+        }
+      }
+      
+      statusDiv.innerHTML = `<span class="status-indicator ${failed === 0 ? 'status-success' : 'status-error'}"></span>` +
+                           `<span class="${failed === 0 ? 'success' : 'error'}">${passed}/${collections.length} passed</span>`;
+    };
+
+    // Auto-run connection test on load
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        testConnection();
+      }, 500);
+    });
+  </script>
+</body>
+</html>

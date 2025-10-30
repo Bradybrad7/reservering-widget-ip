@@ -125,17 +125,23 @@ function convertDates<T>(data: any, dateFields: string[]): T {
 class CounterService {
   async getNextId(counterName: string): Promise<number> {
     const counterRef = doc(db, COLLECTIONS.COUNTERS, counterName);
-    const counterDoc = await getDoc(counterRef);
     
-    if (!counterDoc.exists()) {
-      // Initialize counter
-      await setDoc(counterRef, { value: 1 });
-      return 1;
-    }
+    // Use transaction to ensure atomic counter increment
+    const nextValue = await runTransaction(db, async (transaction) => {
+      const counterDoc = await transaction.get(counterRef);
+      
+      if (!counterDoc.exists()) {
+        // Initialize counter
+        transaction.set(counterRef, { value: 1 });
+        return 1;
+      }
+      
+      const currentValue = counterDoc.data().value || 0;
+      const nextValue = currentValue + 1;
+      transaction.update(counterRef, { value: nextValue });
+      return nextValue;
+    });
     
-    const currentValue = counterDoc.data().value || 0;
-    const nextValue = currentValue + 1;
-    await setDoc(counterRef, { value: nextValue });
     return nextValue;
   }
   
@@ -361,10 +367,11 @@ class ReservationsService {
   
   /**
    * Get all reservations
+   * 🔧 Filters out any old timestamp-based IDs
    */
   async getAll(): Promise<Reservation[]> {
     const snapshot = await getDocs(this.collectionRef);
-    return snapshot.docs.map(doc =>
+    const allReservations = snapshot.docs.map(doc => 
       convertDates<Reservation>({ id: doc.id, ...doc.data() }, [
         'eventDate',
         'createdAt',
@@ -376,9 +383,22 @@ class ReservationsService {
         'optionExpiresAt'
       ])
     );
-  }
-  
-  /**
+    
+    // Filter out any old timestamp-based IDs (should not exist, but safety check)
+    const validReservations = allReservations.filter(r => {
+      const isValid = /^res-\d{1,6}$/.test(r.id);
+      if (!isValid) {
+        firestoreLogger.warn('[FIRESTORE] Filtering out invalid reservation ID:', r.id);
+      }
+      return isValid;
+    });
+    
+    if (validReservations.length !== allReservations.length) {
+      firestoreLogger.warn(`[FIRESTORE] Filtered out ${allReservations.length - validReservations.length} invalid reservations`);
+    }
+    
+    return validReservations;
+  }  /**
    * Get reservations for a specific event
    */
   async getByEventId(eventId: string): Promise<Reservation[]> {
@@ -449,45 +469,102 @@ class ReservationsService {
   
   /**
    * Add a new reservation
+   * ✅ IMPROVED: Uses Firestore transactions for atomic operations
    */
   async add(reservation: Omit<Reservation, 'id'>): Promise<Reservation> {
-    // Generate ID
-    const id = await counterService.getNextReservationId();
+    firestoreLogger.debug('[FIRESTORE] add (transaction) called:', { reservation });
     
-    // Update event capacity
-    if (reservation.status !== 'cancelled' && reservation.status !== 'rejected') {
-      await this.updateEventCapacity(reservation.eventId, -reservation.numberOfPersons);
+    try {
+      // Generate ID outside transaction (counters handle their own transactions)
+      const id = await counterService.getNextReservationId();
+      firestoreLogger.debug('[FIRESTORE] Generated ID:', id);
+      
+      const docRef = doc(db, COLLECTIONS.RESERVATIONS, id);
+      
+      // ✅ Use transaction to ensure atomic operations
+      await runTransaction(db, async (transaction) => {
+        // 1. Prepare reservation data with date conversions
+        const data: any = {
+          ...reservation,
+          eventDate: Timestamp.fromDate(new Date(reservation.eventDate)),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        };
+        
+        // Convert optional dates
+        if (reservation.paymentReceivedAt) {
+          data.paymentReceivedAt = Timestamp.fromDate(new Date(reservation.paymentReceivedAt));
+        }
+        if (reservation.paymentDueDate) {
+          data.paymentDueDate = Timestamp.fromDate(new Date(reservation.paymentDueDate));
+        }
+        if (reservation.checkedInAt) {
+          data.checkedInAt = Timestamp.fromDate(new Date(reservation.checkedInAt));
+        }
+        if (reservation.optionPlacedAt) {
+          data.optionPlacedAt = Timestamp.fromDate(new Date(reservation.optionPlacedAt));
+        }
+        if (reservation.optionExpiresAt) {
+          data.optionExpiresAt = Timestamp.fromDate(new Date(reservation.optionExpiresAt));
+        }
+        
+        // 2. Update event capacity if reservation is active
+        if (reservation.status !== 'cancelled' && reservation.status !== 'rejected') {
+          const eventRef = doc(db, COLLECTIONS.EVENTS, reservation.eventId);
+          const eventDoc = await transaction.get(eventRef);
+          
+          if (eventDoc.exists()) {
+            const eventData = eventDoc.data();
+            const currentCapacity = eventData.remainingCapacity ?? eventData.capacity ?? 0;
+            const newCapacity = currentCapacity - reservation.numberOfPersons;
+            
+            firestoreLogger.debug('[FIRESTORE] Reserving capacity:', {
+              eventId: reservation.eventId,
+              current: currentCapacity,
+              reserved: reservation.numberOfPersons,
+              new: newCapacity
+            });
+            
+            transaction.update(eventRef, {
+              remainingCapacity: newCapacity,
+              updatedAt: serverTimestamp()
+            });
+          }
+        }
+        
+        // 3. Create the reservation document WITHIN transaction
+        transaction.set(docRef, data);
+        firestoreLogger.debug('✅ [FIRESTORE] Transaction operations queued successfully');
+      });
+      
+      firestoreLogger.info('✅ [FIRESTORE] Transaction committed - reservation added!');
+      return { id, ...reservation } as Reservation;
+      
+    } catch (error) {
+      // Enhanced error logging with specific error types
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorCode = (error as any).code;
+      
+      firestoreLogger.error('❌ [FIRESTORE] Error adding reservation (Transaction failed):', {
+        error: errorMessage,
+        code: errorCode,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      
+      // Check for specific error types
+      if (errorCode === 'permission-denied') {
+        console.error('🚫 PERMISSION DENIED: Check Firestore Security Rules!');
+        console.error('🚫 Make sure the rules allow write access to reservations collection');
+        alert('⚠️ Firestore Permission Denied!\n\nKan geen reservering toevoegen. Check de Firestore Security Rules in de Firebase Console.');
+      } else if (errorCode === 'unavailable') {
+        console.error('🌐 FIRESTORE UNAVAILABLE: Check internet connection');
+        alert('⚠️ Firestore niet bereikbaar!\n\nCheck je internetverbinding en probeer opnieuw.');
+      } else if (errorCode === 'failed-precondition') {
+        console.error('⚠️ TRANSACTION FAILED: Document may have been modified during transaction');
+      }
+      
+      throw error; // Re-throw to let caller handle the error
     }
-    
-    // Create document with specific ID
-    const docRef = doc(db, COLLECTIONS.RESERVATIONS, id);
-    const data: any = {
-      ...reservation,
-      eventDate: Timestamp.fromDate(new Date(reservation.eventDate)),
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    };
-    
-    // Convert optional dates
-    if (reservation.paymentReceivedAt) {
-      data.paymentReceivedAt = Timestamp.fromDate(new Date(reservation.paymentReceivedAt));
-    }
-    if (reservation.paymentDueDate) {
-      data.paymentDueDate = Timestamp.fromDate(new Date(reservation.paymentDueDate));
-    }
-    if (reservation.checkedInAt) {
-      data.checkedInAt = Timestamp.fromDate(new Date(reservation.checkedInAt));
-    }
-    if (reservation.optionPlacedAt) {
-      data.optionPlacedAt = Timestamp.fromDate(new Date(reservation.optionPlacedAt));
-    }
-    if (reservation.optionExpiresAt) {
-      data.optionExpiresAt = Timestamp.fromDate(new Date(reservation.optionExpiresAt));
-    }
-    
-    await setDoc(docRef, data);
-    
-    return { id, ...reservation } as Reservation;
   }
   
   /**
@@ -597,11 +674,26 @@ class ReservationsService {
       return true;
       
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorCode = (error as any).code;
+      
       firestoreLogger.error('❌ [FIRESTORE] Error updating reservation (Transaction failed):', {
         id: cleanId,
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage,
+        code: errorCode,
         stack: error instanceof Error ? error.stack : undefined
       });
+      
+      // Check for specific error types
+      if (errorCode === 'permission-denied') {
+        console.error('🚫 PERMISSION DENIED: Check Firestore Security Rules!');
+        console.error('🚫 Make sure the rules allow update access to reservations collection');
+        alert('⚠️ Firestore Permission Denied!\n\nKan reservering niet bijwerken. Check de Firestore Security Rules in de Firebase Console.');
+      } else if (errorCode === 'not-found') {
+        console.error('📋 DOCUMENT NOT FOUND: The reservation may have been deleted');
+        alert('⚠️ Reservering niet gevonden!\n\nDe reservering bestaat niet meer in Firestore.');
+      }
+      
       return false;
     }
   }
@@ -674,11 +766,25 @@ class ReservationsService {
       return true;
       
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorCode = (error as any).code;
+      
       firestoreLogger.error('❌ [FIRESTORE] Error deleting reservation (Transaction failed):', {
         id: cleanId,
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage,
+        code: errorCode,
         stack: error instanceof Error ? error.stack : undefined
       });
+      
+      // Check for specific error types
+      if (errorCode === 'permission-denied') {
+        console.error('🚫 PERMISSION DENIED: Check Firestore Security Rules!');
+        console.error('🚫 Make sure the rules allow delete access to reservations collection');
+        alert('⚠️ Firestore Permission Denied!\n\nKan reservering niet verwijderen. Check de Firestore Security Rules in de Firebase Console.');
+      } else if (errorCode === 'not-found') {
+        console.error('📋 DOCUMENT NOT FOUND: The reservation may have been already deleted');
+      }
+      
       return false;
     }
   }

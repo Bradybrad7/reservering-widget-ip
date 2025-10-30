@@ -133,7 +133,13 @@ class StorageService {
   }
 
   async addReservation(reservation: Reservation): Promise<Reservation> {
-    return firestoreService.reservations.add(reservation);
+    // Remove ID if present - Firestore will generate a new one
+    const { id, ...reservationData } = reservation;
+    console.log('🔶 [STORAGE] addReservation called, removing ID and adding to Firestore:', { 
+      originalId: id, 
+      data: reservationData 
+    });
+    return firestoreService.reservations.add(reservationData);
   }
 
   async updateReservation(reservationId: string, updates: Partial<Reservation>): Promise<boolean> {
