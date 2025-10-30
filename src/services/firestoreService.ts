@@ -20,8 +20,7 @@
 import { 
   collection, 
   doc, 
-  getDoc,
-  getDocFromServer, 
+  getDoc, 
   getDocs, 
   addDoc, 
   setDoc,
@@ -43,6 +42,7 @@ import type {
   Unsubscribe 
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { firestoreLogger } from './logger';
 import type {
   Event,
   Reservation,
@@ -407,10 +407,10 @@ class ReservationsService {
     console.log('🔥 [FIRESTORE] Document path:', `${COLLECTIONS.RESERVATIONS}/${id}`);
     
     const docRef = doc(db, COLLECTIONS.RESERVATIONS, id);
-    // ✅ Get from SERVER to bypass cache issues
-    const docSnap = await getDocFromServer(docRef);
+    // Using standard getDoc - cache should be in sync after getAll() populates it
+    const docSnap = await getDoc(docRef);
     
-    console.log('🔥 [FIRESTORE] Document exists (from server)?', docSnap.exists());
+    console.log('🔥 [FIRESTORE] Document exists?', docSnap.exists());
     
     if (!docSnap.exists()) {
       console.error('❌ [FIRESTORE] Document does not exist in Firestore!');
@@ -495,140 +495,113 @@ class ReservationsService {
    * ✅ IMPROVED: Uses Firestore transactions for atomic capacity updates
    */
   async update(id: string, updates: Partial<Reservation>): Promise<boolean> {
-    console.log('🔥 [FIRESTORE] update called:', { id, updates });
+    const cleanId = id.trim();
+    firestoreLogger.debug('[FIRESTORE] update (transaction) called:', { id: cleanId, updates });
     
     try {
-      // 🔍 PRE-CHECK: Verify document exists on server (not cache)
-      console.log('🔍 [FIRESTORE] Pre-check before update transaction...');
-      const preCheckRef = doc(db, COLLECTIONS.RESERVATIONS, id);
-      const preCheckSnap = await getDocFromServer(preCheckRef);
-      console.log('🔍 [FIRESTORE] Pre-check result:', {
-        exists: preCheckSnap.exists(),
-        path: preCheckRef.path
-      });
-      
-      if (!preCheckSnap.exists()) {
-        console.error('❌ [FIRESTORE] PRE-CHECK FAILED: Document does not exist on server');
-        const allReservations = await this.getAll();
-        console.log('📋 [FIRESTORE] All reservation IDs:', allReservations.map(r => r.id));
-        throw new Error('Reservation not found in Firestore (pre-check)');
-      }
-      
-      console.log('✅ [FIRESTORE] Pre-check passed, starting transaction');
-      
-      // ✅ Use Firestore transaction for atomic updates
-      const result = await runTransaction(db, async (transaction) => {
-        // Read phase - get current reservation
-        const resRef = doc(db, COLLECTIONS.RESERVATIONS, id);
-        const resDoc = await transaction.get(resRef);
+      const docRef = doc(db, COLLECTIONS.RESERVATIONS, cleanId);
+
+      // ✅ ALL logic within ONE atomic transaction - no pre-checks needed
+      await runTransaction(db, async (transaction) => {
+        // 1. Read document WITHIN transaction (guaranteed fresh data)
+        const currentDoc = await transaction.get(docRef);
         
-        if (!resDoc.exists()) {
-          console.error('❌ [FIRESTORE] Reservation not found in transaction:', id);
-          throw new Error('Reservation not found');
+        if (!currentDoc.exists()) {
+          firestoreLogger.error('❌ [FIRESTORE] Document does not exist within transaction:', cleanId);
+          throw new Error(`Reservation not found (id: ${cleanId})`);
         }
         
+        // Convert dates in current data
         const current = convertDates<Reservation>(
-          { id: resDoc.id, ...resDoc.data() }, 
+          { id: currentDoc.id, ...currentDoc.data() }, 
           ['eventDate', 'createdAt', 'updatedAt', 'paymentReceivedAt', 'paymentDueDate', 'checkedInAt', 'optionPlacedAt', 'optionExpiresAt']
         );
         
-        console.log('🔥 [FIRESTORE] Current reservation:', { 
+        firestoreLogger.debug('[FIRESTORE] Current reservation:', { 
           id: current.id, 
           currentStatus: current.status,
+          currentPersons: current.numberOfPersons,
           eventId: current.eventId
         });
-        
+
+        // 2. Prepare update data with date conversions
         const updateData: any = { ...updates };
         
-        // Convert dates to Timestamps
-        if (updates.eventDate) {
-          updateData.eventDate = Timestamp.fromDate(new Date(updates.eventDate));
-        }
-        if (updates.paymentReceivedAt) {
-          updateData.paymentReceivedAt = Timestamp.fromDate(new Date(updates.paymentReceivedAt));
-        }
-        if (updates.paymentDueDate) {
-          updateData.paymentDueDate = Timestamp.fromDate(new Date(updates.paymentDueDate));
-        }
-        if (updates.checkedInAt) {
-          updateData.checkedInAt = Timestamp.fromDate(new Date(updates.checkedInAt));
-        }
-        if (updates.optionPlacedAt) {
-          updateData.optionPlacedAt = Timestamp.fromDate(new Date(updates.optionPlacedAt));
-        }
-        if (updates.optionExpiresAt) {
-          updateData.optionExpiresAt = Timestamp.fromDate(new Date(updates.optionExpiresAt));
-        }
+        if (updates.eventDate) updateData.eventDate = Timestamp.fromDate(new Date(updates.eventDate));
+        if (updates.paymentReceivedAt) updateData.paymentReceivedAt = Timestamp.fromDate(new Date(updates.paymentReceivedAt));
+        if (updates.paymentDueDate) updateData.paymentDueDate = Timestamp.fromDate(new Date(updates.paymentDueDate));
+        if (updates.checkedInAt) updateData.checkedInAt = Timestamp.fromDate(new Date(updates.checkedInAt));
+        if (updates.optionPlacedAt) updateData.optionPlacedAt = Timestamp.fromDate(new Date(updates.optionPlacedAt));
+        if (updates.optionExpiresAt) updateData.optionExpiresAt = Timestamp.fromDate(new Date(updates.optionExpiresAt));
         
         updateData.updatedAt = serverTimestamp();
         
-        // Calculate capacity change
+        // 3. Calculate capacity change
         const oldStatus = current.status;
         const newStatus = updates.status || oldStatus;
         const oldPersons = current.numberOfPersons;
         const newPersons = updates.numberOfPersons || oldPersons;
         
-        console.log('🔥 [FIRESTORE] Status change:', { oldStatus, newStatus });
-        
         const wasInactive = oldStatus === 'cancelled' || oldStatus === 'rejected';
         const isInactive = newStatus === 'cancelled' || newStatus === 'rejected';
         
-        let capacityChange = 0;
+        let capacityDelta = 0; // Positive = freed, Negative = reserved
         
         if (wasInactive && !isInactive) {
           // Reactivating - reserve capacity
-          capacityChange = -newPersons;
-          console.log('🔥 [FIRESTORE] Reactivating reservation, reserving capacity:', capacityChange);
+          capacityDelta = -newPersons;
+          firestoreLogger.debug('[FIRESTORE] Reactivating reservation. Capacity change:', capacityDelta);
         } else if (!wasInactive && isInactive) {
-          // Cancelling - free capacity
-          capacityChange = oldPersons;
-          console.log('🔥 [FIRESTORE] Cancelling reservation, freeing capacity:', capacityChange);
-        } else if (!isInactive && newPersons !== oldPersons) {
-          // Active reservation with person count change
-          capacityChange = oldPersons - newPersons;
-          console.log('🔥 [FIRESTORE] Updating person count, capacity change:', capacityChange);
+          // Deactivating - free capacity
+          capacityDelta = oldPersons;
+          firestoreLogger.debug('[FIRESTORE] Deactivating reservation. Capacity change:', capacityDelta);
         }
         
-        // Update event capacity atomically if needed
-        if (capacityChange !== 0) {
+        // Handle numberOfPersons change (for active reservations)
+        if (updates.numberOfPersons && updates.numberOfPersons !== oldPersons && !isInactive) {
+          const diff = updates.numberOfPersons - oldPersons;
+          capacityDelta -= diff; // Increase in persons = decrease in capacity
+          firestoreLogger.debug(`[FIRESTORE] Persons changed by ${diff}. Additional capacity change: ${-diff}`);
+        }
+        
+        // 4. Update event capacity if needed
+        if (capacityDelta !== 0) {
           const eventRef = doc(db, COLLECTIONS.EVENTS, current.eventId);
           const eventDoc = await transaction.get(eventRef);
           
           if (eventDoc.exists()) {
             const eventData = eventDoc.data();
-            const currentCapacity = eventData.remainingCapacity || eventData.capacity || 0;
-            const newCapacity = currentCapacity + capacityChange;
+            const currentCapacity = eventData.remainingCapacity ?? eventData.capacity ?? 0;
+            const newCapacity = currentCapacity + capacityDelta;
             
-            console.log('🔥 [FIRESTORE] Capacity update:', {
+            firestoreLogger.debug('[FIRESTORE] Event capacity update:', {
+              eventId: current.eventId,
               current: currentCapacity,
-              change: capacityChange,
+              delta: capacityDelta,
               new: newCapacity
             });
             
-            // Validate capacity (don't allow negative remaining capacity for decreases)
-            if (capacityChange < 0 && newCapacity < 0) {
-              throw new Error('Insufficient capacity available');
-            }
-            
-            transaction.update(eventRef, { 
+            transaction.update(eventRef, {
               remainingCapacity: newCapacity,
               updatedAt: serverTimestamp()
             });
           }
         }
         
-        // Write phase - update reservation
-        console.log('🔥 [FIRESTORE] Calling transaction.update with data:', updateData);
-        transaction.update(resRef, updateData);
-        
-        return true;
+        // 5. Update the reservation
+        transaction.update(docRef, updateData);
+        firestoreLogger.debug('✅ [FIRESTORE] Transaction operations queued successfully');
       });
-      
-      console.log('✅ [FIRESTORE] Transaction completed successfully!');
-      return result;
+
+      firestoreLogger.info('✅ [FIRESTORE] Transaction committed - reservation updated!');
+      return true;
       
     } catch (error) {
-      console.error('❌ [FIRESTORE] Error updating reservation:', error);
+      firestoreLogger.error('❌ [FIRESTORE] Error updating reservation (Transaction failed):', {
+        id: cleanId,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
       return false;
     }
   }
@@ -638,60 +611,34 @@ class ReservationsService {
    * ✅ IMPROVED: Uses Firestore transactions for atomic capacity updates
    */
   async delete(id: string): Promise<boolean> {
+    const cleanId = id.trim();
+    firestoreLogger.debug('[FIRESTORE] Attempting to delete reservation (transaction):', {
+      id: cleanId,
+      collection: COLLECTIONS.RESERVATIONS
+    });
+
     try {
-      console.log('🔥 [FIRESTORE] Attempting to delete reservation:', {
-        id,
-        idType: typeof id,
-        idLength: id?.length,
-        collection: COLLECTIONS.RESERVATIONS
-      });
-      
-      // 🔍 DEBUG: First check if document exists before transaction
-      console.log('🔍 [FIRESTORE] Pre-check: Does document exist? (checking SERVER, not cache)');
-      const preCheckRef = doc(db, COLLECTIONS.RESERVATIONS, id);
-      const preCheckSnap = await getDocFromServer(preCheckRef); // ✅ Force server read, bypass cache
-      console.log('🔍 [FIRESTORE] Pre-check result (from server):', {
-        exists: preCheckSnap.exists(),
-        path: preCheckRef.path
-      });
-      
-      if (!preCheckSnap.exists()) {
-        console.error('❌ [FIRESTORE] PRE-CHECK FAILED: Document does not exist before transaction');
-        // List all reservations to debug
-        const allReservations = await this.getAll();
-        console.log('📋 [FIRESTORE] All reservation IDs in database:', allReservations.map(r => r.id));
-        throw new Error('Reservation not found in Firestore (pre-check)');
-      }
-      
-      console.log('✅ [FIRESTORE] Pre-check passed, starting transaction');
-      
-      // ✅ Use Firestore transaction for atomic delete + capacity update
-      const result = await runTransaction(db, async (transaction) => {
-        // Read phase
-        const resRef = doc(db, COLLECTIONS.RESERVATIONS, id);
-        console.log('🔥 [FIRESTORE] Document reference created:', resRef.path);
-        
-        const resDoc = await transaction.get(resRef);
-        console.log('🔥 [FIRESTORE] Document fetch result:', {
-          exists: resDoc.exists(),
-          id: resDoc.id
-        });
-        
+      const docRef = doc(db, COLLECTIONS.RESERVATIONS, cleanId);
+
+      // ✅ ALL logic within ONE atomic transaction - no pre-checks needed
+      await runTransaction(db, async (transaction) => {
+        // 1. Read document WITHIN transaction (guaranteed fresh data)
+        const resDoc = await transaction.get(docRef);
+
         if (!resDoc.exists()) {
-          console.error('❌ [FIRESTORE] Reservation not found:', {
-            searchedId: id,
-            collection: COLLECTIONS.RESERVATIONS,
-            fullPath: resRef.path
-          });
+          firestoreLogger.error('❌ [FIRESTORE] Document does not exist within transaction:', cleanId);
           throw new Error('Reservation not found');
         }
         
+        const reservationData = resDoc.data();
         const reservation = convertDates<Reservation>(
-          { id: resDoc.id, ...resDoc.data() }, 
+          { id: resDoc.id, ...reservationData }, 
           ['eventDate', 'createdAt', 'updatedAt', 'paymentReceivedAt', 'paymentDueDate', 'checkedInAt', 'optionPlacedAt', 'optionExpiresAt']
         );
         
-        // Update capacity if reservation was active
+        firestoreLogger.debug('[FIRESTORE] Found document in transaction:', cleanId);
+
+        // 2. Restore capacity if reservation was active
         const wasActive = reservation.status !== 'cancelled' && reservation.status !== 'rejected';
         
         if (wasActive) {
@@ -700,36 +647,36 @@ class ReservationsService {
           
           if (eventDoc.exists()) {
             const eventData = eventDoc.data();
-            const currentCapacity = eventData.remainingCapacity || eventData.capacity || 0;
+            const currentCapacity = eventData.remainingCapacity ?? eventData.capacity ?? 0;
             const newCapacity = currentCapacity + reservation.numberOfPersons;
             
-            console.log('🔥 [FIRESTORE] Freeing capacity on delete:', {
+            firestoreLogger.debug('[FIRESTORE] Restoring capacity:', {
+              eventId: reservation.eventId,
               current: currentCapacity,
               freed: reservation.numberOfPersons,
               new: newCapacity
             });
             
-            transaction.update(eventRef, { 
+            // 3. Update event capacity WITHIN transaction
+            transaction.update(eventRef, {
               remainingCapacity: newCapacity,
               updatedAt: serverTimestamp()
             });
           }
         }
         
-        // Write phase - delete reservation
-        transaction.delete(resRef);
-        
-        console.log('✅ [FIRESTORE] Transaction complete - reservation deleted');
-        return true;
+        // 4. Delete reservation WITHIN transaction
+        transaction.delete(docRef);
+        firestoreLogger.debug('✅ [FIRESTORE] Transaction operations queued successfully');
       });
       
-      console.log('✅ [FIRESTORE] Reservation deleted successfully, result:', result);
-      return true; // Transaction succeeded
+      firestoreLogger.info('✅ [FIRESTORE] Transaction committed - reservation deleted!');
+      return true;
       
     } catch (error) {
-      console.error('❌ [FIRESTORE] Error deleting reservation:', {
-        id,
-        error: error instanceof Error ? error.message : error,
+      firestoreLogger.error('❌ [FIRESTORE] Error deleting reservation (Transaction failed):', {
+        id: cleanId,
+        error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined
       });
       return false;
