@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import type { WaitlistEntry } from '../types';
 import { apiService } from '../services/apiService';
+import { eventBus, ReservationEvents, type CapacityFreedData } from '../services/eventBus';
 
 // Waitlist State
 interface WaitlistState {
@@ -384,4 +385,16 @@ export const useWaitlistStore = create<WaitlistState & WaitlistActions>()(
       ).length;
     }
   }))
+);
+
+// ⚡ AUTOMATION: Subscribe to capacity freed events via EventBus
+// This eliminates the need for circular dependencies between stores
+eventBus.subscribe<CapacityFreedData>(
+  ReservationEvents.CAPACITY_FREED,
+  async (data) => {
+    console.log('🔔 [WaitlistStore] Received CAPACITY_FREED event:', data);
+    
+    const { checkWaitlistForAvailableSpots } = useWaitlistStore.getState();
+    await checkWaitlistForAvailableSpots(data.eventId, data.freedCapacity);
+  }
 );

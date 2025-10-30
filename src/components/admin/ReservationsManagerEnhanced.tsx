@@ -182,9 +182,15 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
       const eventsResponse = await apiService.getEvents();
       if (eventsResponse.success && eventsResponse.data) {
         setEvents(eventsResponse.data);
+      } else {
+        toast.error('Fout bij laden events', 'De evenementen konden niet worden geladen');
       }
     } catch (error) {
       console.error('Failed to load data:', error);
+      toast.error(
+        'Fout bij laden gegevens', 
+        'Er is een fout opgetreden bij het laden van de reserveringen. Probeer de pagina te verversen.'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -256,73 +262,85 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
   const handleSaveInlineEdit = async () => {
     if (!editingId) return;
     
-    const reservation = reservations.find(r => r.id === editingId);
-    if (reservation) {
-      // Update notes via communication log
-      await addCommunicationLog(editingId, {
-        type: 'note',
-        message: editNotes,
-        author: 'Admin'
-      });
+    try {
+      const reservation = reservations.find(r => r.id === editingId);
+      if (reservation) {
+        // Update notes via communication log
+        await addCommunicationLog(editingId, {
+          type: 'note',
+          message: editNotes,
+          author: 'Admin'
+        });
+        
+        toast.success('Notitie opgeslagen', 'De notitie is toegevoegd aan de communicatie log');
+      }
+      
+      setEditingId(null);
+      setEditNotes('');
+      await loadReservations();
+    } catch (error) {
+      console.error('Error saving inline edit:', error);
+      toast.error('Fout bij opslaan', 'De notitie kon niet worden opgeslagen');
     }
-    
-    setEditingId(null);
-    setEditNotes('');
-    await loadReservations();
   };
 
   const handleQuickAction = async (reservationId: string, action: 'confirm' | 'reject' | 'delete') => {
     console.log(`🎯 handleQuickAction called: ${action} for reservation ${reservationId}`);
-    console.log('🔍 Reservation ID details:', {
-      id: reservationId,
-      type: typeof reservationId,
-      length: reservationId.length,
-      firstChars: reservationId.substring(0, 10),
-      lastChars: reservationId.substring(reservationId.length - 10)
-    });
     
-    let success = false;
-    switch (action) {
-      case 'confirm':
-        console.log('📞 Calling confirmReservation...');
-        success = await confirmReservation(reservationId);
-        console.log('✅ confirmReservation returned:', success);
-        
-        if (!success) {
-          console.error('❌ confirmReservation FAILED!');
-          console.log('🔍 Let me check if the reservation exists in the store...');
-          const allReservations = useReservationsStore.getState().reservations;
-          const found = allReservations.find(r => r.id === reservationId);
-          console.log('🔍 Found in store?', !!found);
-          if (found) {
-            console.log('✅ YES - Reservation exists in store:', {
-              id: found.id,
-              status: found.status,
-              contactPerson: found.contactPerson
-            });
+    try {
+      let success = false;
+      
+      switch (action) {
+        case 'confirm':
+          console.log('📞 Calling confirmReservation...');
+          success = await confirmReservation(reservationId);
+          
+          if (success) {
+            toast.success('Reservering bevestigd', 'De reservering is succesvol bevestigd en de klant is op de hoogte gebracht');
           } else {
-            console.error('❌ NO - Reservation NOT in store!');
-            console.log('📋 All reservation IDs in store:', allReservations.map(r => r.id).slice(0, 5));
+            toast.error('Fout bij bevestigen', 'De reservering kon niet worden bevestigd. Controleer of de reservering nog bestaat.');
           }
-        }
-        break;
-      case 'reject':
-        if (confirm('Weet je zeker dat je deze reservering wilt afwijzen?')) {
-          success = await rejectReservation(reservationId);
-        }
-        break;
-      case 'delete':
-        if (confirm('Weet je zeker dat je deze reservering wilt verwijderen?')) {
-          success = await deleteReservation(reservationId);
-        }
-        break;
+          break;
+          
+        case 'reject':
+          if (confirm('Weet je zeker dat je deze reservering wilt afwijzen?')) {
+            success = await rejectReservation(reservationId);
+            
+            if (success) {
+              toast.success('Reservering afgewezen', 'De reservering is afgewezen en de capaciteit is vrijgegeven');
+            } else {
+              toast.error('Fout bij afwijzen', 'De reservering kon niet worden afgewezen');
+            }
+          }
+          break;
+          
+        case 'delete':
+          if (confirm('Weet je zeker dat je deze reservering wilt verwijderen?')) {
+            success = await deleteReservation(reservationId);
+            
+            if (success) {
+              toast.success('Reservering verwijderd', 'De reservering is permanent verwijderd en de capaciteit is vrijgegeven');
+            } else {
+              toast.error('Fout bij verwijderen', 'De reservering kon niet worden verwijderd');
+            }
+          }
+          break;
+      }
+      
+      console.log('🔄 Reloading reservations after action...');
+      await loadReservations();
+      console.log('✅ Reservations reloaded');
+      
+      return success;
+      
+    } catch (error) {
+      console.error(`Error in handleQuickAction (${action}):`, error);
+      toast.error(
+        'Onverwachte fout',
+        `Er is een fout opgetreden bij het ${action === 'confirm' ? 'bevestigen' : action === 'reject' ? 'afwijzen' : 'verwijderen'} van de reservering`
+      );
+      return false;
     }
-    
-    console.log('🔄 Reloading reservations after action...');
-    await loadReservations();
-    console.log('✅ Reservations reloaded');
-    
-    return success;
   };
 
   // 🆕 Bulk cancel handler with reason
@@ -1056,8 +1074,40 @@ export const ReservationsManagerEnhanced: React.FC<ReservationsManagerEnhancedPr
                             </button>
                             <button
                               onClick={async () => {
+                                console.log('🗑️ [UI] Delete button clicked for reservation:', {
+                                  id: reservation.id,
+                                  contactPerson: reservation.contactPerson,
+                                  email: reservation.email,
+                                  status: reservation.status
+                                });
+                                
                                 if (confirm('⚠️ Deze reservering permanent verwijderen? Dit kan niet ongedaan worden gemaakt!')) {
-                                  await deleteReservation(reservation.id);
+                                  try {
+                                    console.log('🗑️ [UI] Confirmed - calling deleteReservation with ID:', reservation.id);
+                                    const success = await deleteReservation(reservation.id);
+                                    console.log('🗑️ [UI] deleteReservation returned:', success);
+                                    
+                                    if (success) {
+                                      toast.success('Reservering verwijderd', 'De reservering is permanent verwijderd');
+                                      console.log('🔄 [UI] Reloading reservations...');
+                                      await loadReservations();
+                                      console.log('✅ [UI] Reservations reloaded, checking if deleted...');
+                                      
+                                      // Check if it's really gone
+                                      const stillExists = storeReservations.find(r => r.id === reservation.id);
+                                      if (stillExists) {
+                                        console.error('❌ [UI] BUG: Reservation still exists after reload!', stillExists);
+                                        toast.error('Waarschuwing', 'Reservering lijkt nog steeds te bestaan na verwijderen');
+                                      } else {
+                                        console.log('✅ [UI] Confirmed: Reservation is gone from store');
+                                      }
+                                    } else {
+                                      toast.error('Fout bij verwijderen', 'De reservering kon niet worden verwijderd');
+                                    }
+                                  } catch (error) {
+                                    console.error('❌ [UI] Error deleting reservation:', error);
+                                    toast.error('Onverwachte fout', 'Er is een fout opgetreden bij het verwijderen');
+                                  }
                                 }
                               }}
                               className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors group relative flex-1"

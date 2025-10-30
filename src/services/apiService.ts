@@ -30,123 +30,13 @@ import { storageService } from './storageService';
 import { checkReservationLimit } from './rateLimiter';
 import { calculatePrice, createPricingSnapshot } from './priceService';
 
-// Mock data storage - now using Firestore
-class MockDatabase {
-  async initialize(): Promise<void> {
-    // Initialize Firestore
-    await storageService.initialize();
-    
-    // ✅ CHANGED: Start with EMPTY database (no mock data)
-    // Admin can add events manually via the admin interface
-    console.log('📦 Database initialized (empty - ready for your data)');
-  }
-
-  async getEvents(): Promise<Event[]> {
-    return await storageService.getEvents();
-  }
-
-  async getEventById(id: string): Promise<Event | undefined> {
-    const events = await storageService.getEvents();
-    return events.find(event => event.id === id);
-  }
-
-  async getEventsInDateRange(startDate: Date, endDate: Date): Promise<Event[]> {
-    const events = await storageService.getEvents();
-    return events.filter(event => 
-      event.date >= startDate && event.date <= endDate
-    );
-  }
-
-  async getReservations(): Promise<Reservation[]> {
-    return await storageService.getReservations();
-  }
-
-  async getReservationsByEvent(eventId: string): Promise<Reservation[]> {
-    const reservations = await storageService.getReservations();
-    return reservations.filter(res => res.eventId === eventId);
-  }
-
-  async addReservation(reservation: Reservation): Promise<Reservation> {
-    return await storageService.addReservation(reservation);
-  }
-
-  async addEvent(event: Event): Promise<Event> {
-    return await storageService.addEvent(event);
-  }
-
-  async updateEvent(eventId: string, updates: Partial<Event>): Promise<boolean> {
-    return await storageService.updateEvent(eventId, updates);
-  }
-
-  async deleteEvent(eventId: string): Promise<boolean> {
-    return await storageService.deleteEvent(eventId);
-  }
-
-  async getAdminStats(): Promise<AdminStats> {
-    const events = await storageService.getEvents();
-    const reservations = await storageService.getReservations();
-    const totalReservations = reservations.length;
-    const totalRevenue = reservations.reduce((sum, res) => sum + res.totalPrice, 0);
-    const totalPersons = reservations.reduce((sum, res) => sum + res.numberOfPersons, 0);
-    
-    // Calculate most popular arrangement
-    const arrangementCounts = reservations.reduce((acc, res) => {
-      acc[res.arrangement] = (acc[res.arrangement] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    
-    const popularArrangement = Object.entries(arrangementCounts)
-      .sort(([,a], [,b]) => (b as number) - (a as number))[0]?.[0] as 'BWF' | 'BWFM' || 'BWF';
-
-    return {
-      totalEvents: events.length,
-      totalReservations,
-      totalRevenue,
-      averageGroupSize: totalReservations > 0 ? totalPersons / totalReservations : 0,
-      popularArrangement
-    };
-  }
-
-  // ===== PROMOTIONS METHODS =====
-  async getPromotions(): Promise<PromotionCode[]> {
-    const promotions = await storageService.get<PromotionCode[]>('promotionCodes');
-    return promotions || [];
-  }
-
-  async addPromotion(promotion: PromotionCode): Promise<void> {
-    const promotions = await this.getPromotions();
-    promotions.push(promotion);
-    await storageService.set('promotionCodes', promotions);
-  }
-
-  async updatePromotion(id: string, updates: Partial<PromotionCode>): Promise<PromotionCode | null> {
-    const promotions = await this.getPromotions();
-    const index = promotions.findIndex(p => p.id === id);
-    if (index === -1) return null;
-    
-    promotions[index] = { ...promotions[index], ...updates };
-    await storageService.set('promotionCodes', promotions);
-    return promotions[index];
-  }
-
-  async deletePromotion(id: string): Promise<boolean> {
-    const promotions = await this.getPromotions();
-    const filtered = promotions.filter(p => p.id !== id);
-    if (filtered.length === promotions.length) return false;
-    
-    await storageService.set('promotionCodes', filtered);
-    return true;
-  }
-}
-
-// Singleton instance
-const mockDB = new MockDatabase();
-
-// Initialize database (wrapped in IIFE for UMD compatibility)
+// ✅ FIXED: Removed MockDatabase class - now using storageService (Firestore) directly
+// Initialize Firestore (wrapped in IIFE for UMD compatibility)
 (async () => {
-  await mockDB.initialize().catch(err => {
-    console.error('Failed to initialize database:', err);
+  await storageService.initialize().catch(err => {
+    console.error('Failed to initialize Firestore:', err);
   });
+  console.log('📦 Firestore initialized - ready for data');
 })();
 
 // Utility functions
@@ -185,7 +75,7 @@ export const apiService = {
     await delay(300); // Simulate network delay
     
     try {
-      const events = await mockDB.getEvents();
+      const events = await storageService.getEvents();
       return {
         success: true,
         data: events
@@ -206,7 +96,10 @@ export const apiService = {
       const startDate = new Date(year, month, 1);
       const endDate = new Date(year, month + 1, 0, 23, 59, 59);
       
-      const events = await mockDB.getEventsInDateRange(startDate, endDate);
+      const allEvents = await storageService.getEvents();
+      const events = allEvents.filter(event => 
+        event.date >= startDate && event.date <= endDate
+      );
       return {
         success: true,
         data: events
@@ -223,7 +116,8 @@ export const apiService = {
   async getEvent(eventId: string): Promise<ApiResponse<Event>> {
     await delay(150);
     
-    const event = await mockDB.getEventById(eventId);
+    const events = await storageService.getEvents();
+    const event = events.find(e => e.id === eventId);
     if (!event) {
       return {
         success: false,
@@ -241,7 +135,8 @@ export const apiService = {
   async getAvailability(eventId: string): Promise<ApiResponse<Availability>> {
     await delay(100);
     
-    const event = await mockDB.getEventById(eventId);
+    const events = await storageService.getEvents();
+    const event = events.find(e => e.id === eventId);
     if (!event) {
       return {
         success: false,
@@ -292,18 +187,20 @@ export const apiService = {
         };
       }
 
-      const event = await mockDB.getEventById(eventId);
-      if (!event) {
+      const eventResponse = await apiService.getEvent(eventId);
+      if (!eventResponse.success || !eventResponse.data) {
         return {
           success: false,
           error: 'Event not found'
         };
       }
+      const event = eventResponse.data;
 
       // ✨ NEW: Check for duplicate booking
-      const existingReservations = await mockDB.getReservationsByEvent(eventId);
+      const allReservations = await storageService.getReservations();
+      const existingReservations = allReservations.filter(r => r.eventId === eventId);
       const duplicate = existingReservations.find(
-        r => r.email.toLowerCase() === formData.email.toLowerCase() && 
+        (r: Reservation) => r.email.toLowerCase() === formData.email.toLowerCase() && 
              r.status !== 'cancelled' && r.status !== 'rejected'
       );
       
@@ -403,7 +300,7 @@ export const apiService = {
       };
 
       // Add reservation to Firestore and get back the saved reservation with generated ID
-      const reservation = await mockDB.addReservation(reservationData);
+      const reservation = await storageService.addReservation(reservationData);
 
       // ✨ FIXED: Capacity IS updated immediately when reservation is placed
       // This prevents overbooking by ensuring all pending reservations count toward capacity
@@ -411,11 +308,14 @@ export const apiService = {
 
       // ✨ NEW: Auto-activate waitlist if capacity is now exhausted or exceeded
       // Check AFTER reservation is added and capacity is updated
-      const updatedEvent = await mockDB.getEventById(eventId);
-      if (updatedEvent && updatedEvent.remainingCapacity !== undefined && updatedEvent.remainingCapacity <= 0) {
-        // Capacity is now 0 or negative - activate waitlist immediately
-        await mockDB.updateEvent(eventId, { waitlistActive: true });
-        console.log(`🔴 Waitlist AUTO-ACTIVATED for event ${eventId} - Remaining capacity: ${updatedEvent.remainingCapacity}`);
+      const updatedEventResponse = await apiService.getEvent(eventId);
+      if (updatedEventResponse.success && updatedEventResponse.data) {
+        const updatedEvent = updatedEventResponse.data;
+        if (updatedEvent.remainingCapacity !== undefined && updatedEvent.remainingCapacity <= 0) {
+          // Capacity is now 0 or negative - activate waitlist immediately
+          await storageService.updateEvent(eventId, { waitlistActive: true });
+          console.log(`🔴 Waitlist AUTO-ACTIVATED for event ${eventId} - Remaining capacity: ${updatedEvent.remainingCapacity}`);
+        }
       }
 
       return {
@@ -440,9 +340,10 @@ export const apiService = {
     await delay(300);
     
     try {
-      const events = await mockDB.getEvents();
+      const events = await storageService.getEvents();
+      const allReservations = await storageService.getReservations();
       const adminEvents: AdminEvent[] = await Promise.all(events.map(async event => {
-        const reservations = await mockDB.getReservationsByEvent(event.id);
+        const reservations = allReservations.filter(r => r.eventId === event.id);
         const revenue = reservations.reduce((sum, res) => sum + res.totalPrice, 0);
         
         return {
@@ -468,7 +369,30 @@ export const apiService = {
     await delay(200);
     
     try {
-      const stats = await mockDB.getAdminStats();
+      // Calculate stats directly from storageService
+      const events = await storageService.getEvents();
+      const reservations = await storageService.getReservations();
+      const totalReservations = reservations.length;
+      const totalRevenue = reservations.reduce((sum, res) => sum + res.totalPrice, 0);
+      const totalPersons = reservations.reduce((sum, res) => sum + res.numberOfPersons, 0);
+      
+      // Calculate most popular arrangement
+      const arrangementCounts = reservations.reduce((acc, res) => {
+        acc[res.arrangement] = (acc[res.arrangement] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      const popularArrangement = Object.entries(arrangementCounts)
+        .sort(([,a], [,b]) => (b as number) - (a as number))[0]?.[0] as 'BWF' | 'BWFM' || 'BWF';
+
+      const stats: AdminStats = {
+        totalEvents: events.length,
+        totalReservations,
+        totalRevenue,
+        averageGroupSize: totalReservations > 0 ? totalPersons / totalReservations : 0,
+        popularArrangement
+      };
+      
       return {
         success: true,
         data: stats
@@ -489,11 +413,11 @@ export const apiService = {
     try {
       const newEvent: Event = {
         ...event,
-        id: '' // Will be set by mockDB
+        id: '' // Will be set by storageService
       };
       
-      console.log('📝 Adding event to mockDB:', newEvent);
-      await mockDB.addEvent(newEvent);
+      console.log('📝 Adding event to Firestore:', newEvent);
+      await storageService.addEvent(newEvent);
       
       console.log('✅ Event added successfully');
       return {
@@ -514,7 +438,7 @@ export const apiService = {
     await delay(300);
     
     try {
-      const success = await mockDB.updateEvent(eventId, updates);
+      const success = await storageService.updateEvent(eventId, updates);
       if (!success) {
         return {
           success: false,
@@ -522,7 +446,15 @@ export const apiService = {
         };
       }
       
-      const updatedEvent = await mockDB.getEventById(eventId)!;
+      const events = await storageService.getEvents();
+      const updatedEvent = events.find(e => e.id === eventId);
+      if (!updatedEvent) {
+        return {
+          success: false,
+          error: 'Event not found after update'
+        };
+      }
+      
       return {
         success: true,
         data: updatedEvent,
@@ -540,7 +472,7 @@ export const apiService = {
     await delay(200);
     
     try {
-      const success = await mockDB.deleteEvent(eventId);
+      const success = await storageService.deleteEvent(eventId);
       if (!success) {
         return {
           success: false,
@@ -562,17 +494,31 @@ export const apiService = {
 
   // Reservation management
   async getAdminReservations(): Promise<ApiResponse<Reservation[]>> {
+    console.log('📋 [API] getAdminReservations called');
     await delay(300);
     
     try {
-      const reservations = await mockDB.getReservations();
+      // ✅ FIXED: Use storageService instead of mockDB for Firestore data
+      console.log('📋 [API] Fetching reservations from storageService...');
+      const reservations = await storageService.getReservations();
+      console.log('📋 [API] Got reservations from Firestore:', {
+        total: reservations.length,
+        ids: reservations.map(r => r.id)
+      });
+      
       // Exclude archived reservations from default view
       const activeReservations = reservations.filter(r => !r.isArchived);
+      console.log('📋 [API] Active (non-archived) reservations:', {
+        count: activeReservations.length,
+        ids: activeReservations.map(r => r.id)
+      });
+      
       return {
         success: true,
         data: activeReservations
       };
     } catch (error) {
+      console.error('❌ [API] Failed to fetch reservations:', error);
       return {
         success: false,
         error: 'Failed to fetch reservations'
@@ -584,7 +530,8 @@ export const apiService = {
     await delay(200);
     
     try {
-      const reservations = await mockDB.getReservationsByEvent(eventId);
+      const allReservations = await storageService.getReservations();
+      const reservations = allReservations.filter(r => r.eventId === eventId);
       return {
         success: true,
         data: reservations
@@ -676,23 +623,29 @@ export const apiService = {
   },
 
   async deleteReservation(reservationId: string): Promise<ApiResponse<void>> {
+    console.log('🗑️ [API] deleteReservation called with ID:', reservationId);
     await delay(200);
     
     try {
+      console.log('🗑️ [API] Calling storageService.deleteReservation');
       const success = await storageService.deleteReservation(reservationId);
+      console.log('🗑️ [API] storageService.deleteReservation returned:', success);
       
       if (!success) {
+        console.error('❌ [API] Delete failed - reservation not found');
         return {
           success: false,
           error: 'Reservation not found'
         };
       }
       
+      console.log('✅ [API] Delete successful');
       return {
         success: true,
         message: 'Reservation deleted successfully'
       };
     } catch (error) {
+      console.error('❌ [API] Delete error:', error);
       return {
         success: false,
         error: 'Failed to delete reservation'
@@ -812,7 +765,7 @@ export const apiService = {
     await delay(300);
     
     try {
-      const reservations = await mockDB.getReservations();
+      const reservations = await storageService.getReservations();
       const reservation = reservations.find(r => r.id === reservationId);
       
       if (!reservation) {
@@ -829,7 +782,8 @@ export const apiService = {
         };
       }
 
-      const event = await mockDB.getEventById(reservation.eventId);
+      const events = await storageService.getEvents();
+      const event = events.find(e => e.id === reservation.eventId);
       if (!event) {
         return {
           success: false,
@@ -854,7 +808,7 @@ export const apiService = {
       const currentRemaining = event.remainingCapacity ?? event.capacity;
       const newRemaining = Math.max(0, currentRemaining - reservation.numberOfPersons);
       
-      await mockDB.updateEvent(event.id, {
+      await storageService.updateEvent(event.id, {
         remainingCapacity: newRemaining
       });
 
@@ -879,7 +833,7 @@ export const apiService = {
     await delay(300);
     
     try {
-      const reservations = await mockDB.getReservations();
+      const reservations = await storageService.getReservations();
       const reservation = reservations.find(r => r.id === reservationId);
       
       if (!reservation) {
@@ -933,7 +887,7 @@ export const apiService = {
     await delay(300);
     
     try {
-      const reservations = await mockDB.getReservations();
+      const reservations = await storageService.getReservations();
       const reservation = reservations.find(r => r.id === reservationId);
       
       if (!reservation) {
@@ -964,7 +918,7 @@ export const apiService = {
       // ✨ RESTORE EVENT CAPACITY if reservation was confirmed/option/checked-in
       // Options count toward capacity, so we need to restore when cancelled
       if (wasConfirmedOrOption && reservation.eventId) {
-        const events = await mockDB.getEvents();
+        const events = await storageService.getEvents();
         const event = events.find(e => e.id === reservation.eventId);
         
         if (event) {
@@ -974,7 +928,7 @@ export const apiService = {
             currentRemaining + reservation.numberOfPersons
           );
           
-          await mockDB.updateEvent(event.id, {
+          await storageService.updateEvent(event.id, {
             remainingCapacity: newRemaining
           });
           
@@ -1442,7 +1396,7 @@ export const apiService = {
   async getPromotions(): Promise<ApiResponse<PromotionCode[]>> {
     await delay(200);
     try {
-      const promotions = await mockDB.getPromotions();
+      const promotions = await storageService.get<PromotionCode[]>('promotionCodes') || [];
       return { success: true, data: promotions };
     } catch (error) {
       console.error('[API] Get promotions error:', error);
@@ -1458,7 +1412,9 @@ export const apiService = {
         id: `promo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         usedCount: 0
       };
-      await mockDB.addPromotion(newPromo);
+      const promotions = await storageService.get<PromotionCode[]>('promotionCodes') || [];
+      promotions.push(newPromo);
+      await storageService.set('promotionCodes', promotions);
       return { success: true, data: newPromo };
     } catch (error) {
       console.error('[API] Create promotion error:', error);
@@ -1469,11 +1425,15 @@ export const apiService = {
   async updatePromotion(id: string, updates: Partial<PromotionCode>): Promise<ApiResponse<PromotionCode>> {
     await delay(200);
     try {
-      const updated = await mockDB.updatePromotion(id, updates);
-      if (updated) {
-        return { success: true, data: updated };
+      const promotions = await storageService.get<PromotionCode[]>('promotionCodes') || [];
+      const index = promotions.findIndex(p => p.id === id);
+      if (index === -1) {
+        return { success: false, error: 'Promotion not found' };
       }
-      return { success: false, error: 'Promotion not found' };
+      
+      promotions[index] = { ...promotions[index], ...updates };
+      await storageService.set('promotionCodes', promotions);
+      return { success: true, data: promotions[index] };
     } catch (error) {
       console.error('[API] Update promotion error:', error);
       return { success: false, error: 'Failed to update promotion' };
@@ -1483,11 +1443,13 @@ export const apiService = {
   async deletePromotion(id: string): Promise<ApiResponse<void>> {
     await delay(200);
     try {
-      const success = await mockDB.deletePromotion(id);
-      if (success) {
-        return { success: true };
+      const promotions = await storageService.get<PromotionCode[]>('promotionCodes') || [];
+      const filtered = promotions.filter(p => p.id !== id);
+      if (filtered.length === promotions.length) {
+        return { success: false, error: 'Promotion not found' };
       }
-      return { success: false, error: 'Promotion not found' };
+      await storageService.set('promotionCodes', filtered);
+      return { success: true };
     } catch (error) {
       console.error('[API] Delete promotion error:', error);
       return { success: false, error: 'Failed to delete promotion' };
@@ -1513,7 +1475,7 @@ export const apiService = {
     await delay(300);
     
     try {
-      const reservations = await mockDB.getReservations();
+      const reservations = await storageService.getReservations();
       
       // Group by email to get unique customers
       const customerMap = new Map<string, {

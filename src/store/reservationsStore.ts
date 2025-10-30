@@ -12,6 +12,10 @@ import { apiService } from '../services/apiService';
 import { emailService } from '../services/emailService';
 import { auditLogger } from '../services/auditLogger';
 import { findChanges } from '../utils/findChanges';
+import { eventBus, ReservationEvents, type CapacityFreedData } from '../services/eventBus';
+import { validateReservationUpdate, isValidStatusTransition } from '../utils/validators';
+import { storeLogger } from '../services/logger';
+import { communicationLogService } from '../services/communicationLogService';
 
 // Reservations State
 interface ReservationsState {
@@ -96,16 +100,25 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
 
     // Actions
     loadReservations: async () => {
+      console.log('🔄 [STORE] loadReservations called');
       set({ isLoadingReservations: true });
       try {
         const response = await apiService.getAdminReservations();
+        console.log('🔄 [STORE] API response:', {
+          success: response.success,
+          count: response.data?.length,
+          ids: response.data?.map(r => r.id)
+        });
+        
         if (response.success && response.data) {
+          console.log('✅ [STORE] Setting reservations in state:', response.data.length);
           set({ reservations: response.data, isLoadingReservations: false });
         } else {
+          console.error('❌ [STORE] API call failed:', response.error);
           set({ isLoadingReservations: false });
         }
       } catch (error) {
-        console.error('Failed to load reservations:', error);
+        console.error('❌ [STORE] Failed to load reservations:', error);
         set({ isLoadingReservations: false });
       }
     },
@@ -125,15 +138,52 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
       }
     },
 
-    updateReservation: async (reservationId: string, updates: Partial<Reservation>, originalReservation?: Reservation, skipCommunicationLog = false) => {
-      console.log('🟢 [STORE] updateReservation called:', { reservationId, updates });
+    updateReservation: async (reservationId: string, updates: Partial<Reservation>, originalReservation?: Reservation) => {
+      storeLogger.debug('updateReservation called', { reservationId, updates });
       
       // Haal de originele reservering op als deze niet is meegestuurd
       const original = originalReservation || get().reservations.find(r => r.id === reservationId);
       
-      console.log('🟢 [STORE] Calling apiService.updateReservation...');
+      if (!original) {
+        storeLogger.error('Reservation not found', reservationId);
+        return false;
+      }
+      
+      // ✅ VALIDATION: Check if state combination is valid
+      if (updates.status || updates.paymentStatus) {
+        const validation = validateReservationUpdate(
+          original.status,
+          original.paymentStatus,
+          updates.status,
+          updates.paymentStatus
+        );
+        
+        if (!validation.valid) {
+          storeLogger.error('Invalid state update', validation.error);
+          console.error('❌ State validation failed:', validation.error);
+          return false;
+        }
+        
+        if (validation.warning) {
+          storeLogger.warn('State update warning', validation.warning);
+          console.warn('⚠️ State validation warning:', validation.warning);
+        }
+      }
+      
+      // ✅ VALIDATION: Check if status transition is allowed
+      if (updates.status && updates.status !== original.status) {
+        const transitionValidation = isValidStatusTransition(original.status, updates.status);
+        
+        if (!transitionValidation.valid) {
+          storeLogger.error('Invalid status transition', transitionValidation.error);
+          console.error('❌ Status transition failed:', transitionValidation.error);
+          return false;
+        }
+      }
+      
+      storeLogger.debug('Calling apiService.updateReservation');
       const response = await apiService.updateReservation(reservationId, updates);
-      console.log('🟢 [STORE] API response:', response);
+      storeLogger.debug('API response', response);
       
       if (response.success) {
         console.log('✅ [STORE] API call successful, updating Zustand state...');
@@ -145,25 +195,17 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
         }));
         console.log('✅ [STORE] Zustand state updated');
         
-        // 🔍 AUDIT LOGGING: Log de specifieke wijzigingen
-        // ⚠️ BELANGRIJK: Skip logging als we alleen communicationLog updaten (voorkomt oneindige lus)
-        if (original && !skipCommunicationLog) {
+        // ✅ IMPROVED: Audit logging with communication log service (no infinite loop risk!)
+        if (original) {
           const changes = findChanges(original, updates);
           
-          // Filter uit: communicationLog updates om infinite loop te voorkomen
-          const meaningfulChanges = changes?.filter(c => c.field !== 'communicationLog');
-          
-          if (meaningfulChanges && meaningfulChanges.length > 0) {
+          if (changes && changes.length > 0) {
             // Log naar audit logger
-            auditLogger.logReservationUpdated(reservationId, meaningfulChanges);
+            auditLogger.logReservationUpdated(reservationId, changes);
             
-            // Voeg ook een communicatielog toe aan de reservering (alleen voor betekenisvolle wijzigingen)
-            const logMessage = `Reservering bijgewerkt. Wijzigingen: ${meaningfulChanges.map(c => c.field).join(', ')}`;
-            await get().addCommunicationLog(reservationId, {
-              type: 'note',
-              message: logMessage,
-              author: 'Admin'
-            });
+            // Add communication log via separate service
+            const logMessage = `Reservering bijgewerkt. Wijzigingen: ${changes.map(c => c.field).join(', ')}`;
+            await communicationLogService.addNote(reservationId, logMessage, 'Admin');
           }
         }
         
@@ -188,12 +230,13 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
       console.log('🟡 [STORE] updateReservation returned:', success);
       
       if (success) {
-        // Log status change
-        await get().addCommunicationLog(reservationId, {
-          type: 'status_change',
-          message: `Status gewijzigd naar: ${status}`,
-          author: 'Admin'
-        });
+        // ✅ Log status change via communication log service
+        await communicationLogService.logStatusChange(
+          reservationId, 
+          reservation.status, 
+          status, 
+          'Admin'
+        );
 
         // Send email notification if confirmed
         if (status === 'confirmed') {
@@ -201,17 +244,16 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
           await emailService.sendConfirmation(reservation);
         }
         
-        // ⚡ AUTOMATION: Check waitlist when reservation is cancelled
+        // ⚡ AUTOMATION: Emit capacity freed event via EventBus when cancelled
         if (status === 'cancelled') {
-          console.log(`🔔 [AUTOMATION] Reservation ${reservationId} cancelled, checking waitlist...`);
+          console.log(`🔔 [AUTOMATION] Reservation ${reservationId} cancelled, emitting capacity freed event...`);
           
-          // Import waitlistStore dynamically to avoid circular dependency
-          const { useWaitlistStore } = await import('./waitlistStore');
-          const waitlistStore = useWaitlistStore.getState();
-          
-          // Free up the capacity and notify waitlist
-          const freedCapacity = reservation.numberOfPersons;
-          await waitlistStore.checkWaitlistForAvailableSpots(reservation.eventId, freedCapacity);
+          await eventBus.emit<CapacityFreedData>(ReservationEvents.CAPACITY_FREED, {
+            eventId: reservation.eventId,
+            freedCapacity: reservation.numberOfPersons,
+            reason: 'cancelled',
+            reservationId
+          });
         }
       }
       
@@ -303,12 +345,12 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
           notes: `${reservation.notes || ''}\n\n[Admin] Verplaatst naar wachtlijst op ${new Date().toLocaleString('nl-NL')}`
         });
 
-        // Log the action
-        await get().addCommunicationLog(reservationId, {
-          type: 'note',
-          message: 'Reservering verplaatst naar wachtlijst',
-          author: 'Admin'
-        });
+        // ✅ Log the action via communication log service
+        await communicationLogService.addNote(
+          reservationId,
+          'Reservering verplaatst naar wachtlijst',
+          'Admin'
+        );
 
         console.log(`✅ [HARMONIZATION] Reservation ${reservationId} converted to WaitlistEntry`);
         return true;
@@ -325,23 +367,22 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
       if (response.success) {
         await get().loadReservations();
         
-        // Log the cancellation
-        await get().addCommunicationLog(reservationId, {
-          type: 'note',
-          message: reason ? `Reservering geannuleerd: ${reason}` : 'Reservering geannuleerd',
-          author: 'Admin'
+        // ✅ Log the cancellation via communication log service
+        await communicationLogService.addNote(
+          reservationId,
+          reason ? `Reservering geannuleerd: ${reason}` : 'Reservering geannuleerd',
+          'Admin'
+        );
+        
+        // ⚡ AUTOMATION: Emit capacity freed event via EventBus
+        console.log(`🔔 [AUTOMATION] Reservation ${reservationId} cancelled, emitting capacity freed event...`);
+        
+        await eventBus.emit<CapacityFreedData>(ReservationEvents.CAPACITY_FREED, {
+          eventId: reservation.eventId,
+          freedCapacity: reservation.numberOfPersons,
+          reason: 'cancelled',
+          reservationId
         });
-        
-        // ⚡ AUTOMATION: Check waitlist when reservation is cancelled
-        console.log(`🔔 [AUTOMATION] Reservation ${reservationId} cancelled, checking waitlist...`);
-        
-        // Import waitlistStore dynamically to avoid circular dependency
-        const { useWaitlistStore } = await import('./waitlistStore');
-        const waitlistStore = useWaitlistStore.getState();
-        
-        // Capacity was freed, notify waitlist
-        const freedCapacity = reservation.numberOfPersons;
-        await waitlistStore.checkWaitlistForAvailableSpots(reservation.eventId, freedCapacity);
         
         return true;
       }
@@ -349,58 +390,71 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
     },
 
     deleteReservation: async (reservationId: string) => {
-      const reservation = get().reservations.find(r => r.id === reservationId);
-      if (!reservation) return false;
-      
-      const response = await apiService.deleteReservation(reservationId);
-      if (response.success) {
-        set(state => ({
-          reservations: state.reservations.filter(r => r.id !== reservationId)
-        }));
+      try {
+        const allReservations = get().reservations;
+        console.log('🗑️ [STORE] Looking for reservation to delete:', {
+          searchId: reservationId,
+          totalReservations: allReservations.length,
+          allIds: allReservations.map(r => r.id)
+        });
         
-        // ⚡ AUTOMATION: Check waitlist when reservation is deleted
-        console.log(`🔔 [AUTOMATION] Reservation ${reservationId} deleted, checking waitlist...`);
+        const reservation = allReservations.find(r => r.id === reservationId);
+        if (!reservation) {
+          console.error('❌ [STORE] Reservation not found in local state:', {
+            searchId: reservationId,
+            availableIds: allReservations.map(r => r.id)
+          });
+          return false;
+        }
         
-        // Import waitlistStore dynamically to avoid circular dependency
-        const { useWaitlistStore } = await import('./waitlistStore');
-        const waitlistStore = useWaitlistStore.getState();
+        console.log('🗑️ [STORE] Found reservation in store, deleting:', {
+          id: reservationId,
+          contactPerson: reservation.contactPerson,
+          eventId: reservation.eventId
+        });
         
-        // Free up the capacity and notify waitlist
-        const freedCapacity = reservation.numberOfPersons;
-        await waitlistStore.checkWaitlistForAvailableSpots(reservation.eventId, freedCapacity);
+        const response = await apiService.deleteReservation(reservationId);
         
-        return true;
+        if (response.success) {
+          console.log('✅ [STORE] Delete successful, updating local state');
+          set(state => ({
+            reservations: state.reservations.filter(r => r.id !== reservationId)
+          }));
+          
+          // ⚡ AUTOMATION: Emit capacity freed event via EventBus
+          console.log(`🔔 [AUTOMATION] Reservation ${reservationId} deleted, emitting capacity freed event...`);
+          
+          await eventBus.emit<CapacityFreedData>(ReservationEvents.CAPACITY_FREED, {
+            eventId: reservation.eventId,
+            freedCapacity: reservation.numberOfPersons,
+            reason: 'deleted',
+            reservationId
+          });
+          
+          return true;
+        } else {
+          console.error('❌ [STORE] Delete failed:', response.error);
+          return false;
+        }
+      } catch (error) {
+        console.error('❌ [STORE] Error in deleteReservation:', error);
+        return false;
       }
-      return false;
     },
 
     selectReservation: (reservation: Reservation | null) => {
       set({ selectedReservation: reservation });
     },
 
-    // Communication
+    // Communication - ✅ IMPROVED: Uses separate service, no infinite loop risk
     addCommunicationLog: async (
       reservationId: string,
       log: Omit<CommunicationLog, 'id' | 'timestamp'>
     ) => {
-      const newLog: CommunicationLog = {
-        id: `log-${Date.now()}`,
-        timestamp: new Date(),
-        ...log
-      };
-
-      const reservation = get().reservations.find(r => r.id === reservationId);
-      if (!reservation) return false;
-
-      const existingLogs = reservation.communicationLog || [];
-      
-      // ⚠️ BELANGRIJK: Gebruik skipCommunicationLog=true om infinite loop te voorkomen
-      return await get().updateReservation(
-        reservationId, 
-        { communicationLog: [...existingLogs, newLog] },
-        undefined,
-        true // Skip auto-logging voor communicationLog updates
-      );
+      // ✅ NEW: Use dedicated communication log service
+      // This stores logs in a separate Firestore subcollection
+      // No more infinite loop risk or skipCommunicationLog flags needed!
+      return await communicationLogService.addLog(reservationId, log);
     },
 
     // Tags
@@ -423,11 +477,11 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
       const success = await get().updateReservation(reservationId, updates);
       
       if (success) {
-        await get().addCommunicationLog(reservationId, {
-          type: 'note',
-          message: `Betaalstatus gewijzigd naar: ${paymentStatus}${notes ? `. ${notes}` : ''}`,
-          author: 'Admin'
-        });
+        await communicationLogService.addNote(
+          reservationId,
+          `Betaalstatus gewijzigd naar: ${paymentStatus}${notes ? `. ${notes}` : ''}`,
+          'Admin'
+        );
       }
       
       return success;
@@ -447,11 +501,11 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
       const success = await get().updateReservation(reservationId, updates);
       
       if (success) {
-        await get().addCommunicationLog(reservationId, {
-          type: 'note',
-          message: `💰 Betaling ontvangen via ${paymentMethod}${invoiceNumber ? ` (Factuur: ${invoiceNumber})` : ''}`,
-          author: 'Admin'
-        });
+        await communicationLogService.addNote(
+          reservationId,
+          `💰 Betaling ontvangen via ${paymentMethod}${invoiceNumber ? ` (Factuur: ${invoiceNumber})` : ''}`,
+          'Admin'
+        );
       }
       
       return success;
@@ -466,12 +520,12 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
         // For now, just log the communication
         console.log('📧 Sending invoice email for reservation:', reservationId);
         
-        await get().addCommunicationLog(reservationId, {
-          type: 'email',
-          subject: `Factuur voor ${reservation.eventDate}`,
-          message: `Factuur verzonden naar ${reservation.email}`,
-          author: 'Admin'
-        });
+        await communicationLogService.logEmail(
+          reservationId,
+          `Factuur voor ${reservation.eventDate}`,
+          reservation.email,
+          'Admin'
+        );
         
         // Update payment status if still pending
         if (reservation.paymentStatus === 'pending') {
@@ -501,12 +555,12 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
         try {
           // TODO: Implement custom email sending via API
           // For now, just log the communication
-          await get().addCommunicationLog(reservation.id, {
-            type: 'email',
-            subject: emailData.subject,
-            message: `Email verzonden via bulk actie: ${emailData.body.substring(0, 100)}...`,
-            author: 'Admin'
-          });
+          await communicationLogService.logEmail(
+            reservation.id,
+            emailData.subject,
+            reservation.email,
+            'Admin'
+          );
           return true;
         } catch (error) {
           console.error(`Failed to send email to ${reservation.email}:`, error);
@@ -576,11 +630,11 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
       });
 
       if (success) {
-        await get().addCommunicationLog(reservationId, {
-          type: 'note',
-          message: `Ingecheckt door ${adminName}`,
-          author: adminName
-        });
+        await communicationLogService.addNote(
+          reservationId,
+          `Ingecheckt door ${adminName}`,
+          adminName
+        );
       }
 
       return success;
