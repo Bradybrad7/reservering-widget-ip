@@ -169,29 +169,117 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
     );
   }, [currentMonth, selectedEvent, eventAvailability]);
 
-  const renderMonthNavigation = () => (
-    <div className="flex items-center justify-between mb-4">
-      <button
-        onClick={() => navigateMonth('prev')}
-        className="group p-2 rounded-xl bg-surface/50 hover:bg-bg-hover text-text-secondary hover:text-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/60 transition-all duration-300 border-2 border-border-default hover:border-primary-500/50 shadow-sm hover:shadow-gold backdrop-blur-sm"
-        aria-label={nl.calendar.prevMonth}
-      >
-        <ChevronLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
-      </button>
-      
-      <h2 className="text-xl md:text-2xl font-bold text-text-primary tracking-tight font-display">
-        {formatDate(currentMonth, 'nl-NL').split(' ').slice(1).join(' ')}
-      </h2>
-      
-      <button
-        onClick={() => navigateMonth('next')}
-        className="group p-2 rounded-xl bg-surface/50 hover:bg-bg-hover text-text-secondary hover:text-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/60 transition-all duration-300 border-2 border-border-default hover:border-primary-500/50 shadow-sm hover:shadow-gold backdrop-blur-sm"
-        aria-label={nl.calendar.nextMonth}
-      >
-        <ChevronRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-      </button>
-    </div>
-  );
+  const renderMonthNavigation = () => {
+    const months = [
+      'januari', 'februari', 'maart', 'april', 'mei', 'juni',
+      'juli', 'augustus', 'september', 'oktober', 'november', 'december'
+    ];
+    
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const currentYear = currentMonth.getFullYear();
+    const currentMonthIndex = currentMonth.getMonth();
+    
+    const handleMonthYearChange = (monthIndex: number, year: number) => {
+      const newDate = new Date(year, monthIndex, 1);
+      setCurrentMonth(newDate);
+    };
+    
+    // Get unique years from events (only future events)
+    const eventYears = new Set<number>();
+    events.forEach(event => {
+      const eventDate = new Date(event.date);
+      if (eventDate >= today) {
+        eventYears.add(eventDate.getFullYear());
+      }
+    });
+    
+    // Convert to sorted array and ensure current year is included
+    const yearOptions = Array.from(eventYears).sort((a, b) => a - b);
+    if (!yearOptions.includes(currentYear)) {
+      yearOptions.push(currentYear);
+      yearOptions.sort((a, b) => a - b);
+    }
+    
+    // Check which months have events for the selected year
+    const monthsWithEvents = new Set<number>();
+    events.forEach(event => {
+      const eventDate = new Date(event.date);
+      if (eventDate >= today && eventDate.getFullYear() === currentYear) {
+        monthsWithEvents.add(eventDate.getMonth());
+      }
+    });
+    
+    return (
+      <div className="flex items-center justify-between mb-4 gap-3">
+        <button
+          onClick={() => navigateMonth('prev')}
+          className="group p-2.5 rounded-xl bg-gradient-to-br from-surface/60 to-surface/40 hover:from-primary-500/20 hover:to-primary-600/10 text-text-secondary hover:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/60 transition-all duration-300 border-2 border-border-default hover:border-primary-500/60 shadow-md hover:shadow-gold backdrop-blur-sm"
+          aria-label={nl.calendar.prevMonth}
+        >
+          <ChevronLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
+        </button>
+        
+        <div className="flex items-center gap-2">
+          {/* Month Selector */}
+          <select
+            value={currentMonthIndex}
+            onChange={(e) => handleMonthYearChange(parseInt(e.target.value), currentYear)}
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-br from-surface/80 to-surface/60 border-2 border-border-default hover:border-primary-500/60 focus:border-primary-500 text-text-primary font-bold text-base cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500/60 transition-all capitalize shadow-md hover:shadow-lg backdrop-blur-sm"
+            style={{ minWidth: '140px' }}
+          >
+            {months.map((month, index) => {
+              const hasEvents = monthsWithEvents.has(index);
+              const isPast = currentYear === now.getFullYear() && index < now.getMonth();
+              const isDisabled = isPast || !hasEvents;
+              
+              return (
+                <option 
+                  key={month} 
+                  value={index} 
+                  disabled={isDisabled}
+                  className={cn(
+                    "bg-neutral-900 py-2",
+                    hasEvents && !isPast ? "text-primary-400 font-semibold" : "text-neutral-500"
+                  )}
+                >
+                  {month} {hasEvents && !isPast ? '●' : ''}
+                </option>
+              );
+            })}
+          </select>
+          
+          {/* Year Selector */}
+          <select
+            value={currentYear}
+            onChange={(e) => handleMonthYearChange(currentMonthIndex, parseInt(e.target.value))}
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-br from-surface/80 to-surface/60 border-2 border-border-default hover:border-primary-500/60 focus:border-primary-500 text-text-primary font-bold text-base cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500/60 transition-all shadow-md hover:shadow-lg backdrop-blur-sm"
+            style={{ minWidth: '90px' }}
+          >
+            {yearOptions.length > 0 ? (
+              yearOptions.map((year) => (
+                <option key={year} value={year} className="bg-neutral-900 text-primary-400 font-semibold">
+                  {year}
+                </option>
+              ))
+            ) : (
+              <option value={currentYear} className="bg-neutral-900">
+                {currentYear}
+              </option>
+            )}
+          </select>
+        </div>
+        
+        <button
+          onClick={() => navigateMonth('next')}
+          className="group p-2.5 rounded-xl bg-gradient-to-br from-surface/60 to-surface/40 hover:from-primary-500/20 hover:to-primary-600/10 text-text-secondary hover:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/60 transition-all duration-300 border-2 border-border-default hover:border-primary-500/60 shadow-md hover:shadow-gold backdrop-blur-sm"
+          aria-label={nl.calendar.nextMonth}
+        >
+          <ChevronRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+        </button>
+      </div>
+    );
+  };
 
   const renderWeekHeaders = () => (
     <div className="grid grid-cols-7 gap-2 mb-2">
@@ -312,12 +400,12 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
                     );
                   })()}
                   
-                  {/* Tijd */}
+                  {/* Tijd - DEUREN OPEN (niet show tijd!) */}
                   <div className={cn("text-[10px] leading-tight font-medium", {
                     'text-dark-300': !isSelected,
                     'text-neutral-800': isSelected
                   })}>
-                    {formatTime(event.startsAt)}
+                    {formatTime(event.doorsOpen)}
                   </div>
                   
                   {/* ✅ Status labels - ALLEEN gebaseerd op bookingStatus, GEEN capaciteitsdata */}

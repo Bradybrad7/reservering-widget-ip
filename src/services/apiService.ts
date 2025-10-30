@@ -66,12 +66,12 @@ class MockDatabase {
     return reservations.filter(res => res.eventId === eventId);
   }
 
-  async addReservation(reservation: Reservation): Promise<void> {
-    await storageService.addReservation(reservation);
+  async addReservation(reservation: Reservation): Promise<Reservation> {
+    return await storageService.addReservation(reservation);
   }
 
-  async addEvent(event: Event): Promise<void> {
-    await storageService.addEvent(event);
+  async addEvent(event: Event): Promise<Event> {
+    return await storageService.addEvent(event);
   }
 
   async updateEvent(eventId: string, updates: Partial<Event>): Promise<boolean> {
@@ -328,49 +328,82 @@ export const apiService = {
       }
 
       // ✨ Calculate total price using price service
-      const priceCalculation = calculatePrice(
+      // 🔧 FIX: calculatePrice is async - moet awaited worden!
+      const priceCalculation = await calculatePrice(
         event, 
         formData, 
         formData.promotionCode, 
         formData.voucherCode
       );
       
-      // ✨ NEW: Create pricing snapshot to protect against future price changes
-      const pricingSnapshot = await createPricingSnapshot(
-        event,
-        formData,
-        await priceCalculation,
-        formData.promotionCode,
-        formData.voucherCode
-      );
+      // ✨ Convert PriceCalculation to pricingSnapshot format
+      // 🔧 FIX: Firestore doesn't accept undefined - only include fields if they have values
+      const pricingSnapshot: any = {
+        basePrice: priceCalculation.breakdown.arrangement.pricePerPerson,
+        pricePerPerson: priceCalculation.breakdown.arrangement.pricePerPerson,
+        numberOfPersons: priceCalculation.breakdown.arrangement.persons,
+        arrangement: priceCalculation.breakdown.arrangement.type,
+        arrangementTotal: priceCalculation.breakdown.arrangement.total,
+        subtotal: priceCalculation.subtotal,
+        finalTotal: priceCalculation.totalPrice,
+        calculatedAt: new Date()
+      };
+      
+      // Only add optional fields if they exist (Firestore rejects undefined)
+      if (priceCalculation.breakdown.preDrink?.pricePerPerson !== undefined) {
+        pricingSnapshot.preDrinkPrice = priceCalculation.breakdown.preDrink.pricePerPerson;
+      }
+      if (priceCalculation.breakdown.preDrink?.total !== undefined) {
+        pricingSnapshot.preDrinkTotal = priceCalculation.breakdown.preDrink.total;
+      }
+      if (priceCalculation.breakdown.afterParty?.pricePerPerson !== undefined) {
+        pricingSnapshot.afterPartyPrice = priceCalculation.breakdown.afterParty.pricePerPerson;
+      }
+      if (priceCalculation.breakdown.afterParty?.total !== undefined) {
+        pricingSnapshot.afterPartyTotal = priceCalculation.breakdown.afterParty.total;
+      }
+      if (priceCalculation.breakdown.merchandise?.total !== undefined) {
+        pricingSnapshot.merchandiseTotal = priceCalculation.breakdown.merchandise.total;
+      }
+      if (priceCalculation.discountAmount !== undefined) {
+        pricingSnapshot.discountAmount = priceCalculation.discountAmount;
+      }
+      if (formData.promotionCode) {
+        pricingSnapshot.discountDescription = `Kortingscode: ${formData.promotionCode}`;
+      }
+      if (formData.voucherCode && priceCalculation.discountAmount !== undefined) {
+        pricingSnapshot.voucherAmount = priceCalculation.discountAmount;
+      }
       
       // ✨ NEW: Determine if booking is over current available capacity
       const currentRemaining = event.remainingCapacity ?? 0;
       const requestedOverCapacity = formData.numberOfPersons > currentRemaining;
       
       // ✨ CHANGED: ALL reservations start as 'pending' and require admin approval
-      const reservation: Reservation = {
+      // 🔧 FIX: Use 'any' type to avoid undefined field issues with Firestore
+      const reservationData: any = {
         ...formData,
         id: `res-${Date.now()}`,
         eventId,
         eventDate: event.date,
-        totalPrice: (await priceCalculation).totalPrice,
-        pricingSnapshot, // ✨ CRITICAL: Store pricing at time of booking
+        totalPrice: priceCalculation.totalPrice,
+        pricingSnapshot, // ✨ CRITICAL: Store pricing snapshot at time of booking
         status: 'pending', // Always pending - admin must confirm
         requestedOverCapacity, // Flag for admin review
         isWaitlist: false, // Deprecated in favor of status management
         createdAt: new Date(),
         updatedAt: new Date(),
-        // ✨ NEW: Payment fields (October 2025)
+        // ✨ NEW: Payment fields (October 2025) - Set to empty strings instead of undefined
         paymentStatus: 'pending',
         invoiceNumber: '',
         paymentMethod: '',
-        paymentReceivedAt: undefined,
-        paymentDueDate: undefined,
         paymentNotes: ''
+        // paymentReceivedAt and paymentDueDate are NOT set (undefined would break Firestore)
+        // These will be added by admin later when processing payment
       };
 
-      await mockDB.addReservation(reservation);
+      // Add reservation to Firestore and get back the saved reservation with generated ID
+      const reservation = await mockDB.addReservation(reservationData);
 
       // ✨ FIXED: Capacity IS updated immediately when reservation is placed
       // This prevents overbooking by ensuring all pending reservations count toward capacity
@@ -393,9 +426,11 @@ export const apiService = {
           : 'Uw reservering is in behandeling'
       };
     } catch (error) {
+      console.error('❌ Error in submitReservation:', error);
+      console.error('Error details:', error instanceof Error ? error.message : String(error));
       return {
         success: false,
-        error: 'Failed to submit reservation'
+        error: error instanceof Error ? error.message : 'Failed to submit reservation'
       };
     }
   },

@@ -345,7 +345,7 @@ const SuccessPage: React.FC<SuccessPageProps> = ({ className, onNewReservation }
                 {formatDate(selectedEvent.date)}
               </p>
               <p className="text-sm text-text-secondary">
-                {getEventTypeName(selectedEvent.type)} • {formatTime(selectedEvent.startsAt)} - {formatTime(selectedEvent.endsAt)}
+                {getEventTypeName(selectedEvent.type)} • Deuren: {formatTime(selectedEvent.doorsOpen)} • Show: {formatTime(selectedEvent.startsAt)} - {formatTime(selectedEvent.endsAt)}
               </p>
             </div>
 

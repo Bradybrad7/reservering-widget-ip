@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   Users,
   Mail,
@@ -738,7 +738,7 @@ export const ReservationsManager: React.FC = () => {
                       {event ? (
                         <div>
                           <p className="font-medium text-white text-sm">{formatDate(event.date)}</p>
-                          <p className="text-xs text-neutral-100">{formatTime(event.startsAt)}</p>
+                          <p className="text-xs text-neutral-100">{formatTime(event.doorsOpen)}</p>
                         </div>
                       ) : (
                         <span className="text-dark-500">N/A</span>
@@ -919,7 +919,7 @@ export const ReservationsManager: React.FC = () => {
                       <div>
                         <p className="text-neutral-100">Tijd</p>
                         <p className="font-medium text-white">
-                          {formatTime(event.startsAt)} - {formatTime(event.endsAt)}
+                          Deuren: {formatTime(event.doorsOpen)} • Show: {formatTime(event.startsAt)} - {formatTime(event.endsAt)}
                         </p>
                       </div>
                       <div>

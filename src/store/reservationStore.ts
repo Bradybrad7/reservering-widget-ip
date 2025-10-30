@@ -627,7 +627,7 @@ export const useReservationStore = create<ReservationStore>()(
       set({ currentMonth: month });
     },
 
-    calculateCurrentPrice: () => {
+    calculateCurrentPrice: async () => {
       const { selectedEvent, formData } = get();
       
       if (!selectedEvent) {
@@ -635,7 +635,8 @@ export const useReservationStore = create<ReservationStore>()(
         return;
       }
 
-      const calculation = priceService.calculatePrice(
+      // 🔧 FIX: calculatePrice is async - moet awaited worden!
+      const calculation = await priceService.calculatePrice(
         selectedEvent, 
         formData,
         formData.promotionCode,
