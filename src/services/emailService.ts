@@ -5,11 +5,14 @@ import { nl } from 'date-fns/locale';
 // Import WaitlistEntry type
 import type { WaitlistEntry } from '../types';
 
+// Import Microsoft Graph Email Service
+import { microsoftGraphEmailService } from './microsoftGraphEmailService';
+
 /**
  * Email Service
  * 
- * Ready for backend integration with SendGrid, Mailgun, AWS SES, etc.
- * Currently logs to console for development/testing.
+ * Integrated with Microsoft Graph API for sending emails via Outlook/Microsoft 365
+ * Falls back to console logging if not configured
  */
 
 interface EmailTemplate {
@@ -366,49 +369,38 @@ export const emailService = {
     try {
       const template = generateReservationConfirmationEmail(reservation, event);
       
-      console.log('📧 Email would be sent:');
-      console.log('To:', reservation.email);
-      console.log('Subject:', template.subject);
-      console.log('---');
-      console.log(template.text);
-      console.log('---');
+      console.log('📧 [EMAIL] Sending reservation confirmation...');
+      console.log('   To:', reservation.email);
+      console.log('   Subject:', template.subject);
       
-      // TODO: Backend Integration
-      // Uncomment and configure when backend is ready:
-      /*
-      const response = await fetch('/api/send-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: reservation.email,
+      // ✅ Send via Microsoft Graph (Outlook/Microsoft 365)
+      if (microsoftGraphEmailService.isConfigured()) {
+        const success = await microsoftGraphEmailService.sendEmail({
+          to: [reservation.email],
           subject: template.subject,
-          html: template.html,
-          text: template.text
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to send email');
+          htmlBody: template.html,
+          textBody: template.text
+        });
+        
+        if (success) {
+          console.log('✅ [EMAIL] Confirmation email sent successfully via Microsoft Graph');
+          return { success: true };
+        } else {
+          console.error('❌ [EMAIL] Failed to send email via Microsoft Graph');
+          return { success: false, error: 'Failed to send email via Microsoft Graph' };
+        }
+      } else {
+        // Fallback to console logging if not configured
+        console.warn('⚠️ [EMAIL] Microsoft Graph not configured. Email not sent.');
+        console.log('📧 [EMAIL] Email content:');
+        console.log('---');
+        console.log(template.text);
+        console.log('---');
+        return { success: false, error: 'Email service not configured' };
       }
-      */
       
-      // For SendGrid:
-      /*
-      const sgMail = require('@sendgrid/mail');
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-      
-      await sgMail.send({
-        to: reservation.email,
-        from: 'noreply@inspirationpoint.nl',
-        subject: template.subject,
-        text: template.text,
-        html: template.html,
-      });
-      */
-      
-      return { success: true };
     } catch (error) {
-      console.error('Email service error:', error);
+      console.error('❌ [EMAIL] Email service error:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Failed to send email' 
@@ -427,16 +419,33 @@ export const emailService = {
     try {
       const template = generateStatusUpdateEmail(reservation, event, newStatus);
       
-      console.log('📧 Status update email would be sent:');
-      console.log('To:', reservation.email);
-      console.log('Subject:', template.subject);
-      console.log('New Status:', newStatus);
+      console.log('📧 [EMAIL] Sending status update...');
+      console.log('   To:', reservation.email);
+      console.log('   Subject:', template.subject);
+      console.log('   New Status:', newStatus);
       
-      // TODO: Backend integration (same as above)
+      // ✅ Send via Microsoft Graph
+      if (microsoftGraphEmailService.isConfigured()) {
+        const success = await microsoftGraphEmailService.sendEmail({
+          to: [reservation.email],
+          subject: template.subject,
+          htmlBody: template.html,
+          textBody: template.text
+        });
+        
+        if (success) {
+          console.log('✅ [EMAIL] Status update email sent successfully');
+          return { success: true };
+        } else {
+          return { success: false, error: 'Failed to send email' };
+        }
+      } else {
+        console.warn('⚠️ [EMAIL] Microsoft Graph not configured');
+        return { success: false, error: 'Email service not configured' };
+      }
       
-      return { success: true };
     } catch (error) {
-      console.error('Email service error:', error);
+      console.error('❌ [EMAIL] Email service error:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Failed to send email' 
@@ -454,15 +463,32 @@ export const emailService = {
     try {
       const template = generateReminderEmail(reservation, event);
       
-      console.log('📧 Reminder email would be sent:');
-      console.log('To:', reservation.email);
-      console.log('Subject:', template.subject);
+      console.log('📧 [EMAIL] Sending reminder...');
+      console.log('   To:', reservation.email);
+      console.log('   Subject:', template.subject);
       
-      // TODO: Backend integration
+      // ✅ Send via Microsoft Graph
+      if (microsoftGraphEmailService.isConfigured()) {
+        const success = await microsoftGraphEmailService.sendEmail({
+          to: [reservation.email],
+          subject: template.subject,
+          htmlBody: template.html,
+          textBody: template.text
+        });
+        
+        if (success) {
+          console.log('✅ [EMAIL] Reminder email sent successfully');
+          return { success: true };
+        } else {
+          return { success: false, error: 'Failed to send email' };
+        }
+      } else {
+        console.warn('⚠️ [EMAIL] Microsoft Graph not configured');
+        return { success: false, error: 'Email service not configured' };
+      }
       
-      return { success: true };
     } catch (error) {
-      console.error('Email service error:', error);
+      console.error('❌ [EMAIL] Email service error:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Failed to send email' 
@@ -618,18 +644,34 @@ Het team van Inspiration Point
 © ${new Date().getFullYear()} Inspiration Point
       `.trim();
       
-      console.log('📧 ⚡ [AUTOMATION] Waitlist spot available email:');
-      console.log('To:', entry.customerEmail);
-      console.log('Subject:', subject);
-      console.log('Booking Link:', bookingLink);
-      console.log('Valid for: 24 hours');
+      console.log('📧 ⚡ [AUTOMATION] Sending waitlist spot available email...');
+      console.log('   To:', entry.customerEmail);
+      console.log('   Subject:', subject);
+      console.log('   Booking Link:', bookingLink);
+      console.log('   Valid for: 24 hours');
       
-      // TODO: Backend integration - Send actual email
-      // await sendgrid.send({ to: entry.customerEmail, subject, html, text });
+      // ✅ Send via Microsoft Graph
+      if (microsoftGraphEmailService.isConfigured()) {
+        const success = await microsoftGraphEmailService.sendEmail({
+          to: [entry.customerEmail],
+          subject: subject,
+          htmlBody: _html,
+          textBody: _text
+        });
+        
+        if (success) {
+          console.log('✅ [EMAIL] Waitlist notification sent successfully');
+          return { success: true };
+        } else {
+          return { success: false, error: 'Failed to send email' };
+        }
+      } else {
+        console.warn('⚠️ [EMAIL] Microsoft Graph not configured');
+        return { success: false, error: 'Email service not configured' };
+      }
       
-      return { success: true };
     } catch (error) {
-      console.error('Waitlist email service error:', error);
+      console.error('❌ [EMAIL] Waitlist email service error:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Failed to send waitlist email' 
@@ -650,9 +692,14 @@ Het team van Inspiration Point
       date: reservation.eventDate,
       startsAt: '19:30',
       endsAt: '22:30',
+      doorsOpen: '19:00',
       type: 'REGULAR' as const,
+      showId: 'show-1',
       capacity: 100,
-      isActive: true
+      isActive: true,
+      bookingOpensAt: new Date(reservation.eventDate.getTime() - 30 * 24 * 60 * 60 * 1000),
+      bookingClosesAt: new Date(reservation.eventDate),
+      allowedArrangements: ['BWF', 'BWFM']
     };
     
     return this.sendReservationConfirmation(reservation, mockEvent);
