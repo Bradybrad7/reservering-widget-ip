@@ -29,7 +29,8 @@ export const ShowManager: React.FC = () => {
 
   useEffect(() => {
     loadShows();
-  }, [loadShows]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleEdit = (show: Show) => {
     setEditingShow({ ...show });

@@ -49,7 +49,8 @@ export const DashboardEnhanced: React.FC = () => {
     loadStats();
     loadReservations();
     loadEvents();
-  }, [loadStats, loadReservations, loadEvents]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Calculate urgent actions
   const urgentData = useMemo(() => {

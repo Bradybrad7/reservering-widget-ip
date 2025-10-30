@@ -43,16 +43,18 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
   const { loadWaitlistStatusForDates } = useWaitlistStore();
   const [waitlistCounts, setWaitlistCounts] = useState<Record<string, number>>({});
 
-  // Load shows and config on mount
+  // 🔧 FIX: Load shows and config only once on mount (not on every render)
   useEffect(() => {
     loadShows();
     loadConfig();
-  }, [loadShows, loadConfig]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array = run only once on mount
 
-  // Load events when month changes
+  // 🔧 FIX: Load events only when month changes (not when loadEventsForMonth function reference changes)
   useEffect(() => {
     loadEventsForMonth(currentMonth.getFullYear(), currentMonth.getMonth());
-  }, [currentMonth, loadEventsForMonth]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentMonth]); // Only re-run when currentMonth changes
 
   // ✨ NEW: Load waitlist status for current month
   useEffect(() => {
@@ -251,7 +253,7 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
               disabled={!event || !event.isActive || availability?.bookingStatus === 'closed'}
               aria-label={
                 event 
-                  ? `${formatDate(date)} - ${getEventTypeName(event.type)} - ${availability?.isAvailable ? 'Beschikbaar' : 'Niet beschikbaar'}`
+                  ? `${formatDate(date)} - ${getEventTypeName(event.type, eventTypesConfig)} - ${availability?.isAvailable ? 'Beschikbaar' : 'Niet beschikbaar'}`
                   : formatDate(date)
               }
             >
@@ -304,7 +306,7 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
                           })}
                           style={!isSelected && eventColor ? { color: eventColor } : undefined}
                         >
-                          {getEventTypeName(event.type)}
+                          {getEventTypeName(event.type, eventTypesConfig)}
                         </div>
                       </div>
                     );

@@ -55,3 +55,44 @@ export const getEventColorStyles = (
     textColor: baseColor
   };
 };
+
+/**
+ * Get the name for an event type from config, with fallback to default names
+ * SYNC VERSION - does not call Firestore, uses provided config
+ */
+export const getEventTypeName = (
+  eventType: EventType,
+  eventTypesConfig?: EventTypesConfig | null
+): string => {
+  // Try to get name from config
+  const typeConfig = eventTypesConfig?.types.find(t => t.key === eventType);
+  if (typeConfig?.name) {
+    return typeConfig.name;
+  }
+
+  // Fallback to default names
+  const defaultNames: Record<EventType, string> = {
+    REGULAR: 'Regulier',
+    MATINEE: 'Matinee',
+    CARE_HEROES: 'Zorghelden',
+    REQUEST: 'Op Aanvraag',
+    UNAVAILABLE: 'Niet Beschikbaar'
+  };
+
+  // Check if it's a known default type
+  if (eventType in defaultNames) {
+    return defaultNames[eventType as keyof typeof defaultNames];
+  }
+
+  // Handle custom types: CUSTOM_1761217338750 → "Custom Event"
+  if (eventType.startsWith('CUSTOM_')) {
+    return 'Custom Event';
+  }
+
+  // Last resort: convert key to readable format
+  // Convert kebab-case or snake_case to Title Case
+  return eventType
+    .split(/[-_]/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};

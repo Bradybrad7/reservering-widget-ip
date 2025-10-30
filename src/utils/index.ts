@@ -51,11 +51,11 @@ export async function getText(key: string, defaultText?: string): Promise<string
 }
 
 /**
- * Get event type name - supports both default and custom event types
- * @param eventType - The event type key (e.g., 'REGULAR', 'CUSTOM_1761217338750')
- * @returns The display name for the event type
+ * Get event type name - DEPRECATED: Use getEventTypeName from eventColors.ts instead
+ * This async version caused performance issues by calling Firestore on every render
+ * @deprecated Use getEventTypeName(eventType, eventTypesConfig) from utils/eventColors instead
  */
-export async function getEventTypeName(eventType: EventType): Promise<string> {
+export async function getEventTypeNameAsync(eventType: EventType): Promise<string> {
   // First try to get from eventTypesConfig (supports custom types)
   const eventTypesConfig = await storageService.getEventTypesConfig();
   if (eventTypesConfig) {

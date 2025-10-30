@@ -115,7 +115,8 @@ export const EventCommandCenter: React.FC = () => {
     loadEvents();
     loadReservations();
     loadWaitlistEntries();
-  }, [loadEvents, loadReservations, loadWaitlistEntries]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ✨ NEW: Auto-select event when coming from search
   useEffect(() => {

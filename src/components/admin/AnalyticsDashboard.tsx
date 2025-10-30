@@ -23,7 +23,8 @@ export const AnalyticsDashboard: React.FC = () => {
     loadStats();
     loadEvents();
     loadReservations();
-  }, [loadStats, loadEvents, loadReservations]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Calculate additional metrics
   const upcomingEvents = (events || []).filter(e => new Date(e.date) > new Date()).length;

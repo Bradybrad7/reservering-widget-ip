@@ -19,7 +19,8 @@ export const CustomerManager: React.FC = () => {
 
   useEffect(() => {
     loadCustomers();
-  }, [loadCustomers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filteredCustomers = customers
     .filter(customer => {

@@ -26,7 +26,8 @@ export const WaitlistManager: React.FC = () => {
     console.log('🔍 WaitlistManager: Loading waitlist entries...');
     loadWaitlistEntries();
     loadEvents();
-  }, [loadWaitlistEntries, loadEvents]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filteredEntries = getFilteredEntries();
   

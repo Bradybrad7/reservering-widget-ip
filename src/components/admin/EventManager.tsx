@@ -89,7 +89,8 @@ export const EventManager: React.FC = () => {
     loadEvents();
     loadShows();
     loadConfig(); // ✨ Load dynamic event types
-  }, [loadEvents, loadShows, loadConfig]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Filter events locally
   const filteredEvents = events.filter(event => {
