@@ -126,17 +126,24 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
     },
 
     updateReservation: async (reservationId: string, updates: Partial<Reservation>, originalReservation?: Reservation, skipCommunicationLog = false) => {
+      console.log('🟢 [STORE] updateReservation called:', { reservationId, updates });
+      
       // Haal de originele reservering op als deze niet is meegestuurd
       const original = originalReservation || get().reservations.find(r => r.id === reservationId);
       
+      console.log('🟢 [STORE] Calling apiService.updateReservation...');
       const response = await apiService.updateReservation(reservationId, updates);
+      console.log('🟢 [STORE] API response:', response);
+      
       if (response.success) {
+        console.log('✅ [STORE] API call successful, updating Zustand state...');
         // Update state
         set(state => ({
           reservations: state.reservations.map(r =>
             r.id === reservationId ? { ...r, ...updates, updatedAt: new Date() } : r
           )
         }));
+        console.log('✅ [STORE] Zustand state updated');
         
         // 🔍 AUDIT LOGGING: Log de specifieke wijzigingen
         // ⚠️ BELANGRIJK: Skip logging als we alleen communicationLog updaten (voorkomt oneindige lus)
@@ -166,10 +173,19 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
     },
 
     updateReservationStatus: async (reservationId: string, status: Reservation['status']) => {
+      console.log('🟡 [STORE] updateReservationStatus called:', { reservationId, status });
+      
       const reservation = get().reservations.find(r => r.id === reservationId);
-      if (!reservation) return false;
+      if (!reservation) {
+        console.error('❌ [STORE] Reservation not found in store:', reservationId);
+        return false;
+      }
+      
+      console.log('🟡 [STORE] Current reservation status:', reservation.status);
+      console.log('🟡 [STORE] Calling updateReservation with status:', status);
 
       const success = await get().updateReservation(reservationId, { status });
+      console.log('🟡 [STORE] updateReservation returned:', success);
       
       if (success) {
         // Log status change
@@ -181,6 +197,7 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
 
         // Send email notification if confirmed
         if (status === 'confirmed') {
+          console.log('📧 [STORE] Sending confirmation email...');
           await emailService.sendConfirmation(reservation);
         }
         
@@ -202,11 +219,54 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
     },
 
     confirmReservation: async (reservationId: string) => {
-      return await get().updateReservationStatus(reservationId, 'confirmed');
+      console.log('🔵 [STORE] confirmReservation called for:', reservationId);
+      
+      // 🔍 DEBUG: First do a DIRECT Firestore check
+      console.log('🔍 [STORE] Running direct Firestore debug check...');
+      const { reservationsService } = await import('../services/firestoreService');
+      const debugResult = await reservationsService.debugCheckExists(reservationId);
+      console.log('🔍 [STORE] Debug check result:', debugResult);
+      
+      if (!debugResult.exists) {
+        console.error('❌ [STORE] CRITICAL: Document does NOT exist in Firestore!');
+        console.log('🔍 [STORE] Checking if reservation exists in store...');
+        const reservation = get().reservations.find(r => r.id === reservationId);
+        if (reservation) {
+          console.error('⚠️ [STORE] MISMATCH: Reservation exists in store but NOT in Firestore!');
+          console.log('📋 [STORE] Store reservation:', {
+            id: reservation.id,
+            status: reservation.status,
+            contactPerson: reservation.contactPerson,
+            eventId: reservation.eventId
+          });
+        } else {
+          console.error('❌ [STORE] Reservation also missing from store');
+        }
+        return false;
+      }
+      
+      console.log('✅ [STORE] Document exists in Firestore, proceeding with update...');
+      const result = await get().updateReservationStatus(reservationId, 'confirmed');
+      console.log('🔵 [STORE] confirmReservation result:', result);
+      
+      // Force een directe state update als fallback
+      if (result) {
+        set(state => ({
+          reservations: state.reservations.map(r =>
+            r.id === reservationId ? { ...r, status: 'confirmed', updatedAt: new Date() } : r
+          )
+        }));
+        console.log('🔵 [STORE] State forcefully updated to confirmed');
+      }
+      
+      return result;
     },
 
     rejectReservation: async (reservationId: string) => {
-      return await get().updateReservationStatus(reservationId, 'rejected');
+      console.log('🔴 [STORE] rejectReservation called for:', reservationId);
+      const result = await get().updateReservationStatus(reservationId, 'rejected');
+      console.log('🔴 [STORE] rejectReservation result:', result);
+      return result;
     },
 
     // ✅ FIXED: moveToWaitlist now creates a proper WaitlistEntry

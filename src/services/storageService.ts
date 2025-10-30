@@ -137,7 +137,10 @@ class StorageService {
   }
 
   async updateReservation(reservationId: string, updates: Partial<Reservation>): Promise<boolean> {
-    return firestoreService.reservations.update(reservationId, updates);
+    console.log('🔶 [STORAGE] updateReservation called:', { reservationId, updates });
+    const result = await firestoreService.reservations.update(reservationId, updates);
+    console.log('🔶 [STORAGE] firestoreService.reservations.update returned:', result);
+    return result;
   }
 
   async deleteReservation(reservationId: string): Promise<boolean> {

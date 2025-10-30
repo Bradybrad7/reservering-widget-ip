@@ -630,31 +630,38 @@ export const apiService = {
   },
 
   async updateReservation(reservationId: string, updates: Partial<Reservation>): Promise<ApiResponse<Reservation>> {
+    console.log('🔷 [API] updateReservation called:', { reservationId, updates });
     await delay(300);
     
     try {
+      console.log('🔷 [API] Calling storageService.updateReservation...');
       const success = await storageService.updateReservation(reservationId, {
         ...updates,
         updatedAt: new Date()
       });
+      console.log('🔷 [API] storageService.updateReservation returned:', success);
       
       if (!success) {
+        console.error('❌ [API] Storage update failed - reservation not found');
         return {
           success: false,
           error: 'Reservation not found'
         };
       }
       
+      console.log('🔷 [API] Fetching updated reservation...');
       const reservations = await storageService.getReservations();
       const reservation = reservations.find(r => r.id === reservationId);
       
       if (!reservation) {
+        console.error('❌ [API] Could not find reservation after update');
         return {
           success: false,
           error: 'Reservation not found after update'
         };
       }
       
+      console.log('✅ [API] Reservation updated successfully:', reservation.status);
       return {
         success: true,
         data: reservation,

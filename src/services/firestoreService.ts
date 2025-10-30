@@ -333,6 +333,31 @@ class ReservationsService {
   private collectionRef = collection(db, COLLECTIONS.RESERVATIONS);
   
   /**
+   * DEBUG: Direct check if document exists (bypasses all conversions)
+   */
+  async debugCheckExists(id: string): Promise<{ exists: boolean; data?: any; error?: string }> {
+    try {
+      console.log('🔍 [DEBUG] Direct Firestore check for ID:', id);
+      const docRef = doc(db, COLLECTIONS.RESERVATIONS, id);
+      const docSnap = await getDoc(docRef);
+      
+      const result = {
+        exists: docSnap.exists(),
+        data: docSnap.exists() ? docSnap.data() : undefined
+      };
+      
+      console.log('🔍 [DEBUG] Result:', result);
+      return result;
+    } catch (error) {
+      console.error('🔍 [DEBUG] Error checking document:', error);
+      return { 
+        exists: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }
+  
+  /**
    * Get all reservations
    */
   async getAll(): Promise<Reservation[]> {
@@ -376,11 +401,37 @@ class ReservationsService {
    * Get a single reservation by ID
    */
   async getById(id: string): Promise<Reservation | null> {
+    console.log('🔥 [FIRESTORE] getById called with ID:', id);
+    console.log('🔥 [FIRESTORE] Document path:', `${COLLECTIONS.RESERVATIONS}/${id}`);
+    
     const docRef = doc(db, COLLECTIONS.RESERVATIONS, id);
     const docSnap = await getDoc(docRef);
     
-    if (!docSnap.exists()) return null;
+    console.log('🔥 [FIRESTORE] Document exists?', docSnap.exists());
     
+    if (!docSnap.exists()) {
+      console.error('❌ [FIRESTORE] Document does not exist in Firestore!');
+      console.log('🔍 [FIRESTORE] Attempting to list all reservations to find similar IDs...');
+      
+      // Debug: List all reservations to see what IDs exist
+      try {
+        const allReservations = await this.getAll();
+        console.log('📋 [FIRESTORE] Found reservations:', allReservations.length);
+        console.log('📋 [FIRESTORE] Sample IDs:', allReservations.slice(0, 3).map(r => r.id));
+        
+        // Check if ID is similar to any existing ID
+        const similar = allReservations.find(r => r.id.includes(id) || id.includes(r.id));
+        if (similar) {
+          console.warn('⚠️ [FIRESTORE] Found similar ID:', similar.id);
+        }
+      } catch (e) {
+        console.error('Failed to list reservations for debugging:', e);
+      }
+      
+      return null;
+    }
+    
+    console.log('✅ [FIRESTORE] Document found, converting dates...');
     return convertDates<Reservation>({ id: docSnap.id, ...docSnap.data() }, [
       'eventDate',
       'createdAt',
@@ -440,10 +491,23 @@ class ReservationsService {
    * Update an existing reservation
    */
   async update(id: string, updates: Partial<Reservation>): Promise<boolean> {
+    console.log('🔥 [FIRESTORE] update called:', { id, updates });
+    
     try {
       // Get current reservation
+      console.log('🔥 [FIRESTORE] Fetching current reservation...');
       const current = await this.getById(id);
-      if (!current) return false;
+      
+      if (!current) {
+        console.error('❌ [FIRESTORE] Reservation not found:', id);
+        return false;
+      }
+      
+      console.log('🔥 [FIRESTORE] Current reservation:', { 
+        id: current.id, 
+        currentStatus: current.status,
+        eventId: current.eventId
+      });
       
       const updateData: any = { ...updates };
       
@@ -473,6 +537,8 @@ class ReservationsService {
       const oldStatus = current.status;
       const newStatus = updates.status || oldStatus;
       
+      console.log('🔥 [FIRESTORE] Status change:', { oldStatus, newStatus });
+      
       const wasInactive = oldStatus === 'cancelled' || oldStatus === 'rejected';
       const isInactive = newStatus === 'cancelled' || newStatus === 'rejected';
       
@@ -487,14 +553,24 @@ class ReservationsService {
       // Handle numberOfPersons changes
       if (updates.numberOfPersons && updates.numberOfPersons !== current.numberOfPersons && !isInactive) {
         const diff = updates.numberOfPersons - current.numberOfPersons;
+        console.log('🔥 [FIRESTORE] Updating capacity due to numberOfPersons change:', { diff });
         await this.updateEventCapacity(current.eventId, -diff);
       }
       
+      console.log('🔥 [FIRESTORE] Calling Firestore updateDoc with data:', updateData);
       const docRef = doc(db, COLLECTIONS.RESERVATIONS, id);
       await updateDoc(docRef, updateData);
+      console.log('✅ [FIRESTORE] Document updated successfully in Firestore!');
+      
+      // Verify the update
+      const updated = await this.getById(id);
+      if (updated) {
+        console.log('✅ [FIRESTORE] Verified update - new status:', updated.status);
+      }
+      
       return true;
     } catch (error) {
-      console.error('Error updating reservation:', error);
+      console.error('❌ [FIRESTORE] Error updating reservation:', error);
       return false;
     }
   }
