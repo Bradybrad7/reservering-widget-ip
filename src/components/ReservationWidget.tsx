@@ -5,6 +5,7 @@ import { ToastProvider, useToast, useFormErrorHandler } from './Toast';
 import { StepIndicator } from './StepIndicator';
 import { StepLayout } from './StepLayout';
 import OrderSummary from './OrderSummary';
+import { MobileSummaryBar } from './MobileSummaryBar';
 import { cn, formatCurrency, formatTime } from '../utils';
 import { nl } from '../config/defaults';
 
@@ -36,6 +37,7 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
     submitReservation,
     updateConfig,
     updateFormData,
+    goToNextStep,
     goToPreviousStep,
     setCurrentStep
   } = useReservationStore();
@@ -162,90 +164,137 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
     switch (currentStep) {
       case 'calendar':
         return (
-          <StepLayout sidebar={<OrderSummary />}>
-            <Suspense fallback={<LoadingFallback />}>
-              <Calendar />
-            </Suspense>
-          </StepLayout>
+          <>
+            <StepLayout sidebar={<OrderSummary />}>
+              <Suspense fallback={<LoadingFallback />}>
+                <Calendar />
+              </Suspense>
+            </StepLayout>
+            <MobileSummaryBar
+              onNext={goToNextStep}
+              nextButtonLabel="Datum kiezen"
+            />
+          </>
         );
 
       case 'persons':
         return (
-          <StepLayout
-            showBackButton={showBackButton}
-            onBack={goToPreviousStep}
-            sidebar={<OrderSummary />}
-          >
-            <Suspense fallback={<LoadingFallback />}>
-              <PersonsStep />
-            </Suspense>
-          </StepLayout>
+          <>
+            <StepLayout
+              showBackButton={showBackButton}
+              onBack={goToPreviousStep}
+              sidebar={<OrderSummary />}
+            >
+              <Suspense fallback={<LoadingFallback />}>
+                <PersonsStep />
+              </Suspense>
+            </StepLayout>
+            <MobileSummaryBar
+              onNext={goToNextStep}
+              onBack={goToPreviousStep}
+              showBackButton={showBackButton}
+              nextButtonLabel="Volgende"
+            />
+          </>
         );
 
       // ✨ NIEUWE GECOMBINEERDE STAP: Package (arrangement + borrels)
       case 'package':
         return (
-          <StepLayout
-            showBackButton={showBackButton}
-            onBack={goToPreviousStep}
-            sidebar={<OrderSummary />}
-          >
-            <Suspense fallback={<LoadingFallback />}>
-              <PackageStep />
-            </Suspense>
-          </StepLayout>
+          <>
+            <StepLayout
+              showBackButton={showBackButton}
+              onBack={goToPreviousStep}
+              sidebar={<OrderSummary />}
+            >
+              <Suspense fallback={<LoadingFallback />}>
+                <PackageStep />
+              </Suspense>
+            </StepLayout>
+            <MobileSummaryBar
+              onNext={goToNextStep}
+              onBack={goToPreviousStep}
+              showBackButton={showBackButton}
+              nextButtonLabel="Volgende"
+            />
+          </>
         );
 
       case 'merchandise':
         // 🛍️ NIEUW: Merchandise stap - Optionele producten
         return (
-          <StepLayout
-            showBackButton={showBackButton}
-            onBack={goToPreviousStep}
-            sidebar={<OrderSummary />}
-          >
-            <Suspense fallback={<LoadingFallback />}>
-              <MerchandiseStep />
-            </Suspense>
-          </StepLayout>
+          <>
+            <StepLayout
+              showBackButton={showBackButton}
+              onBack={goToPreviousStep}
+              sidebar={<OrderSummary />}
+            >
+              <Suspense fallback={<LoadingFallback />}>
+                <MerchandiseStep />
+              </Suspense>
+            </StepLayout>
+            <MobileSummaryBar
+              onNext={goToNextStep}
+              onBack={goToPreviousStep}
+              showBackButton={showBackButton}
+              nextButtonLabel="Volgende"
+            />
+          </>
         );
 
       case 'contact':
         // ✨ NIEUW: Stap 1 - Essentiële contactgegevens
         return (
-          <StepLayout
-            showBackButton={showBackButton}
-            onBack={goToPreviousStep}
-            sidebar={<OrderSummary />}
-          >
-            <Suspense fallback={<LoadingFallback />}>
-              <ContactStep />
-            </Suspense>
-          </StepLayout>
+          <>
+            <StepLayout
+              showBackButton={showBackButton}
+              onBack={goToPreviousStep}
+              sidebar={<OrderSummary />}
+            >
+              <Suspense fallback={<LoadingFallback />}>
+                <ContactStep />
+              </Suspense>
+            </StepLayout>
+            <MobileSummaryBar
+              onNext={goToNextStep}
+              onBack={goToPreviousStep}
+              showBackButton={showBackButton}
+              nextButtonLabel="Volgende"
+            />
+          </>
         );
 
       case 'details':
         // ✨ NIEUW: Stap 2 - Aanvullende details (adres, dieet, factuur)
         return (
-          <StepLayout
-            showBackButton={showBackButton}
-            onBack={goToPreviousStep}
-            sidebar={<OrderSummary />}
-          >
-            <Suspense fallback={<LoadingFallback />}>
-              <DetailsStep />
-            </Suspense>
-          </StepLayout>
+          <>
+            <StepLayout
+              showBackButton={showBackButton}
+              onBack={goToPreviousStep}
+              sidebar={<OrderSummary />}
+            >
+              <Suspense fallback={<LoadingFallback />}>
+                <DetailsStep />
+              </Suspense>
+            </StepLayout>
+            <MobileSummaryBar
+              onNext={goToNextStep}
+              onBack={goToPreviousStep}
+              showBackButton={showBackButton}
+              nextButtonLabel="Volgende"
+            />
+          </>
         );
 
       case 'summary':
         return (
-          <StepLayout
-            showBackButton={showBackButton}
-            onBack={goToPreviousStep}
-            sidebar={<OrderSummary />}
-          >
-            <div className="space-y-4">
+          <>
+            <StepLayout
+              showBackButton={showBackButton}
+              onBack={goToPreviousStep}
+              sidebar={<OrderSummary />}
+            >
+              <div className="space-y-4">
               {/* Header */}
               <div className="card-theatre rounded-2xl border border-gold-400/20 p-4 md:p-6 shadow-lifted">
                 <h2 className="text-2xl font-bold text-neutral-100 mb-3 text-shadow">Controleer uw gegevens</h2>
@@ -467,6 +516,13 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
               </div>
             </div>
           </StepLayout>
+          <MobileSummaryBar
+            onNext={handleReserve}
+            onBack={goToPreviousStep}
+            showBackButton={showBackButton}
+            nextButtonLabel="Reservering bevestigen"
+          />
+        </>
         );
 
       case 'waitlistPrompt':

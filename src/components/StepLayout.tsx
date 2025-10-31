@@ -45,14 +45,14 @@ export const StepLayout = memo<StepLayoutProps>(({
 
       {/* Main Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Main Content Area */}
-        <div className="lg:col-span-2">
+        {/* Main Content Area - Full width on mobile, 2/3 on desktop */}
+        <div className="lg:col-span-2 pb-32 md:pb-0">
           {children}
         </div>
 
-        {/* Sidebar */}
+        {/* Sidebar - Hidden on mobile (md and below), shown on desktop */}
         {sidebar && (
-          <div className="lg:col-span-1">
+          <div className="hidden md:block lg:col-span-1">
             {sidebar}
           </div>
         )}

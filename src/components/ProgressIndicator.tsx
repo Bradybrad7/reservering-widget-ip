@@ -86,10 +86,11 @@ export const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({ currentSte
                   {isCompleted ? '✓' : step.icon}
                 </div>
                 
-                {/* Step Label */}
+                {/* Step Label - Hidden on mobile, shown on tablet+ */}
                 <div
                   className={`
                     text-xs font-medium text-center transition-all duration-300
+                    hidden md:block
                     ${isCompleted ? 'text-green-600' : ''}
                     ${isCurrent ? 'text-primary-500 font-semibold' : ''}
                     ${isUpcoming ? 'text-gray-400' : ''}

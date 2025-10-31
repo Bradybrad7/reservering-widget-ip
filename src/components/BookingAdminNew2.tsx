@@ -2,8 +2,8 @@ import React from 'react';
 import type { BookingAdminProps } from '../types';
 import { AdminLayoutNew } from './admin/AdminLayoutNew';
 import { DashboardEnhanced } from './admin/DashboardEnhanced';
-import { ReservationsManagerEnhanced } from './admin/ReservationsManagerEnhanced';
-import { EventCommandCenter } from './admin/EventCommandCenter';
+import { ReservationsCommandCenter } from './admin/ReservationsCommandCenter';
+import { EventCommandCenterRevamped } from './admin/EventCommandCenterRevamped';
 import { CustomerManagerEnhanced } from './admin/CustomerManagerEnhanced';
 import { ProductsManager } from './admin/ProductsManager';
 import { ConfigManagerEnhanced } from './admin/ConfigManagerEnhanced';
@@ -25,13 +25,13 @@ const BookingAdminNew: React.FC<BookingAdminProps> = () => {
       case 'dashboard':
         return <DashboardEnhanced />;
 
-      // Events - Unified manager with internal tabs
+      // Events - Revamped manager with calendar, list, and grid views
       case 'events':
-        return <EventCommandCenter />;
+        return <EventCommandCenterRevamped />;
 
-      // Reservations - Unified manager with filter tabs
+      // Reservations - Modern command center with cards, table, and timeline views
       case 'reservations':
-        return <ReservationsManagerEnhanced />;
+        return <ReservationsCommandCenter />;
 
       // Waitlist - Dedicated manager
       case 'waitlist':
