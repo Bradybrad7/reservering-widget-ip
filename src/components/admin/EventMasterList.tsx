@@ -29,6 +29,8 @@ import {
 import type { AdminEvent, Reservation, WaitlistEntry, EventType } from '../../types';
 import { getEventComputedData } from './EventCommandCenter';
 import { useEventsStore } from '../../store/eventsStore';
+import { useConfigStore } from '../../store/configStore';
+import { getEventTypeColor, getEventTypeName, hexToRgba } from '../../utils/eventColors';
 import { EventCalendarView } from './EventCalendarView';
 
 interface EventMasterListProps {
@@ -51,12 +53,13 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
   onBulkAdd,
 }) => {
   const { bulkDeleteEvents, bulkCancelEvents } = useEventsStore();
+  const { eventTypesConfig, loadConfig } = useConfigStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'full' | 'waitlist' | 'closed'>('all');
   const [typeFilter, setTypeFilter] = useState<EventType | 'all'>('all');
   const [selectedEvents, setSelectedEvents] = useState<Set<string>>(new Set());
   const [showBulkActions, setShowBulkActions] = useState(false);
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [viewMode, setViewMode] = useState<'list'>('list');
   const [sortBy, setSortBy] = useState<'date' | 'capacity' | 'bookings'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showStats, setShowStats] = useState(true);
@@ -283,6 +286,11 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
     }
   };
 
+  // Load config on mount
+  React.useEffect(() => {
+    loadConfig();
+  }, [loadConfig]);
+
   // 🆕 Toggle sort order
   const toggleSort = (newSortBy: typeof sortBy) => {
     if (sortBy === newSortBy) {
@@ -293,20 +301,14 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
     }
   };
 
-  // 🆕 Get event type color
-  const getEventTypeColor = (type: EventType) => {
-    switch (type) {
-      case 'mystery-dinner':
-        return 'bg-purple-500/10 border-purple-500/30 text-purple-400';
-      case 'pub-quiz':
-        return 'bg-blue-500/10 border-blue-500/30 text-blue-400';
-      case 'matinee':
-        return 'bg-pink-500/10 border-pink-500/30 text-pink-400';
-      case 'care-heroes':
-        return 'bg-green-500/10 border-green-500/30 text-green-400';
-      default:
-        return 'bg-gray-500/10 border-gray-500/30 text-gray-400';
-    }
+  // 🆕 Get event type badge style with dynamic colors
+  const getEventTypeBadgeStyle = (type: EventType) => {
+    const color = getEventTypeColor(type, eventTypesConfig || undefined);
+    return {
+      backgroundColor: hexToRgba(color, 0.1),
+      borderColor: hexToRgba(color, 0.3),
+      color: color
+    };
   };
 
   return (
@@ -367,16 +369,8 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
         </div>
       )}
 
-      {/* Render Calendar or List View */}
-      {viewMode === 'calendar' ? (
-        <EventCalendarView
-          events={filteredAndSortedEvents}
-          allReservations={allReservations}
-          allWaitlistEntries={allWaitlistEntries}
-          onSelectEvent={onSelectEvent}
-          selectedEventId={selectedEventId}
-        />
-      ) : (
+      {/* Render List View */}
+      {(
         <>
       {/* Toolbar met filters */}
       <div className="p-4 border-b border-gray-700 space-y-3">
@@ -417,26 +411,11 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
             {/* 🆕 View Mode Toggle */}
             <div className="flex bg-gray-700 rounded-lg p-1">
               <button
-                onClick={() => setViewMode('list')}
-                className={`px-2 py-1 rounded transition-colors ${
-                  viewMode === 'list' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'text-gray-400 hover:text-white'
-                }`}
+                className="px-2 py-1 rounded transition-colors bg-blue-600 text-white"
                 title="Lijstweergave"
+                disabled
               >
                 <List className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode('calendar' as 'list' | 'calendar')}
-                className={`px-2 py-1 rounded transition-colors ${
-                  viewMode === 'calendar' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'text-gray-400 hover:text-white'
-                }`}
-                title="Kalenderweergave"
-              >
-                <Calendar className="w-4 h-4" />
               </button>
             </div>
 
@@ -670,12 +649,12 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
                         year: 'numeric' 
                       })}
                     </span>
-                    {/* 🆕 Event Type Badge */}
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${getEventTypeColor(event.type)}`}>
-                      {event.type === 'mystery-dinner' ? '🎭' : 
-                       event.type === 'pub-quiz' ? '🧠' : 
-                       event.type === 'matinee' ? '🎪' : 
-                       event.type === 'care-heroes' ? '💙' : '📅'}
+                    {/* 🆕 Event Type Badge with dynamic color */}
+                    <span 
+                      className="px-2 py-0.5 rounded-full text-xs font-medium border"
+                      style={getEventTypeBadgeStyle(event.type)}
+                    >
+                      {getEventTypeName(event.type, eventTypesConfig || undefined)}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">

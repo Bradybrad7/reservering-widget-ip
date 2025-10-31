@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, Phone, Mail, Users, User, Calendar, AlertTriangle } from 'lucide-react';
+import { X, Check, Phone, Mail, Users, User, Calendar, AlertTriangle, DollarSign } from 'lucide-react';
 import { useEventsStore } from '../../store/eventsStore';
 import { useReservationsStore } from '../../store/reservationsStore';
 import { apiService } from '../../services/apiService';
+import { priceService } from '../../services/priceService';
 import type { Event, Arrangement } from '../../types';
 import { formatDate, formatCurrency, cn } from '../../utils';
 
@@ -28,8 +29,13 @@ export const QuickBooking: React.FC<QuickBookingProps> = ({ onClose }) => {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  
+  // 🆕 Price calculation from selected event
+  const [arrangementPricePerPerson, setArrangementPricePerPerson] = useState<number>(0);
+  const [calculatedPrice, setCalculatedPrice] = useState<number>(0);
 
   useEffect(() => {
+    console.log('📅 [QuickBooking] Loading events...');
     loadEvents();
   }, [loadEvents]);
 
@@ -37,13 +43,49 @@ export const QuickBooking: React.FC<QuickBookingProps> = ({ onClose }) => {
     .filter(e => new Date(e.date) >= new Date() && e.isActive)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  const calculatePrice = () => {
-    if (bookingType === 'guest' || bookingType === 'option') return 0;
-    const basePrice = arrangement === 'BWFM' ? 37.50 : 32.50;
-    return numberOfPersons * basePrice;
-  };
+  // 🆕 Fetch arrangement price from selected event
+  useEffect(() => {
+    const fetchArrangementPrice = async () => {
+      if (selectedEvent && arrangement && bookingType === 'booking') {
+        console.log('💰 [QuickBooking] Fetching price for:', {
+          eventId: selectedEvent.id,
+          eventType: selectedEvent.type,
+          arrangement
+        });
+        
+        try {
+          const pricePerPerson = await priceService.getArrangementPrice(selectedEvent, arrangement);
+          console.log('✅ [QuickBooking] Price per person:', pricePerPerson);
+          setArrangementPricePerPerson(pricePerPerson);
+        } catch (error) {
+          console.error('❌ [QuickBooking] Error fetching price:', error);
+          setArrangementPricePerPerson(0);
+        }
+      } else {
+        setArrangementPricePerPerson(0);
+      }
+    };
 
-  const totalPrice = calculatePrice();
+    fetchArrangementPrice();
+  }, [selectedEvent, arrangement, bookingType]);
+
+  // 🆕 Calculate total price
+  useEffect(() => {
+    if (bookingType === 'guest' || bookingType === 'option') {
+      setCalculatedPrice(0);
+      return;
+    }
+
+    if (arrangementPricePerPerson > 0 && numberOfPersons > 0) {
+      const total = arrangementPricePerPerson * numberOfPersons;
+      console.log('💰 [QuickBooking] Total price:', total);
+      setCalculatedPrice(total);
+    } else {
+      setCalculatedPrice(0);
+    }
+  }, [bookingType, arrangementPricePerPerson, numberOfPersons]);
+
+  const totalPrice = calculatedPrice;
 
   const canSubmit = () => {
     if (!selectedEvent || !contactPerson.trim() || !phone.trim() || numberOfPersons < 1) return false;
@@ -236,7 +278,29 @@ export const QuickBooking: React.FC<QuickBookingProps> = ({ onClose }) => {
                 <label className="block text-sm font-medium text-neutral-300 mb-2">Naam <span className="text-red-400">*</span></label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
-                  <input type="text" value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} placeholder="Voor- en achternaam" className="w-full pl-10 pr-4 py-3 bg-neutral-800 border border-neutral-700 rounded-xl text-white placeholder-neutral-500 focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all" required />
+                  <input 
+                    type="text" 
+                    value={contactPerson} 
+                    onChange={(e) => {
+                      // Smart capitalization: first letter of each word, except Dutch particles
+                      const value = e.target.value;
+                      const words = value.split(' ');
+                      const capitalized = words.map((word, i) => {
+                        if (!word) return word;
+                        const lowerWord = word.toLowerCase();
+                        // Don't capitalize particles unless it's the first word
+                        if (i > 0 && ['van', 'de', 'der', 'den', 'het', 'op', 'te', 'in', "'t"].includes(lowerWord)) {
+                          return lowerWord;
+                        }
+                        // Capitalize first letter
+                        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+                      }).join(' ');
+                      setContactPerson(capitalized);
+                    }} 
+                    placeholder="Bijv. Peter van de Bakker" 
+                    className="w-full pl-10 pr-4 py-3 bg-neutral-800 border border-neutral-700 rounded-xl text-white placeholder-neutral-500 focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all" 
+                    required 
+                  />
                 </div>
               </div>
 
@@ -271,7 +335,15 @@ export const QuickBooking: React.FC<QuickBookingProps> = ({ onClose }) => {
                 <label className="block text-sm font-medium text-neutral-300 mb-2">Aantal Personen <span className="text-red-400">*</span></label>
                 <div className="relative">
                   <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
-                  <input type="number" min="1" value={numberOfPersons} onChange={(e) => setNumberOfPersons(parseInt(e.target.value) || 1)} className="w-full pl-10 pr-4 py-3 bg-neutral-800 border border-neutral-700 rounded-xl text-white focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all" required />
+                  <input 
+                    type="number" 
+                    min="1" 
+                    value={numberOfPersons} 
+                    onChange={(e) => setNumberOfPersons(parseInt(e.target.value) || 1)} 
+                    onFocus={(e) => e.target.select()}
+                    className="w-full pl-10 pr-4 py-3 bg-neutral-800 border border-neutral-700 rounded-xl text-white focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all" 
+                    required 
+                  />
                 </div>
                 {selectedEvent && selectedEvent.remainingCapacity !== undefined && (
                   <p className="mt-2 text-xs text-neutral-400">
@@ -284,22 +356,36 @@ export const QuickBooking: React.FC<QuickBookingProps> = ({ onClose }) => {
               </div>
             </div>
 
-            {bookingType === 'booking' && (
+            {bookingType === 'booking' && selectedEvent && (
               <div>
                 <label className="block text-sm font-semibold text-neutral-300 mb-3">Arrangement <span className="text-red-400">*</span></label>
                 <div className="grid grid-cols-2 gap-3">
                   <button type="button" onClick={() => setArrangement('BWF')} className={cn('p-4 rounded-xl border-2 transition-all text-center', arrangement === 'BWF' ? 'border-blue-500 bg-blue-500/10' : 'border-neutral-700 hover:border-neutral-600')}>
                     <div className={cn('font-bold text-lg mb-1', arrangement === 'BWF' ? 'text-white' : 'text-neutral-300')}>BWF</div>
-                    <div className="text-sm text-neutral-400 mb-2">Borrel, Wijn & Fingerfood</div>
-                    <div className={cn('text-lg font-bold', arrangement === 'BWF' ? 'text-blue-400' : 'text-neutral-500')}>€32,50 p.p.</div>
+                    <div className="text-sm text-neutral-400 mb-2">Borrel, Show & Buffet</div>
+                    <div className={cn('text-lg font-bold', arrangement === 'BWF' ? 'text-blue-400' : 'text-neutral-500')}>
+                      {arrangement === 'BWF' && arrangementPricePerPerson > 0 
+                        ? formatCurrency(arrangementPricePerPerson) + ' p.p.'
+                        : '... laden'}
+                    </div>
                   </button>
 
                   <button type="button" onClick={() => setArrangement('BWFM')} className={cn('p-4 rounded-xl border-2 transition-all text-center', arrangement === 'BWFM' ? 'border-purple-500 bg-purple-500/10' : 'border-neutral-700 hover:border-neutral-600')}>
                     <div className={cn('font-bold text-lg mb-1', arrangement === 'BWFM' ? 'text-white' : 'text-neutral-300')}>BWFM</div>
-                    <div className="text-sm text-neutral-400 mb-2">BWF + Maaltijd</div>
-                    <div className={cn('text-lg font-bold', arrangement === 'BWFM' ? 'text-purple-400' : 'text-neutral-500')}>€37,50 p.p.</div>
+                    <div className="text-sm text-neutral-400 mb-2">BWF + Muziek</div>
+                    <div className={cn('text-lg font-bold', arrangement === 'BWFM' ? 'text-purple-400' : 'text-neutral-500')}>
+                      {arrangement === 'BWFM' && arrangementPricePerPerson > 0 
+                        ? formatCurrency(arrangementPricePerPerson) + ' p.p.'
+                        : '... laden'}
+                    </div>
                   </button>
                 </div>
+                
+                {selectedEvent && (
+                  <div className="mt-3 p-2 bg-blue-500/5 rounded text-xs text-neutral-400 text-center">
+                    💡 Prijzen van {selectedEvent.customPricing ? 'custom pricing voor dit event' : `event type: ${selectedEvent.type}`}
+                  </div>
+                )}
               </div>
             )}
 
@@ -313,13 +399,36 @@ export const QuickBooking: React.FC<QuickBookingProps> = ({ onClose }) => {
               <textarea value={comments} onChange={(e) => setComments(e.target.value)} placeholder="Extra opmerkingen of wensen..." rows={3} className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-xl text-white placeholder-neutral-500 focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all resize-none" />
             </div>
 
-            {bookingType === 'booking' && totalPrice > 0 && (
-              <div className="bg-green-500/10 border-2 border-green-500/30 rounded-xl p-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-neutral-300 font-medium">Totaalprijs</span>
-                  <span className="text-2xl font-bold text-green-400">{formatCurrency(totalPrice)}</span>
+            {bookingType === 'booking' && selectedEvent && (
+              <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-2 border-green-500/30 rounded-xl p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <DollarSign className="w-5 h-5 text-green-400" />
+                  <span className="text-sm font-semibold text-green-300">Prijsberekening</span>
                 </div>
-                <div className="text-sm text-neutral-400 mt-1">{numberOfPersons} personen × {formatCurrency(arrangement === 'BWFM' ? 37.50 : 32.50)}</div>
+                
+                {arrangementPricePerPerson > 0 ? (
+                  <>
+                    <div className="space-y-2 mb-3">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-neutral-400">Arrangement ({arrangement}):</span>
+                        <span className="text-neutral-200 font-medium">{formatCurrency(arrangementPricePerPerson)} p.p.</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-neutral-400">Aantal personen:</span>
+                        <span className="text-neutral-200 font-medium">{numberOfPersons}x</span>
+                      </div>
+                    </div>
+                    
+                    <div className="border-t border-green-500/30 pt-3 flex justify-between items-center">
+                      <span className="text-neutral-300 font-semibold">Totaalprijs</span>
+                      <span className="text-2xl font-bold text-green-400">{formatCurrency(totalPrice)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-sm text-yellow-300">
+                    ⏳ Berekenen...
+                  </div>
+                )}
               </div>
             )}
 

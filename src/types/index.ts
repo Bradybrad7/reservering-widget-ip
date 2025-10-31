@@ -475,15 +475,22 @@ export interface CustomerProfile {
   email: string;
   companyName: string;
   contactPerson: string;
+  phone?: string; // Phone number from most recent reservation
   totalBookings: number;
   totalSpent: number;
   lastBooking: Date;
   firstBooking: Date;
   tags: string[];
-  notes?: string;
+  notes?: string; // Admin notes about this customer
+  customerNotes?: string; // Dedicated field for CRM notes
   reservations: Reservation[];
   averageGroupSize: number;
   preferredArrangement?: Arrangement;
+  // Additional CRM fields
+  vipStatus?: boolean;
+  lifetimeValue?: number; // Calculated from totalSpent
+  lastContactDate?: Date;
+  nextFollowUpDate?: Date;
 }
 
 // Event Template

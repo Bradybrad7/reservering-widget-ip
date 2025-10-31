@@ -1,50 +1,58 @@
 /**
- * Voucher Configuration Manager
+ * 🆕 Voucher Configuration Manager - VOLLEDIG NIEUWE VERSIE
  * 
- * Admin interface to configure:
- * - Which arrangements (BWF/BWFM) are available for vouchers
- * - Per event type: custom display names and availability
- * - Control exactly which voucher options appear on purchase page
+ * Werkt met eventTypesConfig.types[] in plaats van oude pricing.byDayType
+ * Beheert welke event types + arrangements zichtbaar zijn op voucher pagina
  */
 
 import React, { useState, useEffect } from 'react';
-import { Save, Gift, Eye, EyeOff, Edit2, Check, X } from 'lucide-react';
+import { Save, Gift, Eye, EyeOff, AlertCircle, RefreshCw } from 'lucide-react';
 import { useConfigStore } from '../../store/configStore';
-import type { Pricing } from '../../types';
+import { formatCurrency } from '../../utils';
+
+interface VoucherSettings {
+  globalBWFEnabled: boolean;
+  globalBWFMEnabled: boolean;
+  perEventType: {
+    [eventTypeKey: string]: {
+      BWF?: boolean;  // undefined = enabled, false = disabled
+      BWFM?: boolean;
+    };
+  };
+}
 
 export const VoucherConfigManager: React.FC = () => {
-  const { pricing, updatePricing } = useConfigStore();
-  const [config, setConfig] = useState<Pricing | null>(null);
+  const { eventTypesConfig } = useConfigStore();
+  const [voucherSettings, setVoucherSettings] = useState<VoucherSettings>({
+    globalBWFEnabled: true,
+    globalBWFMEnabled: true,
+    perEventType: {}
+  });
   const [isSaving, setIsSaving] = useState(false);
-  const [editingEventType, setEditingEventType] = useState<string | null>(null);
-  const [displayNameInput, setDisplayNameInput] = useState('');
 
+  // Load voucher settings from localStorage
   useEffect(() => {
-    if (pricing) {
-      setConfig(pricing);
+    console.log('📋 [VoucherConfig] Loading settings...');
+    const stored = localStorage.getItem('voucherSettings');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        setVoucherSettings(parsed);
+        console.log('✅ [VoucherConfig] Settings loaded:', parsed);
+      } catch (e) {
+        console.error('❌ Failed to parse voucher settings:', e);
+      }
     }
-  }, [pricing]);
+  }, []);
 
-  if (!config) {
-    return (
-      <div className="p-6 bg-white rounded-lg shadow">
-        <p className="text-gray-600">Configuratie aan het laden...</p>
-      </div>
-    );
-  }
-
-  // Initialize voucherAvailability if it doesn't exist
-  if (!config.voucherAvailability) {
-    config.voucherAvailability = {};
-  }
-
-  const handleSave = async () => {
+  const handleSave = () => {
     setIsSaving(true);
     try {
-      await updatePricing(config);
-      alert('Voucher configuratie opgeslagen!');
+      localStorage.setItem('voucherSettings', JSON.stringify(voucherSettings));
+      console.log('💾 [VoucherConfig] Settings saved:', voucherSettings);
+      alert('✅ Voucher configuratie opgeslagen!');
     } catch (error) {
-      console.error('Error saving voucher config:', error);
+      console.error('❌ Error saving voucher config:', error);
       alert('Fout bij opslaan. Probeer opnieuw.');
     } finally {
       setIsSaving(false);
@@ -52,144 +60,106 @@ export const VoucherConfigManager: React.FC = () => {
   };
 
   const toggleGlobalArrangement = (arrangement: 'BWF' | 'BWFM') => {
-    const newConfig = { ...config };
-    if (!newConfig.voucherSettings) {
-      newConfig.voucherSettings = {
-        BWF: { available: true },
-        BWFM: { available: true }
+    setVoucherSettings(prev => ({
+      ...prev,
+      [`global${arrangement}Enabled`]: !prev[`global${arrangement}Enabled` as keyof VoucherSettings]
+    }));
+  };
+
+  const toggleEventTypeArrangement = (eventTypeKey: string, arrangement: 'BWF' | 'BWFM') => {
+    setVoucherSettings(prev => {
+      const current = prev.perEventType[eventTypeKey]?.[arrangement];
+      return {
+        ...prev,
+        perEventType: {
+          ...prev.perEventType,
+          [eventTypeKey]: {
+            ...prev.perEventType[eventTypeKey],
+            [arrangement]: current === false ? undefined : false
+          }
+        }
       };
-    }
-    
-    const currentValue = newConfig.voucherSettings[arrangement]?.available !== false;
-    newConfig.voucherSettings[arrangement] = {
-      ...newConfig.voucherSettings[arrangement],
-      available: !currentValue
-    };
-    
-    setConfig(newConfig);
+    });
   };
 
-  const toggleEventTypeArrangement = (eventType: string, arrangement: 'BWF' | 'BWFM') => {
-    const newConfig = { ...config };
-    if (!newConfig.voucherAvailability) {
-      newConfig.voucherAvailability = {};
-    }
-    if (!newConfig.voucherAvailability[eventType]) {
-      newConfig.voucherAvailability[eventType] = {};
-    }
-
-    const currentValue = newConfig.voucherAvailability[eventType][arrangement];
-    newConfig.voucherAvailability[eventType][arrangement] = currentValue === false ? undefined : false;
-    
-    setConfig(newConfig);
-  };
-
-  const startEditingDisplayName = (eventType: string) => {
-    setEditingEventType(eventType);
-    setDisplayNameInput(config.voucherAvailability?.[eventType]?.displayName || '');
-  };
-
-  const saveDisplayName = (eventType: string) => {
-    const newConfig = { ...config };
-    if (!newConfig.voucherAvailability) {
-      newConfig.voucherAvailability = {};
-    }
-    if (!newConfig.voucherAvailability[eventType]) {
-      newConfig.voucherAvailability[eventType] = {};
-    }
-
-    newConfig.voucherAvailability[eventType].displayName = displayNameInput.trim() || undefined;
-    setConfig(newConfig);
-    setEditingEventType(null);
-    setDisplayNameInput('');
-  };
-
-  const cancelEditingDisplayName = () => {
-    setEditingEventType(null);
-    setDisplayNameInput('');
-  };
-
-  const getEventTypeLabel = (eventType: string): string => {
-    const labels: Record<string, string> = {
-      'weekday': 'Doordeweeks',
-      'weekend': 'Weekend',
-      'matinee': 'Matinee',
-      'friday': 'Vrijdag',
-      'saturday': 'Zaterdag',
-      'sunday': 'Zondag',
-      'special': 'Speciaal',
-      'REGULAR': 'Regulier'
-    };
-    return labels[eventType] || eventType;
-  };
-
-  const getDisplayName = (eventType: string): string => {
-    return config.voucherAvailability?.[eventType]?.displayName || getEventTypeLabel(eventType);
-  };
-
-  const isArrangementAvailable = (eventType: string, arrangement: 'BWF' | 'BWFM'): boolean => {
-    // Check global setting
-    const globalAvailable = config.voucherSettings?.[arrangement]?.available !== false;
-    if (!globalAvailable) return false;
+  const isArrangementAvailable = (eventTypeKey: string, arrangement: 'BWF' | 'BWFM'): boolean => {
+    // Check global setting first
+    const globalKey = `global${arrangement}Enabled` as keyof VoucherSettings;
+    if (!voucherSettings[globalKey]) return false;
 
     // Check event type specific setting
-    const eventTypeAvailable = config.voucherAvailability?.[eventType]?.[arrangement] !== false;
-    return eventTypeAvailable;
+    const eventTypeSetting = voucherSettings.perEventType[eventTypeKey]?.[arrangement];
+    return eventTypeSetting !== false;
   };
 
-  const eventTypes = Object.keys(config.byDayType);
+  if (!eventTypesConfig || !eventTypesConfig.types || eventTypesConfig.types.length === 0) {
+    return (
+      <div className="p-6 bg-neutral-800 rounded-lg shadow">
+        <div className="flex items-center gap-3 text-yellow-400 mb-3">
+          <AlertCircle className="w-6 h-6" />
+          <p className="font-semibold">Geen event types gevonden</p>
+        </div>
+        <p className="text-neutral-400">
+          Ga naar "Producten en Prijzen" om eerst event types aan te maken.
+        </p>
+      </div>
+    );
+  }
+
+  const enabledEventTypes = eventTypesConfig.types.filter(t => t.enabled);
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-neutral-800 rounded-xl shadow-lg p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <Gift className="w-6 h-6 text-purple-600" />
-            <h2 className="text-2xl font-bold text-gray-900">
+            <Gift className="w-6 h-6 text-gold-500" />
+            <h2 className="text-2xl font-bold text-white">
               Voucher Configuratie
             </h2>
           </div>
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400"
+            className="flex items-center gap-2 px-4 py-2 bg-gold-500 text-neutral-900 font-semibold rounded-lg hover:bg-gold-400 disabled:bg-neutral-600 disabled:text-neutral-400 transition-all"
           >
             <Save className="w-4 h-4" />
             {isSaving ? 'Opslaan...' : 'Opslaan'}
           </button>
         </div>
-        <p className="text-gray-600">
-          Configureer welke vouchers beschikbaar zijn en hoe ze worden weergegeven op de voucher pagina.
+        <p className="text-neutral-400">
+          Configureer welke vouchers beschikbaar zijn op de voucher pagina. 
+          Instellingen worden lokaal opgeslagen.
         </p>
       </div>
 
       {/* Global Arrangement Settings */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+      <div className="bg-neutral-800 rounded-xl shadow-lg p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">
           Globale Arrangement Instellingen
         </h3>
-        <p className="text-sm text-gray-600 mb-4">
+        <p className="text-sm text-neutral-400 mb-4">
           Schakel arrangements globaal in of uit. Als een arrangement hier is uitgeschakeld, 
           verschijnt het voor geen enkel event type.
         </p>
 
         <div className="space-y-3">
           {/* BWF (Standaard) */}
-          <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+          <div className="flex items-center justify-between p-4 bg-neutral-700/50 border border-neutral-600 rounded-lg">
             <div>
-              <h4 className="font-semibold text-gray-900">Standaard (BWF)</h4>
-              <p className="text-sm text-gray-600">Show met eten buffet en standaard dranken</p>
+              <h4 className="font-semibold text-white">Standaard (BWF)</h4>
+              <p className="text-sm text-neutral-400">Borrel, Show & Buffet</p>
             </div>
             <button
               onClick={() => toggleGlobalArrangement('BWF')}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                config.voucherSettings?.BWF?.available !== false
-                  ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                voucherSettings.globalBWFEnabled
+                  ? 'bg-green-500/20 text-green-400 border-2 border-green-500/50 hover:bg-green-500/30'
+                  : 'bg-neutral-600/50 text-neutral-400 border-2 border-neutral-600 hover:bg-neutral-600'
               }`}
             >
-              {config.voucherSettings?.BWF?.available !== false ? (
+              {voucherSettings.globalBWFEnabled ? (
                 <>
                   <Eye className="w-4 h-4" />
                   Beschikbaar
@@ -203,21 +173,21 @@ export const VoucherConfigManager: React.FC = () => {
             </button>
           </div>
 
-          {/* BWFM (Deluxe) */}
-          <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+          {/* BWFM (Premium) */}
+          <div className="flex items-center justify-between p-4 bg-neutral-700/50 border border-neutral-600 rounded-lg">
             <div>
-              <h4 className="font-semibold text-gray-900">Deluxe (BWFM)</h4>
-              <p className="text-sm text-gray-600">Alles van standaard plus mixdranken en speciale bieren</p>
+              <h4 className="font-semibold text-white">Premium (BWFM)</h4>
+              <p className="text-sm text-neutral-400">BWF + Muziek</p>
             </div>
             <button
               onClick={() => toggleGlobalArrangement('BWFM')}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                config.voucherSettings?.BWFM?.available !== false
-                  ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                voucherSettings.globalBWFMEnabled
+                  ? 'bg-green-500/20 text-green-400 border-2 border-green-500/50 hover:bg-green-500/30'
+                  : 'bg-neutral-600/50 text-neutral-400 border-2 border-neutral-600 hover:bg-neutral-600'
               }`}
             >
-              {config.voucherSettings?.BWFM?.available !== false ? (
+              {voucherSettings.globalBWFMEnabled ? (
                 <>
                   <Eye className="w-4 h-4" />
                   Beschikbaar
@@ -234,131 +204,99 @@ export const VoucherConfigManager: React.FC = () => {
       </div>
 
       {/* Per Event Type Configuration */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+      <div className="bg-neutral-800 rounded-xl shadow-lg p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">
           Per Event Type Configuratie
         </h3>
-        <p className="text-sm text-gray-600 mb-4">
-          Stel per event type in welke arrangements beschikbaar zijn en hoe ze worden weergegeven.
+        <p className="text-sm text-neutral-400 mb-4">
+          Stel per event type in welke arrangements beschikbaar zijn op de voucher pagina.
         </p>
 
         <div className="space-y-4">
-          {eventTypes.map(eventType => {
-            const pricing = config.byDayType[eventType];
-            const bwfAvailable = isArrangementAvailable(eventType, 'BWF');
-            const bwfmAvailable = isArrangementAvailable(eventType, 'BWFM');
-            const displayName = getDisplayName(eventType);
-            const isEditing = editingEventType === eventType;
+          {enabledEventTypes.map(eventType => {
+            const bwfAvailable = isArrangementAvailable(eventType.key, 'BWF');
+            const bwfmAvailable = isArrangementAvailable(eventType.key, 'BWFM');
 
             return (
-              <div key={eventType} className="border border-gray-200 rounded-lg p-4">
+              <div key={eventType.key} className="border-2 border-neutral-700 rounded-xl p-5 bg-neutral-800/50">
                 {/* Event Type Header */}
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <h4 className="font-semibold text-gray-900">
-                      {getEventTypeLabel(eventType)}
+                    <div 
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: eventType.color }}
+                    />
+                    <h4 className="font-semibold text-white text-lg">
+                      {eventType.name}
                     </h4>
-                    <span className="text-sm text-gray-500">
-                      (Standaard: €{pricing.BWF} / Premium: €{pricing.BWFM})
+                    <span className="text-sm text-neutral-400">
+                      (BWF: {formatCurrency(eventType.pricing.BWF)} | BWFM: {formatCurrency(eventType.pricing.BWFM)})
                     </span>
                   </div>
                 </div>
 
-                {/* Display Name */}
-                <div className="mb-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Weergavenaam op voucher pagina:
-                  </label>
-                  {isEditing ? (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={displayNameInput}
-                        onChange={(e) => setDisplayNameInput(e.target.value)}
-                        placeholder={getEventTypeLabel(eventType)}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      />
-                      <button
-                        onClick={() => saveDisplayName(eventType)}
-                        className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                      >
-                        <Check className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={cancelEditingDisplayName}
-                        className="p-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-900">
-                        {displayName}
-                      </span>
-                      <button
-                        onClick={() => startEditingDisplayName(eventType)}
-                        className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
-                  <p className="text-xs text-gray-500 mt-1">
-                    Wordt weergegeven als: "{displayName} - Standaard" en "{displayName} - Premium"
-                  </p>
-                </div>
+                <p className="text-sm text-neutral-400 mb-4">{eventType.description}</p>
 
                 {/* Arrangement Toggles */}
                 <div className="grid grid-cols-2 gap-3">
                   {/* BWF Toggle */}
                   <button
-                    onClick={() => toggleEventTypeArrangement(eventType, 'BWF')}
-                    disabled={config.voucherSettings?.BWF?.available === false}
-                    className={`p-3 rounded-lg border-2 transition-all ${
-                      bwfAvailable
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-gray-300 bg-gray-50'
-                    } ${
-                      config.voucherSettings?.BWF?.available === false
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:shadow-md'
+                    onClick={() => toggleEventTypeArrangement(eventType.key, 'BWF')}
+                    disabled={!voucherSettings.globalBWFEnabled}
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      !voucherSettings.globalBWFEnabled
+                        ? 'opacity-40 cursor-not-allowed border-neutral-700 bg-neutral-800'
+                        : bwfAvailable
+                          ? 'border-blue-500 bg-blue-500/10 hover:bg-blue-500/20'
+                          : 'border-neutral-600 bg-neutral-800 hover:bg-neutral-700'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-gray-900">Standaard</span>
-                      {bwfAvailable ? (
-                        <Eye className="w-4 h-4 text-green-600" />
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium text-white">BWF</span>
+                      {bwfAvailable && voucherSettings.globalBWFEnabled ? (
+                        <Eye className="w-4 h-4 text-blue-400" />
                       ) : (
-                        <EyeOff className="w-4 h-4 text-gray-400" />
+                        <EyeOff className="w-4 h-4 text-neutral-500" />
                       )}
                     </div>
-                    <p className="text-xs text-gray-600 mt-1">€{pricing.BWF}</p>
+                    <p className="text-sm text-neutral-400">
+                      {formatCurrency(eventType.pricing.BWF)}
+                    </p>
+                    {!voucherSettings.globalBWFEnabled && (
+                      <p className="text-xs text-yellow-400 mt-2">
+                        Globaal uitgeschakeld
+                      </p>
+                    )}
                   </button>
 
                   {/* BWFM Toggle */}
                   <button
-                    onClick={() => toggleEventTypeArrangement(eventType, 'BWFM')}
-                    disabled={config.voucherSettings?.BWFM?.available === false}
-                    className={`p-3 rounded-lg border-2 transition-all ${
-                      bwfmAvailable
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-gray-300 bg-gray-50'
-                    } ${
-                      config.voucherSettings?.BWFM?.available === false
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:shadow-md'
+                    onClick={() => toggleEventTypeArrangement(eventType.key, 'BWFM')}
+                    disabled={!voucherSettings.globalBWFMEnabled}
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      !voucherSettings.globalBWFMEnabled
+                        ? 'opacity-40 cursor-not-allowed border-neutral-700 bg-neutral-800'
+                        : bwfmAvailable
+                          ? 'border-purple-500 bg-purple-500/10 hover:bg-purple-500/20'
+                          : 'border-neutral-600 bg-neutral-800 hover:bg-neutral-700'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-gray-900">Premium</span>
-                      {bwfmAvailable ? (
-                        <Eye className="w-4 h-4 text-green-600" />
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium text-white">BWFM</span>
+                      {bwfmAvailable && voucherSettings.globalBWFMEnabled ? (
+                        <Eye className="w-4 h-4 text-purple-400" />
                       ) : (
-                        <EyeOff className="w-4 h-4 text-gray-400" />
+                        <EyeOff className="w-4 h-4 text-neutral-500" />
                       )}
                     </div>
-                    <p className="text-xs text-gray-600 mt-1">€{pricing.BWFM}</p>
+                    <p className="text-sm text-neutral-400">
+                      {formatCurrency(eventType.pricing.BWFM)}
+                    </p>
+                    {!voucherSettings.globalBWFMEnabled && (
+                      <p className="text-xs text-yellow-400 mt-2">
+                        Globaal uitgeschakeld
+                      </p>
+                    )}
                   </button>
                 </div>
               </div>
@@ -368,41 +306,54 @@ export const VoucherConfigManager: React.FC = () => {
       </div>
 
       {/* Preview Section */}
-      <div className="bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Preview: Beschikbare Vouchers
-        </h3>
-        <p className="text-sm text-gray-600 mb-4">
+      <div className="bg-gradient-to-br from-neutral-800 to-neutral-900 rounded-xl border-2 border-dashed border-neutral-700 p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <RefreshCw className="w-5 h-5 text-gold-400" />
+          <h3 className="text-lg font-semibold text-white">
+            Preview: Beschikbare Vouchers
+          </h3>
+        </div>
+        <p className="text-sm text-neutral-400 mb-4">
           Deze vouchers zullen zichtbaar zijn op de voucher pagina:
         </p>
         
         <div className="space-y-2">
-          {eventTypes.flatMap(eventType => {
-            const pricing = config.byDayType[eventType];
-            const displayName = getDisplayName(eventType);
+          {enabledEventTypes.flatMap(eventType => {
             const options = [];
 
-            if (isArrangementAvailable(eventType, 'BWF')) {
+            if (isArrangementAvailable(eventType.key, 'BWF')) {
               options.push(
-                <div key={`${eventType}-BWF`} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
-                  <span className="font-medium text-gray-900">
-                    {displayName} - Standaard
-                  </span>
-                  <span className="font-bold text-purple-600">
-                    €{pricing.BWF.toFixed(2)}
+                <div key={`${eventType.key}-BWF`} className="flex items-center justify-between p-4 bg-neutral-800 rounded-lg border border-neutral-700">
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: eventType.color }}
+                    />
+                    <span className="font-medium text-white">
+                      {eventType.name} - Standaard (BWF)
+                    </span>
+                  </div>
+                  <span className="font-bold text-gold-400">
+                    {formatCurrency(eventType.pricing.BWF)}
                   </span>
                 </div>
               );
             }
 
-            if (isArrangementAvailable(eventType, 'BWFM')) {
+            if (isArrangementAvailable(eventType.key, 'BWFM')) {
               options.push(
-                <div key={`${eventType}-BWFM`} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
-                  <span className="font-medium text-gray-900">
-                    {displayName} - Premium
-                  </span>
-                  <span className="font-bold text-purple-600">
-                    €{pricing.BWFM.toFixed(2)}
+                <div key={`${eventType.key}-BWFM`} className="flex items-center justify-between p-4 bg-neutral-800 rounded-lg border border-neutral-700">
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: eventType.color }}
+                    />
+                    <span className="font-medium text-white">
+                      {eventType.name} - Premium (BWFM)
+                    </span>
+                  </div>
+                  <span className="font-bold text-gold-400">
+                    {formatCurrency(eventType.pricing.BWFM)}
                   </span>
                 </div>
               );
@@ -412,13 +363,32 @@ export const VoucherConfigManager: React.FC = () => {
           })}
         </div>
 
-        {eventTypes.every(et => 
-          !isArrangementAvailable(et, 'BWF') && !isArrangementAvailable(et, 'BWFM')
+        {enabledEventTypes.every(et => 
+          !isArrangementAvailable(et.key, 'BWF') && !isArrangementAvailable(et.key, 'BWFM')
         ) && (
-          <p className="text-gray-500 italic text-center py-8">
-            Geen vouchers beschikbaar. Schakel minimaal één arrangement in.
-          </p>
+          <div className="text-center py-8">
+            <AlertCircle className="w-12 h-12 text-neutral-600 mx-auto mb-3" />
+            <p className="text-neutral-500 italic">
+              Geen vouchers beschikbaar. Schakel minimaal één arrangement in.
+            </p>
+          </div>
         )}
+      </div>
+
+      {/* Info Box */}
+      <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+        <div className="flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-blue-300">
+            <p className="font-semibold mb-1">💡 Hoe werkt het?</p>
+            <ul className="space-y-1 text-blue-200/80">
+              <li>• <strong>Globaal</strong>: Schakel BWF of BWFM uit voor ALLE event types</li>
+              <li>• <strong>Per event type</strong>: Schakel specifieke combinaties in/uit</li>
+              <li>• <strong>Prijzen</strong>: Komen automatisch van EventTypeConfig</li>
+              <li>• <strong>Preview</strong>: Zie direct wat klanten te zien krijgen</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -5,20 +5,64 @@ import { nl } from 'date-fns/locale';
 // Import WaitlistEntry type
 import type { WaitlistEntry } from '../types';
 
-// Import Microsoft Graph Email Service
-import { microsoftGraphEmailService } from './microsoftGraphEmailService';
+// Import Firebase for calling cloud functions
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { app } from '../firebase';
 
 /**
  * Email Service
  * 
- * Integrated with Microsoft Graph API for sending emails via Outlook/Microsoft 365
- * Falls back to console logging if not configured
+ * Sends emails via Firebase Cloud Functions
+ * Cloud Functions handle Microsoft Graph API integration server-side
  */
+
+const functions = getFunctions(app);
 
 interface EmailTemplate {
   subject: string;
   html: string;
   text: string;
+}
+
+/**
+ * Helper function to send email via Firebase Cloud Function
+ * In development: logs to console
+ * In production: calls Firebase Cloud Function
+ */
+async function sendEmailViaCloudFunction(
+  to: string[],
+  subject: string,
+  htmlBody: string,
+  textBody: string
+): Promise<{ success: boolean; error?: string }> {
+  // Development mode: just log to console
+  if (import.meta.env.DEV) {
+    console.log('📧 [EMAIL] Development mode - Email would be sent:');
+    console.log('   To:', to.join(', '));
+    console.log('   Subject:', subject);
+    console.log('   Text:', textBody.substring(0, 200) + '...');
+    return { success: true };
+  }
+  
+  // Production: call Firebase Cloud Function
+  try {
+    const sendEmail = httpsCallable(functions, 'sendEmail');
+    const result = await sendEmail({
+      to,
+      subject,
+      htmlBody,
+      textBody
+    });
+    
+    const data = result.data as { success: boolean; error?: string };
+    return data;
+  } catch (error) {
+    console.error('❌ [EMAIL] Error calling cloud function:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
+  }
 }
 
 const generateReservationConfirmationEmail = (
@@ -373,30 +417,20 @@ export const emailService = {
       console.log('   To:', reservation.email);
       console.log('   Subject:', template.subject);
       
-      // ✅ Send via Microsoft Graph (Outlook/Microsoft 365)
-      if (microsoftGraphEmailService.isConfigured()) {
-        const success = await microsoftGraphEmailService.sendEmail({
-          to: [reservation.email],
-          subject: template.subject,
-          htmlBody: template.html,
-          textBody: template.text
-        });
-        
-        if (success) {
-          console.log('✅ [EMAIL] Confirmation email sent successfully via Microsoft Graph');
-          return { success: true };
-        } else {
-          console.error('❌ [EMAIL] Failed to send email via Microsoft Graph');
-          return { success: false, error: 'Failed to send email via Microsoft Graph' };
-        }
+      // ✅ Send via Firebase Cloud Function
+      const result = await sendEmailViaCloudFunction(
+        [reservation.email],
+        template.subject,
+        template.html,
+        template.text
+      );
+      
+      if (result.success) {
+        console.log('✅ [EMAIL] Confirmation email sent successfully');
+        return { success: true };
       } else {
-        // Fallback to console logging if not configured
-        console.warn('⚠️ [EMAIL] Microsoft Graph not configured. Email not sent.');
-        console.log('📧 [EMAIL] Email content:');
-        console.log('---');
-        console.log(template.text);
-        console.log('---');
-        return { success: false, error: 'Email service not configured' };
+        console.error('❌ [EMAIL] Failed to send email:', result.error);
+        return { success: false, error: result.error };
       }
       
     } catch (error) {
@@ -424,24 +458,19 @@ export const emailService = {
       console.log('   Subject:', template.subject);
       console.log('   New Status:', newStatus);
       
-      // ✅ Send via Microsoft Graph
-      if (microsoftGraphEmailService.isConfigured()) {
-        const success = await microsoftGraphEmailService.sendEmail({
-          to: [reservation.email],
-          subject: template.subject,
-          htmlBody: template.html,
-          textBody: template.text
-        });
-        
-        if (success) {
-          console.log('✅ [EMAIL] Status update email sent successfully');
-          return { success: true };
-        } else {
-          return { success: false, error: 'Failed to send email' };
-        }
+      // ✅ Send via Firebase Cloud Function
+      const result = await sendEmailViaCloudFunction(
+        [reservation.email],
+        template.subject,
+        template.html,
+        template.text
+      );
+      
+      if (result.success) {
+        console.log('✅ [EMAIL] Status update email sent successfully');
+        return { success: true };
       } else {
-        console.warn('⚠️ [EMAIL] Microsoft Graph not configured');
-        return { success: false, error: 'Email service not configured' };
+        return { success: false, error: result.error };
       }
       
     } catch (error) {
@@ -467,24 +496,19 @@ export const emailService = {
       console.log('   To:', reservation.email);
       console.log('   Subject:', template.subject);
       
-      // ✅ Send via Microsoft Graph
-      if (microsoftGraphEmailService.isConfigured()) {
-        const success = await microsoftGraphEmailService.sendEmail({
-          to: [reservation.email],
-          subject: template.subject,
-          htmlBody: template.html,
-          textBody: template.text
-        });
-        
-        if (success) {
-          console.log('✅ [EMAIL] Reminder email sent successfully');
-          return { success: true };
-        } else {
-          return { success: false, error: 'Failed to send email' };
-        }
+      // ✅ Send via Firebase Cloud Function
+      const result = await sendEmailViaCloudFunction(
+        [reservation.email],
+        template.subject,
+        template.html,
+        template.text
+      );
+      
+      if (result.success) {
+        console.log('✅ [EMAIL] Reminder email sent successfully');
+        return { success: true };
       } else {
-        console.warn('⚠️ [EMAIL] Microsoft Graph not configured');
-        return { success: false, error: 'Email service not configured' };
+        return { success: false, error: result.error };
       }
       
     } catch (error) {
@@ -650,24 +674,19 @@ Het team van Inspiration Point
       console.log('   Booking Link:', bookingLink);
       console.log('   Valid for: 24 hours');
       
-      // ✅ Send via Microsoft Graph
-      if (microsoftGraphEmailService.isConfigured()) {
-        const success = await microsoftGraphEmailService.sendEmail({
-          to: [entry.customerEmail],
-          subject: subject,
-          htmlBody: _html,
-          textBody: _text
-        });
-        
-        if (success) {
-          console.log('✅ [EMAIL] Waitlist notification sent successfully');
-          return { success: true };
-        } else {
-          return { success: false, error: 'Failed to send email' };
-        }
+      // ✅ Send via Firebase Cloud Function
+      const result = await sendEmailViaCloudFunction(
+        [entry.customerEmail],
+        subject,
+        _html,
+        _text
+      );
+      
+      if (result.success) {
+        console.log('✅ [EMAIL] Waitlist notification sent successfully');
+        return { success: true };
       } else {
-        console.warn('⚠️ [EMAIL] Microsoft Graph not configured');
-        return { success: false, error: 'Email service not configured' };
+        return { success: false, error: result.error };
       }
       
     } catch (error) {

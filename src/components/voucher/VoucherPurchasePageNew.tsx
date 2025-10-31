@@ -84,7 +84,7 @@ const ARRANGEMENT_INFO: Record<Arrangement, { name: string; description: string;
 
 export const VoucherPurchasePageNew: React.FC = () => {
   const { submitPurchase } = useVoucherStore();
-  const { pricing, loadConfig } = useConfigStore();
+  const { pricing, eventTypesConfig, loadConfig } = useConfigStore();
   
   const [step, setStep] = useState<'arrangement' | 'delivery' | 'details' | 'confirm'>(
     'arrangement'
@@ -117,56 +117,82 @@ export const VoucherPurchasePageNew: React.FC = () => {
     loadConfig();
   }, [loadConfig]);
 
-  // Build arrangement options from ALL event types in pricing
+  // Build arrangement options from event types configuration
   useEffect(() => {
-    if (!pricing) return;
+    if (!eventTypesConfig) return;
+
+    console.log('🎟️ [VoucherPage] Building voucher options from eventTypesConfig');
+
+    // 🆕 Load voucher settings from localStorage
+    const voucherSettingsRaw = localStorage.getItem('voucherSettings');
+    let voucherSettings = {
+      globalBWFEnabled: true,
+      globalBWFMEnabled: true,
+      perEventType: {} as Record<string, { BWF?: boolean; BWFM?: boolean; }>
+    };
+    
+    if (voucherSettingsRaw) {
+      try {
+        voucherSettings = JSON.parse(voucherSettingsRaw);
+        console.log('✅ [VoucherPage] Loaded voucher settings:', voucherSettings);
+      } catch (e) {
+        console.error('❌ Failed to parse voucher settings');
+      }
+    }
 
     const options: ArrangementOption[] = [];
     
-    // Loop through ALL event types (weekday, weekend, matinee, etc.)
-    Object.entries(pricing.byDayType).forEach(([eventType, eventPricing]) => {
-      // Get event type specific settings
-      const eventTypeConfig = pricing.voucherAvailability?.[eventType];
-      const displayName = eventTypeConfig?.displayName || getEventTypeLabel(eventType);
+    // Loop through ALL enabled event types from the new configuration
+    eventTypesConfig.types.forEach((eventType) => {
+      // Only include enabled event types
+      if (!eventType.enabled) {
+        console.log(`⏭️ [VoucherPage] Skipping disabled event type: ${eventType.name}`);
+        return;
+      }
       
-      // Check if BWF is available for this specific event type
-      // Priority: specific event type setting > global setting
-      const bwfGlobalAvailable = pricing.voucherSettings?.BWF?.available !== false;
-      const bwfEventAvailable = eventTypeConfig?.BWF !== false; // undefined means available
-      const bwfAvailable = bwfGlobalAvailable && bwfEventAvailable;
+      const eventTypeKey = eventType.key;
+      const displayName = eventType.name;
       
-      if (bwfAvailable && eventPricing.BWF) {
+      // 🆕 Check if BWF is available
+      const bwfGlobalEnabled = voucherSettings.globalBWFEnabled;
+      const bwfEventEnabled = voucherSettings.perEventType[eventTypeKey]?.BWF !== false;
+      const bwfAvailable = bwfGlobalEnabled && bwfEventEnabled;
+      
+      if (bwfAvailable && eventType.pricing.BWF) {
+        console.log(`✅ [VoucherPage] Adding BWF for ${displayName}: ${eventType.pricing.BWF}`);
         options.push({
           type: 'BWF',
-          eventType: eventType,
-          price: eventPricing.BWF,
+          eventType: eventTypeKey,
+          price: eventType.pricing.BWF,
           name: `${displayName} - ${ARRANGEMENT_INFO.BWF.name}`,
-          description: pricing.voucherSettings?.BWF?.description || ARRANGEMENT_INFO.BWF.description,
+          description: ARRANGEMENT_INFO.BWF.description,
           features: ARRANGEMENT_INFO.BWF.features,
           available: true
         });
       }
 
-      // Check if BWFM is available for this specific event type
-      const bwfmGlobalAvailable = pricing.voucherSettings?.BWFM?.available !== false;
-      const bwfmEventAvailable = eventTypeConfig?.BWFM !== false;
-      const bwfmAvailable = bwfmGlobalAvailable && bwfmEventAvailable;
+      // 🆕 Check if BWFM is available
+      const bwfmGlobalEnabled = voucherSettings.globalBWFMEnabled;
+      const bwfmEventEnabled = voucherSettings.perEventType[eventTypeKey]?.BWFM !== false;
+      const bwfmAvailable = bwfmGlobalEnabled && bwfmEventEnabled;
       
-      if (bwfmAvailable && eventPricing.BWFM) {
+      if (bwfmAvailable && eventType.pricing.BWFM) {
+        console.log(`✅ [VoucherPage] Adding BWFM for ${displayName}: ${eventType.pricing.BWFM}`);
         options.push({
           type: 'BWFM',
-          eventType: eventType,
-          price: eventPricing.BWFM,
+          eventType: eventTypeKey,
+          price: eventType.pricing.BWFM,
           name: `${displayName} - ${ARRANGEMENT_INFO.BWFM.name}`,
-          description: pricing.voucherSettings?.BWFM?.description || ARRANGEMENT_INFO.BWFM.description,
+          description: ARRANGEMENT_INFO.BWFM.description,
           features: ARRANGEMENT_INFO.BWFM.features,
           available: true
         });
       }
     });
 
+    console.log(`🎟️ [VoucherPage] Total voucher options created: ${options.length}`);
     setArrangements(options);
-  }, [pricing]);
+  }, [eventTypesConfig]);
 
   // Helper function to get readable event type label (fallback)
   const getEventTypeLabel = (eventType: string): string => {

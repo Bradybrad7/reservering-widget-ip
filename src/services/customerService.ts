@@ -218,6 +218,56 @@ class CustomerService {
   }
 
   /**
+   * Update customer notes (stores in most recent reservation)
+   */
+  async updateCustomerNotes(email: string, notes: string): Promise<void> {
+    const reservations = await storageService.getReservations();
+    const customerReservations = reservations.filter(
+      (res: Reservation) => res.email.toLowerCase() === email.toLowerCase()
+    );
+    
+    if (customerReservations.length === 0) {
+      throw new Error('No reservations found for this customer');
+    }
+    
+    // Update the most recent reservation with the notes
+    const mostRecent = customerReservations.sort(
+      (a: Reservation, b: Reservation) => 
+        new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime()
+    )[0];
+    
+    const updatedReservations = reservations.map((res: Reservation) => {
+      if (res.id === mostRecent.id) {
+        return {
+          ...res,
+          notes
+        };
+      }
+      return res;
+    });
+    
+    await storageService.saveReservations(updatedReservations);
+  }
+
+  /**
+   * Update customer tags (applies to all their reservations)
+   */
+  async updateCustomerTags(email: string, tags: string[]): Promise<void> {
+    const reservations = await storageService.getReservations();
+    const updatedReservations = reservations.map((res: Reservation) => {
+      if (res.email.toLowerCase() === email.toLowerCase()) {
+        return {
+          ...res,
+          tags: [...tags]
+        };
+      }
+      return res;
+    });
+    
+    await storageService.saveReservations(updatedReservations);
+  }
+
+  /**
    * Get customer segments
    */
   async getCustomerSegments() {

@@ -16,7 +16,8 @@ import {
 } from 'lucide-react';
 import type { Event, EventType, AdminEvent } from '../../types';
 import { useEventsStore } from '../../store/eventsStore';
-import { getEventTypeName } from '../../config/defaults';
+import { useConfigStore } from '../../store/configStore';
+import { getEventTypeName, getEventTypeColor } from '../../utils/eventColors';
 import { cn, formatDate } from '../../utils';
 // 🔒 getDefaultPricingForEvent NIET meer nodig - customPricing is disabled!
 
@@ -45,6 +46,8 @@ export const CalendarManagerImproved: React.FC<CalendarManagerImprovedProps> = (
     loadShows
   } = useEventsStore();
 
+  const { eventTypesConfig, loadConfig } = useConfigStore();
+
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [calendarDays, setCalendarDays] = useState<CalendarDay[]>([]);
@@ -71,7 +74,8 @@ export const CalendarManagerImproved: React.FC<CalendarManagerImprovedProps> = (
   useEffect(() => {
     loadEvents();
     loadShows();
-  }, [loadEvents, loadShows]);
+    loadConfig();
+  }, [loadEvents, loadShows, loadConfig]);
 
   useEffect(() => {
     generateCalendar();
@@ -239,26 +243,21 @@ export const CalendarManagerImproved: React.FC<CalendarManagerImprovedProps> = (
     return true;
   }) || [];
 
-  const getEventTypeColor = (type: EventType) => {
-    switch (type) {
-      case 'REGULAR': return 'bg-gold-500';
-      case 'MATINEE': return 'bg-blue-500';
-      case 'CARE_HEROES': return 'bg-pink-500';
-      case 'SCHOOL': return 'bg-purple-500';
-      case 'PRIVATE': return 'bg-green-500';
-      default: return 'bg-neutral-500';
-    }
+  // Helper om Tailwind class te genereren op basis van hex color
+  const hexToTailwindBg = (hex: string) => {
+    // Voor dynamic kleuren gebruiken we inline style
+    return '';
   };
 
-  const getEventTypeTextColor = (type: EventType) => {
-    switch (type) {
-      case 'REGULAR': return 'text-gold-400';
-      case 'MATINEE': return 'text-blue-400';
-      case 'CARE_HEROES': return 'text-pink-400';
-      case 'SCHOOL': return 'text-purple-400';
-      case 'PRIVATE': return 'text-green-400';
-      default: return 'text-neutral-400';
-    }
+  const getEventBgStyle = (type: EventType) => {
+    const color = getEventTypeColor(type, eventTypesConfig || undefined);
+    return { backgroundColor: color };
+  };
+
+  const getEventTextStyle = (type: EventType) => {
+    const color = getEventTypeColor(type, eventTypesConfig || undefined);
+    // Lighter shade voor text
+    return { color };
   };
 
   const getOccupancyColor = (booked: number, capacity: number) => {
@@ -376,9 +375,9 @@ export const CalendarManagerImproved: React.FC<CalendarManagerImprovedProps> = (
                             key={idx}
                             className={cn(
                               'w-full h-1.5 rounded-full',
-                              getEventTypeColor(event.type),
                               !event.isActive && 'opacity-30'
                             )}
+                            style={getEventBgStyle(event.type)}
                           />
                         ))}
                         {day.events.length > 2 && (
@@ -531,11 +530,11 @@ export const CalendarManagerImproved: React.FC<CalendarManagerImprovedProps> = (
                         >
                           {/* Event Type & Status */}
                           <div className="flex items-center justify-between mb-2">
-                            <span className={cn(
-                              'text-xs font-bold uppercase tracking-wide',
-                              getEventTypeTextColor(event.type)
-                            )}>
-                              {getEventTypeName(event.type)}
+                            <span 
+                              className="text-xs font-bold uppercase tracking-wide"
+                              style={getEventTextStyle(event.type)}
+                            >
+                              {getEventTypeName(event.type, eventTypesConfig || undefined)}
                             </span>
                             <button
                               onClick={() => handleToggleActive(event)}

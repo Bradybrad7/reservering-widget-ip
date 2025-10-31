@@ -7,15 +7,18 @@ import {
   DollarSign,
   Download,
   Search,
-  TrendingUp
+  TrendingUp,
+  Eye
 } from 'lucide-react';
 import { useCustomersStore } from '../../store/customersStore';
+import CustomerDetailView from './CustomerDetailView';
 import { formatCurrency, formatDate } from '../../utils';
 
 export const CustomerManager: React.FC = () => {
   const { customers, isLoadingCustomers, loadCustomers } = useCustomersStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'bookings' | 'spent' | 'recent'>('recent');
+  const [selectedCustomerEmail, setSelectedCustomerEmail] = useState<string | null>(null);
 
   useEffect(() => {
     loadCustomers();
@@ -223,7 +226,11 @@ export const CustomerManager: React.FC = () => {
                   const isVIP = customer.totalBookings >= 3;
 
                   return (
-                    <tr key={customer.email} className="hover:bg-neutral-100 transition-colors">
+                    <tr 
+                      key={customer.email} 
+                      onClick={() => setSelectedCustomerEmail(customer.email)}
+                      className="hover:bg-neutral-700/50 transition-colors cursor-pointer"
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <Building2 className="w-4 h-4 text-dark-400 mr-2" />
@@ -304,6 +311,14 @@ export const CustomerManager: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Customer Detail Modal */}
+      {selectedCustomerEmail && (
+        <CustomerDetailView
+          customerEmail={selectedCustomerEmail}
+          onBack={() => setSelectedCustomerEmail(null)}
+        />
+      )}
     </div>
   );
 };

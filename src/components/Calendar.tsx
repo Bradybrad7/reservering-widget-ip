@@ -11,11 +11,13 @@ import {
   isInCurrentMonth,
   formatDate,
   formatTime,
-  cn,
+  cn
+} from '../utils';
+import { 
   getEventTypeColor,
   hexToRgba,
   getEventTypeName
-} from '../utils';
+} from '../utils/eventColors';
 import { nl } from '../config/defaults';
 
 interface CalendarProps {
@@ -314,8 +316,8 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
           const isFull = availability?.bookingStatus === 'full';
           const isRequestOnly = availability?.bookingStatus === 'request';
           
-          // Get event type color
-          const eventColor = event ? getEventTypeColor(event.type) : null;
+          // Get event type color from config
+          const eventColor = event ? getEventTypeColor(event.type, eventTypesConfig || undefined) : null;
           
           // Determine background color based on booking status
           let bgColor = undefined;

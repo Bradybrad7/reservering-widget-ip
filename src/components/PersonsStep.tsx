@@ -156,6 +156,7 @@ export const PersonsStep: React.FC = () => {
                 max={maxReasonable}
                 value={localPersons}
                 onChange={(e) => handlePersonsChange(parseInt(e.target.value) || 1)}
+                onFocus={(e) => e.target.select()}
                 placeholder="Bijv. 50"
                 className={cn(
                   'w-full px-8 py-6 text-center text-4xl font-bold rounded-2xl',
