@@ -18,11 +18,22 @@ interface EventsState {
   isLoadingTemplates: boolean;
   shows: Show[];
   isLoadingShows: boolean;
+  
+  // ✨ NEW: Pagination State (October 2025)
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrevious: boolean;
+  } | null;
 }
 
 // Events Actions
 interface EventsActions {
   loadEvents: () => Promise<void>;
+  loadEventsPaginated: (options?: import('../types').EventQueryOptions) => Promise<void>;
   loadEvent: (eventId: string) => Promise<void>;
   createEvent: (event: Omit<Event, 'id'>) => Promise<boolean>;
   updateEvent: (eventId: string, updates: Partial<Event>) => Promise<boolean>;
@@ -58,6 +69,7 @@ export const useEventsStore = create<EventsState & EventsActions>()(
     isLoadingTemplates: false,
     shows: [],
     isLoadingShows: false,
+    pagination: null,
 
     // Actions
     loadEvents: async () => {
@@ -72,6 +84,34 @@ export const useEventsStore = create<EventsState & EventsActions>()(
         }
       } catch (error) {
         console.error('Failed to load events:', error);
+        set({ isLoadingEvents: false });
+      }
+    },
+
+    // ✨ NEW: Load Events with Pagination (October 2025)
+    loadEventsPaginated: async (options = {}) => {
+      set({ isLoadingEvents: true });
+      try {
+        const response = await apiService.getEventsPaginated(options);
+        if (response.success && response.data) {
+          // Convert to AdminEvent format (with reservations and revenue)
+          const adminEvents: AdminEvent[] = response.data.map(event => ({
+            ...event,
+            reservations: [],
+            revenue: 0
+          }));
+          
+          set({ 
+            events: adminEvents,
+            pagination: response.pagination || null,
+            isLoadingEvents: false 
+          });
+        } else {
+          console.error('Failed to load paginated events:', response.error);
+          set({ isLoadingEvents: false });
+        }
+      } catch (error) {
+        console.error('Failed to load paginated events:', error);
         set({ isLoadingEvents: false });
       }
     },

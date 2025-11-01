@@ -9,6 +9,9 @@ import type { WaitlistEntry } from '../types';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { app } from '../firebase';
 
+// Import QR code helper
+import { generateQRCodeDataURL } from '../utils/qrCodeHelper';
+
 /**
  * Email Service
  * 
@@ -65,12 +68,20 @@ async function sendEmailViaCloudFunction(
   }
 }
 
-const generateReservationConfirmationEmail = (
+const generateReservationConfirmationEmail = async (
   reservation: Reservation,
   event: Event
-): EmailTemplate => {
+): Promise<EmailTemplate> => {
   const eventDate = format(event.date, 'EEEE d MMMM yyyy', { locale: nl });
   const eventTime = event.startsAt;
+  
+  // Generate QR code as base64 image
+  let qrCodeDataUrl = '';
+  try {
+    qrCodeDataUrl = await generateQRCodeDataURL(reservation, { width: 300 });
+  } catch (error) {
+    console.error('Failed to generate QR code for email:', error);
+  }
   
   const html = `
     <!DOCTYPE html>
@@ -170,6 +181,17 @@ const generateReservationConfirmationEmail = (
           <div class="details">
             <h4>💬 Uw opmerkingen:</h4>
             <p>${reservation.comments}</p>
+          </div>
+          ` : ''}
+          
+          ${qrCodeDataUrl ? `
+          <div class="details" style="text-align: center; background: white; padding: 30px; border: 2px dashed #D4AF37;">
+            <h3 style="color: #D4AF37; margin-bottom: 15px;">📱 Check-in QR Code</h3>
+            <img src="${qrCodeDataUrl}" alt="Check-in QR Code" style="max-width: 300px; width: 100%; height: auto; margin: 10px 0;" />
+            <p style="color: #666; font-size: 14px; margin-top: 15px;">
+              <strong>Toon deze QR code bij aankomst voor snelle check-in</strong><br/>
+              Of gebruik reserveringsnummer: <code style="background: #f0f0f0; padding: 2px 8px; border-radius: 3px;">${reservation.id}</code>
+            </p>
           </div>
           ` : ''}
           
@@ -411,7 +433,7 @@ export const emailService = {
     event: Event
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const template = generateReservationConfirmationEmail(reservation, event);
+      const template = await generateReservationConfirmationEmail(reservation, event);
       
       console.log('📧 [EMAIL] Sending reservation confirmation...');
       console.log('   To:', reservation.email);

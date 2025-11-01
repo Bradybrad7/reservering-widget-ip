@@ -14,13 +14,15 @@ import {
   ArrowRight,
   Star,
   CreditCard,
-  UserCheck
+  UserCheck,
+  Mail
 } from 'lucide-react';
 import { useAdminStore } from '../../store/adminStore';
 import { useReservationsStore } from '../../store/reservationsStore';
 import { useEventsStore } from '../../store/eventsStore';
 import { useWaitlistStore } from '../../store/waitlistStore';
 import { formatCurrency, formatDate, cn } from '../../utils';
+import { isOptionExpiringSoon, getDaysUntilExpiry } from '../../utils/optionHelpers';
 import type { AdminSection } from '../../types';
 
 export const DashboardEnhanced: React.FC = () => {
@@ -289,7 +291,7 @@ export const DashboardEnhanced: React.FC = () => {
       </div>
 
       {/* ✨ VERSTERKT: Financial & Operations Widgets met functionele iconen */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Openstaande Betalingen - ORANJE met CreditCard icoon */}
         <div className="bg-gradient-to-br from-orange-500/20 to-orange-600/10 border-2 border-orange-500/40 rounded-lg p-6 hover:shadow-lg hover:shadow-orange-500/20 transition-all">
           <div className="flex items-center justify-between mb-4">
@@ -343,6 +345,33 @@ export const DashboardEnhanced: React.FC = () => {
           </button>
         </div>
 
+        {/* ✨ NEW: Aflopende Opties - ROOD met AlertCircle icoon (October 2025) */}
+        <div className="bg-gradient-to-br from-red-500/20 to-red-600/10 border-2 border-red-500/40 rounded-lg p-6 hover:shadow-lg hover:shadow-red-500/20 transition-all">
+          <div className="flex items-center justify-between mb-4">
+            <AlertCircle className="w-8 h-8 text-red-400" />
+            <Clock className="w-5 h-5 text-red-400" />
+          </div>
+          <div className="text-3xl font-bold text-white mb-1">
+            {reservations.filter(r => 
+              r.status === 'option' && isOptionExpiringSoon(r)
+            ).length}
+          </div>
+          <div className="text-sm text-red-200 font-medium mb-2">Aflopende Opties</div>
+          <div className="text-xs text-neutral-400">
+            Binnen 3 dagen: {reservations.filter(r => {
+              if (r.status !== 'option') return false;
+              const days = getDaysUntilExpiry(r);
+              return days !== null && days <= 3 && days > 0;
+            }).length}
+          </div>
+          <button
+            onClick={() => setActiveSection('reservations')}
+            className="mt-3 w-full py-2 bg-red-500/30 hover:bg-red-500/40 text-red-200 font-medium rounded-lg text-sm transition-colors"
+          >
+            Bekijk Opties
+          </button>
+        </div>
+
         {/* Vandaag Inchecken - BLAUW met UserCheck icoon */}
         <div className="bg-gradient-to-br from-blue-500/20 to-blue-600/10 border-2 border-blue-500/40 rounded-lg p-6 hover:shadow-lg hover:shadow-blue-500/20 transition-all">
           <div className="flex items-center justify-between mb-4">
@@ -380,6 +409,152 @@ export const DashboardEnhanced: React.FC = () => {
             Toon Check-ins
           </button>
         </div>
+      </div>
+
+      {/* ✨ NEW: Urgente Acties Widgets (October 2025) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Aflopende Opties Details */}
+        {(() => {
+          const expiringOptions = reservations.filter(r => 
+            r.status === 'option' && isOptionExpiringSoon(r)
+          ).sort((a, b) => {
+            const daysA = getDaysUntilExpiry(a) || 999;
+            const daysB = getDaysUntilExpiry(b) || 999;
+            return daysA - daysB;
+          });
+
+          if (expiringOptions.length === 0) return null;
+
+          return (
+            <div className="bg-gradient-to-br from-red-500/10 to-red-600/5 border-2 border-red-500/30 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-red-400" />
+                Aflopende Opties ({expiringOptions.length})
+              </h3>
+              <div className="space-y-3">
+                {expiringOptions.slice(0, 5).map(reservation => {
+                  const days = getDaysUntilExpiry(reservation);
+                  const isUrgent = days !== null && days <= 1;
+
+                  return (
+                    <button
+                      key={reservation.id}
+                      onClick={() => setActiveSection('reservations')}
+                      className="w-full flex items-center justify-between p-3 bg-neutral-900/50 rounded-lg hover:bg-neutral-800/50 transition-colors text-left border border-red-500/20"
+                    >
+                      <div className="flex-1">
+                        <div className="font-medium text-white flex items-center gap-2">
+                          {reservation.companyName || reservation.contactPerson}
+                          {isUrgent && (
+                            <span className="px-2 py-0.5 bg-red-500/20 border border-red-500/40 rounded-full text-xs font-semibold text-red-400">
+                              URGENT
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-neutral-400">
+                          {reservation.numberOfPersons} personen - {formatCurrency(reservation.totalPrice)}
+                        </div>
+                        <div className="text-xs text-red-400 mt-1">
+                          ⏰ Verloopt {days === 0 ? 'vandaag' : days === 1 ? 'morgen' : `over ${days} dagen`}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            await confirmReservation(reservation.id);
+                            await loadReservations();
+                            await loadStats();
+                          }}
+                          className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-medium hover:bg-green-600 transition-colors"
+                        >
+                          Bevestig
+                        </button>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Betalingen Te Laat Details */}
+        {(() => {
+          const overduePayments = reservations.filter(r => 
+            r.paymentStatus === 'overdue' && r.status !== 'cancelled'
+          ).sort((a, b) => {
+            // Sort by payment due date if available
+            const dateA = a.paymentDueDate ? new Date(a.paymentDueDate).getTime() : 0;
+            const dateB = b.paymentDueDate ? new Date(b.paymentDueDate).getTime() : 0;
+            return dateA - dateB;
+          });
+
+          if (overduePayments.length === 0) return null;
+
+          return (
+            <div className="bg-gradient-to-br from-red-500/10 to-red-600/5 border-2 border-red-500/30 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-red-400" />
+                Betalingen Te Laat ({overduePayments.length})
+              </h3>
+              <div className="space-y-3">
+                {overduePayments.slice(0, 5).map(reservation => {
+                  const daysSince = reservation.paymentDueDate 
+                    ? Math.floor((new Date().getTime() - new Date(reservation.paymentDueDate).getTime()) / (1000 * 60 * 60 * 24))
+                    : null;
+
+                  return (
+                    <button
+                      key={reservation.id}
+                      onClick={() => setActiveSection('reservations')}
+                      className="w-full flex items-center justify-between p-3 bg-neutral-900/50 rounded-lg hover:bg-neutral-800/50 transition-colors text-left border border-red-500/20"
+                    >
+                      <div className="flex-1">
+                        <div className="font-medium text-white flex items-center gap-2">
+                          {reservation.companyName || reservation.contactPerson}
+                        </div>
+                        <div className="text-sm text-neutral-400 flex items-center gap-2">
+                          <span>{formatCurrency(reservation.totalPrice)}</span>
+                          {daysSince !== null && (
+                            <span className="text-red-400">
+                              • {daysSince} {daysSince === 1 ? 'dag' : 'dagen'} te laat
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-neutral-500 mt-1 flex items-center gap-1">
+                          <Mail className="w-3 h-3" />
+                          {reservation.email}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Send payment reminder
+                            window.open(`mailto:${reservation.email}?subject=Herinnering Betaling Reservering ${reservation.id}`, '_blank');
+                          }}
+                          className="px-3 py-1 bg-orange-500 text-white rounded-lg text-xs font-medium hover:bg-orange-600 transition-colors"
+                          title="Stuur herinnering"
+                        >
+                          <Mail className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </button>
+                  );
+                })}
+                {overduePayments.length > 5 && (
+                  <button
+                    onClick={() => setActiveSection('reservations')}
+                    className="w-full text-center text-sm text-red-400 hover:text-red-300 py-2"
+                  >
+                    +{overduePayments.length - 5} meer bekijken
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Recent Activity - Two Columns */}

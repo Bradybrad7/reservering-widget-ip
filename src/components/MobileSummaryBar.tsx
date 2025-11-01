@@ -110,7 +110,7 @@ export const MobileSummaryBar = memo<MobileSummaryBarProps>(({
               <div className="w-8 h-8 bg-gold-gradient rounded-lg flex items-center justify-center shadow-gold">
                 <ChevronUp 
                   className={cn(
-                    "w-4 h-4 text-neutral-950 transition-transform duration-300",
+                    "w-4 h-4 text-text-primary transition-transform duration-300",
                     isExpanded && "rotate-180"
                   )} 
                 />

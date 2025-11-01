@@ -26,13 +26,15 @@ import {
   ChevronDown,
   ChevronUp,
   Euro,
-  Hash
+  Hash,
+  QrCode
 } from 'lucide-react';
 import { useEventsStore } from '../../store/eventsStore';
 import { useReservationsStore } from '../../store/reservationsStore';
 import { CheckInCalendar } from './CheckInCalendar';
 import type { AdminEvent, Reservation } from '../../types';
 import { formatCurrency, formatDate, cn } from '../../utils';
+import { QRScanner } from './QRScanner';
 
 export const HostCheckIn: React.FC = () => {
   const { events, loadEvents, isLoadingEvents } = useEventsStore();
@@ -46,6 +48,7 @@ export const HostCheckIn: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchMode, setSearchMode] = useState<'event' | 'global'>('event'); // NEW: search mode
   const [showCalendar, setShowCalendar] = useState(true); // NEW: calendar toggle - DEFAULT TRUE
+  const [showQRScanner, setShowQRScanner] = useState(false);
 
   useEffect(() => {
     loadEvents();
@@ -630,7 +633,7 @@ export const HostCheckIn: React.FC = () => {
             </div>
           </div>
 
-          {/* Search Bar */}
+          {/* Search Bar & QR Scanner */}
           <div className="flex items-center gap-4">
           {/* Search */}
           <div className="flex-1 relative">
@@ -645,6 +648,15 @@ export const HostCheckIn: React.FC = () => {
               className="w-full pl-10 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+          
+          {/* QR Scanner Button */}
+          <button
+            onClick={() => setShowQRScanner(true)}
+            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg font-medium transition-all shadow-lg flex items-center gap-2"
+          >
+            <QrCode className="w-5 h-5" />
+            Scan QR
+          </button>
 
           {/* Filter */}
           <div className="flex items-center gap-2 bg-gray-700 rounded-lg p-1">
@@ -688,7 +700,7 @@ export const HostCheckIn: React.FC = () => {
 
       {/* Reservations List */}
       <div className="flex-1 overflow-y-auto px-8 py-6">
-        <div className="max-w-7xl mx-auto space-y-3">
+        <div className="max-w-7xl mx-auto">
           {eventReservations.length === 0 ? (
             <div className="bg-gray-800 rounded-lg p-12 text-center">
               <Search className="w-12 h-12 text-gray-600 mx-auto mb-4" />
@@ -699,7 +711,8 @@ export const HostCheckIn: React.FC = () => {
               </p>
             </div>
           ) : (
-            eventReservations.map(reservation => {
+            <div className="space-y-3">
+              {eventReservations.map(reservation => {
               const isCheckedIn = reservation.status === 'checked-in';
               const isExpanded = expandedReservation === reservation.id;
               
@@ -873,10 +886,38 @@ export const HostCheckIn: React.FC = () => {
                   )}
                 </div>
               );
-            })
+              })}
+            </div>
           )}
         </div>
       </div>
+      
+      {/* QR Scanner Modal */}
+      {showQRScanner && (
+        <QRScanner
+          autoCheckIn={false}
+          onReservationFound={(reservation) => {
+            console.log('Reservation found via QR:', reservation);
+            // Switch to the event's date if different
+            const event = events?.find(e => e.id === reservation.eventId);
+            if (event) {
+              const eventDate = new Date(event.date);
+              eventDate.setHours(0, 0, 0, 0);
+              const currentDate = new Date(selectedDate);
+              currentDate.setHours(0, 0, 0, 0);
+              
+              if (eventDate.getTime() !== currentDate.getTime()) {
+                setSelectedDate(eventDate);
+              }
+              setSelectedEvent(event);
+            }
+            // Highlight the reservation
+            setSearchTerm(reservation.id);
+            setShowQRScanner(false);
+          }}
+          onClose={() => setShowQRScanner(false)}
+        />
+      )}
     </div>
   );
 };

@@ -27,6 +27,23 @@ export type PaymentStatus =
   | 'refunded'        // Payment was refunded
   | 'not_applicable'; // E.g., free event, voucher, or comp ticket
 
+// 💰 NEW: Payment Transaction Types (October 31, 2025)
+export type PaymentType = 'payment' | 'refund';
+export type PaymentMethod = 'bank_transfer' | 'pin' | 'cash' | 'ideal' | 'voucher' | 'other';
+
+// 💰 Payment Transaction - Complete financial log
+// This replaces the simple paymentStatus with a full transaction history
+export interface PaymentTransaction {
+  id: string;                    // Unique transaction ID (e.g., "txn_123")
+  date: Date;                    // Transaction date
+  type: PaymentType;             // 'payment' (incoming) or 'refund' (outgoing)
+  amount: number;                // Amount in euros (positive for payment, negative for refund)
+  method: PaymentMethod;         // Payment/refund method
+  notes?: string;                // Reason for transaction (especially important for refunds!)
+  processedBy?: string;          // Admin who processed this transaction
+  referenceNumber?: string;      // Bank reference, transaction ID, etc.
+}
+
 // Wizard step types
 export type StepKey = 
   | 'calendar' 
@@ -145,6 +162,8 @@ export interface GlobalConfig {
     phone: string;
     email: string;
   };
+  // ✨ NEW: Voucher-specific settings
+  voucherShippingCost?: number; // Verzendkosten voor vouchers (default: 3.95)
 }
 
 // Booking rules
@@ -320,6 +339,11 @@ export interface Reservation extends CustomerFormData {
   paymentDueDate?: Date;            // When payment is expected
   paymentNotes?: string;            // Admin notes about payment
   
+  // 💰 NEW: Transaction-Based Payment Tracking (October 31, 2025)
+  // This replaces the simple payment status with a complete financial log
+  // Enables partial payments, refunds, and complete financial transparency
+  paymentTransactions?: PaymentTransaction[]; // Full transaction history
+  
   createdAt: Date;
   updatedAt: Date;
   isArchived?: boolean; // NEW: For archiving cancelled/rejected bookings
@@ -389,6 +413,44 @@ export interface ApiResponse<T> {
   data?: T;
   error?: string;
   message?: string;
+}
+
+// ✨ NEW: Paginated API Response
+export interface PaginatedResponse<T> {
+  success: boolean;
+  data?: T[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrevious: boolean;
+  };
+  error?: string;
+  message?: string;
+}
+
+// ✨ NEW: Query Options for Pagination & Filtering
+export interface QueryOptions {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface ReservationQueryOptions extends QueryOptions {
+  status?: ReservationStatus | 'all';
+  paymentStatus?: PaymentStatus | 'all';
+  eventId?: string;
+  arrangement?: Arrangement | 'all';
+  searchQuery?: string;
+}
+
+export interface EventQueryOptions extends QueryOptions {
+  type?: EventType | 'all';
+  isActive?: boolean | 'all';
+  showId?: string;
 }
 
 // Price calculation

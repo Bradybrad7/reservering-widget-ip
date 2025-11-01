@@ -17,21 +17,74 @@ import type { Event, Reservation } from '../../types';
 interface ImportRow {
   rowNumber: number;
   data: {
-    contactPerson: string;
+    // Persoonlijke gegevens
+    salutation?: 'Dhr' | 'Mevr' | '';
+    firstName: string;
+    lastName: string;
+    contactPerson: string; // Computed: firstName + lastName
     email: string;
+    phoneCountryCode: string;
     phone: string;
-    phoneCountryCode?: string;
-    numberOfPersons: number;
-    arrangement: 'BWF' | 'BWFM';
+    
+    // Bedrijfsgegevens
     companyName?: string;
     vatNumber?: string;
-    address?: string;
-    houseNumber?: string;
-    postalCode?: string;
-    city?: string;
-    country?: string;
+    
+    // Adres
+    address: string;
+    houseNumber: string;
+    postalCode: string;
+    city: string;
+    country: string;
+    
+    // Factuuradres (optioneel)
+    invoiceAddress?: string;
+    invoiceHouseNumber?: string;
+    invoicePostalCode?: string;
+    invoiceCity?: string;
+    invoiceCountry?: string;
+    invoiceInstructions?: string;
+    
+    // Boeking details
+    numberOfPersons: number;
+    arrangement: 'BWF' | 'BWFM';
+    partyPerson?: string;
+    
+    // Add-ons
+    preDrink: {
+      enabled: boolean;
+      quantity: number;
+    };
+    afterParty: {
+      enabled: boolean;
+      quantity: number;
+    };
+    
+    // Dieetwensen
+    dietaryRequirements?: {
+      vegetarian?: boolean;
+      vegetarianCount?: number;
+      vegan?: boolean;
+      veganCount?: number;
+      glutenFree?: boolean;
+      glutenFreeCount?: number;
+      lactoseFree?: boolean;
+      lactoseFreeCount?: number;
+      other?: string;
+      otherCount?: number;
+    };
+    
+    // Promoties
+    promotionCode?: string;
+    voucherCode?: string;
+    
+    // Admin
     comments?: string;
     status?: 'confirmed' | 'pending';
+    paymentStatus?: 'pending' | 'paid' | 'overdue';
+    invoiceNumber?: string;
+    paymentMethod?: string;
+    tags?: string[];
   };
   validation: {
     isValid: boolean;
@@ -60,42 +113,118 @@ export const BulkReservationImport: React.FC<BulkReservationImportProps> = ({
     errors: string[];
   }>({ success: 0, failed: 0, errors: [] });
 
-  // Download Excel template
+  // Download Excel template - MATCHES EXACT BOOKING SYSTEM STRUCTURE
   const handleDownloadTemplate = () => {
     const templateData = [
       {
-        'Contactpersoon*': 'Jan Jansen',
+        // === PERSOONLIJKE GEGEVENS (zoals in ContactStep) ===
+        'Aanhef': 'Dhr',
+        'Voornaam*': 'Jan',
+        'Achternaam*': 'Jansen',
         'Email*': 'jan.jansen@email.com',
+        'Landcode Telefoon': '+31',
         'Telefoonnummer*': '0612345678',
-        'Landcode': '+31',
-        'Aantal Personen*': 4,
-        'Arrangement* (BWF/BWFM)': 'BWF',
+        
+        // === BEDRIJFSGEGEVENS (optioneel) ===
         'Bedrijfsnaam': '',
         'BTW Nummer': '',
-        'Adres': 'Voorbeeldstraat',
-        'Huisnummer': '123',
-        'Postcode': '1234AB',
-        'Stad': 'Amsterdam',
-        'Land': 'Nederland',
+        
+        // === ADRES ===
+        'Adres*': 'Voorbeeldstraat',
+        'Huisnummer*': '123',
+        'Postcode*': '1234AB',
+        'Stad*': 'Amsterdam',
+        'Land*': 'Nederland',
+        
+        // === FACTUURADRES (optioneel, laat leeg als gelijk aan adres) ===
+        'Factuur Adres': '',
+        'Factuur Huisnummer': '',
+        'Factuur Postcode': '',
+        'Factuur Stad': '',
+        'Factuur Land': '',
+        'Factuur Instructies': '',
+        
+        // === BOEKING DETAILS ===
+        'Aantal Personen*': 4,
+        'Arrangement* (BWF/BWFM)': 'BWF',
+        'Feestvierder': '',
+        
+        // === ADD-ONS ===
+        'Pre-drink (ja/nee)': 'nee',
+        'Pre-drink Aantal': 0,
+        'After-party (ja/nee)': 'nee',
+        'After-party Aantal': 0,
+        
+        // === DIEETWENSEN ===
+        'Vegetarisch': 'nee',
+        'Vegetarisch Aantal': 0,
+        'Veganistisch': 'nee',
+        'Veganistisch Aantal': 0,
+        'Glutenvrij': 'nee',
+        'Glutenvrij Aantal': 0,
+        'Lactosevrij': 'nee',
+        'Lactosevrij Aantal': 0,
+        'Overig Dieet': '',
+        'Overig Dieet Aantal': 0,
+        
+        // === PROMOTIES ===
+        'Promocode': '',
+        'Vouchercode': '',
+        
+        // === ADMIN ===
         'Opmerkingen': '',
-        'Status (confirmed/pending)': 'confirmed'
+        'Status (confirmed/pending)': 'confirmed',
+        'Betaalstatus (pending/paid)': 'pending',
+        'Factuurnummer': '',
+        'Betaalmethode': '',
+        'Tags (komma gescheiden)': 'Bulk Import'
       },
       {
-        'Contactpersoon*': 'Marie Bakker',
+        // Voorbeeld 2: Bedrijfsboeking met alle opties
+        'Aanhef': 'Mevr',
+        'Voornaam*': 'Marie',
+        'Achternaam*': 'Bakker',
         'Email*': 'marie@bedrijf.nl',
+        'Landcode Telefoon': '+31',
         'Telefoonnummer*': '0687654321',
-        'Landcode': '+31',
-        'Aantal Personen*': 8,
-        'Arrangement* (BWF/BWFM)': 'BWFM',
         'Bedrijfsnaam': 'Bedrijf BV',
         'BTW Nummer': 'NL123456789B01',
-        'Adres': 'Bedrijfslaan',
-        'Huisnummer': '456',
-        'Postcode': '5678CD',
-        'Stad': 'Rotterdam',
-        'Land': 'Nederland',
-        'Opmerkingen': 'Graag bij elkaar',
-        'Status (confirmed/pending)': 'confirmed'
+        'Adres*': 'Bedrijfslaan',
+        'Huisnummer*': '456',
+        'Postcode*': '5678CD',
+        'Stad*': 'Rotterdam',
+        'Land*': 'Nederland',
+        'Factuur Adres': 'Factuurafdeling',
+        'Factuur Huisnummer': '789',
+        'Factuur Postcode': '5678EF',
+        'Factuur Stad': 'Rotterdam',
+        'Factuur Land': 'Nederland',
+        'Factuur Instructies': 'T.a.v. boekhouding',
+        'Aantal Personen*': 8,
+        'Arrangement* (BWF/BWFM)': 'BWFM',
+        'Feestvierder': 'Directeur Henk',
+        'Pre-drink (ja/nee)': 'ja',
+        'Pre-drink Aantal': 8,
+        'After-party (ja/nee)': 'ja',
+        'After-party Aantal': 6,
+        'Vegetarisch': 'ja',
+        'Vegetarisch Aantal': 2,
+        'Veganistisch': 'nee',
+        'Veganistisch Aantal': 0,
+        'Glutenvrij': 'ja',
+        'Glutenvrij Aantal': 1,
+        'Lactosevrij': 'nee',
+        'Lactosevrij Aantal': 0,
+        'Overig Dieet': 'Notenalergie',
+        'Overig Dieet Aantal': 1,
+        'Promocode': '',
+        'Vouchercode': '',
+        'Opmerkingen': 'Graag bij elkaar zitten',
+        'Status (confirmed/pending)': 'confirmed',
+        'Betaalstatus (pending/paid)': 'paid',
+        'Factuurnummer': 'INV-2025-001',
+        'Betaalmethode': 'bank_transfer',
+        'Tags (komma gescheiden)': 'Bulk Import, VIP, Corporate'
       }
     ];
 
@@ -180,24 +309,110 @@ export const BulkReservationImport: React.FC<BulkReservationImportProps> = ({
       console.log('📝 First row columns:', Object.keys(jsonData[0] || {}));
 
       const parsed: ImportRow[] = jsonData.map((row: any, index: number) => {
+        // Helper functie om ja/nee te parsen
+        const parseYesNo = (value: any): boolean => {
+          const str = String(value || '').toLowerCase().trim();
+          return str === 'ja' || str === 'yes' || str === 'true' || str === '1';
+        };
+
+        // Parse persoonlijke gegevens
+        const firstName = String(row['Voornaam*'] || '').trim();
+        const lastName = String(row['Achternaam*'] || '').trim();
+        const salutation = String(row['Aanhef'] || '').trim() as 'Dhr' | 'Mevr' | '';
+
+        // Parse add-ons
+        const preDrinkEnabled = parseYesNo(row['Pre-drink (ja/nee)']);
+        const preDrinkQty = parseInt(row['Pre-drink Aantal']) || 0;
+        const afterPartyEnabled = parseYesNo(row['After-party (ja/nee)']);
+        const afterPartyQty = parseInt(row['After-party Aantal']) || 0;
+
+        // Parse dieetwensen
+        const vegetarian = parseYesNo(row['Vegetarisch']);
+        const vegetarianCount = parseInt(row['Vegetarisch Aantal']) || 0;
+        const vegan = parseYesNo(row['Veganistisch']);
+        const veganCount = parseInt(row['Veganistisch Aantal']) || 0;
+        const glutenFree = parseYesNo(row['Glutenvrij']);
+        const glutenFreeCount = parseInt(row['Glutenvrij Aantal']) || 0;
+        const lactoseFree = parseYesNo(row['Lactosevrij']);
+        const lactoseFreeCount = parseInt(row['Lactosevrij Aantal']) || 0;
+        const otherDiet = String(row['Overig Dieet'] || '').trim();
+        const otherDietCount = parseInt(row['Overig Dieet Aantal']) || 0;
+
+        // Parse tags
+        const tagsStr = String(row['Tags (komma gescheiden)'] || 'Bulk Import').trim();
+        const tags = tagsStr.split(',').map(t => t.trim()).filter(t => t);
+
         const importRow: ImportRow = {
           rowNumber: index + 2, // +2 because of header row and 0-based index
           data: {
-            contactPerson: String(row['Contactpersoon*'] || '').trim(),
+            // Persoonlijke gegevens
+            salutation,
+            firstName,
+            lastName,
+            contactPerson: `${firstName} ${lastName}`.trim(),
             email: String(row['Email*'] || '').trim(),
+            phoneCountryCode: String(row['Landcode Telefoon'] || '+31').trim(),
             phone: String(row['Telefoonnummer*'] || '').trim(),
-            phoneCountryCode: String(row['Landcode'] || '+31').trim(),
+            
+            // Bedrijfsgegevens
+            companyName: String(row['Bedrijfsnaam'] || '').trim() || undefined,
+            vatNumber: String(row['BTW Nummer'] || '').trim() || undefined,
+            
+            // Adres
+            address: String(row['Adres*'] || '').trim(),
+            houseNumber: String(row['Huisnummer*'] || '').trim(),
+            postalCode: String(row['Postcode*'] || '').trim(),
+            city: String(row['Stad*'] || '').trim(),
+            country: String(row['Land*'] || 'Nederland').trim(),
+            
+            // Factuuradres (optioneel)
+            invoiceAddress: String(row['Factuur Adres'] || '').trim() || undefined,
+            invoiceHouseNumber: String(row['Factuur Huisnummer'] || '').trim() || undefined,
+            invoicePostalCode: String(row['Factuur Postcode'] || '').trim() || undefined,
+            invoiceCity: String(row['Factuur Stad'] || '').trim() || undefined,
+            invoiceCountry: String(row['Factuur Land'] || '').trim() || undefined,
+            invoiceInstructions: String(row['Factuur Instructies'] || '').trim() || undefined,
+            
+            // Boeking details
             numberOfPersons: parseInt(row['Aantal Personen*']) || 0,
             arrangement: String(row['Arrangement* (BWF/BWFM)'] || '').toUpperCase().trim() as 'BWF' | 'BWFM',
-            companyName: String(row['Bedrijfsnaam'] || '').trim(),
-            vatNumber: String(row['BTW Nummer'] || '').trim(),
-            address: String(row['Adres'] || '').trim(),
-            houseNumber: String(row['Huisnummer'] || '').trim(),
-            postalCode: String(row['Postcode'] || '').trim(),
-            city: String(row['Stad'] || '').trim(),
-            country: String(row['Land'] || 'Nederland').trim(),
-            comments: String(row['Opmerkingen'] || '').trim(),
-            status: String(row['Status (confirmed/pending)'] || '').toLowerCase().trim() === 'pending' ? 'pending' : 'confirmed'
+            partyPerson: String(row['Feestvierder'] || '').trim() || undefined,
+            
+            // Add-ons
+            preDrink: {
+              enabled: preDrinkEnabled,
+              quantity: preDrinkEnabled ? preDrinkQty : 0
+            },
+            afterParty: {
+              enabled: afterPartyEnabled,
+              quantity: afterPartyEnabled ? afterPartyQty : 0
+            },
+            
+            // Dieetwensen
+            dietaryRequirements: {
+              vegetarian,
+              vegetarianCount: vegetarian ? vegetarianCount : undefined,
+              vegan,
+              veganCount: vegan ? veganCount : undefined,
+              glutenFree,
+              glutenFreeCount: glutenFree ? glutenFreeCount : undefined,
+              lactoseFree,
+              lactoseFreeCount: lactoseFree ? lactoseFreeCount : undefined,
+              other: otherDiet || undefined,
+              otherCount: otherDiet ? otherDietCount : undefined
+            },
+            
+            // Promoties
+            promotionCode: String(row['Promocode'] || '').trim() || undefined,
+            voucherCode: String(row['Vouchercode'] || '').trim() || undefined,
+            
+            // Admin
+            comments: String(row['Opmerkingen'] || '').trim() || undefined,
+            status: String(row['Status (confirmed/pending)'] || '').toLowerCase().trim() === 'pending' ? 'pending' : 'confirmed',
+            paymentStatus: String(row['Betaalstatus (pending/paid)'] || 'pending').toLowerCase().trim() as any,
+            invoiceNumber: String(row['Factuurnummer'] || '').trim() || undefined,
+            paymentMethod: String(row['Betaalmethode'] || '').trim() || undefined,
+            tags
           },
           validation: { isValid: true, errors: [], warnings: [] }
         };
@@ -230,21 +445,44 @@ export const BulkReservationImport: React.FC<BulkReservationImportProps> = ({
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    // Required fields
-    if (!data.contactPerson?.trim()) {
-      errors.push('Contactpersoon is verplicht');
+    // Required: Naam
+    if (!data.firstName?.trim()) {
+      errors.push('Voornaam is verplicht');
+    }
+    if (!data.lastName?.trim()) {
+      errors.push('Achternaam is verplicht');
     }
 
+    // Required: Email
     if (!data.email?.trim()) {
       errors.push('Email is verplicht');
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
       errors.push('Ongeldig email formaat');
     }
 
+    // Required: Telefoon
     if (!data.phone?.trim()) {
       errors.push('Telefoonnummer is verplicht');
     }
 
+    // Required: Adres
+    if (!data.address?.trim()) {
+      errors.push('Adres is verplicht');
+    }
+    if (!data.houseNumber?.trim()) {
+      errors.push('Huisnummer is verplicht');
+    }
+    if (!data.postalCode?.trim()) {
+      errors.push('Postcode is verplicht');
+    }
+    if (!data.city?.trim()) {
+      errors.push('Stad is verplicht');
+    }
+    if (!data.country?.trim()) {
+      errors.push('Land is verplicht');
+    }
+
+    // Required: Boeking details
     if (!data.numberOfPersons || data.numberOfPersons < 1) {
       errors.push('Aantal personen moet minimaal 1 zijn');
     } else if (data.numberOfPersons > 50) {
@@ -289,44 +527,81 @@ export const BulkReservationImport: React.FC<BulkReservationImportProps> = ({
       const row = validRows[i];
       
       try {
-        // Calculate price (basic calculation)
-        const basePrice = row.data.numberOfPersons * (row.data.arrangement === 'BWFM' ? 37.50 : 32.50);
+        // Calculate price using priceService (will calculate add-ons too)
+        const priceCalc = await import('../../services/priceService').then(m => 
+          m.priceService.calculatePrice(event, {
+            numberOfPersons: row.data.numberOfPersons,
+            arrangement: row.data.arrangement,
+            preDrink: row.data.preDrink,
+            afterParty: row.data.afterParty,
+            merchandise: []
+          })
+        );
 
         const reservationData: Partial<Reservation> = {
           eventId: event.id,
           eventDate: event.date,
-          // Contact info
-          salutation: '',
-          firstName: row.data.contactPerson.split(' ')[0] || '',
-          lastName: row.data.contactPerson.split(' ').slice(1).join(' ') || '',
+          
+          // === PERSOONLIJKE GEGEVENS ===
+          salutation: row.data.salutation || '',
+          firstName: row.data.firstName,
+          lastName: row.data.lastName,
           contactPerson: row.data.contactPerson,
           email: row.data.email,
+          phoneCountryCode: row.data.phoneCountryCode,
           phone: row.data.phone,
-          phoneCountryCode: row.data.phoneCountryCode || '+31',
-          // Booking details
-          numberOfPersons: row.data.numberOfPersons,
-          arrangement: row.data.arrangement,
-          // Company info
+          
+          // === BEDRIJFSGEGEVENS ===
           companyName: row.data.companyName || '',
           vatNumber: row.data.vatNumber || '',
-          // Address
-          address: row.data.address || '',
-          houseNumber: row.data.houseNumber || '',
-          postalCode: row.data.postalCode || '',
-          city: row.data.city || '',
-          country: row.data.country || 'Nederland',
-          // Other
-          comments: row.data.comments,
+          
+          // === ADRES ===
+          address: row.data.address,
+          houseNumber: row.data.houseNumber,
+          postalCode: row.data.postalCode,
+          city: row.data.city,
+          country: row.data.country,
+          
+          // === FACTUURADRES ===
+          invoiceAddress: row.data.invoiceAddress || '',
+          invoiceHouseNumber: row.data.invoiceHouseNumber || '',
+          invoicePostalCode: row.data.invoicePostalCode || '',
+          invoiceCity: row.data.invoiceCity || '',
+          invoiceCountry: row.data.invoiceCountry || '',
+          invoiceInstructions: row.data.invoiceInstructions || '',
+          
+          // === BOEKING DETAILS ===
+          numberOfPersons: row.data.numberOfPersons,
+          arrangement: row.data.arrangement,
+          partyPerson: row.data.partyPerson || '',
+          
+          // === ADD-ONS ===
+          preDrink: row.data.preDrink,
+          afterParty: row.data.afterParty,
+          merchandise: [], // Merchandise moet apart worden toegevoegd
+          
+          // === DIEETWENSEN ===
+          dietaryRequirements: row.data.dietaryRequirements,
+          
+          // === PROMOTIES ===
+          promotionCode: row.data.promotionCode || '',
+          voucherCode: row.data.voucherCode || '',
+          
+          // === ADMIN ===
+          comments: row.data.comments || '',
           newsletterOptIn: false,
           acceptTerms: true,
-          preDrink: { enabled: false, quantity: 0 },
-          afterParty: { enabled: false, quantity: 0 },
-          merchandise: [],
-          // Status & pricing
+          
+          // === STATUS & PRICING ===
           status: row.data.status || 'confirmed',
-          totalPrice: basePrice,
-          paymentStatus: 'pending',
-          tags: ['Bulk Import'],
+          totalPrice: priceCalc.totalPrice,
+          pricingSnapshot: priceCalc as any,
+          paymentStatus: row.data.paymentStatus || 'pending',
+          invoiceNumber: row.data.invoiceNumber || '',
+          paymentMethod: row.data.paymentMethod || '',
+          
+          // === TAGS & LOGGING ===
+          tags: row.data.tags || ['Bulk Import'],
           communicationLog: [
             {
               id: `log-${Date.now()}-${i}`,

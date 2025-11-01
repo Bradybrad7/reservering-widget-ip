@@ -47,7 +47,8 @@ interface ReservationState {
   // Success state
   completedReservation: Reservation | null;
   
-  // Configuration
+  // ✨ DEPRECATED: Configuration (October 2025)
+  // These are kept for backward compatibility but should use configStore instead
   config: GlobalConfig;
   pricing: Pricing;
   addOns: AddOns;
@@ -78,12 +79,17 @@ interface ReservationActions {
   submitReservation: () => Promise<boolean>;
   // 🗑️ REMOVED: submitWaitlist - now handled by waitlistStore
   
-  // Configuration
+  // ✨ DEPRECATED: Configuration (October 2025)
+  // These methods update local state but configStore should be used as single source of truth
+  // Kept for backward compatibility
   updateConfig: (config: Partial<GlobalConfig>) => void;
   updatePricing: (pricing: Partial<Pricing>) => void;
   updateAddOns: (addOns: Partial<AddOns>) => void;
   updateBookingRules: (rules: Partial<BookingRules>) => void;
   updateWizardConfig: (config: Partial<WizardConfig>) => void;
+  
+  // ✨ NEW: Sync configuration from configStore (October 2025)
+  syncConfigFromStore: () => void;
   
   // Utility
   calculateCurrentPrice: () => void;
@@ -737,6 +743,43 @@ export const useReservationStore = create<ReservationStore>()(
       set(state => ({
         wizardConfig: { ...state.wizardConfig, ...config }
       }));
+    },
+
+    // ✨ NEW: Sync configuration from configStore (October 2025)
+    // This method pulls the latest configuration from configStore to ensure consistency
+    syncConfigFromStore: () => {
+      // Import dynamically to avoid circular dependencies
+      import('./configStore').then(({ useConfigStore }) => {
+        const configState = useConfigStore.getState();
+        
+        const updates: Partial<ReservationState> = {};
+        
+        if (configState.config) {
+          updates.config = configState.config;
+        }
+        if (configState.pricing) {
+          updates.pricing = configState.pricing;
+        }
+        if (configState.addOns) {
+          updates.addOns = configState.addOns;
+        }
+        if (configState.bookingRules) {
+          updates.bookingRules = configState.bookingRules;
+        }
+        if (configState.wizardConfig) {
+          updates.wizardConfig = configState.wizardConfig;
+        }
+        
+        if (Object.keys(updates).length > 0) {
+          set(updates);
+          console.log('✅ [ReservationStore] Synced configuration from configStore');
+          
+          // Recalculate price with new config
+          get().calculateCurrentPrice();
+        }
+      }).catch(error => {
+        console.error('❌ Failed to sync config from configStore:', error);
+      });
     },
 
     reset: () => {

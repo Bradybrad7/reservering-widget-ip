@@ -9,11 +9,13 @@ import {
   Clock,
   StickyNote,
   AlertCircle,
-  Filter
+  Filter,
+  QrCode
 } from 'lucide-react';
 import { useEventsStore } from '../../store/eventsStore';
 import { useReservationsStore } from '../../store/reservationsStore';
 import type { Reservation } from '../../types';
+import { QRScanner } from './QRScanner';
 
 /**
  * Check-in Module
@@ -48,6 +50,7 @@ const CheckInManager: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showOnlyPending, setShowOnlyPending] = useState(true);
   const [checkInNote, setCheckInNote] = useState<{ [key: string]: string }>({});
+  const [showQRScanner, setShowQRScanner] = useState(false);
 
   React.useEffect(() => {
     loadEvents();
@@ -202,28 +205,40 @@ const CheckInManager: React.FC = () => {
         </div>
       </div>
 
-      {/* Event Selection */}
+      {/* Event Selection & QR Scanner Button */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-6">
-        <label className="block text-sm font-medium text-slate-300 mb-3">
-          Selecteer Event
-        </label>
-        <select
-          value={selectedEventId}
-          onChange={(e) => setSelectedEventId(e.target.value)}
-          className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-3 text-slate-100 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all text-lg"
-        >
-          <option value="">-- Kies een event --</option>
-          {upcomingEvents.map(event => (
-            <option key={event.id} value={event.id}>
-              {new Date(event.date).toLocaleDateString('nl-NL', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })} - {event.startsAt} ({event.type})
-            </option>
-          ))}
-        </select>
+        <div className="flex items-end gap-4">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-slate-300 mb-3">
+              Selecteer Event
+            </label>
+            <select
+              value={selectedEventId}
+              onChange={(e) => setSelectedEventId(e.target.value)}
+              className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-3 text-slate-100 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all text-lg"
+            >
+              <option value="">-- Kies een event --</option>
+              {upcomingEvents.map(event => (
+                <option key={event.id} value={event.id}>
+                  {new Date(event.date).toLocaleDateString('nl-NL', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })} - {event.startsAt} ({event.type})
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <button
+            onClick={() => setShowQRScanner(true)}
+            className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-medium rounded-lg transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
+          >
+            <QrCode className="w-5 h-5" />
+            Scan QR Code
+          </button>
+        </div>
       </div>
 
       {selectedEventId && (
@@ -470,6 +485,23 @@ const CheckInManager: React.FC = () => {
             Kies een aankomend event om de check-in lijst te bekijken
           </p>
         </div>
+      )}
+      
+      {/* QR Scanner Modal */}
+      {showQRScanner && (
+        <QRScanner
+          autoCheckIn={false}
+          onReservationFound={(reservation) => {
+            console.log('Reservation found via QR:', reservation);
+            // Optionally auto-select the event
+            if (reservation.eventId && reservation.eventId !== selectedEventId) {
+              setSelectedEventId(reservation.eventId);
+            }
+            // Optionally highlight the found reservation
+            setSearchTerm(reservation.id);
+          }}
+          onClose={() => setShowQRScanner(false)}
+        />
       )}
     </div>
   );

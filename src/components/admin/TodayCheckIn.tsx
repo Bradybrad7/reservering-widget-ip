@@ -3,12 +3,14 @@ import {
   Calendar, 
   CheckCircle, 
   ArrowLeft, 
-  Clock
+  Clock,
+  QrCode
 } from 'lucide-react';
 import { useEventsStore } from '../../store/eventsStore';
 import { useReservationsStore } from '../../store/reservationsStore';
 import type { AdminEvent, Reservation } from '../../types';
 import { formatCurrency, formatDate, cn } from '../../utils';
+import { QRScanner } from './QRScanner';
 
 interface TodayCheckInProps {
   eventId?: string; // Optional: show specific event only
@@ -29,6 +31,7 @@ export const TodayCheckIn: React.FC<TodayCheckInProps> = ({ eventId, onBack }) =
   const { reservations, loadReservations, checkInReservation } = useReservationsStore();
   const [selectedEvent, setSelectedEvent] = useState<AdminEvent | null>(null);
   const [adminName] = useState('Admin'); // Could be from auth context
+  const [showQRScanner, setShowQRScanner] = useState(false);
 
   useEffect(() => {
     loadEvents();
@@ -200,9 +203,20 @@ export const TodayCheckIn: React.FC<TodayCheckInProps> = ({ eventId, onBack }) =
             Check-in: {formatDate(selectedEvent.date)} - {selectedEvent.startsAt}
           </h2>
         </div>
-        <div className="text-right">
-          <div className="text-3xl font-bold text-gold-400">{checkedInCount} / {eventReservations.length}</div>
-          <div className="text-sm text-neutral-400">ingecheckt</div>
+        
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setShowQRScanner(true)}
+            className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg font-medium transition-all shadow-lg flex items-center gap-2"
+          >
+            <QrCode className="w-5 h-5" />
+            Scan QR
+          </button>
+          
+          <div className="text-right">
+            <div className="text-3xl font-bold text-gold-400">{checkedInCount} / {eventReservations.length}</div>
+            <div className="text-sm text-neutral-400">ingecheckt</div>
+          </div>
         </div>
       </div>
 
@@ -232,12 +246,13 @@ export const TodayCheckIn: React.FC<TodayCheckInProps> = ({ eventId, onBack }) =
       <div className="space-y-3">
         <h3 className="text-lg font-semibold text-white">Reserveringen</h3>
         
-        {eventReservations.length === 0 ? (
-          <div className="bg-neutral-800/50 rounded-lg p-8 text-center">
-            <p className="text-neutral-400">Geen reserveringen voor dit event</p>
-          </div>
-        ) : (
-          eventReservations.map(reservation => {
+        <div className="space-y-3">
+          {eventReservations.length === 0 ? (
+            <div className="bg-neutral-800/50 rounded-lg p-8 text-center">
+              <p className="text-neutral-400">Geen reserveringen voor dit event</p>
+            </div>
+          ) : (
+            eventReservations.map(reservation => {
             const isCheckedIn = reservation.status === 'checked-in';
             
             return (
@@ -287,9 +302,29 @@ export const TodayCheckIn: React.FC<TodayCheckInProps> = ({ eventId, onBack }) =
                 </div>
               </div>
             );
-          })
-        )}
+            })
+          )}
+        </div>
       </div>
+      
+      {/* QR Scanner Modal */}
+      {showQRScanner && (
+        <QRScanner
+          autoCheckIn={true}
+          onReservationFound={(reservation) => {
+            console.log('Reservation found via QR:', reservation);
+            // If event doesn't match, switch to it
+            if (reservation.eventId !== selectedEvent?.id) {
+              const event = todaysEvents.find(e => e.id === reservation.eventId);
+              if (event) {
+                setSelectedEvent(event);
+              }
+            }
+            setShowQRScanner(false);
+          }}
+          onClose={() => setShowQRScanner(false)}
+        />
+      )}
     </div>
   );
 };

@@ -29,17 +29,46 @@ Write-Host ""
 
 # STAP 2: Verbinden
 Write-Host "STAP 2: Connecting to Exchange Online..." -ForegroundColor Green
+Write-Host "BELANGRIJK: Application Access Policies zijn DEPRECATED!" -ForegroundColor Yellow
+Write-Host "Microsoft raadt nu aan om Graph API permissions te gebruiken in Azure AD." -ForegroundColor Yellow
+Write-Host ""
+Write-Host "We gaan toch proberen te verbinden..." -ForegroundColor Cyan
 Write-Host "Log in met je admin account ($AdminEmail)" -ForegroundColor Yellow
 Write-Host ""
 
+# Eerst oude sessies opruimen
 try {
-    Connect-ExchangeOnline -UserPrincipalName $AdminEmail -ShowBanner:$false
+    Get-PSSession | Where-Object {$_.ConfigurationName -eq "Microsoft.Exchange"} | Remove-PSSession -ErrorAction SilentlyContinue
+} catch {}
+
+try {
+    # Probeer eerst met moderne auth (zonder RPS)
+    Write-Host "Poging 1: Moderne authenticatie..." -ForegroundColor Cyan
+    Connect-ExchangeOnline -UserPrincipalName $AdminEmail -ShowBanner:$false -ErrorAction Stop
     Write-Host "Verbonden met Exchange Online!" -ForegroundColor Green
     Write-Host ""
 } catch {
-    Write-Host "Kon niet verbinden met Exchange Online:" -ForegroundColor Red
-    Write-Host $_.Exception.Message -ForegroundColor Red
-    exit 1
+    Write-Host "Moderne auth mislukt. Proberen met RPS Session..." -ForegroundColor Yellow
+    try {
+        Connect-ExchangeOnline -UserPrincipalName $AdminEmail -ShowBanner:$false -UseRPSSession -ErrorAction Stop
+        Write-Host "Verbonden met Exchange Online (RPS Session)!" -ForegroundColor Green
+        Write-Host ""
+    } catch {
+        Write-Host "Kon niet verbinden met Exchange Online:" -ForegroundColor Red
+        Write-Host $_.Exception.Message -ForegroundColor Red
+        Write-Host ""
+        Write-Host "ALTERNATIEVE OPLOSSING:" -ForegroundColor Yellow
+        Write-Host "Application Access Policies zijn DEPRECATED sinds 2023." -ForegroundColor Yellow
+        Write-Host "Gebruik in plaats daarvan Azure AD App Permissions:" -ForegroundColor Cyan
+        Write-Host "  1. Ga naar Azure Portal > App Registrations" -ForegroundColor White
+        Write-Host "  2. Selecteer je app: $AppId" -ForegroundColor White
+        Write-Host "  3. Ga naar 'API Permissions'" -ForegroundColor White
+        Write-Host "  4. Voeg toe: Mail.Send (Application permission)" -ForegroundColor White
+        Write-Host "  5. Geef Admin Consent" -ForegroundColor White
+        Write-Host ""
+        Write-Host "Dan kan je app direct mailen zonder Application Access Policy!" -ForegroundColor Green
+        exit 1
+    }
 }
 
 # STAP 3: Check bestaande policies

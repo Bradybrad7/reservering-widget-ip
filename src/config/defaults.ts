@@ -28,7 +28,8 @@ export const defaultConfig: GlobalConfig = {
     address: 'Adres nog in te vullen',
     phone: '+31 (0)xx xxx xxxx',
     email: 'info@inspiration-point.nl'
-  }
+  },
+  voucherShippingCost: 3.95 // Default verzendkosten voor vouchers
 } as const;
 
 // Default pricing structure

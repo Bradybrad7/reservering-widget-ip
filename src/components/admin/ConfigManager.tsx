@@ -586,6 +586,40 @@ export const ConfigManager: React.FC = () => {
                 />
               </div>
             </div>
+
+            {/* Voucher Settings */}
+            <div className="border-t border-dark-200 pt-6 mt-6">
+              <h4 className="text-md font-semibold text-neutral-100 mb-4">
+                Voucher Instellingen
+              </h4>
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-100 mb-1">
+                    Verzendkosten Vouchers
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-dark-500">€</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={localConfig.voucherShippingCost ?? 3.95}
+                      onChange={(e) => {
+                        setLocalConfig({
+                          ...localConfig,
+                          voucherShippingCost: parseFloat(e.target.value) || 0
+                        });
+                        setHasChanges(true);
+                      }}
+                      className="w-full pl-8 pr-3 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    />
+                  </div>
+                  <p className="text-xs text-dark-600 mt-1">
+                    Kosten voor het versturen van fysieke vouchers per post
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

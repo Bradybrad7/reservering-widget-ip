@@ -77,21 +77,47 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events, currentMonth]);
 
-  // Load availability for events in current view
+  // ✨ OPTIMIZED: Hover-based lazy loading for availability (October 2025)
+  // Instead of loading all availabilities on mount, we load them on hover
+  const [hoverTimers, setHoverTimers] = useState<Record<string, number>>({});
+
+  const handleDayHover = useCallback((event: Event | undefined) => {
+    if (!event || eventAvailability[event.id]) {
+      return; // Already loaded or no event
+    }
+
+    // Debounce: Only load if user hovers for 300ms
+    const timer = setTimeout(() => {
+      loadEventAvailability(event.id);
+    }, 300);
+
+    setHoverTimers(prev => ({
+      ...prev,
+      [event.id]: timer
+    }));
+  }, [eventAvailability, loadEventAvailability]);
+
+  const handleDayHoverEnd = useCallback((event: Event | undefined) => {
+    if (!event) return;
+
+    // Clear the timer if user moves away before 300ms
+    const timer = hoverTimers[event.id];
+    if (timer) {
+      clearTimeout(timer);
+      setHoverTimers(prev => {
+        const newTimers = { ...prev };
+        delete newTimers[event.id];
+        return newTimers;
+      });
+    }
+  }, [hoverTimers]);
+
+  // Cleanup timers on unmount
   useEffect(() => {
-    const currentMonthEvents = events.filter(event => 
-      isInCurrentMonth(event.date, currentMonth)
-    );
-    
-    // Only load availability once per event, don't re-run when loadEventAvailability changes
-    currentMonthEvents.forEach(event => {
-      if (!eventAvailability[event.id]) {
-        loadEventAvailability(event.id);
-      }
-    });
-    // ⚠️ Intentionally excluding loadEventAvailability from deps to prevent infinite loop
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [events, currentMonth, eventAvailability]);
+    return () => {
+      Object.values(hoverTimers).forEach(timer => clearTimeout(timer));
+    };
+  }, [hoverTimers]);
 
   const navigateMonth = useCallback((direction: 'prev' | 'next') => {
     const newMonth = new Date(currentMonth);
@@ -159,7 +185,7 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
         'ring-2 ring-primary-500/40': 
           isDateToday && isCurrentMonth && !isSelected,
         // Selected event - enhanced gold glow
-        'bg-gold-gradient border-primary-500 text-neutral-950 font-bold shadow-gold-glow scale-105 -translate-y-1': 
+        'bg-gold-gradient border-primary-500 text-text-primary font-bold shadow-gold-glow scale-105 -translate-y-1': 
           isSelected,
         // Empty date
         'bg-elevated/20 border-border-subtle': 
@@ -338,6 +364,8 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
               key={index}
               onClick={() => handleDateClick(date, event)}
               onKeyDown={(e) => handleKeyDown(e, date, event)}
+              onMouseEnter={() => handleDayHover(event)}
+              onMouseLeave={() => handleDayHoverEnd(event)}
               style={{ backgroundColor: bgColor, borderColor: borderColor }}
               className={getDayClassName(date, event)}
               disabled={!event || !event.isActive || availability?.bookingStatus === 'closed'}
@@ -351,7 +379,7 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
               <div className={cn("text-xs font-bold mb-0.5", {
                 'text-dark-400': !event || !isCurrentMonth,
                 'text-neutral-200': event && isCurrentMonth && !isSelected,
-                'text-neutral-950': isSelected
+                'text-text-primary': isSelected
               })}>
                 {date.getDate()}
               </div>
@@ -365,7 +393,7 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
                       <div 
                         className={cn("text-[11px] font-bold truncate leading-tight", {
                           'text-gold-400': !isSelected,
-                          'text-neutral-950': isSelected
+                          'text-text-primary': isSelected
                         })}
                       >
                         {show.name}

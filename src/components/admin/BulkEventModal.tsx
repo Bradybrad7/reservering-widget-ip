@@ -235,7 +235,7 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-neutral-900 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border-2 border-gold-500/30">
+      <div className="bg-neutral-900 rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto border-2 border-gold-500/30">
         {/* Header */}
         <div className="sticky top-0 bg-gradient-to-r from-dark-900 to-dark-800 border-b-2 border-gold-500/50 px-6 py-4 flex justify-between items-center z-10">
           <div className="flex items-center gap-3">
@@ -266,9 +266,9 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
           )}
 
           {/* Calendar */}
-          <div className="bg-dark-800/80 backdrop-blur-sm border-2 border-gold-500/20 rounded-lg p-6">
+          <div className="bg-dark-800/80 backdrop-blur-sm border-2 border-gold-500/20 rounded-lg p-6 max-h-[600px] overflow-y-auto">
             {/* Quick Selection */}
-            <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b-2 border-gold-500/30">
+            <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b-2 border-gold-500/30 sticky top-0 bg-dark-800/95 backdrop-blur z-10">
               <button
                 type="button"
                 onClick={() => {
@@ -340,7 +340,7 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
             </div>
 
             {/* Calendar Header */}
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-4 sticky top-16 bg-dark-800/95 backdrop-blur py-2 z-10">
               <button
                 type="button"
                 onClick={previousMonth}
@@ -363,7 +363,7 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
             </div>
 
             {/* Weekday Headers */}
-            <div className="grid grid-cols-7 gap-1 mb-2">
+            <div className="grid grid-cols-7 gap-1 mb-2 sticky top-32 bg-dark-800/95 backdrop-blur z-10">
               {['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'].map(day => (
                 <div key={day} className="text-center text-sm font-semibold text-gold-400 py-2">
                   {day}

@@ -132,7 +132,7 @@ const SuccessPage: React.FC<SuccessPageProps> = ({ className, onNewReservation }
         <div className="card-theatre p-8 mb-8 rounded-2xl">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 bg-gold-gradient rounded-xl flex items-center justify-center shadow-gold">
-              <CalendarIcon className="w-5 h-5 text-neutral-950" />
+              <CalendarIcon className="w-5 h-5 text-text-primary" />
             </div>
             <h2 className="text-2xl font-bold text-text-primary text-shadow">
               Uw Wachtlijst Aanmelding
@@ -179,7 +179,7 @@ const SuccessPage: React.FC<SuccessPageProps> = ({ className, onNewReservation }
           {/* New Reservation */}
           <button
             onClick={handleNewReservation}
-            className="group w-full flex items-center justify-center gap-3 py-4 px-8 bg-gold-gradient text-neutral-950 rounded-xl hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all duration-300 shadow-gold-glow hover:shadow-gold font-bold text-lg active:scale-95 animate-pulse-gold"
+            className="group w-full flex items-center justify-center gap-3 py-4 px-8 bg-gold-gradient text-text-primary rounded-xl hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all duration-300 shadow-gold-glow hover:shadow-gold font-bold text-lg active:scale-95 animate-pulse-gold"
           >
             <ArrowLeft className="w-6 h-6 transition-transform group-hover:-translate-x-1" strokeWidth={2.5} />
             <span>Terug naar kalender</span>
@@ -260,7 +260,7 @@ const SuccessPage: React.FC<SuccessPageProps> = ({ className, onNewReservation }
                     ? "bg-danger-600 text-white"
                     : isPending && requestedOverCapacity
                     ? "bg-gradient-to-r from-warning-500 to-warning-600 text-white"
-                    : "bg-gold-gradient text-neutral-950"
+                    : "bg-gold-gradient text-text-primary"
                 )}>
                   {completedReservation.id}
                 </span>
@@ -330,7 +330,7 @@ const SuccessPage: React.FC<SuccessPageProps> = ({ className, onNewReservation }
         <div className="card-theatre p-6 rounded-2xl">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-gold-gradient rounded-xl flex items-center justify-center shadow-gold">
-              <CalendarIcon className="w-5 h-5 text-neutral-950" />
+              <CalendarIcon className="w-5 h-5 text-text-primary" />
             </div>
             <h2 className="text-xl font-bold text-text-primary">
               Uw Boeking
@@ -465,7 +465,7 @@ const SuccessPage: React.FC<SuccessPageProps> = ({ className, onNewReservation }
         {/* Download Calendar Event */}
         <button
           onClick={handleDownloadCalendar}
-          className="group w-full flex items-center justify-center gap-3 py-4 px-8 bg-gold-gradient text-neutral-950 rounded-xl hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all duration-300 shadow-gold-glow hover:shadow-gold font-bold text-lg active:scale-95 animate-pulse-gold"
+          className="group w-full flex items-center justify-center gap-3 py-4 px-8 bg-gold-gradient text-text-primary rounded-xl hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all duration-300 shadow-gold-glow hover:shadow-gold font-bold text-lg active:scale-95 animate-pulse-gold"
         >
           <Download className="w-6 h-6 transition-transform group-hover:scale-110" strokeWidth={2.5} />
           <span>📅 Voeg toe aan agenda</span>

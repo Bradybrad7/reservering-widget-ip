@@ -5,7 +5,7 @@ import React from 'react';
  * Design System v3.0 - Zwart/Donkerrood/Goud Theme
  * 
  * Variants:
- * - primary: Goud background (main CTAs) - zwarte tekst
+ * - primary: Goud background (main CTAs) - witte/lichte tekst
  * - secondary: Donkerrood background (secondary actions) - lichte tekst
  * - ghost: Transparent, minimal styling (cancel, back)
  * - danger: Donkerrood background (destructive actions)
@@ -54,7 +54,7 @@ const Button: React.FC<ButtonProps> = ({
   const variantStyles = {
     primary: `
       bg-primary-500 hover:bg-primary-600 active:bg-primary-700
-      text-neutral-950 font-bold
+      text-text-primary font-bold
       shadow-gold hover:shadow-gold-glow
       border border-primary-600
     `,

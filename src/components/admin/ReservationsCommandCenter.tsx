@@ -21,6 +21,7 @@ import {
   DollarSign,
   Search,
   Download,
+  Upload,
   Plus,
   Filter,
   LayoutGrid,
@@ -52,6 +53,8 @@ import { useToast } from '../Toast';
 import { ManualBookingManager } from './QuickBooking';
 import { ReservationDetailModal } from './modals/ReservationDetailModal';
 import { ReservationEditModal } from './ReservationEditModal';
+import { SystemMigrationImport } from './SystemMigrationImport';
+import { BulkReservationImport } from './BulkReservationImport';
 import { isOptionExpired, isOptionExpiringSoon } from '../../utils/optionHelpers';
 
 type ViewMode = 'cards' | 'table' | 'timeline';
@@ -106,6 +109,10 @@ export const ReservationsCommandCenter: React.FC = () => {
   
   // Modals
   const [showManualBooking, setShowManualBooking] = useState(false);
+  const [showMigrationImport, setShowMigrationImport] = useState(false);
+  const [showEventSelector, setShowEventSelector] = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [bulkImportEvent, setBulkImportEvent] = useState<Event | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
@@ -390,6 +397,25 @@ export const ReservationsCommandCenter: React.FC = () => {
             >
               <Download className="w-4 h-4" />
               <span className="hidden md:inline">Exporteren</span>
+            </button>
+
+            <button
+              onClick={() => setShowMigrationImport(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors"
+              title="Importeer reserveringen uit oud systeem"
+            >
+              <Upload className="w-4 h-4" />
+              <span className="hidden md:inline">Systeem Import</span>
+            </button>
+
+            <button
+              onClick={() => setShowEventSelector(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+              title="Bulk importeer reserveringen naar specifiek event"
+              disabled={events.length === 0}
+            >
+              <Upload className="w-4 h-4" />
+              <span className="hidden md:inline">Bulk Import</span>
             </button>
             
             <button
@@ -805,23 +831,434 @@ export const ReservationsCommandCenter: React.FC = () => {
               </div>
             )}
 
-            {/* Table View - Coming soon */}
+            {/* Table View */}
             {viewMode === 'table' && (
-              <div className="flex items-center justify-center h-full bg-neutral-800/30 rounded-xl">
-                <div className="text-center">
-                  <List className="w-16 h-16 mx-auto mb-4 text-neutral-600" />
-                  <p className="text-neutral-400 text-lg">Tabel view komt binnenkort</p>
+              <div className="h-full bg-neutral-800/50 rounded-xl overflow-auto">
+                <div className="min-w-full">
+                  <table className="w-full">
+                    <thead className="bg-neutral-900/80 sticky top-0 z-10">
+                      <tr>
+                        <th className="px-4 py-3 text-left">
+                          <input
+                            type="checkbox"
+                            checked={selectedReservations.size === filteredReservations.length && filteredReservations.length > 0}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedReservations(new Set(filteredReservations.map(r => r.id)));
+                              } else {
+                                clearSelection();
+                              }
+                            }}
+                            className="w-4 h-4 rounded border-neutral-600 text-gold-500"
+                          />
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                          ID
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                          Contactpersoon
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                          Bedrijf
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                          Event
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                          Personen
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                          Arrangement
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                          Bedrag
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                          Betaling
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                          Acties
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-700/50">
+                      {filteredReservations.map(reservation => {
+                        const event = getEventForReservation(reservation.eventId);
+                        const isSelected = selectedReservations.has(reservation.id);
+                        const isOptionExpiring = reservation.status === 'option' && isOptionExpiringSoon(reservation);
+
+                        return (
+                          <tr
+                            key={reservation.id}
+                            className={cn(
+                              'hover:bg-neutral-700/30 transition-colors',
+                              isSelected && 'bg-gold-500/10'
+                            )}
+                          >
+                            <td className="px-4 py-3">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleSelection(reservation.id)}
+                                className="w-4 h-4 rounded border-neutral-600 text-gold-500"
+                              />
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="text-xs text-neutral-400 font-mono">
+                                {reservation.id}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div>
+                                <div className="text-sm font-medium text-white">
+                                  {reservation.contactPerson}
+                                </div>
+                                <div className="text-xs text-neutral-400 flex items-center gap-1 mt-0.5">
+                                  <Mail className="w-3 h-3" />
+                                  {reservation.email}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              {reservation.companyName ? (
+                                <div className="text-sm text-neutral-300 flex items-center gap-1">
+                                  <Building2 className="w-3 h-3" />
+                                  {reservation.companyName}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-neutral-600">-</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              {event ? (
+                                <div className="text-sm">
+                                  <div className="text-white font-medium">
+                                    {formatDate(event.date)}
+                                  </div>
+                                  <div className="text-xs text-neutral-400">
+                                    {event.startsAt}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-neutral-600">Geen event</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-1 text-sm text-white">
+                                <Users className="w-3 h-3 text-neutral-400" />
+                                {reservation.numberOfPersons}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="text-sm text-neutral-300">
+                                {reservation.arrangement}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="text-sm font-semibold text-white">
+                                {formatCurrency(reservation.totalPrice)}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex flex-col gap-1">
+                                <span className={cn(
+                                  'px-2 py-0.5 rounded text-xs font-medium border inline-flex items-center gap-1 w-fit',
+                                  getStatusColor(reservation.status)
+                                )}>
+                                  {getStatusLabel(reservation.status)}
+                                </span>
+                                {isOptionExpiring && (
+                                  <span className="text-xs text-orange-400 flex items-center gap-1">
+                                    <AlertCircle className="w-3 h-3" />
+                                    Verloopt binnenkort
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={cn(
+                                'px-2 py-0.5 rounded text-xs font-medium border inline-flex items-center gap-1',
+                                reservation.paymentStatus === 'paid' 
+                                  ? 'bg-green-900/30 border-green-600 text-green-400'
+                                  : 'bg-yellow-900/30 border-yellow-600 text-yellow-400'
+                              )}>
+                                <CreditCard className="w-3 h-3" />
+                                {reservation.paymentStatus === 'paid' ? 'Betaald' : 'In afwachting'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  onClick={() => handleViewDetails(reservation)}
+                                  className="p-1.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded transition-colors"
+                                  title="Details bekijken"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+                                {reservation.status === 'pending' && (
+                                  <button
+                                    onClick={() => handleQuickConfirm(reservation.id)}
+                                    className="p-1.5 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
+                                    title="Bevestigen"
+                                  >
+                                    <CheckCircle className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => handleEditReservation(reservation)}
+                                  className="p-1.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded transition-colors"
+                                  title="Bewerken"
+                                >
+                                  <Edit className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+
+                  {filteredReservations.length === 0 && (
+                    <div className="text-center py-12">
+                      <Filter className="w-12 h-12 mx-auto mb-4 text-neutral-600" />
+                      <p className="text-neutral-400">Geen reserveringen gevonden</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* Timeline View - Coming soon */}
+            {/* Timeline View */}
             {viewMode === 'timeline' && (
-              <div className="flex items-center justify-center h-full bg-neutral-800/30 rounded-xl">
-                <div className="text-center">
-                  <Calendar className="w-16 h-16 mx-auto mb-4 text-neutral-600" />
-                  <p className="text-neutral-400 text-lg">Timeline view komt binnenkort</p>
-                </div>
+              <div className="h-full bg-neutral-800/50 rounded-xl overflow-auto p-6">
+                {(() => {
+                  // Groepeer reserveringen per event datum
+                  const reservationsByDate = filteredReservations.reduce((acc, reservation) => {
+                    const event = getEventForReservation(reservation.eventId);
+                    if (!event) return acc;
+                    
+                    const dateKey = formatDate(event.date);
+                    if (!acc[dateKey]) {
+                      acc[dateKey] = {
+                        date: event.date,
+                        event: event,
+                        reservations: []
+                      };
+                    }
+                    acc[dateKey].reservations.push(reservation);
+                    return acc;
+                  }, {} as Record<string, { date: Date; event: Event; reservations: Reservation[] }>);
+
+                  // Sorteer op datum
+                  const sortedDates = Object.keys(reservationsByDate).sort((a, b) => {
+                    return reservationsByDate[a].date.getTime() - reservationsByDate[b].date.getTime();
+                  });
+
+                  if (sortedDates.length === 0) {
+                    return (
+                      <div className="text-center py-12">
+                        <Calendar className="w-12 h-12 mx-auto mb-4 text-neutral-600" />
+                        <p className="text-neutral-400">Geen reserveringen gevonden</p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-6">
+                      {sortedDates.map(dateKey => {
+                        const { date, event, reservations: dateReservations } = reservationsByDate[dateKey];
+                        const totalPersons = dateReservations.reduce((sum, r) => sum + r.numberOfPersons, 0);
+                        const totalRevenue = dateReservations.reduce((sum, r) => sum + r.totalPrice, 0);
+                        const confirmedCount = dateReservations.filter(r => r.status === 'confirmed').length;
+                        const pendingCount = dateReservations.filter(r => r.status === 'pending').length;
+
+                        return (
+                          <div key={dateKey} className="bg-neutral-900/50 rounded-xl overflow-hidden border border-neutral-700/50">
+                            {/* Event header */}
+                            <div className="bg-neutral-800/80 p-4 border-b border-neutral-700/50">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                  <div className="flex items-center gap-2">
+                                    <Calendar className="w-5 h-5 text-gold-500" />
+                                    <div>
+                                      <h3 className="text-lg font-bold text-white">
+                                        {formatDate(date)}
+                                      </h3>
+                                      <p className="text-sm text-neutral-400">
+                                        {event.startsAt} • {event.type}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-6 text-sm">
+                                  <div className="text-center">
+                                    <div className="text-2xl font-bold text-white">
+                                      {dateReservations.length}
+                                    </div>
+                                    <div className="text-xs text-neutral-400">
+                                      Reserveringen
+                                    </div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-2xl font-bold text-white">
+                                      {totalPersons}
+                                    </div>
+                                    <div className="text-xs text-neutral-400">
+                                      Personen
+                                    </div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-2xl font-bold text-gold-400">
+                                      {formatCurrency(totalRevenue)}
+                                    </div>
+                                    <div className="text-xs text-neutral-400">
+                                      Omzet
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    {confirmedCount > 0 && (
+                                      <span className="px-2 py-1 bg-green-900/30 border border-green-600 text-green-400 rounded text-xs font-medium">
+                                        {confirmedCount} bevestigd
+                                      </span>
+                                    )}
+                                    {pendingCount > 0 && (
+                                      <span className="px-2 py-1 bg-yellow-900/30 border border-yellow-600 text-yellow-400 rounded text-xs font-medium">
+                                        {pendingCount} in behandeling
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Reserveringen lijst */}
+                            <div className="divide-y divide-neutral-700/30">
+                              {dateReservations.map(reservation => {
+                                const isSelected = selectedReservations.has(reservation.id);
+                                const isOptionExpiring = reservation.status === 'option' && isOptionExpiringSoon(reservation);
+
+                                return (
+                                  <div
+                                    key={reservation.id}
+                                    className={cn(
+                                      'p-4 hover:bg-neutral-800/50 transition-colors',
+                                      isSelected && 'bg-gold-500/10'
+                                    )}
+                                  >
+                                    <div className="flex items-center justify-between gap-4">
+                                      <div className="flex items-center gap-3 flex-1">
+                                        <input
+                                          type="checkbox"
+                                          checked={isSelected}
+                                          onChange={() => toggleSelection(reservation.id)}
+                                          className="w-4 h-4 rounded border-neutral-600 text-gold-500"
+                                        />
+
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <h4 className="font-semibold text-white">
+                                              {reservation.contactPerson}
+                                            </h4>
+                                            {reservation.companyName && (
+                                              <span className="text-sm text-neutral-400 flex items-center gap-1">
+                                                <Building2 className="w-3 h-3" />
+                                                {reservation.companyName}
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          <div className="flex items-center gap-4 text-sm text-neutral-400">
+                                            <span className="flex items-center gap-1">
+                                              <Users className="w-3 h-3" />
+                                              {reservation.numberOfPersons} personen
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                              <Package className="w-3 h-3" />
+                                              {reservation.arrangement}
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                              <Mail className="w-3 h-3" />
+                                              {reservation.email}
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                              <Phone className="w-3 h-3" />
+                                              {reservation.phone}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center gap-3">
+                                        <div className="text-right">
+                                          <div className="text-lg font-bold text-white">
+                                            {formatCurrency(reservation.totalPrice)}
+                                          </div>
+                                          <div className={cn(
+                                            'text-xs flex items-center justify-end gap-1',
+                                            reservation.paymentStatus === 'paid' ? 'text-green-400' : 'text-yellow-400'
+                                          )}>
+                                            <CreditCard className="w-3 h-3" />
+                                            {reservation.paymentStatus === 'paid' ? 'Betaald' : 'In afwachting'}
+                                          </div>
+                                        </div>
+
+                                        <div className="flex flex-col gap-1 items-end">
+                                          <span className={cn(
+                                            'px-2 py-0.5 rounded text-xs font-medium border',
+                                            getStatusColor(reservation.status)
+                                          )}>
+                                            {getStatusLabel(reservation.status)}
+                                          </span>
+                                          {isOptionExpiring && (
+                                            <span className="text-xs text-orange-400 flex items-center gap-1">
+                                              <AlertCircle className="w-3 h-3" />
+                                              Verloopt
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        <div className="flex items-center gap-1">
+                                          <button
+                                            onClick={() => handleViewDetails(reservation)}
+                                            className="p-2 bg-neutral-700 hover:bg-neutral-600 text-white rounded transition-colors"
+                                            title="Details"
+                                          >
+                                            <Eye className="w-4 h-4" />
+                                          </button>
+                                          {reservation.status === 'pending' && (
+                                            <button
+                                              onClick={() => handleQuickConfirm(reservation.id)}
+                                              className="p-2 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
+                                              title="Bevestigen"
+                                            >
+                                              <CheckCircle className="w-4 h-4" />
+                                            </button>
+                                          )}
+                                          <button
+                                            onClick={() => handleEditReservation(reservation)}
+                                            className="p-2 bg-neutral-700 hover:bg-neutral-600 text-white rounded transition-colors"
+                                            title="Bewerken"
+                                          >
+                                            <Edit className="w-4 h-4" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </>
@@ -838,6 +1275,94 @@ export const ReservationsCommandCenter: React.FC = () => {
             }} />
           </div>
         </div>
+      )}
+
+      {showMigrationImport && (
+        <SystemMigrationImport
+          onClose={() => setShowMigrationImport(false)}
+          onImportComplete={() => {
+            loadReservations();
+            toast.success('Import voltooid', 'Reserveringen zijn succesvol geïmporteerd');
+          }}
+        />
+      )}
+
+      {/* Event Selector Modal for Bulk Import */}
+      {showEventSelector && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-neutral-800 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-auto">
+            <div className="p-6">
+              <h2 className="text-2xl font-bold text-white mb-2">Selecteer Event voor Bulk Import</h2>
+              <p className="text-neutral-400 mb-6">
+                Kies het event waarnaar u reserveringen wilt importeren
+              </p>
+              
+              <div className="space-y-3 max-h-[50vh] overflow-y-auto">
+                {events
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                  .map(event => (
+                    <button
+                      key={event.id}
+                      onClick={() => {
+                        setBulkImportEvent(event);
+                        setShowEventSelector(false);
+                        setShowBulkImport(true);
+                      }}
+                      className="w-full text-left p-4 bg-neutral-900 hover:bg-neutral-700 rounded-lg transition-colors border border-neutral-700 hover:border-gold-500"
+                    >
+                      <div className="flex justify-between items-start gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Calendar className="w-4 h-4 text-gold-500" />
+                            <span className="font-semibold text-white">
+                              {formatDate(event.date)}
+                            </span>
+                            <span className="text-sm text-neutral-400">
+                              {event.startsAt}
+                            </span>
+                          </div>
+                          <div className="text-sm text-neutral-400">
+                            Type: <span className="text-white">{event.type}</span>
+                          </div>
+                          <div className="text-sm text-neutral-400">
+                            Capaciteit: <span className="text-white">{event.capacity}</span>
+                          </div>
+                        </div>
+                        <div className="text-xs text-neutral-500">
+                          ID: {event.id.substring(0, 8)}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => setShowEventSelector(false)}
+                  className="px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg transition-colors"
+                >
+                  Annuleren
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBulkImport && bulkImportEvent && (
+        <BulkReservationImport
+          event={bulkImportEvent}
+          onClose={() => {
+            setShowBulkImport(false);
+            setBulkImportEvent(null);
+          }}
+          onImportComplete={() => {
+            loadReservations();
+            setShowBulkImport(false);
+            setBulkImportEvent(null);
+            toast.success('Bulk import voltooid', 'Reserveringen zijn succesvol geïmporteerd naar het event');
+          }}
+        />
       )}
 
       {showDetailModal && selectedReservation && (

@@ -23,6 +23,16 @@ interface ReservationsState {
   selectedReservation: Reservation | null;
   isLoadingReservations: boolean;
   
+  // ✨ NEW: Pagination State (October 2025)
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrevious: boolean;
+  } | null;
+  
   // Filters
   filters: {
     eventType: EventType | 'all';
@@ -38,6 +48,7 @@ interface ReservationsState {
 // Reservations Actions
 interface ReservationsActions {
   loadReservations: () => Promise<void>;
+  loadReservationsPaginated: (options?: import('../types').ReservationQueryOptions) => Promise<void>;
   loadReservationsByEvent: (eventId: string) => Promise<void>;
   updateReservation: (reservationId: string, updates: Partial<Reservation>, originalReservation?: Reservation, skipCommunicationLog?: boolean) => Promise<boolean>;
   updateReservationStatus: (reservationId: string, status: Reservation['status']) => Promise<boolean>;
@@ -88,6 +99,7 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
     reservations: [],
     selectedReservation: null,
     isLoadingReservations: false,
+    pagination: null,
     filters: {
       eventType: 'all',
       dateRange: {
@@ -131,6 +143,45 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
         }
       } catch (error) {
         console.error('❌ [STORE] Failed to load reservations:', error);
+        set({ isLoadingReservations: false });
+      }
+    },
+
+    // ✨ NEW: Load Reservations with Pagination (October 2025)
+    loadReservationsPaginated: async (options = {}) => {
+      console.log('🔄 [STORE] loadReservationsPaginated called with options:', options);
+      set({ isLoadingReservations: true });
+      try {
+        const response = await apiService.getReservationsPaginated(options);
+        console.log('🔄 [STORE] Paginated API response:', {
+          success: response.success,
+          count: response.data?.length,
+          pagination: response.pagination
+        });
+        
+        if (response.success && response.data) {
+          // Filter valid reservations
+          const validReservations = response.data.filter(r => {
+            const isValid = /^res-\d{1,6}$/.test(r.id);
+            if (!isValid) {
+              console.warn('⚠️ [STORE] Filtering out invalid reservation ID:', r.id);
+            }
+            return isValid;
+          });
+          
+          console.log('✅ [STORE] Setting paginated reservations:', validReservations.length);
+          
+          set({ 
+            reservations: validReservations, 
+            pagination: response.pagination || null,
+            isLoadingReservations: false 
+          });
+        } else {
+          console.error('❌ [STORE] Paginated API call failed:', response.error);
+          set({ isLoadingReservations: false });
+        }
+      } catch (error) {
+        console.error('❌ [STORE] Failed to load paginated reservations:', error);
         set({ isLoadingReservations: false });
       }
     },

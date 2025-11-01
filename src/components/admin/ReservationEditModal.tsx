@@ -17,15 +17,18 @@ import {
   Calendar,
   FileText as Invoice,
   Send,
-  XCircle
+  XCircle,
+  ShoppingBag
 } from 'lucide-react';
-import type { Reservation, MerchandiseItem, Event, Arrangement, PaymentStatus } from '../../types';
+import type { Reservation, MerchandiseItem, Event, Arrangement, PaymentStatus, PaymentTransaction } from '../../types';
 import { formatCurrency, formatDate, cn } from '../../utils';
 import { nl } from '../../config/defaults';
 import { priceService } from '../../services/priceService';
 import { apiService } from '../../services/apiService';
 import { useReservationsStore } from '../../store/reservationsStore';
 import { useToast } from '../Toast';
+import { detectCreditAfterPriceChange, calculateTotalPaid } from '../../services/paymentHelpers';
+import { CreditDecisionModal } from './modals/CreditDecisionModal';
 
 interface ReservationEditModalProps {
   reservation: Reservation;
@@ -133,6 +136,16 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
   // 🆕 Cancel reservation state
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  
+  // 💰 NEW: Credit detection state (October 31, 2025)
+  const [showCreditDecision, setShowCreditDecision] = useState(false);
+  const [creditInfo, setCreditInfo] = useState<{
+    amount: number;
+    oldPrice: number;
+    newPrice: number;
+    description: string;
+  } | null>(null);
+  const [pendingSaveData, setPendingSaveData] = useState<Partial<Reservation> | null>(null);
 
   // Load all events on mount
   useEffect(() => {
@@ -291,25 +304,82 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
       return;
     }
 
+    // 💰 NEW: Slimme tegoed-detectie (October 31, 2025)
+    // Check of de prijs is gedaald en er al betaald is
+    const oldPrice = reservation.totalPrice;
+    const newPrice = priceCalculation?.totalPrice || reservation.totalPrice;
+    const paymentTransactions = reservation.paymentTransactions || [];
+    
+    // Alleen checken als er een prijsverschil is EN er transacties zijn
+    if (paymentTransactions.length > 0 && newPrice < oldPrice) {
+      const creditDetection = detectCreditAfterPriceChange(
+        oldPrice,
+        newPrice,
+        paymentTransactions
+      );
+
+      if (creditDetection.hasCredit) {
+        // Bepaal wat er gewijzigd is
+        let changeDescription = '';
+        if (formData.numberOfPersons !== reservation.numberOfPersons) {
+          changeDescription = `Aantal personen: ${reservation.numberOfPersons} → ${formData.numberOfPersons}`;
+        } else if (formData.arrangement !== reservation.arrangement) {
+          changeDescription = `Arrangement gewijzigd: ${reservation.arrangement} → ${formData.arrangement}`;
+        } else {
+          changeDescription = 'Prijswijziging';
+        }
+
+        // Bewaar de update data en toon de credit decision modal
+        const updateData: Partial<Reservation> = {
+          ...formData,
+          salutation: formData.salutation as any,
+          eventId: selectedEventId,
+          eventDate: selectedEvent?.date || reservation.eventDate,
+          totalPrice: newPrice,
+          pricingSnapshot: priceCalculation,
+          updatedAt: new Date()
+        };
+
+        setPendingSaveData(updateData);
+        setCreditInfo({
+          amount: creditDetection.creditAmount,
+          oldPrice,
+          newPrice,
+          description: changeDescription
+        });
+        setShowCreditDecision(true);
+        return; // Stop hier - de credit decision modal neemt het over
+      }
+    }
+
+    // Geen tegoed gedetecteerd - gewoon opslaan
+    await executeSave();
+  };
+
+  // 💰 Helper functie om daadwerkelijk op te slaan
+  const executeSave = async (refundTransaction?: PaymentTransaction) => {
     setIsSaving(true);
 
     try {
-      // Haal de updateReservation actie op uit de store
       const updateReservation = useReservationsStore.getState().updateReservation;
       
-      // Update reservation with new data - cast to proper type
-      const updateData: Partial<Reservation> = {
+      // Update reservation with new data
+      const updateData: Partial<Reservation> = pendingSaveData || {
         ...formData,
         salutation: formData.salutation as any,
-        eventId: selectedEventId, // Update event if changed
-        eventDate: selectedEvent?.date || reservation.eventDate, // Update event date
+        eventId: selectedEventId,
+        eventDate: selectedEvent?.date || reservation.eventDate,
         totalPrice: priceCalculation?.totalPrice || reservation.totalPrice,
-        pricingSnapshot: priceCalculation, // Update pricing snapshot with new event pricing
+        pricingSnapshot: priceCalculation,
         updatedAt: new Date()
       };
 
-      // Gebruik de store-actie in plaats van directe apiService call
-      // Dit zorgt voor automatische audit logging
+      // 💰 Als er een refund transaction is, voeg deze toe
+      if (refundTransaction) {
+        const existingTransactions = reservation.paymentTransactions || [];
+        updateData.paymentTransactions = [...existingTransactions, refundTransaction];
+      }
+
       const success = await updateReservation(reservation.id, updateData, reservation);
 
       if (success) {
@@ -325,6 +395,22 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // 💰 Handler voor restitutie vanuit CreditDecisionModal
+  const handleRefund = async (refundTransaction: PaymentTransaction) => {
+    setShowCreditDecision(false);
+    await executeSave(refundTransaction);
+    setPendingSaveData(null);
+    setCreditInfo(null);
+  };
+
+  // 💰 Handler voor "tegoed laten staan" vanuit CreditDecisionModal
+  const handleKeepCredit = async () => {
+    setShowCreditDecision(false);
+    await executeSave(); // Save zonder refund transaction
+    setPendingSaveData(null);
+    setCreditInfo(null);
   };
 
   const priceDifference = priceCalculation
@@ -557,41 +643,113 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
           {/* Merchandise */}
           {merchandiseItems.length > 0 && (
             <div className="card-theatre p-4">
-              <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-                <Package className="w-5 h-5 text-gold-500" />
-                Merchandise
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                  <Package className="w-5 h-5 text-gold-500" />
+                  🛍️ Merchandise Toevoegen
+                  {formData.merchandise.length > 0 && (
+                    <span className="ml-2 px-2 py-0.5 bg-gold-500/20 text-gold-400 rounded-full text-xs font-bold">
+                      {formData.merchandise.reduce((sum, m) => sum + m.quantity, 0)} items
+                    </span>
+                  )}
+                </h3>
+              </div>
+              
+              <div className="mb-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                <p className="text-sm text-blue-200 flex items-center gap-2">
+                  <ShoppingBag className="w-4 h-4" />
+                  <span>
+                    U kunt merchandise toevoegen aan deze bestaande boeking. 
+                    De prijs wordt automatisch bijgewerkt.
+                  </span>
+                </p>
+              </div>
+
               <div className="space-y-3 max-h-64 overflow-y-auto">
-                {merchandiseItems.filter(item => item.inStock).map((item) => (
-                  <div key={item.id} className="flex items-center justify-between p-3 bg-dark-800/50 rounded-lg">
-                    <div className="flex items-center gap-3 flex-1">
-                      {item.imageUrl && (
-                        <img
-                          src={item.imageUrl}
-                          alt={item.name}
-                          className="w-12 h-12 rounded object-cover"
-                        />
+                {merchandiseItems.filter(item => item.inStock).map((item) => {
+                  const quantity = getMerchandiseQuantity(item.id);
+                  const itemTotal = quantity * item.price;
+                  
+                  return (
+                    <div 
+                      key={item.id} 
+                      className={cn(
+                        "flex items-center justify-between p-3 rounded-lg transition-all",
+                        quantity > 0 
+                          ? "bg-gold-500/10 border-2 border-gold-500/50" 
+                          : "bg-dark-800/50 border border-transparent hover:border-gold-500/30"
                       )}
-                      {!item.imageUrl && (
-                        <div className="w-12 h-12 rounded bg-gold-500/20 flex items-center justify-center">
-                          <Package className="w-6 h-6 text-gold-500" />
+                    >
+                      <div className="flex items-center gap-3 flex-1">
+                        {item.imageUrl && (
+                          <img
+                            src={item.imageUrl}
+                            alt={item.name}
+                            className="w-12 h-12 rounded object-cover"
+                          />
+                        )}
+                        {!item.imageUrl && (
+                          <div className="w-12 h-12 rounded bg-gold-500/20 flex items-center justify-center">
+                            <Package className="w-6 h-6 text-gold-500" />
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <p className="font-medium text-white">{item.name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm text-neutral-400">{formatCurrency(item.price)} per stuk</p>
+                            {quantity > 0 && (
+                              <p className="text-sm font-bold text-gold-400">
+                                = {formatCurrency(itemTotal)}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      )}
-                      <div>
-                        <p className="font-medium text-white">{item.name}</p>
-                        <p className="text-sm text-neutral-400">{formatCurrency(item.price)}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleMerchandiseChange(item.id, Math.max(0, quantity - 1))}
+                          className="w-8 h-8 flex items-center justify-center bg-neutral-700 hover:bg-neutral-600 text-white rounded transition-colors"
+                        >
+                          -
+                        </button>
+                        <input
+                          type="number"
+                          min="0"
+                          value={quantity}
+                          onChange={(e) => handleMerchandiseChange(item.id, parseInt(e.target.value) || 0)}
+                          className="w-16 px-2 py-2 bg-dark-800 border border-gold-500/30 rounded text-white text-center font-bold"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleMerchandiseChange(item.id, quantity + 1)}
+                          className="w-8 h-8 flex items-center justify-center bg-gold-600 hover:bg-gold-700 text-black rounded transition-colors font-bold"
+                        >
+                          +
+                        </button>
                       </div>
                     </div>
-                    <input
-                      type="number"
-                      min="0"
-                      value={getMerchandiseQuantity(item.id)}
-                      onChange={(e) => handleMerchandiseChange(item.id, parseInt(e.target.value) || 0)}
-                      className="w-20 px-3 py-2 bg-dark-800 border border-gold-500/30 rounded text-white text-center"
-                    />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
+              
+              {formData.merchandise.length > 0 && (
+                <div className="mt-4 p-3 bg-gold-500/10 border border-gold-500/30 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-white">
+                      Totaal Merchandise:
+                    </span>
+                    <span className="text-lg font-bold text-gold-400">
+                      {formatCurrency(
+                        formData.merchandise.reduce((sum, m) => {
+                          const item = merchandiseItems.find(mi => mi.id === m.itemId);
+                          return sum + (item ? item.price * m.quantity : 0);
+                        }, 0)
+                      )}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1361,6 +1519,24 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
               </div>
             </div>
           </div>
+        )}
+
+        {/* 💰 Credit Decision Modal (October 31, 2025) */}
+        {showCreditDecision && creditInfo && (
+          <CreditDecisionModal
+            isOpen={showCreditDecision}
+            onClose={() => {
+              setShowCreditDecision(false);
+              setPendingSaveData(null);
+              setCreditInfo(null);
+            }}
+            onRefund={handleRefund}
+            onKeepCredit={handleKeepCredit}
+            creditAmount={creditInfo.amount}
+            oldPrice={creditInfo.oldPrice}
+            newPrice={creditInfo.newPrice}
+            changeDescription={creditInfo.description}
+          />
         )}
       </div>
     </div>

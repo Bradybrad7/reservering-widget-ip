@@ -21,7 +21,8 @@ import {
   Download,
   RefreshCw,
   Copy,
-  ExternalLink
+  ExternalLink,
+  QrCode
 } from 'lucide-react';
 import type { Reservation, Event, MerchandiseItem } from '../../../types';
 import { formatCurrency, formatDate, cn } from '../../../utils';
@@ -31,6 +32,7 @@ import {
   isOptionExpiringSoon, 
   getOptionStatusLabel 
 } from '../../../utils/optionHelpers';
+import { QRCodeGenerator } from '../QRCodeGenerator';
 
 // Helper componenten voor een schone layout
 const InfoBlok: React.FC<{ 
@@ -372,6 +374,20 @@ export const ReservationDetailModal: React.FC<{
                   {reservation.invoiceCountry}
                 </InfoRij>
               )}
+            </InfoBlok>
+
+            {/* QR CODE SECTION */}
+            <InfoBlok title="Check-in QR Code" icon={QrCode} className="bg-white/5">
+              <div className="flex flex-col items-center gap-3">
+                <QRCodeGenerator
+                  reservation={reservation}
+                  size={200}
+                  includeDetails={false}
+                />
+                <p className="text-xs text-center text-neutral-400">
+                  Toon deze QR code bij check-in voor snelle toegang
+                </p>
+              </div>
             </InfoBlok>
 
             <InfoBlok title="Admin" icon={Archive}>

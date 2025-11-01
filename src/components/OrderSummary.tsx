@@ -86,7 +86,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
       <div className={cn('card-theatre p-4 rounded-2xl animate-fade-in', className)}>
         <div className="flex items-center gap-2 mb-3">
           <div className="w-10 h-10 bg-gold-gradient rounded-xl flex items-center justify-center shadow-gold">
-            <Calculator className="w-5 h-5 text-neutral-950" />
+            <Calculator className="w-5 h-5 text-text-primary" />
           </div>
           <h2 className="text-xl font-bold text-text-primary font-display">{nl.summary.title}</h2>
         </div>
@@ -267,14 +267,14 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
         <div className="mt-4 p-4 bg-gold-gradient rounded-2xl border-2 border-primary-500/50 shadow-gold-glow">
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-sm font-semibold text-neutral-950/90 mb-1 flex items-center gap-2">
+              <p className="text-sm font-semibold text-text-primary/90 mb-1 flex items-center gap-2">
                 <span className="text-xl">💰</span>
                 {nl.summary.total}
               </p>
-              <p className="text-xs text-neutral-800 font-medium">Inclusief BTW</p>
+              <p className="text-xs text-text-primary/80 font-medium">Inclusief BTW</p>
             </div>
             <div className="text-right">
-              <p className="text-3xl md:text-4xl font-black text-neutral-950 drop-shadow-lg">
+              <p className="text-3xl md:text-4xl font-black text-text-primary drop-shadow-lg">
                 {formatCurrency(priceCalculation.totalPrice)}
               </p>
             </div>
@@ -486,7 +486,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
               'focus:outline-none focus:ring-2 focus:ring-primary-500/60 flex items-center justify-center gap-2',
               'relative overflow-hidden',
               {
-                'bg-gold-gradient text-neutral-950 hover:shadow-gold-glow hover:scale-105 active:scale-100 border border-primary-600': isReadyToReserve() && !isSubmitting && !isWaitlistActive,
+                'bg-gold-gradient text-text-primary hover:shadow-gold-glow hover:scale-105 active:scale-100 border border-primary-600': isReadyToReserve() && !isSubmitting && !isWaitlistActive,
                 'bg-red-gradient text-text-primary hover:shadow-red-glow hover:scale-105 border border-danger-600': isReadyToReserve() && !isSubmitting && isWaitlistActive,
                 'bg-neutral-900/50 text-text-disabled cursor-not-allowed border border-neutral-800': !isReadyToReserve() || isSubmitting
               }

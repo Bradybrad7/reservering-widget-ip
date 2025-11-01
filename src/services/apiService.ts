@@ -24,7 +24,10 @@ import type {
   VoucherStatusResponse,
   VoucherUsage,
   PromotionCode,
-  Voucher
+  Voucher,
+  PaginatedResponse,
+  ReservationQueryOptions,
+  EventQueryOptions
 } from '../types';
 import { storageService } from './storageService';
 import { checkReservationLimit } from './rateLimiter';
@@ -403,6 +406,170 @@ export const apiService = {
       return {
         success: false,
         error: 'Failed to fetch statistics'
+      };
+    }
+  },
+
+  // ✨ NEW: Paginated Reservations (October 2025)
+  async getReservationsPaginated(options: import('../types').ReservationQueryOptions = {}): Promise<import('../types').PaginatedResponse<import('../types').Reservation>> {
+    await delay(200);
+    
+    try {
+      const {
+        page = 1,
+        limit = 50,
+        status,
+        paymentStatus,
+        eventId,
+        arrangement,
+        searchQuery,
+        sortBy = 'createdAt',
+        sortOrder = 'desc'
+      } = options;
+
+      // Get all reservations
+      let reservations = await storageService.getReservations();
+
+      // Apply filters
+      if (status && status !== 'all') {
+        reservations = reservations.filter(r => r.status === status);
+      }
+      
+      if (paymentStatus && paymentStatus !== 'all') {
+        reservations = reservations.filter(r => r.paymentStatus === paymentStatus);
+      }
+      
+      if (eventId) {
+        reservations = reservations.filter(r => r.eventId === eventId);
+      }
+      
+      if (arrangement && arrangement !== 'all') {
+        reservations = reservations.filter(r => r.arrangement === arrangement);
+      }
+      
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        reservations = reservations.filter(r =>
+          r.contactPerson.toLowerCase().includes(query) ||
+          r.email.toLowerCase().includes(query) ||
+          (r.companyName && r.companyName.toLowerCase().includes(query)) ||
+          r.id.toLowerCase().includes(query)
+        );
+      }
+
+      // Apply sorting
+      reservations.sort((a, b) => {
+        let aVal: any = a[sortBy as keyof typeof a];
+        let bVal: any = b[sortBy as keyof typeof b];
+        
+        // Handle dates
+        if (aVal instanceof Date) aVal = aVal.getTime();
+        if (bVal instanceof Date) bVal = bVal.getTime();
+        
+        if (sortOrder === 'asc') {
+          return aVal > bVal ? 1 : -1;
+        } else {
+          return aVal < bVal ? 1 : -1;
+        }
+      });
+
+      // Calculate pagination
+      const total = reservations.length;
+      const totalPages = Math.ceil(total / limit);
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginatedData = reservations.slice(startIndex, endIndex);
+
+      return {
+        success: true,
+        data: paginatedData,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrevious: page > 1
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to fetch paginated reservations'
+      };
+    }
+  },
+
+  // ✨ NEW: Paginated Events (October 2025)
+  async getEventsPaginated(options: import('../types').EventQueryOptions = {}): Promise<import('../types').PaginatedResponse<import('../types').Event>> {
+    await delay(200);
+    
+    try {
+      const {
+        page = 1,
+        limit = 50,
+        type,
+        isActive,
+        showId,
+        sortBy = 'date',
+        sortOrder = 'asc'
+      } = options;
+
+      // Get all events
+      let events = await storageService.getEvents();
+
+      // Apply filters
+      if (type && type !== 'all') {
+        events = events.filter(e => e.type === type);
+      }
+      
+      if (isActive !== undefined && isActive !== 'all') {
+        events = events.filter(e => e.isActive === isActive);
+      }
+      
+      if (showId) {
+        events = events.filter(e => e.showId === showId);
+      }
+
+      // Apply sorting
+      events.sort((a, b) => {
+        let aVal: any = a[sortBy as keyof typeof a];
+        let bVal: any = b[sortBy as keyof typeof b];
+        
+        // Handle dates
+        if (aVal instanceof Date) aVal = aVal.getTime();
+        if (bVal instanceof Date) bVal = bVal.getTime();
+        
+        if (sortOrder === 'asc') {
+          return aVal > bVal ? 1 : -1;
+        } else {
+          return aVal < bVal ? 1 : -1;
+        }
+      });
+
+      // Calculate pagination
+      const total = events.length;
+      const totalPages = Math.ceil(total / limit);
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginatedData = events.slice(startIndex, endIndex);
+
+      return {
+        success: true,
+        data: paginatedData,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrevious: page > 1
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to fetch paginated events'
       };
     }
   },

@@ -54,10 +54,15 @@ const SHIPPING_COST = 3.95;
 
 export const VoucherPurchasePage: React.FC = () => {
   const { submitPurchase } = useVoucherStore();
+  const { config, loadConfig } = useConfigStore();
   const [step, setStep] = useState<'amount' | 'delivery' | 'details' | 'confirm'>(
     'amount'
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    loadConfig();
+  }, [loadConfig]);
 
   const [formData, setFormData] = useState<FormData>({
     amount: 50,
@@ -86,8 +91,9 @@ export const VoucherPurchasePage: React.FC = () => {
   };
 
   const getTotalPrice = () => {
+    const shippingCost = config?.voucherShippingCost ?? SHIPPING_COST;
     const voucherAmount = formData.amount;
-    const shipping = formData.deliveryMethod === 'shipping' ? SHIPPING_COST : 0;
+    const shipping = formData.deliveryMethod === 'shipping' ? shippingCost : 0;
     return voucherAmount + shipping;
   };
 
@@ -360,7 +366,7 @@ export const VoucherPurchasePage: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="text-slate-300">Verzendkosten:</span>
             <span className="text-xl font-bold text-gold-400">
-              {formatCurrency(SHIPPING_COST)}
+              {formatCurrency(config?.voucherShippingCost ?? SHIPPING_COST)}
             </span>
           </div>
         </button>
@@ -648,7 +654,7 @@ export const VoucherPurchasePage: React.FC = () => {
             <div className="flex items-center justify-between">
               <span className="text-slate-300">Kosten:</span>
               <span className="text-white font-medium">
-                {formData.deliveryMethod === 'pickup' ? 'Gratis' : formatCurrency(SHIPPING_COST)}
+                {formData.deliveryMethod === 'pickup' ? 'Gratis' : formatCurrency(config?.voucherShippingCost ?? SHIPPING_COST)}
               </span>
             </div>
           </div>

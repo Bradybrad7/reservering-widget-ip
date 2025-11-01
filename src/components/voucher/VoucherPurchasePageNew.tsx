@@ -35,6 +35,7 @@ interface FormData {
   selectedEventType: string | null;
   selectedOptionId: string | null; // Unique ID for the exact option
   arrangementPrice: number;
+  quantity: number; // ✨ NEW: Number of vouchers to purchase
   deliveryMethod: DeliveryMethod;
   
   // Recipient info (if gift)
@@ -84,7 +85,7 @@ const ARRANGEMENT_INFO: Record<Arrangement, { name: string; description: string;
 
 export const VoucherPurchasePageNew: React.FC = () => {
   const { submitPurchase } = useVoucherStore();
-  const { pricing, eventTypesConfig, loadConfig } = useConfigStore();
+  const { pricing, eventTypesConfig, config, loadConfig } = useConfigStore();
   
   const [step, setStep] = useState<'arrangement' | 'delivery' | 'details' | 'confirm'>(
     'arrangement'
@@ -97,6 +98,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
     selectedEventType: null,
     selectedOptionId: null,
     arrangementPrice: 0,
+    quantity: 1, // Default to 1 voucher
     deliveryMethod: 'pickup',
     isGift: false,
     recipientName: '',
@@ -218,8 +220,9 @@ export const VoucherPurchasePageNew: React.FC = () => {
   };
 
   const getTotalPrice = () => {
-    const voucherAmount = formData.arrangementPrice;
-    const shipping = formData.deliveryMethod === 'shipping' ? SHIPPING_COST : 0;
+    const shippingCost = config?.voucherShippingCost ?? SHIPPING_COST;
+    const voucherAmount = formData.arrangementPrice * formData.quantity;
+    const shipping = formData.deliveryMethod === 'shipping' ? shippingCost : 0;
     return voucherAmount + shipping;
   };
 
@@ -307,7 +310,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
     try {
       const purchaseData = {
         templateId: `${formData.selectedEventType}-${formData.selectedArrangement}-voucher`,
-        quantity: 1,
+        quantity: formData.quantity,
         customAmount: formData.arrangementPrice,
         arrangement: formData.selectedArrangement!,
         eventType: formData.selectedEventType!, // Store event type (weekday, weekend, etc.)
@@ -462,6 +465,51 @@ export const VoucherPurchasePageNew: React.FC = () => {
         <p className="text-center text-sm text-red-400">{errors.selectedArrangement}</p>
       )}
 
+      {/* Quantity Selector */}
+      {formData.selectedArrangement && (
+        <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
+          <label className="block text-lg font-semibold text-white mb-4">
+            Aantal Vouchers
+          </label>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => updateField('quantity', Math.max(1, formData.quantity - 1))}
+              className="w-12 h-12 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-bold text-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={formData.quantity <= 1}
+            >
+              −
+            </button>
+            <input
+              type="number"
+              min="1"
+              max="50"
+              value={formData.quantity}
+              onChange={(e) => {
+                const value = parseInt(e.target.value) || 1;
+                updateField('quantity', Math.max(1, Math.min(50, value)));
+              }}
+              className="w-24 px-4 py-3 bg-slate-800 border-2 border-slate-700 rounded-lg text-center text-white text-xl font-bold focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
+            />
+            <button
+              onClick={() => updateField('quantity', Math.min(50, formData.quantity + 1))}
+              className="w-12 h-12 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-bold text-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={formData.quantity >= 50}
+            >
+              +
+            </button>
+            <div className="ml-auto">
+              <p className="text-sm text-slate-400">Totaal prijs</p>
+              <p className="text-2xl font-bold text-gold-400">
+                {formatCurrency(formData.arrangementPrice * formData.quantity)}
+              </p>
+            </div>
+          </div>
+          <p className="text-sm text-slate-400 mt-3">
+            Maximum 50 vouchers per bestelling
+          </p>
+        </div>
+      )}
+
       <div className="flex gap-4">
         <button
           onClick={handleBack}
@@ -533,7 +581,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="text-slate-300">Verzendkosten:</span>
             <span className="text-xl font-bold text-gold-400">
-              {formatCurrency(SHIPPING_COST)}
+              {formatCurrency(config?.voucherShippingCost ?? SHIPPING_COST)}
             </span>
           </div>
         </button>
@@ -801,9 +849,21 @@ export const VoucherPurchasePageNew: React.FC = () => {
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-300">Waarde:</span>
-                <span className="text-xl font-bold text-gold-400">
+                <span className="text-slate-300">Prijs per stuk:</span>
+                <span className="text-white font-medium">
                   {formatCurrency(formData.arrangementPrice)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-300">Aantal:</span>
+                <span className="text-white font-medium">
+                  {formData.quantity}x
+                </span>
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-slate-700">
+                <span className="text-slate-300">Subtotaal vouchers:</span>
+                <span className="text-xl font-bold text-gold-400">
+                  {formatCurrency(formData.arrangementPrice * formData.quantity)}
                 </span>
               </div>
             </div>
@@ -832,7 +892,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
               <div className="flex items-center justify-between">
                 <span className="text-slate-300">Kosten:</span>
                 <span className="text-white font-medium">
-                  {formData.deliveryMethod === 'pickup' ? 'Gratis' : formatCurrency(SHIPPING_COST)}
+                  {formData.deliveryMethod === 'pickup' ? 'Gratis' : formatCurrency(config?.voucherShippingCost ?? SHIPPING_COST)}
                 </span>
               </div>
             </div>
