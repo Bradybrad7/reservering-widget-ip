@@ -1,13 +1,14 @@
 /**
- * Voucher Purchase Page - Arrangement Based
+ * Theaterbon Aankoop Pagina - Arrangement Gebaseerd
  * 
- * Voucher purchase flow with arrangement selection:
- * - Customer chooses an arrangement (BWF or BWFM)
- * - Selects delivery method (pickup or shipping)
- * - Enters buyer/recipient details
- * - Confirms and pays
+ * Aangepaste flow met arrangement selectie:
+ * - Klant kiest een arrangement (BWF of BWFM)
+ * - ✨ NIEUW: Klant selecteert aantal
+ * - Klant selecteert bezorgmethode (ophalen of verzenden)
+ * - Voert koper/ontvanger details in
+ * - Bevestigt en betaalt
  * 
- * Design: Black background matching booking page
+ * Design: Zwarte achtergrond, matcht boeking pagina
  */
 
 import React, { useState, useEffect } from 'react';
@@ -30,12 +31,12 @@ interface ArrangementOption {
 }
 
 interface FormData {
-  // Voucher details
+  // Theaterbon details
   selectedArrangement: Arrangement | null;
   selectedEventType: string | null;
-  selectedOptionId: string | null; // Unique ID for the exact option
+  selectedOptionId: string | null; // Uniek ID voor de exacte optie
   arrangementPrice: number;
-  quantity: number; // ✨ NEW: Number of vouchers to purchase
+  quantity: number; // ✨ NIEUW: Aantal theaterbonnen om te kopen
   deliveryMethod: DeliveryMethod;
   
   // Recipient info (if gift)
@@ -84,10 +85,10 @@ const ARRANGEMENT_INFO: Record<Arrangement, { name: string; description: string;
 };
 
 export const VoucherPurchasePageNew: React.FC = () => {
-  const { submitPurchase } = useVoucherStore();
+  const { requestVoucherPurchase } = useVoucherStore();
   const { pricing, eventTypesConfig, config, loadConfig } = useConfigStore();
   
-  const [step, setStep] = useState<'arrangement' | 'delivery' | 'details' | 'confirm'>(
+  const [step, setStep] = useState<'arrangement' | 'quantity' | 'delivery' | 'details' | 'confirm'>(
     'arrangement'
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -98,7 +99,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
     selectedEventType: null,
     selectedOptionId: null,
     arrangementPrice: 0,
-    quantity: 1, // Default to 1 voucher
+    quantity: 1, // Standaard 1 theaterbon
     deliveryMethod: 'pickup',
     isGift: false,
     recipientName: '',
@@ -228,7 +229,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
 
   const validateArrangement = (): boolean => {
     if (!formData.selectedArrangement) {
-      setErrors({ selectedArrangement: 'Kies een arrangement' });
+      setErrors({ selectedArrangement: 'Kies een theaterbon' });
       return false;
     }
     return true;
@@ -280,8 +281,10 @@ export const VoucherPurchasePageNew: React.FC = () => {
   const handleNext = () => {
     if (step === 'arrangement') {
       if (validateArrangement()) {
-        setStep('delivery');
+        setStep('quantity');
       }
+    } else if (step === 'quantity') {
+      setStep('delivery');
     } else if (step === 'delivery') {
       setStep('details');
     } else if (step === 'details') {
@@ -292,8 +295,10 @@ export const VoucherPurchasePageNew: React.FC = () => {
   };
 
   const handleBack = () => {
-    if (step === 'delivery') {
+    if (step === 'quantity') {
       setStep('arrangement');
+    } else if (step === 'delivery') {
+      setStep('quantity');
     } else if (step === 'details') {
       setStep('delivery');
     } else if (step === 'confirm') {
@@ -308,36 +313,45 @@ export const VoucherPurchasePageNew: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      const purchaseData = {
-        templateId: `${formData.selectedEventType}-${formData.selectedArrangement}-voucher`,
-        quantity: formData.quantity,
-        customAmount: formData.arrangementPrice,
-        arrangement: formData.selectedArrangement!,
-        eventType: formData.selectedEventType!, // Store event type (weekday, weekend, etc.)
-        recipientName: formData.isGift ? formData.recipientName : formData.buyerName,
-        recipientEmail: formData.isGift ? formData.recipientEmail : formData.buyerEmail,
-        personalMessage: formData.personalMessage || undefined,
-        deliveryMethod: formData.deliveryMethod === 'pickup' ? ('physical' as const) : ('physical' as const),
-        isGift: formData.isGift,
-        buyerName: formData.buyerName,
-        buyerEmail: formData.buyerEmail,
-        buyerPhone: formData.buyerPhone,
-        shippingAddress:
-          formData.deliveryMethod === 'shipping'
-            ? {
-                street: formData.shippingAddress,
-                city: formData.shippingCity,
-                postalCode: formData.shippingPostalCode,
-                country: 'Nederland'
-              }
-            : undefined
+      // 🆕 NEW: Create voucher request (no immediate payment)
+      const voucherRequest = {
+        id: '', // Will be generated
+        issuedTo: formData.buyerName,
+        issueDate: new Date().toISOString(),
+        initialValue: (formData.arrangementPrice || 0) * formData.quantity,
+        remainingValue: (formData.arrangementPrice || 0) * formData.quantity,
+        status: 'pending_approval' as const,
+        metadata: {
+          buyerName: formData.buyerName,
+          buyerEmail: formData.buyerEmail,
+          buyerPhone: formData.buyerPhone,
+          isGift: formData.isGift,
+          recipientName: formData.isGift ? formData.recipientName : undefined,
+          recipientEmail: formData.isGift ? formData.recipientEmail : undefined,
+          personalMessage: formData.personalMessage || undefined,
+          deliveryMethod: formData.deliveryMethod === 'pickup' ? ('pickup' as const) : ('shipping' as const),
+          shippingAddress: formData.deliveryMethod === 'shipping' ? formData.shippingAddress : undefined,
+          shippingCity: formData.deliveryMethod === 'shipping' ? formData.shippingCity : undefined,
+          shippingPostalCode: formData.deliveryMethod === 'shipping' ? formData.shippingPostalCode : undefined,
+          shippingCountry: formData.deliveryMethod === 'shipping' ? 'Nederland' : undefined,
+          quantity: formData.quantity,
+          arrangement: formData.selectedArrangement!,
+          arrangementName: arrangements.find(a => 
+            a.type === formData.selectedArrangement && a.eventType === formData.selectedEventType
+          )?.name,
+          eventType: formData.selectedEventType!,
+          eventTypeName: formData.selectedEventType!,
+          shippingCost: formData.deliveryMethod === 'shipping' ? (config?.voucherShippingCost || 3.95) : 0,
+          totalAmount: getTotalPrice(),
+          paymentStatus: 'pending' as const
+        }
       };
 
-      const result = await submitPurchase(purchaseData);
+      const result = await requestVoucherPurchase(voucherRequest);
 
-      if (result.success && result.paymentUrl) {
-        // Redirect to payment
-        window.location.href = result.paymentUrl;
+      if (result.success) {
+        // 🆕 Redirect to success page (not payment!)
+        window.location.href = '/voucher-order-success';
       } else {
         alert('Er ging iets mis. Probeer het opnieuw.');
       }
@@ -355,7 +369,6 @@ export const VoucherPurchasePageNew: React.FC = () => {
     updateField('selectedEventType', arrangement.eventType);
     updateField('selectedOptionId', optionId);
     updateField('arrangementPrice', arrangement.price);
-    setStep('delivery');
   };
 
   // Step 1: Arrangement Selection
@@ -363,10 +376,10 @@ export const VoucherPurchasePageNew: React.FC = () => {
     <div className="space-y-8">
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold text-white mb-3">
-          Kies Een Arrangement
+          Kies uw Theaterbon
         </h2>
         <p className="text-slate-400 mb-6">
-          Selecteer welk type voucher u wilt kopen
+          Selecteer welk type theaterbon u wilt kopen
         </p>
       </div>
 
@@ -414,11 +427,11 @@ export const VoucherPurchasePageNew: React.FC = () => {
       {/* Arrangement Selection Buttons */}
       {arrangements.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-slate-400">Geen arrangements beschikbaar voor vouchers</p>
+          <p className="text-slate-400">Geen arrangementen beschikbaar voor theaterbonnen</p>
         </div>
       ) : (
         <div className="space-y-3">
-          <h4 className="text-lg font-semibold text-white mb-4">Selecteer uw voucher:</h4>
+          <h4 className="text-lg font-semibold text-white mb-4">Selecteer uw theaterbon:</h4>
           {arrangements.map(arrangement => {
             const optionId = `${arrangement.eventType}-${arrangement.type}`;
             const isSelected = formData.selectedOptionId === optionId;
@@ -465,51 +478,6 @@ export const VoucherPurchasePageNew: React.FC = () => {
         <p className="text-center text-sm text-red-400">{errors.selectedArrangement}</p>
       )}
 
-      {/* Quantity Selector */}
-      {formData.selectedArrangement && (
-        <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
-          <label className="block text-lg font-semibold text-white mb-4">
-            Aantal Vouchers
-          </label>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => updateField('quantity', Math.max(1, formData.quantity - 1))}
-              className="w-12 h-12 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-bold text-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={formData.quantity <= 1}
-            >
-              −
-            </button>
-            <input
-              type="number"
-              min="1"
-              max="50"
-              value={formData.quantity}
-              onChange={(e) => {
-                const value = parseInt(e.target.value) || 1;
-                updateField('quantity', Math.max(1, Math.min(50, value)));
-              }}
-              className="w-24 px-4 py-3 bg-slate-800 border-2 border-slate-700 rounded-lg text-center text-white text-xl font-bold focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
-            />
-            <button
-              onClick={() => updateField('quantity', Math.min(50, formData.quantity + 1))}
-              className="w-12 h-12 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-bold text-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={formData.quantity >= 50}
-            >
-              +
-            </button>
-            <div className="ml-auto">
-              <p className="text-sm text-slate-400">Totaal prijs</p>
-              <p className="text-2xl font-bold text-gold-400">
-                {formatCurrency(formData.arrangementPrice * formData.quantity)}
-              </p>
-            </div>
-          </div>
-          <p className="text-sm text-slate-400 mt-3">
-            Maximum 50 vouchers per bestelling
-          </p>
-        </div>
-      )}
-
       <div className="flex gap-4">
         <button
           onClick={handleBack}
@@ -528,7 +496,114 @@ export const VoucherPurchasePageNew: React.FC = () => {
     </div>
   );
 
-  // Step 2: Delivery Method (same as before but with black theme)
+  // Step 2: Quantity Selection (NEW STEP!)
+  const renderQuantityStep = () => {
+    const selectedArr = arrangements.find(a => 
+      a.type === formData.selectedArrangement && a.eventType === formData.selectedEventType
+    );
+
+    return (
+      <div className="space-y-8">
+        <div className="text-center">
+          <h2 className="text-3xl font-bold text-white mb-3">
+            Hoeveel Theaterbonnen?
+          </h2>
+          <p className="text-slate-400">
+            Selecteer het aantal theaterbonnen dat u wilt kopen
+          </p>
+        </div>
+
+        {/* Selected arrangement summary */}
+        {selectedArr && (
+          <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-sm text-slate-400">Geselecteerd arrangement:</p>
+                <h3 className="text-xl font-bold text-white">{selectedArr.name}</h3>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-slate-400">Prijs per stuk</p>
+                <p className="text-2xl font-bold text-gold-400">
+                  {formatCurrency(selectedArr.price)}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Quantity Selector - Centered & Prominent */}
+        <div className="bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-gold-400/30 rounded-2xl p-8">
+          <label className="block text-2xl font-bold text-center text-white mb-6">
+            Aantal Theaterbonnen
+          </label>
+          
+          <div className="flex items-center justify-center gap-6 mb-8">
+            <button
+              onClick={() => updateField('quantity', Math.max(1, formData.quantity - 1))}
+              className="w-16 h-16 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold text-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-110"
+              disabled={formData.quantity <= 1}
+            >
+              −
+            </button>
+            
+            <div className="relative">
+              <input
+                type="number"
+                min="1"
+                max="50"
+                value={formData.quantity}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value) || 1;
+                  updateField('quantity', Math.max(1, Math.min(50, value)));
+                }}
+                className="w-32 px-6 py-4 bg-slate-900 border-4 border-gold-400 rounded-xl text-center text-white text-3xl font-bold focus:border-gold-300 focus:ring-4 focus:ring-gold-400/20 transition-all"
+              />
+            </div>
+            
+            <button
+              onClick={() => updateField('quantity', Math.min(50, formData.quantity + 1))}
+              className="w-16 h-16 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold text-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-110"
+              disabled={formData.quantity >= 50}
+            >
+              +
+            </button>
+          </div>
+
+          {/* Total Price Display */}
+          <div className="bg-gold-400/10 border border-gold-400/30 rounded-xl p-6 text-center">
+            <p className="text-slate-400 text-sm mb-2">Totaal Bedrag</p>
+            <p className="text-5xl font-bold text-gold-400">
+              {formatCurrency(formData.arrangementPrice * formData.quantity)}
+            </p>
+            <p className="text-slate-500 text-sm mt-2">
+              {formData.quantity} × {formatCurrency(formData.arrangementPrice)}
+            </p>
+          </div>
+
+          <p className="text-center text-sm text-slate-400 mt-4">
+            Je kunt maximaal 50 theaterbonnen per bestelling kopen
+          </p>
+        </div>
+
+        <div className="flex gap-4">
+          <button
+            onClick={handleBack}
+            className="flex-1 px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+          >
+            Terug
+          </button>
+          <button
+            onClick={handleNext}
+            className="flex-1 px-6 py-3 bg-gold-gradient text-slate-900 font-semibold rounded-lg hover:shadow-gold-glow transition-all"
+          >
+            Volgende
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // Step 3: Delivery Method
   const renderDeliveryStep = () => (
     <div className="space-y-8">
       <div className="text-center">
@@ -536,7 +611,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
           Kies Bezorgmethode
         </h2>
         <p className="text-slate-400">
-          Hoe wilt u de voucher ontvangen?
+          Hoe wilt u de theaterbon ontvangen?
         </p>
       </div>
 
@@ -555,7 +630,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
             Ophalen bij Theater
           </h3>
           <p className="text-slate-400 mb-4">
-            Haal de fysieke voucher gratis op bij het theater
+            Haal de fysieke theaterbon gratis op bij het theater
           </p>
           <div className="flex items-center gap-2 text-green-400 font-semibold">
             <span className="text-2xl">Gratis</span>
@@ -576,7 +651,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
             Verzending per Post
           </h3>
           <p className="text-slate-400 mb-4">
-            Ontvang de fysieke voucher thuis per post
+            Ontvang de fysieke theaterbon thuis per post
           </p>
           <div className="flex items-center gap-2">
             <span className="text-slate-300">Verzendkosten:</span>
@@ -612,7 +687,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
           Vul Uw Gegevens In
         </h2>
         <p className="text-slate-400">
-          We hebben deze gegevens nodig om de voucher te verwerken
+          We hebben deze gegevens nodig om de theaterbon te verwerken
         </p>
       </div>
 
@@ -840,12 +915,12 @@ export const VoucherPurchasePageNew: React.FC = () => {
         <div className="bg-slate-800/50 rounded-xl border border-slate-700 divide-y divide-slate-700">
           {/* Voucher Amount */}
           <div className="p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Voucher</h3>
+            <h3 className="text-lg font-semibold text-white mb-4">Theaterbon(nen)</h3>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-slate-300">Arrangement:</span>
+                <span className="text-slate-300">Type:</span>
                 <span className="text-white font-medium">
-                  {selectedArr?.name}
+                  {selectedArr?.name || 'Niet gevonden'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -861,7 +936,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
                 </span>
               </div>
               <div className="flex items-center justify-between pt-2 border-t border-slate-700">
-                <span className="text-slate-300">Subtotaal vouchers:</span>
+                <span className="text-slate-300">Subtotaal theaterbonnen:</span>
                 <span className="text-xl font-bold text-gold-400">
                   {formatCurrency(formData.arrangementPrice * formData.quantity)}
                 </span>
@@ -987,9 +1062,10 @@ export const VoucherPurchasePageNew: React.FC = () => {
         {/* Progress Indicator */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
-            {['Arrangement', 'Bezorging', 'Gegevens', 'Bevestigen'].map((label, idx) => {
+            {['Arrangement', 'Aantal', 'Bezorging', 'Gegevens', 'Bevestigen'].map((label, idx) => {
               const stepKeys: Array<typeof step> = [
                 'arrangement',
+                'quantity',
                 'delivery',
                 'details',
                 'confirm'
@@ -1030,7 +1106,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
               className="h-full bg-gold-gradient transition-all duration-300"
               style={{
                 width: `${
-                  (['arrangement', 'delivery', 'details', 'confirm'].indexOf(step) + 1) * 25
+                  (['arrangement', 'quantity', 'delivery', 'details', 'confirm'].indexOf(step) + 1) * 20
                 }%`
               }}
             />
@@ -1040,6 +1116,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
         {/* Step Content */}
         <div className="bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-800 p-8">
           {step === 'arrangement' && renderArrangementStep()}
+          {step === 'quantity' && renderQuantityStep()}
           {step === 'delivery' && renderDeliveryStep()}
           {step === 'details' && renderDetailsStep()}
           {step === 'confirm' && renderConfirmStep()}

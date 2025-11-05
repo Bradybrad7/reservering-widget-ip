@@ -66,7 +66,7 @@ export const DashboardEnhanced: React.FC = () => {
     const almostFullEvents = events.filter(e => {
       // Bereken het werkelijke aantal geboekte personen
       const totalBookedPersons = e.reservations.filter(r => 
-        r.status === 'confirmed' || r.status === 'pending' || r.status === 'checked-in'
+        r.status === 'confirmed' || r.status === 'pending' || r.status === 'checked-in' || r.status === 'option'
       ).reduce((sum, r) => sum + r.numberOfPersons, 0);
       const filled = (totalBookedPersons / e.capacity) * 100;
       return filled >= 80 && e.isActive;
@@ -578,7 +578,7 @@ export const DashboardEnhanced: React.FC = () => {
                 const eventDate = new Date(event.date);
                 // Bereken het werkelijke aantal geboekte personen
                 const totalBookedPersons = event.reservations.filter(r => 
-                  r.status === 'confirmed' || r.status === 'pending' || r.status === 'checked-in'
+                  r.status === 'confirmed' || r.status === 'pending' || r.status === 'checked-in' || r.status === 'option'
                 ).reduce((sum, r) => sum + r.numberOfPersons, 0);
                 const filled = (totalBookedPersons / event.capacity) * 100;
                 // Haal wachtlijst-totaal op

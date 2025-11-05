@@ -316,14 +316,18 @@ export const CustomerManagerEnhanced: React.FC = () => {
                   {selectedCustomer.tags.length === 0 ? (
                     <span className="text-neutral-500 text-sm">Geen tags</span>
                   ) : (
-                    selectedCustomer.tags.map(tag => (
-                      <span
-                        key={tag}
-                        className="px-3 py-1 bg-gold-500/20 text-gold-400 rounded-full text-sm"
-                      >
-                        {tag}
-                      </span>
-                    ))
+                    selectedCustomer.tags.map(tag => {
+                      const tagId = typeof tag === 'string' ? tag : 
+                        (typeof tag === 'object' && tag && 'id' in tag ? (tag as any).id : String(tag));
+                      return (
+                        <span
+                          key={tagId}
+                          className="px-3 py-1 bg-gold-500/20 text-gold-400 rounded-full text-sm"
+                        >
+                          {tagId}
+                        </span>
+                      );
+                    })
                   )}
                 </div>
               )}
@@ -506,14 +510,18 @@ export const CustomerManagerEnhanced: React.FC = () => {
                           <span className={cn('text-lg', level.color)}>
                             {level.icon}
                           </span>
-                          {customer.tags.map(tag => (
-                            <span
-                              key={tag}
-                              className="px-2 py-0.5 bg-gold-500/20 text-gold-400 rounded-full text-xs"
-                            >
-                              {tag}
-                            </span>
-                          ))}
+                          {customer.tags.map(tag => {
+                            const tagId = typeof tag === 'string' ? tag : 
+                              (typeof tag === 'object' && tag && 'id' in tag ? (tag as any).id : String(tag));
+                            return (
+                              <span
+                                key={tagId}
+                                className="px-2 py-0.5 bg-gold-500/20 text-gold-400 rounded-full text-xs"
+                              >
+                                {tagId}
+                              </span>
+                            );
+                          })}
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-neutral-300">

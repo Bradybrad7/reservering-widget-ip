@@ -32,6 +32,8 @@ import type {
 import { storageService } from './storageService';
 import { checkReservationLimit } from './rateLimiter';
 import { calculatePrice, createPricingSnapshot } from './priceService';
+import { TagConfigService } from './tagConfigService';
+import { emailService } from './emailService';
 
 // ✅ FIXED: Removed MockDatabase class - now using storageService (Firestore) directly
 // Initialize Firestore (wrapped in IIFE for UMD compatibility)
@@ -42,11 +44,59 @@ import { calculatePrice, createPricingSnapshot } from './priceService';
   console.log('📦 Firestore initialized - ready for data');
 })();
 
+/**
+ * Helper function to automatically generate tags based on reservation data
+ */
+function generateAutoTags(formData: CustomerFormData): any[] {
+  const tags: any[] = [];
+  
+  // ✨ AUTO-TAG: Celebration - if any celebration fields are filled
+  if (formData.celebrationOccasion || formData.partyPerson || formData.celebrationDetails) {
+    const celebrationConfig = TagConfigService.getTagById('CELEBRATION');
+    if (celebrationConfig) {
+      tags.push({
+        id: celebrationConfig.id,
+        label: celebrationConfig.label,
+        color: celebrationConfig.color,
+        addedAt: new Date(),
+        addedBy: 'system-auto',
+        reason: `Auto-tag: ${formData.celebrationOccasion || 'Iets te vieren'} ${formData.partyPerson ? 'voor ' + formData.partyPerson : ''}`.trim()
+      });
+    }
+  }
+  
+  // ✨ AUTO-TAG: Merchandise - if any merchandise is selected
+  if (formData.merchandise && formData.merchandise.length > 0) {
+    const merchandiseConfig = TagConfigService.getTagById('MERCHANDISE');
+    if (merchandiseConfig) {
+      const itemCount = formData.merchandise.length;
+      const totalQuantity = formData.merchandise.reduce((sum, item) => sum + item.quantity, 0);
+      tags.push({
+        id: merchandiseConfig.id,
+        label: merchandiseConfig.label,
+        color: merchandiseConfig.color,
+        addedAt: new Date(),
+        addedBy: 'system-auto',
+        reason: `Auto-tag: ${itemCount} merchandise item(s), totaal ${totalQuantity} stuks`
+      });
+    }
+  }
+  
+  return tags;
+}
+
 // Utility functions
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const isEventAvailable = (event: Event): { available: boolean; reason?: string } => {
   const now = new Date();
+  
+  // Check if event date has passed (events should close at midnight of the event day)
+  const eventEndOfDay = new Date(event.date);
+  eventEndOfDay.setHours(23, 59, 59, 999); // End of event day
+  if (now > eventEndOfDay) {
+    return { available: false, reason: 'Event date has passed' };
+  }
   
   // Check if booking is open
   if (event.bookingOpensAt && now < event.bookingOpensAt) {
@@ -279,7 +329,11 @@ export const apiService = {
       const currentRemaining = event.remainingCapacity ?? 0;
       const requestedOverCapacity = formData.numberOfPersons > currentRemaining;
       
-      // ✨ CHANGED: ALL reservations start as 'pending' and require admin approval
+      // ✨ AUTO-GENERATE TAGS: Generate automatic tags based on form data
+      const autoTags = generateAutoTags(formData);
+      
+      // ✨ CHANGED: ALL reservations start as 'confirmed' and count immediately toward capacity
+      // Admin can later reject/cancel if needed, which will free up the capacity
       // 🔧 FIX: Use 'any' type to avoid undefined field issues with Firestore
       // ⚠️ IMPORTANT: Do NOT set 'id' here - Firestore will generate it automatically
       const reservationData: any = {
@@ -289,9 +343,10 @@ export const apiService = {
         eventDate: event.date,
         totalPrice: priceCalculation.totalPrice,
         pricingSnapshot, // ✨ CRITICAL: Store pricing snapshot at time of booking
-        status: 'pending', // Always pending - admin must confirm
+        status: 'pending', // Awaiting admin review and confirmation
         requestedOverCapacity, // Flag for admin review
         isWaitlist: false, // Deprecated in favor of status management
+        tags: autoTags, // ✨ NEW: Auto-generated tags for celebration and merchandise
         createdAt: new Date(),
         updatedAt: new Date(),
         // ✨ NEW: Payment fields (October 2025) - Set to empty strings instead of undefined
@@ -306,6 +361,27 @@ export const apiService = {
       // Add reservation to Firestore and get back the saved reservation with generated ID
       const reservation = await storageService.addReservation(reservationData);
       console.log('✅ [API] Reservation created with Firestore ID:', reservation.id);
+
+      // ✨ SEND EMAIL NOTIFICATIONS
+      try {
+        console.log('📧 [API] Sending email notifications for new reservation...');
+        const events = await storageService.getEvents();
+        const event = events.find(e => e.id === eventId);
+        if (event) {
+          // For pending reservations, send "in review" email to customer
+          const emailResult = await emailService.sendPendingReservationNotification(reservation, event);
+          if (emailResult.success) {
+            console.log('✅ [API] Email notifications sent successfully');
+          } else {
+            console.error('⚠️ [API] Email notifications failed:', emailResult.error);
+          }
+        } else {
+          console.error('⚠️ [API] Could not send emails - event not found');
+        }
+      } catch (error) {
+        console.error('❌ [API] Email notification error:', error);
+        // Don't fail the reservation if email fails
+      }
 
       // ✨ FIXED: Capacity IS updated immediately when reservation is placed
       // This prevents overbooking by ensuring all pending reservations count toward capacity
@@ -327,8 +403,8 @@ export const apiService = {
         success: true,
         data: reservation,
         message: requestedOverCapacity 
-          ? 'Uw aanvraag is ontvangen. Let op: Deze voorstelling is nu gesloten voor nieuwe boekingen.' 
-          : 'Uw reservering is in behandeling'
+          ? 'Uw boeking is bevestigd! Let op: Deze voorstelling is nu gesloten voor nieuwe boekingen.' 
+          : 'Uw boeking is bevestigd! U ontvangt binnen enkele minuten een bevestigingsmail.'
       };
     } catch (error) {
       console.error('❌ Error in submitReservation:', error);

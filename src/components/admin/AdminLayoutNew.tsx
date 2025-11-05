@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Calendar,
@@ -36,6 +36,7 @@ import type { AdminSection, NavigationGroup } from '../../types';
 import { useAdminStore } from '../../store/adminStore';
 import { GlobalSearch } from './GlobalSearch';
 import { LanguageSelector } from '../ui/LanguageSelector';
+import { optionExpiryService } from '../../services/optionExpiryService';
 
 interface AdminLayoutNewProps {
   children: React.ReactNode;
@@ -156,6 +157,29 @@ const iconMap: Record<string, React.ElementType> = {
 export const AdminLayoutNew: React.FC<AdminLayoutNewProps> = ({ children }) => {
   const { activeSection, breadcrumbs, sidebarCollapsed, setActiveSection, setBreadcrumbs, toggleSidebar } = useAdminStore();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // ✨ AUTOMATIC OPTION EXPIRY CHECK - Runs once when admin loads
+  useEffect(() => {
+    const checkExpiredOptions = async () => {
+      try {
+        console.log('🔍 Checking for expired options...');
+        const result = await optionExpiryService.processExpiredOptions();
+        
+        if (result.cancelled > 0) {
+          console.log(`✅ Automatically cancelled ${result.cancelled} expired options:`, result.details);
+          
+          // Optional: Show a toast notification to admin
+          // toast.info('Opties opgeruimd', `${result.cancelled} verlopen optie(s) automatisch geannuleerd`);
+        } else {
+          console.log('✅ No expired options found');
+        }
+      } catch (error) {
+        console.error('❌ Error checking expired options:', error);
+      }
+    };
+
+    checkExpiredOptions();
+  }, []); // Run once on mount
 
   const handleNavigate = (section: AdminSection, _groupLabel: string, itemLabel: string) => {
     setActiveSection(section);

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Phone, User, Mail, Building2, Users, Calendar, DollarSign, AlertCircle, Check, Search, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Phone, User, Mail, Building2, Users, Calendar, DollarSign, AlertCircle, Check, Search, CheckCircle, AlertTriangle, Tag } from 'lucide-react';
 import { useEventsStore } from '../../store/eventsStore';
 import { useReservationsStore } from '../../store/reservationsStore';
 import { useGroupAvailabilitySearch, formatAvailabilityResult } from '../../hooks/useGroupAvailabilitySearch';
-import type { AdminEvent, Arrangement, CustomerFormData, Reservation } from '../../types';
+import type { AdminEvent, Arrangement, CustomerFormData, Reservation, ReservationTag } from '../../types';
 import { priceService } from '../../services/priceService';
+import { TagConfigService } from '../../services/tagConfigService';
 import { formatCurrency, formatDate, cn } from '../../utils';
 
 /**
@@ -36,9 +37,16 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
   // 🆕 Booking Type: 'full' voor volledige boeking, 'option' voor 1-week optie
   const [bookingType, setBookingType] = useState<'full' | 'option'>('full');
   
-  // 🆕 Option duration (in days)
-  const [optionDurationDays, setOptionDurationDays] = useState(7);
+  // 🆕 Option duration (in days) - use default from TagConfigService
+  const [optionDurationDays, setOptionDurationDays] = useState(() => TagConfigService.getDefaultOptionDuration());
   const [customDuration, setCustomDuration] = useState(false);
+
+  // Update default duration when booking type changes to option
+  useEffect(() => {
+    if (bookingType === 'option') {
+      setOptionDurationDays(TagConfigService.getDefaultOptionDuration());
+    }
+  }, [bookingType]);
   
   // Form state
   const [formData, setFormData] = useState<Partial<CustomerFormData>>({
@@ -56,6 +64,9 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
 
   // 🆕 Option notes
   const [optionNotes, setOptionNotes] = useState('');
+  
+  // ✨ Guest Type/Tags voor speciale categorieën
+  const [guestTags, setGuestTags] = useState<ReservationTag[]>([]);
   
   // Reset arrangement when switching to option type
   useEffect(() => {
@@ -125,7 +136,10 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
     calculateTotalPrice();
   }, [selectedEvent, formData.numberOfPersons, formData.arrangement, formData.preDrink, formData.afterParty, arrangementPricePerPerson]);
   
-  const finalPrice = priceOverride !== null ? priceOverride : calculatedPrice;
+  // ✨ GENODIGDE krijgt automatisch €0 prijs
+  const finalPrice = guestTags.includes('GENODIGDE') 
+    ? 0 
+    : (priceOverride !== null ? priceOverride : calculatedPrice);
 
   useEffect(() => {
     console.log('📅 Loading events for manual booking...');
@@ -199,13 +213,13 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
         arrangement: isOption ? undefined as any : formData.arrangement,
         eventId: selectedEvent.id,
         eventDate: selectedEvent.date,
-        totalPrice: isOption ? 0 : finalPrice, // Geen prijs voor optie
+        // ✨ Prijs: €0 voor opties EN voor genodigden
+        totalPrice: isOption || guestTags.includes('GENODIGDE') ? 0 : finalPrice,
         status: isOption ? 'option' : 'confirmed', // Opties krijgen status 'option'
         createdAt: new Date(),
         updatedAt: new Date(),
-        tags: isOption 
-          ? ['Admin Created', 'Optie', 'Follow-up Required']
-          : ['Admin Created', 'Phone Booking'],
+        // ✨ Use proper ReservationTag types + any selected guest tags
+        tags: guestTags.length > 0 ? guestTags : undefined,
         
         // 🆕 Option-specific fields
         ...(isOption && {
@@ -383,30 +397,38 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
               </label>
               
               {!customDuration ? (
-                <div className="space-y-2">
-                  <div className="grid grid-cols-4 gap-2">
-                    {[3, 7, 14, 21].map(days => (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {TagConfigService.getDefaultOptionTerms().filter(option => option.days > 0).map(option => (
                       <button
-                        key={days}
+                        key={option.id}
                         type="button"
-                        onClick={() => setOptionDurationDays(days)}
+                        onClick={() => setOptionDurationDays(option.days)}
                         className={cn(
-                          'px-3 py-2 rounded-lg text-sm font-medium transition-all',
-                          optionDurationDays === days
-                            ? 'bg-gold-500 text-white'
-                            : 'bg-neutral-600 text-neutral-300 hover:bg-neutral-500'
+                          'p-3 rounded-lg text-sm font-medium transition-all border-2 text-left',
+                          optionDurationDays === option.days
+                            ? 'text-white border-2 shadow-lg'
+                            : 'bg-neutral-600 text-neutral-300 hover:bg-neutral-500 border-neutral-500'
                         )}
+                        style={optionDurationDays === option.days ? {
+                          backgroundColor: option.color || '#F59E0B',
+                          borderColor: option.color || '#F59E0B'
+                        } : undefined}
                       >
-                        {days} {days === 1 ? 'dag' : 'dagen'}
+                        <div className="font-semibold">{option.label}</div>
+                        <div className="text-xs opacity-75 mt-1">
+                          {option.isDefault ? 'Standaard keuze' : `${option.days} dagen geldig`}
+                        </div>
                       </button>
                     ))}
                   </div>
                   <button
                     type="button"
                     onClick={() => setCustomDuration(true)}
-                    className="text-xs text-gold-400 hover:text-gold-300 mt-2"
+                    className="text-xs text-gold-400 hover:text-gold-300 mt-2 flex items-center gap-1"
                   >
-                    + Custom aantal dagen
+                    <Calendar className="w-3 h-3" />
+                    Aangepaste duur instellen
                   </button>
                 </div>
               ) : (
@@ -416,7 +438,7 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
                     min="1"
                     max="90"
                     value={optionDurationDays}
-                    onChange={(e) => setOptionDurationDays(parseInt(e.target.value) || 7)}
+                    onChange={(e) => setOptionDurationDays(parseInt(e.target.value) || TagConfigService.getDefaultOptionDuration())}
                     onFocus={(e) => e.target.select()}
                     className="flex-1 px-3 py-2 bg-neutral-600 border border-neutral-500 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent"
                     placeholder="Aantal dagen"
@@ -426,7 +448,7 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
                     type="button"
                     onClick={() => {
                       setCustomDuration(false);
-                      setOptionDurationDays(7);
+                      setOptionDurationDays(TagConfigService.getDefaultOptionDuration());
                     }}
                     className="px-3 py-2 bg-neutral-600 text-white rounded-lg hover:bg-neutral-500 text-sm"
                   >
@@ -456,6 +478,90 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
               </p>
             </div>
           )}
+        </div>
+
+        {/* ✨ Guest Type/Tags Selector - Voor speciale categorieën */}
+        <div className="bg-neutral-800/50 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <Tag className="w-5 h-5 text-gold-500" />
+            Type Gast (Optioneel)
+          </h3>
+          
+          <div className="space-y-3">
+            <p className="text-sm text-neutral-400">
+              Selecteer speciale categorieën indien van toepassing:
+            </p>
+            
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {TagConfigService.getDefaultTagConfigs().map((tagConfig) => (
+                <button
+                  key={tagConfig.id}
+                  type="button"
+                  onClick={() => {
+                    const tag = tagConfig.id as ReservationTag;
+                    setGuestTags(prev => 
+                      prev.includes(tag) 
+                        ? prev.filter(t => t !== tag)
+                        : [...prev, tag]
+                    );
+                  }}
+                  className={cn(
+                    'px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all relative group',
+                    guestTags.includes(tagConfig.id as ReservationTag)
+                      ? 'shadow-lg scale-105'
+                      : 'border-neutral-600 bg-neutral-700/50 text-neutral-300 hover:border-neutral-500'
+                  )}
+                  style={guestTags.includes(tagConfig.id as ReservationTag) ? {
+                    backgroundColor: tagConfig.color,
+                    borderColor: tagConfig.color,
+                    color: TagConfigService.getContrastColor(tagConfig.color)
+                  } : undefined}
+                  title={tagConfig.description}
+                >
+                  <span className="relative z-10">{tagConfig.label}</span>
+                  
+                  {/* Tooltip */}
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none">
+                    {tagConfig.description}
+                  </div>
+                </button>
+              ))}
+            </div>
+            
+            {guestTags.includes('GENODIGDE') && (
+              <div className="mt-3 p-3 bg-purple-500/20 border border-purple-500/50 rounded-lg">
+                <p className="text-sm text-purple-300">
+                  🎁 <strong>Genodigde:</strong> Deze boeking telt mee in capaciteit maar generiert geen omzet (€0). 
+                  Perfect voor gasten van het theater, promotionele uitnodigingen, etc.
+                </p>
+              </div>
+            )}
+            
+            {guestTags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                <span className="text-xs text-neutral-400">Geselecteerd:</span>
+                {guestTags.map(tag => {
+                  const tagConfig = TagConfigService.getTagConfig(tag);
+                  return (
+                    <span 
+                      key={tag} 
+                      className="px-2 py-1 text-xs rounded-md"
+                      style={tagConfig ? {
+                        backgroundColor: tagConfig.color + '40', // Add transparency
+                        color: tagConfig.color,
+                        border: `1px solid ${tagConfig.color}60`
+                      } : {
+                        backgroundColor: '#F59E0B40',
+                        color: '#F59E0B'
+                      }}
+                    >
+                      {tagConfig?.label || tag}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Aantal Personen - EERST invullen voor beschikbaarheid zoeken */}

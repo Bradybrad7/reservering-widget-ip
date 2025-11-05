@@ -2,6 +2,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import ReservationWidget from './components/ReservationWidget';
 import { VoucherPurchasePageNew, VoucherSuccessPage } from './components/voucher';
+import { VoucherOrderSuccessPage } from './components/voucher/VoucherOrderSuccessPage';
 import { HostCheckInSimple } from './components/checkin/HostCheckInSimple';
 import BookingAdmin from './components/BookingAdminNew2';
 import { ToastProvider } from './components/Toast';
@@ -37,7 +38,9 @@ function App() {
             
             {/* Voucher pages */}
             <Route path="/voucher" element={<VoucherPurchasePageNew />} />
+            <Route path="/vouchers" element={<VoucherPurchasePageNew />} />
             <Route path="/voucher/success/:voucherId" element={<VoucherSuccessPage />} />
+            <Route path="/voucher-order-success" element={<VoucherOrderSuccessPage />} />
             
             {/* Check-in page */}
             <Route path="/checkin" element={<HostCheckInSimple />} />

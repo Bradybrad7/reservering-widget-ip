@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useConfigStore } from '../../store/configStore';
 import { getAllTextKeys, cn } from '../../utils';
+import { TagConfigService } from '../../services/tagConfigService';
 import type { Pricing, BookingRules, GlobalConfig, WizardConfig, TextCustomization, AdminSection } from '../../types';
 
 interface ConfigManagerEnhancedProps {
@@ -356,6 +357,32 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
                 </div>
               </div>
             </label>
+
+            <div className="p-4 bg-neutral-700/50 rounded-lg">
+              <label className="block text-white font-medium mb-2">
+                Standaard Optie Termijn
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  min="1"
+                  max="90"
+                  value={localBookingRules.defaultOptionTermDays}
+                  onChange={(e) => {
+                    setLocalBookingRules({ 
+                      ...localBookingRules, 
+                      defaultOptionTermDays: parseInt(e.target.value) || TagConfigService.getDefaultOptionDuration()
+                    });
+                    setHasChanges(true);
+                  }}
+                  className="w-20 px-3 py-2 bg-neutral-600 border border-neutral-500 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+                />
+                <span className="text-neutral-300">dagen</span>
+              </div>
+              <div className="text-sm text-neutral-400 mt-1">
+                Standaard geldigheidsduur voor nieuwe opties (1-90 dagen)
+              </div>
+            </div>
           </div>
         </CollapsibleGroup>
       </div>

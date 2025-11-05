@@ -46,6 +46,7 @@ import {
 } from 'lucide-react';
 import type { Reservation, Event } from '../../types';
 import { apiService } from '../../services/apiService';
+import { TagConfigService } from '../../services/tagConfigService';
 import { formatCurrency, formatDate, cn } from '../../utils';
 import { useReservationsStore } from '../../store/reservationsStore';
 import { useConfigStore } from '../../store/configStore';
@@ -269,6 +270,48 @@ export const ReservationsCommandCenter: React.FC = () => {
       case 'cancelled': return 'Geannuleerd';
       default: return status;
     }
+  };
+
+  // ✨ Helper voor gekleurde tag badges met TagConfigService
+  const getTagColor = (tag: string) => {
+    const tagConfig = TagConfigService.getTagConfig(tag);
+    if (tagConfig) {
+      const color = tagConfig.color;
+      return {
+        backgroundColor: color + '30', // 30 = ~20% opacity
+        color: color,
+        borderColor: color + '50'  // 50 = ~30% opacity
+      };
+    }
+    return {
+      backgroundColor: '#6B7280' + '30',
+      color: '#6B7280',
+      borderColor: '#6B7280' + '50'
+    };
+  };
+
+  // ✨ Helper voor optie expiry countdown
+  const getExpiryInfo = (reservation: Reservation) => {
+    if (reservation.status !== 'option' || !reservation.optionExpiresAt) {
+      return null;
+    }
+
+    const now = new Date();
+    const expiryDate = new Date(reservation.optionExpiresAt);
+    const diffMs = expiryDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    
+    const status = TagConfigService.getExpiryStatusText(reservation.optionExpiresAt);
+    
+    return {
+      days: diffDays,
+      status,
+      text: diffDays > 0 
+        ? `${diffDays} ${diffDays === 1 ? 'dag' : 'dagen'} resterend`
+        : diffDays === 0 
+          ? 'Vervalt vandaag!'
+          : `${Math.abs(diffDays)} ${Math.abs(diffDays) === 1 ? 'dag' : 'dagen'} vervallen`
+    };
   };
 
   // Actions
@@ -712,6 +755,48 @@ export const ReservationsCommandCenter: React.FC = () => {
                             )}>
                               {getStatusLabel(reservation.status)}
                             </span>
+                            
+                            {/* ✨ Show guest tags badges with colors */}
+                            {reservation.tags && reservation.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 justify-end mt-1">
+                                {reservation.tags.map((tag, idx) => {
+                                  // Ensure tag is a string (handle both string and object cases)
+                                  const tagId = typeof tag === 'string' ? tag : 
+                                    (typeof tag === 'object' && tag && 'id' in tag ? (tag as any).id : String(tag));
+                                  const tagStyles = getTagColor(tagId);
+                                  const tagConfig = TagConfigService.getTagConfig(tagId);
+                                  return (
+                                    <span
+                                      key={idx}
+                                      className="px-2 py-0.5 rounded text-xs font-medium border"
+                                      style={tagStyles}
+                                      title={tagConfig?.description || tagId}
+                                    >
+                                      {tagConfig?.label || tagId}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* ✨ Expiry countdown for options */}
+                            {(() => {
+                              const expiryInfo = getExpiryInfo(reservation);
+                              if (!expiryInfo) return null;
+                              
+                              return (
+                                <div className={cn(
+                                  'px-2 py-0.5 rounded text-xs font-medium mt-1',
+                                  expiryInfo.days <= 0 
+                                    ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                                    : expiryInfo.days <= 1
+                                      ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
+                                      : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                                )}>
+                                  🕒 {expiryInfo.text}
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
 
@@ -722,6 +807,23 @@ export const ReservationsCommandCenter: React.FC = () => {
                             <span>{formatDate(event.date)}</span>
                             <span className="text-neutral-600">•</span>
                             <span>{event.startsAt}</span>
+                          </div>
+                        )}
+
+                        {/* ✨ Option expiry date (only for options) */}
+                        {reservation.status === 'option' && reservation.optionExpiresAt && (
+                          <div className={cn(
+                            "flex items-center gap-2 text-sm mb-3 pb-3 border-b border-neutral-700",
+                            isOptionExpiringSoon(reservation) ? "text-orange-400" : "text-neutral-400"
+                          )}>
+                            <Clock className="w-4 h-4" />
+                            <span className="font-medium">Verloopt:</span>
+                            <span>{formatDate(reservation.optionExpiresAt)}</span>
+                            {isOptionExpiringSoon(reservation) && (
+                              <span className="text-xs bg-orange-500/20 px-2 py-0.5 rounded">
+                                ⚠️ Binnenkort
+                              </span>
+                            )}
                           </div>
                         )}
 
@@ -877,6 +979,9 @@ export const ReservationsCommandCenter: React.FC = () => {
                           Status
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                          Tags
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-400 uppercase tracking-wider">
                           Betaling
                         </th>
                         <th className="px-4 py-3 text-right text-xs font-semibold text-neutral-400 uppercase tracking-wider">
@@ -970,13 +1075,52 @@ export const ReservationsCommandCenter: React.FC = () => {
                                 )}>
                                   {getStatusLabel(reservation.status)}
                                 </span>
-                                {isOptionExpiring && (
-                                  <span className="text-xs text-orange-400 flex items-center gap-1">
-                                    <AlertCircle className="w-3 h-3" />
-                                    Verloopt binnenkort
-                                  </span>
-                                )}
+                                {/* ✨ Enhanced expiry countdown */}
+                                {(() => {
+                                  const expiryInfo = getExpiryInfo(reservation);
+                                  if (!expiryInfo) return null;
+                                  
+                                  return (
+                                    <span className={cn(
+                                      'text-xs flex items-center gap-1',
+                                      expiryInfo.days <= 0 
+                                        ? 'text-red-400'
+                                        : expiryInfo.days <= 1
+                                          ? 'text-orange-400'
+                                          : 'text-blue-400'
+                                    )}>
+                                      <Clock className="w-3 h-3" />
+                                      {expiryInfo.text}
+                                    </span>
+                                  );
+                                })()}
                               </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              {/* ✨ Show guest tags with colors */}
+                              {reservation.tags && reservation.tags.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {reservation.tags.map((tag, idx) => {
+                                    // Ensure tag is a string (handle both string and object cases)
+                                    const tagId = typeof tag === 'string' ? tag : 
+                                      (typeof tag === 'object' && tag && 'id' in tag ? (tag as any).id : String(tag));
+                                    const tagStyles = getTagColor(tagId);
+                                    const tagConfig = TagConfigService.getTagConfig(tagId);
+                                    return (
+                                      <span
+                                        key={idx}
+                                        className="px-2 py-0.5 rounded text-xs font-medium border"
+                                        style={tagStyles}
+                                        title={tagConfig?.description || tagId}
+                                      >
+                                        {tagConfig?.label || tagId}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-neutral-600">-</span>
+                              )}
                             </td>
                             <td className="px-4 py-3">
                               <span className={cn(

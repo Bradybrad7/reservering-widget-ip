@@ -18,12 +18,15 @@ import {
   FileText as Invoice,
   Send,
   XCircle,
-  ShoppingBag
+  ShoppingBag,
+  Clock,
+  CheckCircle
 } from 'lucide-react';
 import type { Reservation, MerchandiseItem, Event, Arrangement, PaymentStatus, PaymentTransaction } from '../../types';
 import { formatCurrency, formatDate, cn } from '../../utils';
 import { nl } from '../../config/defaults';
 import { priceService } from '../../services/priceService';
+import { TagConfigService } from '../../services/tagConfigService';
 import { apiService } from '../../services/apiService';
 import { useReservationsStore } from '../../store/reservationsStore';
 import { useToast } from '../Toast';
@@ -85,6 +88,8 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
     numberOfPersons: reservation.numberOfPersons,
     arrangement: reservation.arrangement,
     partyPerson: reservation.partyPerson || '',
+    celebrationOccasion: reservation.celebrationOccasion || '',
+    celebrationDetails: reservation.celebrationDetails || '',
     
     // Add-ons
     preDrink: reservation.preDrink || { enabled: false, quantity: 0 },
@@ -130,7 +135,7 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
   const [capacityWarning, setCapacityWarning] = useState<string | null>(null);
   
   // 🆕 Option extension state
-  const [extendDays, setExtendDays] = useState(7);
+  const [extendDays, setExtendDays] = useState(() => TagConfigService.getDefaultOptionDuration());
   const [showOptionExtension, setShowOptionExtension] = useState(false);
   
   // 🆕 Cancel reservation state
@@ -204,7 +209,7 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
       const response = await apiService.getReservationsByEvent(selectedEvent.id);
       if (response.success && response.data) {
         const confirmedReservations = response.data.filter(
-          r => r.id !== reservation.id && (r.status === 'confirmed' || r.status === 'pending')
+          r => r.id !== reservation.id && (r.status === 'confirmed' || r.status === 'pending' || r.status === 'option' || r.status === 'checked-in')
         );
         const currentBooked = confirmedReservations.reduce((sum, r) => sum + r.numberOfPersons, 0);
         const newTotal = currentBooked + formData.numberOfPersons;
@@ -304,6 +309,15 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
       return;
     }
 
+    // ✨ NIEUWE VALIDATIE: Als we een optie willen converteren maar geen arrangement is geselecteerd
+    if (reservation.status === 'option' && formData.arrangement && !reservation.arrangement) {
+      // Dit is oké - we converteren de optie
+    } else if (reservation.status !== 'option' && !formData.arrangement) {
+      // Normale boeking zonder arrangement
+      toast.warning('Arrangement verplicht', 'Selecteer een arrangement (BWF of BWFM)');
+      return;
+    }
+
     // 💰 NEW: Slimme tegoed-detectie (October 31, 2025)
     // Check of de prijs is gedaald en er al betaald is
     const oldPrice = reservation.totalPrice;
@@ -363,8 +377,12 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
     try {
       const updateReservation = useReservationsStore.getState().updateReservation;
       
-      // Update reservation with new data
-      const updateData: Partial<Reservation> = pendingSaveData || {
+      // ✨ OPTIE CONVERSIE LOGICA
+      // Als dit een optie is EN er is nu een arrangement geselecteerd, converteer naar boeking
+      const isConvertingOption = reservation.status === 'option' && formData.arrangement && !reservation.arrangement;
+      
+      // Base update data
+      const baseUpdateData: Partial<Reservation> = pendingSaveData || {
         ...formData,
         salutation: formData.salutation as any,
         eventId: selectedEventId,
@@ -373,6 +391,16 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
         pricingSnapshot: priceCalculation,
         updatedAt: new Date()
       };
+      
+      // ✨ Als we een optie converteren, wijzig status naar 'confirmed' en verwijder optie velden
+      const updateData: Partial<Reservation> = isConvertingOption ? {
+        ...baseUpdateData,
+        status: 'confirmed' as const,
+        optionPlacedAt: undefined,
+        optionExpiresAt: undefined,
+        optionNotes: undefined,
+        optionFollowedUp: undefined
+      } : baseUpdateData;
 
       // 💰 Als er een refund transaction is, voeg deze toe
       if (refundTransaction) {
@@ -380,10 +408,28 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
         updateData.paymentTransactions = [...existingTransactions, refundTransaction];
       }
 
+      // ✨ Als we een optie converteren, voeg communicatielog toe
+      if (isConvertingOption) {
+        const existingLog = reservation.communicationLog || [];
+        updateData.communicationLog = [
+          ...existingLog,
+          {
+            id: `log-${Date.now()}`,
+            timestamp: new Date(),
+            type: 'status_change' as const,
+            message: `✅ Optie GEACCEPTEERD en geconverteerd naar bevestigde boeking - Arrangement: ${formData.arrangement} - Totaalprijs: €${(priceCalculation?.totalPrice || 0).toFixed(2)}`,
+            author: 'Admin'
+          }
+        ];
+      }
+
       const success = await updateReservation(reservation.id, updateData, reservation);
 
       if (success) {
-        toast.success('Wijzigingen opgeslagen', 'Reservering succesvol bijgewerkt');
+        const message = isConvertingOption 
+          ? '🎉 Optie geaccepteerd en omgezet naar boeking!' 
+          : 'Wijzigingen opgeslagen';
+        toast.success(message, 'Reservering succesvol bijgewerkt');
         onSave();
         onClose();
       } else {
@@ -502,9 +548,9 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
           </div>
 
           {/* Arrangement */}
-          <div className="card-theatre p-4">
+          <div className="card-theatre p-4" data-section="arrangement">
             <label className="block text-sm font-semibold text-white mb-3">
-              Arrangement {reservation.status === 'option' && <span className="text-orange-400">(optioneel voor opties)</span>}
+              Arrangement {reservation.status === 'option' && <span className="text-orange-400">(wordt verplicht bij accepteren)</span>}
             </label>
             <div className="grid grid-cols-2 gap-3">
               {(['BWF', 'BWFM'] as Arrangement[]).map((arr) => (
@@ -523,10 +569,276 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
               ))}
             </div>
             {reservation.status === 'option' && !formData.arrangement && (
-              <p className="text-xs text-orange-300 mt-2">
-                💡 Voor een optie is arrangement niet verplicht. Voeg toe wanneer klant bevestigt.
-              </p>
+              <div className="mt-3 p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                <p className="text-xs text-orange-300">
+                  💡 <strong>Optie:</strong> Arrangement is nu niet verplicht, maar zodra u een arrangement selecteert 
+                  en opslaat, wordt deze optie automatisch <strong>geconverteerd naar een bevestigde boeking</strong>.
+                </p>
+              </div>
             )}
+            {reservation.status === 'option' && formData.arrangement && (
+              <div className="mt-3 p-3 bg-green-500/10 border-2 border-green-500 rounded-lg animate-pulse">
+                <p className="text-sm text-green-300 font-semibold">
+                  ✅ Arrangement geselecteerd! Deze optie wordt bij opslaan <strong>geconverteerd naar bevestigde boeking</strong>.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* ✨ OPTIE CONVERTEREN - Grote call-to-action (only for options) */}
+          {reservation.status === 'option' && (
+            <div className="bg-gradient-to-r from-green-500/20 to-gold-500/20 border-2 border-green-500/50 rounded-xl p-6">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                  <CheckCircle className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-white mb-2">
+                    Optie Accepteren & Converteren naar Boeking
+                  </h3>
+                  <p className="text-sm text-neutral-300 mb-4">
+                    Klant heeft bevestigd? Converteer deze optie naar een volledige boeking. 
+                    U moet dan een arrangement selecteren en de prijs wordt automatisch berekend.
+                  </p>
+                  
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        // Scroll to arrangement section
+                        const arrangementSection = document.querySelector('[data-section="arrangement"]');
+                        if (arrangementSection) {
+                          arrangementSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                        
+                        // Show alert to guide user
+                        alert('✅ Selecteer nu een arrangement (BWF of BWFM) hieronder. De status wordt automatisch gewijzigd naar "Bevestigd" wanneer u opslaat.');
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors font-bold shadow-lg"
+                    >
+                      <CheckCircle className="w-5 h-5" />
+                      Accepteren & Invullen
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm('Weet u zeker dat u deze optie wilt annuleren? De capaciteit wordt vrijgegeven.')) {
+                          apiService.updateReservation(reservation.id, {
+                            status: 'cancelled' as const,
+                            communicationLog: [
+                              ...(reservation.communicationLog || []),
+                              {
+                                id: `log-${Date.now()}`,
+                                timestamp: new Date(),
+                                type: 'status_change' as const,
+                                message: 'Optie geannuleerd door admin',
+                                author: 'Admin'
+                              }
+                            ]
+                          }).then((response) => {
+                            if (response.success) {
+                              toast.success('Optie geannuleerd', 'De capaciteit is vrijgegeven');
+                              onSave();
+                              onClose();
+                            }
+                          });
+                        }
+                      }}
+                      className="px-6 py-3 bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500 text-red-300 rounded-lg transition-colors font-medium"
+                    >
+                      <XCircle className="w-5 h-5 inline mr-2" />
+                      Optie Annuleren
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ✨ Option Management & Guest Tags - NIEUW! */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Option Extension (only for options) */}
+            {reservation.status === 'option' && reservation.optionExpiresAt && (
+              <div className="card-theatre p-4">
+                <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-orange-500" />
+                  Optie Verlengen
+                </h3>
+                
+                <div className="space-y-3">
+                  <div className="text-sm text-neutral-300">
+                    <p className="mb-1">Huidige vervaldatum:</p>
+                    <p className="font-semibold text-orange-400">
+                      {formatDate(reservation.optionExpiresAt)}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm text-neutral-300 mb-2">
+                      Verlengen met aantal dagen:
+                    </label>
+                    <div className="grid grid-cols-3 gap-2 mb-2">
+                      {(() => {
+                        const defaultDays = TagConfigService.getDefaultOptionDuration();
+                        const options = [defaultDays, defaultDays * 2, defaultDays * 3];
+                        return options.map(days => (
+                          <button
+                            key={days}
+                            type="button"
+                            onClick={() => setExtendDays(days)}
+                            className={cn(
+                              'px-3 py-2 rounded-lg text-sm font-medium transition-all',
+                              extendDays === days
+                                ? 'bg-gold-500 text-white'
+                                : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                            )}
+                          >
+                            {days}d
+                          </button>
+                        ));
+                      })()}
+                    </div>
+                    <input
+                      type="number"
+                      min="1"
+                      max="90"
+                      value={extendDays}
+                      onChange={(e) => setExtendDays(parseInt(e.target.value) || TagConfigService.getDefaultOptionDuration())}
+                      className="w-full px-3 py-2 bg-dark-800 border border-gold-500/30 rounded text-white text-sm"
+                      placeholder="Custom aantal dagen"
+                    />
+                  </div>
+                  
+                  <div className="p-2 bg-blue-500/10 border border-blue-500/30 rounded text-xs text-blue-300">
+                    Nieuwe vervaldatum: <strong>
+                      {new Date(new Date(reservation.optionExpiresAt).getTime() + extendDays * 24 * 60 * 60 * 1000).toLocaleDateString('nl-NL')}
+                    </strong>
+                  </div>
+                  
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const newExpiryDate = new Date(new Date(reservation.optionExpiresAt!).getTime() + extendDays * 24 * 60 * 60 * 1000);
+                      const response = await apiService.updateReservation(reservation.id, {
+                        optionExpiresAt: newExpiryDate,
+                        communicationLog: [
+                          ...(reservation.communicationLog || []),
+                          {
+                            id: `log-${Date.now()}`,
+                            timestamp: new Date(),
+                            type: 'note' as const,
+                            message: `Optie verlengd met ${extendDays} dagen tot ${newExpiryDate.toLocaleDateString('nl-NL')}`,
+                            author: 'Admin'
+                          }
+                        ]
+                      });
+                      
+                      if (response.success) {
+                        toast.success('Optie verlengd', `Nieuwe vervaldatum: ${newExpiryDate.toLocaleDateString('nl-NL')}`);
+                        onSave();
+                      }
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors font-medium"
+                  >
+                    <Clock className="w-4 h-4" />
+                    Verlengen
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {/* Guest Tags */}
+            <div className="card-theatre p-4">
+              <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                <Tag className="w-5 h-5 text-gold-500" />
+                Gast Categorieën
+              </h3>
+              
+              <div className="space-y-2">
+                <p className="text-xs text-neutral-400 mb-3">
+                  Selecteer speciale categorieën (optioneel):
+                </p>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  {TagConfigService.getDefaultTagConfigs().map(tagConfig => (
+                    <button
+                      key={tagConfig.id}
+                      type="button"
+                      onClick={() => {
+                        const tag = tagConfig.id;
+                        const currentTags = reservation.tags || [];
+                        const newTags = currentTags.includes(tag)
+                          ? currentTags.filter(t => t !== tag)
+                          : [...currentTags, tag];
+                        
+                        apiService.updateReservation(reservation.id, { tags: newTags }).then((response) => {
+                          if (response.success) {
+                            toast.success('Tags bijgewerkt', `Tag "${tagConfig.label}" ${currentTags.includes(tag) ? 'verwijderd' : 'toegevoegd'}`);
+                            onSave();
+                          }
+                        });
+                      }}
+                      className={cn(
+                        'px-3 py-2 rounded-lg border-2 text-xs font-medium transition-all relative group',
+                        reservation.tags?.includes(tagConfig.id)
+                          ? 'shadow-lg scale-105'
+                          : 'border-neutral-600 bg-neutral-700/50 text-neutral-300 hover:border-neutral-500'
+                      )}
+                      style={reservation.tags?.includes(tagConfig.id) ? {
+                        backgroundColor: tagConfig.color,
+                        borderColor: tagConfig.color,
+                        color: TagConfigService.getContrastColor(tagConfig.color)
+                      } : undefined}
+                      title={tagConfig.description}
+                    >
+                      <span className="relative z-10">{tagConfig.label}</span>
+                      
+                      {/* Tooltip */}
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none">
+                        {tagConfig.description}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                
+                {reservation.tags && reservation.tags.length > 0 && (
+                  <div className="mt-3 p-2 bg-neutral-800/50 border border-neutral-600 rounded">
+                    <div className="text-xs text-neutral-400 mb-2">Actieve tags:</div>
+                    <div className="flex flex-wrap gap-1">
+                      {reservation.tags.map(tag => {
+                        // Ensure tag is a string (handle both string and object cases)
+                        const tagId = typeof tag === 'string' ? tag : 
+                          (typeof tag === 'object' && tag && 'id' in tag ? (tag as any).id : String(tag));
+                        const tagConfig = TagConfigService.getTagConfig(tagId);
+                        return (
+                          <span 
+                            key={tagId} 
+                            className="px-2 py-1 text-xs rounded-md"
+                            style={tagConfig ? {
+                              backgroundColor: tagConfig.color + '40',
+                              color: tagConfig.color,
+                              border: `1px solid ${tagConfig.color}60`
+                            } : {
+                              backgroundColor: '#6B728040',
+                              color: '#6B7280'
+                            }}
+                          >
+                            {tagConfig?.label || tagId}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                
+                {reservation.tags?.includes('GENODIGDE') && (
+                  <div className="mt-2 p-2 bg-purple-500/20 border border-purple-500/50 rounded text-xs text-purple-300">
+                    🎁 Deze gast telt mee in capaciteit maar genereert geen omzet (€0).
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Add-ons */}
@@ -985,21 +1297,54 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
             </div>
           )}
 
-          {/* Party Person */}
+          {/* Celebration - UITGEBREID */}
           <div className="card-theatre p-4 bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-2 border-purple-500/30">
             <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-              <PartyPopper className="w-5 h-5 text-purple-400" />
-              Speciale Gelegenheid
+              <PartyPopper className="w-5 h-5 text-pink-400" />
+              Iets te Vieren? 🎉
             </h3>
-            <div>
-              <label className="block text-sm text-neutral-300 mb-2">Jarige/Feestvarken</label>
-              <input
-                type="text"
-                value={formData.partyPerson}
-                onChange={(e) => setFormData({ ...formData, partyPerson: e.target.value })}
-                className="w-full px-4 py-2 bg-dark-800 border border-purple-500/30 rounded text-white"
-                placeholder="Naam van de jarige (optioneel)..."
-              />
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-neutral-300 mb-2">Wat wordt er gevierd?</label>
+                  <select
+                    value={formData.celebrationOccasion}
+                    onChange={(e) => setFormData({ ...formData, celebrationOccasion: e.target.value })}
+                    className="w-full px-4 py-2 bg-dark-800 border border-pink-500/30 rounded text-white"
+                  >
+                    <option value="">Selecteer...</option>
+                    <option value="verjaardag">🎂 Verjaardag</option>
+                    <option value="jubileum">💍 Jubileum / Trouwdag</option>
+                    <option value="pensioen">🎓 Pensioen</option>
+                    <option value="promotie">🎯 Promotie</option>
+                    <option value="geslaagd">📚 Geslaagd</option>
+                    <option value="verloving">💎 Verloving</option>
+                    <option value="geboorte">👶 Geboorte</option>
+                    <option value="afstuderen">🎓 Afstuderen</option>
+                    <option value="anders">🎈 Iets anders</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-neutral-300 mb-2">Voor wie?</label>
+                  <input
+                    type="text"
+                    value={formData.partyPerson}
+                    onChange={(e) => setFormData({ ...formData, partyPerson: e.target.value })}
+                    className="w-full px-4 py-2 bg-dark-800 border border-pink-500/30 rounded text-white"
+                    placeholder="Naam van de jarige/jubilaris..."
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm text-neutral-300 mb-2">Aanvullende details</label>
+                <textarea
+                  value={formData.celebrationDetails}
+                  onChange={(e) => setFormData({ ...formData, celebrationDetails: e.target.value })}
+                  className="w-full px-4 py-2 bg-dark-800 border border-pink-500/30 rounded text-white"
+                  placeholder="Bijv. 50e verjaardag, 25 jaar getrouwd, speciale wensen..."
+                  rows={2}
+                />
+              </div>
             </div>
           </div>
 
@@ -1230,25 +1575,37 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
                   </div>
                 </div>
                 
-                {/* Expiry Status */}
-                <div className="mt-3 p-2 bg-black/30 rounded text-center">
+                {/* Enhanced Expiry Status with TagConfigService */}
+                <div className="mt-3 p-3 bg-black/30 rounded text-center">
                   {(() => {
+                    const status = TagConfigService.getExpiryStatusText(reservation.optionExpiresAt);
                     const now = new Date();
                     const expiryDate = new Date(reservation.optionExpiresAt);
                     const diffTime = expiryDate.getTime() - now.getTime();
                     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                     
-                    if (diffDays < 0) {
-                      return <span className="text-red-300 font-semibold">🔴 VERLOPEN ({Math.abs(diffDays)} {Math.abs(diffDays) === 1 ? 'dag' : 'dagen'} geleden)</span>;
-                    } else if (diffDays === 0) {
-                      return <span className="text-red-300 font-semibold">⚠️ VERLOOPT VANDAAG</span>;
-                    } else if (diffDays === 1) {
-                      return <span className="text-orange-300 font-semibold">⚠️ VERLOOPT MORGEN</span>;
-                    } else if (diffDays <= 2) {
-                      return <span className="text-orange-300 font-semibold">⚠️ Verloopt over {diffDays} dagen</span>;
-                    } else {
-                      return <span className="text-green-300 font-semibold">✓ Nog {diffDays} {diffDays === 1 ? 'dag' : 'dagen'} geldig</span>;
-                    }
+                    const statusColor = diffDays <= 0 ? 'text-red-300' :
+                                       diffDays <= 1 ? 'text-orange-300' :
+                                       diffDays <= 2 ? 'text-yellow-300' : 
+                                       'text-green-300';
+                    
+                    const statusIcon = diffDays <= 0 ? '🔴' :
+                                      diffDays <= 1 ? '⚠️' :
+                                      diffDays <= 2 ? '⚠️' : 
+                                      '✅';
+                    
+                    return (
+                      <div>
+                        <span className={`font-semibold ${statusColor}`}>
+                          {statusIcon} {status.toUpperCase()}
+                        </span>
+                        <div className="text-xs text-neutral-400 mt-1">
+                          {diffDays > 0 ? `${diffDays} ${diffDays === 1 ? 'dag' : 'dagen'} resterend` : 
+                           diffDays === 0 ? 'Vervalt vandaag!' :
+                           `${Math.abs(diffDays)} ${Math.abs(diffDays) === 1 ? 'dag' : 'dagen'} geleden vervallen`}
+                        </div>
+                      </div>
+                    );
                   })()}
                 </div>
               </div>
@@ -1269,20 +1626,25 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
                     <label className="block text-sm text-neutral-300 mb-2">
                       Verlengen met aantal dagen:
                     </label>
-                    <div className="grid grid-cols-4 gap-2 mb-3">
-                      {[3, 7, 14, 30].map(days => (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-3">
+                      {TagConfigService.getDefaultOptionTerms().filter(option => option.days > 0).map(option => (
                         <button
-                          key={days}
+                          key={option.id}
                           type="button"
-                          onClick={() => setExtendDays(days)}
+                          onClick={() => setExtendDays(option.days)}
                           className={cn(
-                            'px-3 py-2 rounded-lg text-sm font-medium transition-all',
-                            extendDays === days
-                              ? 'bg-orange-500 text-white'
-                              : 'bg-neutral-600 text-neutral-300 hover:bg-neutral-500'
+                            'p-2 rounded-lg text-sm font-medium transition-all border-2 text-left',
+                            extendDays === option.days
+                              ? 'text-white border-2 shadow-lg'
+                              : 'bg-neutral-600 text-neutral-300 hover:bg-neutral-500 border-neutral-500'
                           )}
+                          style={extendDays === option.days ? {
+                            backgroundColor: option.color || '#F59E0B',
+                            borderColor: option.color || '#F59E0B'
+                          } : undefined}
                         >
-                          +{days}d
+                          <div className="font-semibold">+{option.days}d</div>
+                          <div className="text-xs opacity-75">{option.label}</div>
                         </button>
                       ))}
                     </div>
@@ -1291,7 +1653,7 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
                       min="1"
                       max="90"
                       value={extendDays}
-                      onChange={(e) => setExtendDays(parseInt(e.target.value) || 7)}
+                      onChange={(e) => setExtendDays(parseInt(e.target.value) || TagConfigService.getDefaultOptionDuration())}
                       className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-orange-500"
                       placeholder="Custom aantal dagen"
                     />
@@ -1343,7 +1705,7 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
                       type="button"
                       onClick={() => {
                         setShowOptionExtension(false);
-                        setExtendDays(7);
+                        setExtendDays(TagConfigService.getDefaultOptionDuration());
                       }}
                       className="px-4 py-2 bg-neutral-600 text-white rounded-lg hover:bg-neutral-500 transition-colors"
                     >

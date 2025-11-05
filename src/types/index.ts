@@ -17,6 +17,56 @@ export type ReservationStatus =
   | 'request'       // Over-capacity request
   | 'option';       // 🆕 Temporary hold (1 week) - minimal info, counts toward capacity
 
+// ✨ Uitgebreid Reservation Tags systeem met configuratie
+export type ReservationTag = 
+  | 'GENODIGDE'     // Gratis boeking (€0) - gasten van het theater
+  | 'PERS'          // Pers/media uitnodigingen
+  | 'VIP'           // VIP gasten
+  | 'CREW'          // Crew/medewerkers
+  | 'SPONSOR'       // Sponsors
+  | 'HERHALING'     // Terugkerende klant
+  | 'ZAKELIJK'      // Zakelijke klant
+  | 'FAMILIE'       // Familie/vrienden van theater
+  | 'STUDENT'       // Studenten korting
+  | 'SENIOR'        // Senioren
+  | 'GROEP'         // Groepsboeking
+  | 'LAST_MINUTE'   // Last minute boeking
+  | 'COMPLIMENT'    // Complimentary ticket
+  | 'REVIEW'        // Reviewer/critique
+  | 'CAST'          // Cast member gast
+  | string;         // Custom tags toegestaan
+
+// ✨ Tag configuratie voor kleuren en metadata
+export interface ReservationTagConfig {
+  id: ReservationTag;
+  label: string;
+  description: string;
+  color: string; // Hex color code
+  textColor?: string; // Text color (auto-calculated if not provided)
+  icon?: string; // Lucide icon name
+  isDefault: boolean; // Appears in quick-select
+  isActive: boolean;
+  category: 'guest' | 'business' | 'special' | 'internal' | 'purchase';
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+// ✨ Optie configuratie uitgebreid
+export interface OptionConfig {
+  id: string;
+  label: string;
+  days: number;
+  isDefault?: boolean;
+  color?: string; // Voor visuele feedback
+}
+
+// ✨ Globale tag configuratie
+export interface TagsConfig {
+  tags: ReservationTagConfig[];
+  optionTerms: OptionConfig[];
+  defaultOptionTerm: number; // Dagen
+}
+
 // ✨ NEW: Payment Status (October 2025)
 // This tracks the financial status INDEPENDENTLY from booking status
 // A reservation can be 'confirmed' (seat reserved) but 'pending' payment
@@ -173,6 +223,7 @@ export interface BookingRules {
   softCapacityWarningPercent: number;
   enableWaitlist: boolean;
   defaultCapacity: number; // Default capacity for new events (e.g., 230)
+  defaultOptionTermDays: number; // Default option duration in days (e.g., 7)
 }
 
 // Event Type Configuration
@@ -283,8 +334,10 @@ export interface CustomerFormData {
   // Merchandise
   merchandise: MerchandiseSelection[];
   
-  // Special occasion
+  // Special occasion / celebration
   partyPerson?: string;
+  celebrationOccasion?: string; // What are they celebrating (verjaardag, jubileum, etc)
+  celebrationDetails?: string;  // Additional celebration details
   
   // Dietary requirements (NEW)
   dietaryRequirements?: DietaryRequirements;
@@ -349,7 +402,7 @@ export interface Reservation extends CustomerFormData {
   isArchived?: boolean; // NEW: For archiving cancelled/rejected bookings
   archivedAt?: Date; // NEW: When it was archived
   archivedBy?: string; // NEW: Who archived it
-  tags?: string[]; // VIP, Corporate, Repeat Customer, etc.
+  tags?: ReservationTag[]; // ✨ Speciale categorieën: GENODIGDE, PERS, VIP, CREW, etc.
   communicationLog?: CommunicationLog[];
   notes?: string; // Admin notes
   checkedInAt?: Date; // NEW: Check-in timestamp
@@ -722,35 +775,85 @@ export interface VoucherTemplate {
   updatedAt?: Date;
 }
 
+// 🎟️ Voucher Status Types - Admin Approval Workflow
+export type VoucherOrderStatus = 
+  | 'pending_approval'  // 🆕 NEW: Waiting for admin to review and approve
+  | 'pending_payment'   // Approved, waiting for customer payment
+  | 'active'            // Paid and ready to use
+  | 'used'              // Fully redeemed
+  | 'cancelled'         // Cancelled by admin or customer
+  | 'expired';          // Expired without being used
+
 // Issued Voucher (Actual voucher given to customer)
+// 🆕 NOW ALSO SERVES AS ORDER/REQUEST BEFORE APPROVAL
 export interface IssuedVoucher {
   id: string;
-  code: string; // Unique generated code
-  templateId: string; // Links to VoucherTemplate
+  code?: string; // 🆕 OPTIONAL: Only generated AFTER admin approval
+  templateId?: string; // Links to VoucherTemplate (optional for arrangement-based vouchers)
+  
+  // Core voucher info
   issuedTo: string; // Name or email
   issueDate: Date | string;
-  expiryDate: Date | string;
+  expiryDate?: Date | string; // Only set after approval
   initialValue: number;
   remainingValue: number;
-  status: 'active' | 'used' | 'expired' | 'pending_payment';
+  
+  // 🆕 NEW: Status-driven workflow
+  status: VoucherOrderStatus;
+  
   usedInReservationIds?: string[]; // Track where it was used
   
-  // Extended metadata for voucher purchases
-  metadata?: {
+  // 🆕 EXTENDED: Complete order metadata (all form data)
+  metadata: {
+    // Buyer information (always required)
     buyerName: string;
     buyerEmail: string;
     buyerPhone: string;
+    
+    // Gift information (optional)
+    isGift?: boolean;
+    recipientName?: string;
     recipientEmail?: string;
     personalMessage?: string;
-    deliveryMethod: 'email' | 'physical';
+    
+    // Delivery information
+    deliveryMethod: 'email' | 'shipping' | 'pickup';
+    shippingAddress?: string;
+    shippingCity?: string;
+    shippingPostalCode?: string;
+    shippingCountry?: string;
+    
+    // Order details
     quantity: number;
+    
+    // Arrangement-based voucher details (if applicable)
+    arrangement?: Arrangement; // 'BWF' | 'BWFM'
+    arrangementName?: string; // Display name
+    eventType?: string; // 'weekday', 'weekend', 'matinee', etc.
+    eventTypeName?: string; // Display name
+    
+    // Payment tracking
     paymentId?: string;
-    paymentStatus: 'pending' | 'paid' | 'failed';
+    paymentStatus?: 'pending' | 'paid' | 'failed';
+    paidAt?: Date;
+    
+    // Activation tracking
     activatedAt?: Date;
+    approvedAt?: Date; // 🆕 When admin approved
+    approvedBy?: string; // 🆕 Admin who approved
+    
+    // Shipping cost
+    shippingCost?: number;
+    
+    // Total amount
+    totalAmount: number; // quantity * value + shipping
   };
   
   createdAt?: Date;
   updatedAt?: Date;
+  
+  // Admin notes
+  adminNotes?: string;
 }
 
 // ============ VOUCHER PURCHASE & REDEMPTION ============

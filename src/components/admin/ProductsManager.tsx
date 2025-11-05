@@ -9,16 +9,18 @@ import { EventTypeManager } from './EventTypeManager'; // 🆕 EVENT TYPE BEHEER
 import { PromotionsManager } from './PromotionsManager';
 import { VouchersManager } from './VouchersManager';
 import { VoucherConfigManager } from './VoucherConfigManager';
+import { IssuedVouchersTable } from './IssuedVouchersTable'; // 🆕 BESTELLINGEN INBOX
 
 interface ProductsManagerProps {
   activeTab?: string;
 }
 
 export const ProductsManager: React.FC<ProductsManagerProps> = ({ activeTab: initialTab }) => {
-  const [activeTab, setActiveTab] = useState<string>(initialTab || 'event-types'); // 🆕 Start met Event Types
+  const [activeTab, setActiveTab] = useState<string>(initialTab || 'orders'); // 🆕 START MET BESTELLINGEN
   
   const tabs = [
-    { id: 'event-types', label: 'Event Types', icon: Boxes }, // 🆕 NIEUW!
+    { id: 'orders', label: 'Bestellingen', icon: ShoppingBag }, // 🆕 NIEUW! Admin Inbox voor bestellingen
+    { id: 'event-types', label: 'Event Types', icon: Boxes },
     { id: 'pricing', label: 'Prijzen', icon: DollarSign },
     { id: 'addons', label: 'Add-ons', icon: ShoppingBag },
     { id: 'merchandise', label: 'Merchandise', icon: Package },
@@ -29,7 +31,9 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ activeTab: ini
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'event-types': // 🆕 NIEUW!
+      case 'orders': // 🆕 NIEUW! Bestellingen inbox
+        return <IssuedVouchersTable />;
+      case 'event-types':
         return <EventTypeManager />;
       case 'pricing':
         return <SimplePricingManager />;
@@ -44,7 +48,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ activeTab: ini
       case 'voucher-config':
         return <VoucherConfigManager />;
       default:
-        return <EventTypeManager />; // 🆕 Start met Event Types
+        return <IssuedVouchersTable />; // 🆕 Start met Bestellingen
     }
   };
 

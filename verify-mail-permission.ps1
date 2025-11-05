@@ -10,32 +10,46 @@ Write-Host "`n╔═════════════════════
 Write-Host "║  Mail.Send Permission Verificatie                              ║" -ForegroundColor Cyan
 Write-Host "╚════════════════════════════════════════════════════════════════╝`n" -ForegroundColor Cyan
 
-Write-Host "Je hebt de Mail.Send permission gevonden in Azure Portal:" -ForegroundColor White
-Write-Host "  Permission ID: b633e1c5-b582-4048-a93e-9f11b44c7e96" -ForegroundColor Gray
-Write-Host "  Resource: Microsoft Graph (00000003-0000-0000-c000-000000000000)" -ForegroundColor Gray
-Write-Host "  Naam: Send mail as any user`n" -ForegroundColor Gray
+Write-Host "✅ Mail.Send Permission Details CORRECT:" -ForegroundColor Green
+Write-Host "  📧 API Endpoint: https://graph.microsoft.com/Mail.Send" -ForegroundColor Gray
+Write-Host "  🔑 Permission ID: b633e1c5-b582-4048-a93e-9f11b44c7e96" -ForegroundColor Gray
+Write-Host "  📱 Resource App ID: 00000003-0000-0000-c000-000000000000" -ForegroundColor Gray
+Write-Host "  👤 Type: Application Permission (Send mail as any user)" -ForegroundColor Gray
+Write-Host "  ⚠️  Admin Consent: VEREIST`n" -ForegroundColor Red
 
 Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Yellow
-Write-Host "BELANGRIJKE VRAAG:" -ForegroundColor Yellow
+Write-Host "CONFIGURATIE STAPPEN:" -ForegroundColor Yellow
 Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "In Azure Portal, bij je app > API permissions:" -ForegroundColor White
+Write-Host "1️⃣ In Azure Portal (https://portal.azure.com):" -ForegroundColor White
+Write-Host "   → App registrations → [Je App] → API permissions" -ForegroundColor Gray
 Write-Host ""
-Write-Host "Zie je Mail.Send in de lijst?" -ForegroundColor Cyan
+Write-Host "2️⃣ Voeg Mail.Send permission toe:" -ForegroundColor White
+Write-Host "   → Add a permission → Microsoft Graph → Application permissions" -ForegroundColor Gray
+Write-Host "   → Zoek 'Mail.Send' → ✅ Send mail as any user → Add permissions" -ForegroundColor Gray
+Write-Host ""
+Write-Host "3️⃣ KRITIEK - Grant Admin Consent:" -ForegroundColor Red
+Write-Host "   → Klik 'Grant admin consent for [Organization]' → Yes" -ForegroundColor Gray
+Write-Host "   → Status moet 'Granted' worden! ✅" -ForegroundColor Gray
+Write-Host ""
+
+Write-Host "Heb je de Mail.Send permission al toegevoegd?" -ForegroundColor Cyan
 $hasPermission = Read-Host "  (j/n)"
 
 if ($hasPermission -eq "n") {
-    Write-Host "`n✗ Permission is NOG NIET toegevoegd!" -ForegroundColor Red
+    Write-Host "`n❌ Permission nog niet toegevoegd!" -ForegroundColor Red
     Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Red
-    Write-Host "`nVolg deze stappen om de permission toe te voegen:" -ForegroundColor Yellow
+    Write-Host "`n🔧 Gedetailleerde stappen:" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "1. Blijf in Azure Portal bij je app" -ForegroundColor Cyan
-    Write-Host "2. Klik op 'API permissions' (links menu)" -ForegroundColor Cyan
-    Write-Host "3. Klik op '+ Add a permission'" -ForegroundColor Cyan
-    Write-Host "4. Klik op 'Microsoft Graph'" -ForegroundColor Cyan
-    Write-Host "5. Klik op 'Application permissions'" -ForegroundColor Cyan
-    Write-Host "6. Zoek naar 'Mail.Send' en vink het aan" -ForegroundColor Cyan
-    Write-Host "7. Klik op 'Add permissions' (onderaan)" -ForegroundColor Cyan
+    Write-Host "1. Ga naar: https://portal.azure.com" -ForegroundColor Cyan
+    Write-Host "2. Zoek: 'App registrations'" -ForegroundColor Cyan
+    Write-Host "3. Selecteer je app: 'Inspiration Point Booking System'" -ForegroundColor Cyan
+    Write-Host "4. Links menu → 'API permissions'" -ForegroundColor Cyan
+    Write-Host "5. Klik '+ Add a permission'" -ForegroundColor Cyan
+    Write-Host "6. Selecteer 'Microsoft Graph'" -ForegroundColor Cyan
+    Write-Host "7. Kies 'Application permissions' (niet Delegated!)" -ForegroundColor Cyan
+    Write-Host "8. Zoek 'Mail' → vink 'Mail.Send' aan" -ForegroundColor Cyan
+    Write-Host "9. Klik 'Add permissions'" -ForegroundColor Cyan
     Write-Host "8. Voer dit script OPNIEUW uit nadat je dit hebt gedaan`n" -ForegroundColor Cyan
     exit
 }

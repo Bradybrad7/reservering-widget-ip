@@ -16,12 +16,14 @@ export interface EventCapacityData {
   // Bezetting (personen)
   bookedPersons: number;      // Confirmed reserveringen
   pendingPersons: number;      // Pending reserveringen
+  optionPersons: number;       // ✨ Option reserveringen (tellen mee!)
   waitlistPersons: number;     // Totaal personen op wachtlijst
-  totalBooked: number;         // bookedPersons + pendingPersons
+  totalBooked: number;         // bookedPersons + pendingPersons + optionPersons
   
   // Counts (aantal reserveringen)
   confirmedCount: number;
   pendingCount: number;
+  optionCount: number;         // ✨ Aantal actieve opties
   waitlistCount: number;
   
   // Berekeningen
@@ -185,17 +187,24 @@ export function useEventCapacity(
   // Bereken bezetting
   const confirmedReservations = reservations.filter(r => r.status === 'confirmed');
   const pendingReservations = reservations.filter(r => r.status === 'pending');
+  // ✨ CRUCIAAL: OPTION reserveringen tellen ook mee voor capaciteit!
+  // Ze blokkeren plekken totdat ze vervallen of geconverteerd worden
+  const optionReservations = reservations.filter(r => r.status === 'option');
   const activeWaitlist = waitlist.filter(w => w.status === 'pending' || w.status === 'contacted');
 
   const bookedPersons = confirmedReservations.reduce((sum, r) => sum + r.numberOfPersons, 0);
   const pendingPersons = pendingReservations.reduce((sum, r) => sum + r.numberOfPersons, 0);
+  // ✨ OPTION personen tellen mee in totale bezetting
+  const optionPersons = optionReservations.reduce((sum, r) => sum + r.numberOfPersons, 0);
   const waitlistPersons = activeWaitlist.reduce((sum, w) => sum + w.numberOfPersons, 0);
 
   const confirmedCount = confirmedReservations.length;
   const pendingCount = pendingReservations.length;
+  const optionCount = optionReservations.length;
   const waitlistCount = activeWaitlist.length;
 
-  const totalBooked = bookedPersons + pendingPersons;
+  // ✨ CRUCIALE FIX: OPTION personen tellen mee in totale bezetting!
+  const totalBooked = bookedPersons + pendingPersons + optionPersons;
   const remainingCapacity = Math.max(0, effectiveCapacity - totalBooked);
   const isOverbooked = totalBooked > effectiveCapacity;
   const overbookedBy = Math.max(0, totalBooked - effectiveCapacity);
@@ -232,12 +241,14 @@ export function useEventCapacity(
     // Bezetting
     bookedPersons,
     pendingPersons,
+    optionPersons,        // ✨ Nieuw: Opties tellen mee
     waitlistPersons,
     totalBooked,
     
     // Counts
     confirmedCount,
     pendingCount,
+    optionCount,          // ✨ Nieuw: Aantal opties
     waitlistCount,
     
     // Berekeningen

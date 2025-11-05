@@ -88,7 +88,7 @@ export const DataHealthCheck: React.FC = () => {
       // Check 2: Capacity Inconsistency
       events.forEach(event => {
         const eventReservations = reservations.filter(
-          r => r.eventId === event.id && (r.status === 'confirmed' || r.status === 'pending')
+          r => r.eventId === event.id && (r.status === 'confirmed' || r.status === 'pending' || r.status === 'option' || r.status === 'checked-in')
         );
         const totalBooked = eventReservations.reduce((sum, r) => sum + r.numberOfPersons, 0);
         const calculatedRemaining = event.capacity - totalBooked;
@@ -195,7 +195,7 @@ export const DataHealthCheck: React.FC = () => {
         if (eventsResponse.success && reservationsResponse.success) {
           const event = eventsResponse.data?.find(e => e.id === eventId);
           const reservations = reservationsResponse.data?.filter(
-            r => r.eventId === eventId && (r.status === 'confirmed' || r.status === 'pending')
+            r => r.eventId === eventId && (r.status === 'confirmed' || r.status === 'pending' || r.status === 'option' || r.status === 'checked-in')
           ) || [];
           
           if (event) {

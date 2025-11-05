@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, CreditCard, UtensilsCrossed, AlertCircle } from 'lucide-react';
+import { MapPin, CreditCard, UtensilsCrossed, AlertCircle, PartyPopper } from 'lucide-react';
 import { useReservationStore } from '../store/reservationStore';
 import { cn } from '../utils';
 import {
@@ -279,6 +279,76 @@ export const DetailsStep: React.FC = () => {
             />
           </div>
         )}
+      </div>
+
+      {/* Iets te Vieren - NIEUW */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+          <PartyPopper className="w-5 h-5 text-pink-400" />
+          Iets te Vieren? 🎉
+        </h3>
+
+        <div className="bg-pink-500/10 border border-pink-500/20 rounded-lg p-4 space-y-4">
+          <p className="text-sm text-pink-300">
+            Viert u iets speciaals? Laat het ons weten, dan kunnen we er rekening mee houden!
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="celebrationOccasion" className="block text-sm font-medium text-neutral-300 mb-2">
+                Wat viert u? (optioneel)
+              </label>
+              <select
+                id="celebrationOccasion"
+                name="celebrationOccasion"
+                value={formData.celebrationOccasion || ''}
+                onChange={(e) => handleFieldChange('celebrationOccasion', e.target.value)}
+                className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 transition-colors appearance-none"
+              >
+                <option value="">Selecteer...</option>
+                <option value="verjaardag">🎂 Verjaardag</option>
+                <option value="jubileum">💍 Jubileum / Trouwdag</option>
+                <option value="pensioen">🎓 Pensioen</option>
+                <option value="promotie">🎯 Promotie</option>
+                <option value="geslaagd">📚 Geslaagd</option>
+                <option value="verloving">💎 Verloving</option>
+                <option value="geboorte">👶 Geboorte</option>
+                <option value="afstuderen">🎓 Afstuderen</option>
+                <option value="anders">🎈 Iets anders</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="partyPerson" className="block text-sm font-medium text-neutral-300 mb-2">
+                Voor wie? (optioneel)
+              </label>
+              <input
+                type="text"
+                id="partyPerson"
+                name="partyPerson"
+                value={formData.partyPerson || ''}
+                onChange={(e) => handleFieldChange('partyPerson', e.target.value)}
+                className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 transition-colors"
+                placeholder="Naam van de jarige/jubilaris..."
+              />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="celebrationDetails" className="block text-sm font-medium text-neutral-300 mb-2">
+              Aanvullende details (optioneel)
+            </label>
+            <textarea
+              id="celebrationDetails"
+              name="celebrationDetails"
+              value={formData.celebrationDetails || ''}
+              onChange={(e) => handleFieldChange('celebrationDetails', e.target.value)}
+              className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 transition-colors"
+              placeholder="Bijv. 50e verjaardag, 25 jaar getrouwd, speciale wensen..."
+              rows={2}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Dieetwensen - VEREENVOUDIGD */}

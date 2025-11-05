@@ -57,7 +57,7 @@ export const QuickActions: React.FC = () => {
           <div className="text-sm text-neutral-300">
             {pendingReservations === 0 
               ? 'Alles bevestigd!' 
-              : `${pendingReservations} ${pendingReservations === 1 ? 'wacht' : 'wachten'} op goedkeuring`
+              : `${pendingReservations} ${pendingReservations === 1 ? 'reservering' : 'reserveringen'} te beoordelen`
             }
           </div>
         </button>
