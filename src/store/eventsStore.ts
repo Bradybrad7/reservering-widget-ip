@@ -8,6 +8,7 @@ import type {
   Show
 } from '../types';
 import { apiService } from '../services/apiService';
+import { dataCache, cacheEvents } from '../services/dataCache';
 
 // Events State
 interface EventsState {
@@ -75,13 +76,16 @@ export const useEventsStore = create<EventsState & EventsActions>()(
     loadEvents: async () => {
       set({ isLoadingEvents: true });
       try {
-        const response = await apiService.getAdminEvents();
-        if (response.success && response.data) {
-          set({ events: response.data, isLoadingEvents: false });
-        } else {
-          console.error('Failed to load events:', response.error);
-          set({ isLoadingEvents: false });
-        }
+        // ✨ Use cache with stale-while-revalidate
+        const cachedData = await cacheEvents.get(async () => {
+          const response = await apiService.getAdminEvents();
+          if (response.success && response.data) {
+            return response.data;
+          }
+          throw new Error(response.error || 'Failed to load events');
+        });
+        
+        set({ events: cachedData, isLoadingEvents: false });
       } catch (error) {
         console.error('Failed to load events:', error);
         set({ isLoadingEvents: false });

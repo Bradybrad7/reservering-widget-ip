@@ -63,6 +63,9 @@ export const ContactStep: React.FC = () => {
     // Validate required fields
     const errors: Record<string, string> = {};
 
+    if (!formData.salutation?.trim()) {
+      errors.salutation = 'Aanhef is verplicht';
+    }
     if (!formData.firstName?.trim()) {
       errors.firstName = 'Voornaam is verplicht';
     }
@@ -92,6 +95,7 @@ export const ContactStep: React.FC = () => {
   };
 
   const isFormValid = 
+    formData.salutation?.trim() &&
     formData.firstName?.trim() &&
     formData.lastName?.trim() &&
     formData.email?.trim() &&
@@ -116,6 +120,33 @@ export const ContactStep: React.FC = () => {
 
       {/* Form Fields */}
       <div className="space-y-4">
+        {/* Aanhef */}
+        <div>
+          <label htmlFor="salutation" className="block text-sm font-medium text-neutral-300 mb-2">
+            Aanhef *
+          </label>
+          <select
+            id="salutation"
+            name="salutation"
+            value={formData.salutation || ''}
+            onChange={(e) => handleFieldChange('salutation', e.target.value)}
+            className={cn(
+              'w-full px-4 py-3 bg-neutral-800 border rounded-lg text-white transition-colors',
+              formErrors.salutation
+                ? 'border-red-500 focus:border-red-400'
+                : 'border-neutral-700 focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20'
+            )}
+            required
+          >
+            <option value="">Selecteer aanhef</option>
+            <option value="Dhr">Dhr</option>
+            <option value="Mevr">Mevr</option>
+          </select>
+          {formErrors.salutation && (
+            <p className="mt-1 text-sm text-red-400">{formErrors.salutation}</p>
+          )}
+        </div>
+
         {/* Naam Fields */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Voornaam */}
@@ -222,24 +253,51 @@ export const ContactStep: React.FC = () => {
           )}
         </div>
 
-        {/* Landcode Selectie */}
+        {/* Telefoon - Landcode en nummer naast elkaar */}
         <div>
-          <label htmlFor="phoneCountryCode" className="block text-sm font-medium text-neutral-300 mb-2">
-            Land *
+          <label className="block text-sm font-medium text-neutral-300 mb-2">
+            Telefoonnummer *
           </label>
-          <div className="relative">
+          <div className="flex gap-2">
+            {/* Landcode Selectie */}
             <select
               id="phoneCountryCode"
               name="phoneCountryCode"
               value={formData.phoneCountryCode || '+31'}
               onChange={(e) => handleFieldChange('phoneCountryCode', e.target.value)}
-              className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20 transition-colors appearance-none"
+              className="px-3 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20 transition-colors appearance-none"
+              style={{ minWidth: '120px' }}
             >
-              <option value="+31">🇳🇱 Nederland (+31)</option>
-              <option value="+32">🇧🇪 België (+32)</option>
+              <option value="+31">🇳🇱 +31</option>
+              <option value="+32">🇧🇪 +32</option>
+              <option value="+49">�🇪 +49</option>
+              <option value="+33">🇫🇷 +33</option>
               <option value="other">🌍 Andere</option>
             </select>
+
+            {/* Telefoonnummer */}
+            <div className="relative flex-1">
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" />
+              <input
+                type="tel"
+                id="phone"
+                name="phone"
+                value={formData.phone || ''}
+                onChange={(e) => handleFieldChange('phone', e.target.value)}
+                placeholder="6 12345678"
+                className={cn(
+                  'w-full pl-10 pr-4 py-3 bg-neutral-800 border rounded-lg text-white placeholder-neutral-500 transition-colors',
+                  formErrors.phone
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20'
+                    : 'border-neutral-700 focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20'
+                )}
+                required
+              />
+            </div>
           </div>
+          {formErrors.phone && (
+            <p className="mt-1 text-sm text-red-400">{formErrors.phone}</p>
+          )}
         </div>
 
         {/* Custom Land Input (als "Andere" geselecteerd) */}
@@ -264,33 +322,6 @@ export const ContactStep: React.FC = () => {
           </div>
         )}
 
-        {/* Telefoon */}
-        <div>
-          <label htmlFor="phone" className="block text-sm font-medium text-neutral-300 mb-2">
-            Telefoonnummer *
-          </label>
-          <div className="relative">
-            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" />
-            <input
-              type="tel"
-              id="phone"
-              name="phone"
-              value={formData.phone || ''}
-              onChange={(e) => handleFieldChange('phone', e.target.value)}
-              className={cn(
-                'w-full pl-11 pr-4 py-3 bg-neutral-800 border rounded-lg text-white placeholder-neutral-500 transition-colors',
-                formErrors.phone
-                  ? 'border-red-500 focus:border-red-400'
-                  : 'border-neutral-700 focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20'
-              )}
-              placeholder="06 12345678"
-              required
-            />
-          </div>
-          {formErrors.phone && (
-            <p className="mt-1 text-sm text-red-400">{formErrors.phone}</p>
-          )}
-        </div>
       </div>
 
       {/* Info Box */}

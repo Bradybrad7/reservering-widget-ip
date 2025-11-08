@@ -9,9 +9,11 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { Check, XCircle, Eye } from 'lucide-react';
 import type { IssuedVoucher } from '../../types';
 import { storageService } from '../../services/storageService';
 import { voucherService } from '../../services/voucherService';
+import { VoucherApprovalModal } from './modals/VoucherApprovalModal';
 
 export const IssuedVouchersTable: React.FC = () => {
   const [vouchers, setVouchers] = useState<IssuedVoucher[]>([]);
@@ -19,6 +21,8 @@ export const IssuedVouchersTable: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'date' | 'value' | 'status'>('date');
+  const [selectedVoucher, setSelectedVoucher] = useState<IssuedVoucher | null>(null);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
 
   // Load vouchers on mount
   useEffect(() => {
@@ -40,7 +44,7 @@ export const IssuedVouchersTable: React.FC = () => {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(v =>
-        v.code.toLowerCase().includes(query) ||
+        (v.code && v.code.toLowerCase().includes(query)) ||
         v.issuedTo.toLowerCase().includes(query) ||
         v.metadata?.buyerEmail.toLowerCase().includes(query)
       );
@@ -99,12 +103,72 @@ export const IssuedVouchersTable: React.FC = () => {
     const active = vouchers.filter(v => v.status === 'active').length;
     const used = vouchers.filter(v => v.status === 'used').length;
     const pending = vouchers.filter(v => v.status === 'pending_payment').length;
+    const pendingApproval = vouchers.filter(v => v.status === 'pending_approval').length;
     const totalValue = vouchers
       .filter(v => v.status === 'active')
       .reduce((sum, v) => sum + v.remainingValue, 0);
 
-    return { total, active, used, pending, totalValue };
+    return { total, active, used, pending, pendingApproval, totalValue };
   }, [vouchers]);
+
+  // ✨ Approve voucher - generate code and update status
+  const handleApprove = async (voucherId: string, sendEmail: boolean) => {
+    const voucher = vouchers.find(v => v.id === voucherId);
+    if (!voucher) return;
+
+    // Generate unique voucher code (format: GIFT-XXXX-XXXX)
+    const code = `GIFT-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    
+    // Update voucher
+    const updatedVoucher: IssuedVoucher = {
+      ...voucher,
+      code,
+      status: 'pending_payment',
+      metadata: {
+        ...voucher.metadata,
+        approvedAt: new Date(),
+        approvedBy: 'Admin' // TODO: Get from auth context
+      }
+    };
+
+    await storageService.updateIssuedVoucher(voucherId, updatedVoucher);
+    
+    // TODO: Send email if requested
+    if (sendEmail) {
+      console.log(`📧 Sending approval email to ${voucher.metadata?.buyerEmail} with code: ${code}`);
+    }
+    
+    await loadVouchers();
+    alert(`✅ Voucher goedgekeurd! Code: ${code}`);
+  };
+
+  // ✨ Reject voucher - cancel with reason
+  const handleReject = async (voucherId: string, reason: string, sendEmail: boolean) => {
+    const voucher = vouchers.find(v => v.id === voucherId);
+    if (!voucher) return;
+
+    // Update voucher
+    const updatedVoucher: IssuedVoucher = {
+      ...voucher,
+      status: 'cancelled',
+      metadata: {
+        ...voucher.metadata,
+        rejectedAt: new Date(),
+        rejectedBy: 'Admin', // TODO: Get from auth context
+        rejectionReason: reason
+      } as any
+    };
+
+    await storageService.updateIssuedVoucher(voucherId, updatedVoucher);
+    
+    // TODO: Send email if requested
+    if (sendEmail) {
+      console.log(`📧 Sending rejection email to ${voucher.metadata?.buyerEmail}`);
+    }
+    
+    await loadVouchers();
+    alert(`❌ Voucher afgewezen. Reden: ${reason}`);
+  };
 
   const handleRefresh = () => {
     loadVouchers();
@@ -120,12 +184,43 @@ export const IssuedVouchersTable: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* ✨ Urgent: Pending Approval Banner */}
+      {stats.pendingApproval > 0 && (
+        <div className="bg-orange-900/30 border-2 border-orange-500 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
+                <Check className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-white">Te Beoordelen Voucher Bestellingen</h3>
+                <p className="text-sm text-orange-200">
+                  {stats.pendingApproval} {stats.pendingApproval === 1 ? 'bestelling wacht' : 'bestellingen wachten'} op goedkeuring
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setStatusFilter('pending_approval')}
+              className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors"
+            >
+              Toon Alles
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
           <p className="text-sm text-slate-400 mb-1">Totaal</p>
           <p className="text-2xl font-bold text-white">{stats.total}</p>
         </div>
+        {stats.pendingApproval > 0 && (
+          <div className="bg-orange-500/20 rounded-lg p-4 border border-orange-500">
+            <p className="text-sm text-orange-200 mb-1">Te Beoordelen</p>
+            <p className="text-2xl font-bold text-orange-400">{stats.pendingApproval}</p>
+          </div>
+        )}
         <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
           <p className="text-sm text-slate-400 mb-1">Actief</p>
           <p className="text-2xl font-bold text-green-400">{stats.active}</p>
@@ -165,10 +260,12 @@ export const IssuedVouchersTable: React.FC = () => {
             className="px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold-400"
           >
             <option value="all">Alle Statussen</option>
+            <option value="pending_approval">⏳ Te Beoordelen</option>
             <option value="active">Actief</option>
             <option value="used">Gebruikt</option>
             <option value="pending_payment">In Afwachting</option>
             <option value="expired">Verlopen</option>
+            <option value="cancelled">Geannuleerd</option>
           </select>
 
           {/* Sort */}
@@ -219,6 +316,9 @@ export const IssuedVouchersTable: React.FC = () => {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">
                   Koper
                 </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                  Acties
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700">
@@ -261,8 +361,8 @@ export const IssuedVouchersTable: React.FC = () => {
                       {getStatusBadge(voucher.status)}
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-300">
-                      {formatDate(voucher.expiryDate)}
-                      {voucherService.isExpiringSoon(voucher.expiryDate) && voucher.status === 'active' && (
+                      {voucher.expiryDate ? formatDate(new Date(voucher.expiryDate)) : '-'}
+                      {voucher.expiryDate && voucherService.isExpiringSoon(new Date(voucher.expiryDate)) && voucher.status === 'active' && (
                         <span className="ml-2 text-xs text-yellow-400">⚠️</span>
                       )}
                     </td>
@@ -273,6 +373,25 @@ export const IssuedVouchersTable: React.FC = () => {
                           <p className="text-xs text-slate-400">{voucher.metadata.buyerEmail}</p>
                         )}
                       </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {voucher.status === 'pending_approval' ? (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              setSelectedVoucher(voucher);
+                              setShowApprovalModal(true);
+                            }}
+                            className="px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded text-xs font-medium transition-colors flex items-center gap-1"
+                            title="Beoordelen"
+                          >
+                            <Eye className="w-3 h-3" />
+                            Beoordelen
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-500">-</span>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -287,6 +406,20 @@ export const IssuedVouchersTable: React.FC = () => {
         <p className="text-sm text-slate-400 text-center">
           {filteredVouchers.length} {filteredVouchers.length === 1 ? 'voucher' : 'vouchers'} gevonden
         </p>
+      )}
+
+      {/* ✨ Voucher Approval Modal */}
+      {selectedVoucher && (
+        <VoucherApprovalModal
+          isOpen={showApprovalModal}
+          onClose={() => {
+            setShowApprovalModal(false);
+            setSelectedVoucher(null);
+          }}
+          voucher={selectedVoucher}
+          onApprove={handleApprove}
+          onReject={handleReject}
+        />
       )}
     </div>
   );

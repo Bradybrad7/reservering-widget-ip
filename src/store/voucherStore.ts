@@ -18,7 +18,7 @@ import type {
   VoucherOrderStatus
 } from '../types';
 import { apiService } from '../services/apiService';
-import { localStorageService } from '../services/localStorageService';
+import { storageService } from '../services/storageService';
 
 // ============================================================================
 // STATE
@@ -341,8 +341,8 @@ export const useVoucherStore = create<VoucherStore>()(
           updatedAt: new Date()
         };
         
-        // Save to localStorage
-        localStorageService.addIssuedVoucher(newVoucher);
+        // Save to Firestore
+        await storageService.addIssuedVoucher(newVoucher);
         
         // Update store
         const currentVouchers = get().issuedVouchers;
@@ -365,7 +365,7 @@ export const useVoucherStore = create<VoucherStore>()(
       set({ isLoadingIssuedVouchers: true });
       
       try {
-        const vouchers = localStorageService.getIssuedVouchers() as IssuedVoucher[];
+        const vouchers = await storageService.getIssuedVouchers() as IssuedVoucher[];
         
         // Sort by creation date (newest first)
         const sortedVouchers = vouchers.sort((a, b) => {
@@ -446,8 +446,8 @@ export const useVoucherStore = create<VoucherStore>()(
           updatedAt: new Date()
         };
         
-        // Save to localStorage
-        localStorageService.updateIssuedVoucher(voucherId, {
+        // Save to Firestore
+        await storageService.updateIssuedVoucher(voucherId, {
           code: uniqueCode,
           status: 'pending_payment',
           expiryDate: expiryDate.toISOString(),
@@ -494,8 +494,8 @@ export const useVoucherStore = create<VoucherStore>()(
           updatedAt: new Date()
         };
         
-        // Save to localStorage
-        localStorageService.updateIssuedVoucher(voucherId, {
+        // Save to Firestore
+        await storageService.updateIssuedVoucher(voucherId, {
           status: 'cancelled',
           adminNotes: reason || voucher.adminNotes,
           updatedAt: new Date()
@@ -540,8 +540,8 @@ export const useVoucherStore = create<VoucherStore>()(
           updatedAt: new Date()
         };
         
-        // Save to localStorage
-        localStorageService.updateIssuedVoucher(voucherId, {
+        // Save to Firestore
+        await storageService.updateIssuedVoucher(voucherId, {
           status,
           metadata: updatedVoucher.metadata,
           updatedAt: new Date()

@@ -1,9 +1,10 @@
 // Bulk Capacity Override Component
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, Users, AlertTriangle, Check, X, Save, RotateCcw } from 'lucide-react';
 import { useEventsStore } from '../../store/eventsStore';
 import { cn, formatDate, formatShortDate } from '../../utils';
 import type { AdminEvent } from '../../types';
+import { storageService } from '../../services/storageService';
 
 interface CapacityOverride {
   eventId: string;
@@ -16,20 +17,7 @@ interface CapacityOverride {
 
 export const BulkCapacityManager: React.FC = () => {
   const { events, updateEvent } = useEventsStore();
-  const [overrides, setOverrides] = useState<Map<string, CapacityOverride>>(
-    () => {
-      // Load from localStorage
-      const saved = localStorage.getItem('capacity-overrides');
-      if (saved) {
-        const data = JSON.parse(saved);
-        return new Map(Object.entries(data).map(([key, value]: [string, any]) => [
-          key,
-          { ...value, createdAt: new Date(value.createdAt) }
-        ]));
-      }
-      return new Map();
-    }
-  );
+  const [overrides, setOverrides] = useState<Map<string, CapacityOverride>>(new Map());
   
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [bulkOverrideValue, setBulkOverrideValue] = useState<number>(0);
@@ -42,16 +30,39 @@ export const BulkCapacityManager: React.FC = () => {
   const [focusedIndex, setFocusedIndex] = useState(0);
   const inputRefs = React.useRef<Map<number, HTMLInputElement>>(new Map());
 
+  // Load overrides from Firestore on mount
+  useEffect(() => {
+    const loadOverrides = async () => {
+      try {
+        const saved = await storageService.getCapacityOverrides();
+        if (saved && saved.data) {
+          const map = new Map(Object.entries(saved.data).map(([key, value]: [string, any]) => [
+            key,
+            { ...value, createdAt: new Date(value.createdAt) }
+          ]));
+          setOverrides(map);
+        }
+      } catch (e) {
+        console.error('Failed to load capacity overrides:', e);
+      }
+    };
+    loadOverrides();
+  }, []);
+
   // Filter events by selected date range
   const upcomingEvents = events
     .filter(e => new Date(e.date) >= new Date())
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  const saveOverrides = (newOverrides: Map<string, CapacityOverride>) => {
-    // Save to localStorage
+  const saveOverrides = async (newOverrides: Map<string, CapacityOverride>) => {
+    // Save to Firestore
     const data = Object.fromEntries(newOverrides);
-    localStorage.setItem('capacity-overrides', JSON.stringify(data));
-    setOverrides(newOverrides);
+    try {
+      await storageService.saveCapacityOverrides({ data });
+      setOverrides(newOverrides);
+    } catch (e) {
+      console.error('Failed to save capacity overrides:', e);
+    }
   };
 
   const applyOverride = (eventId: string, overrideCapacity: number, reason: string) => {
@@ -140,7 +151,7 @@ export const BulkCapacityManager: React.FC = () => {
     alert(`Capaciteit aangepast voor ${eventsToUpdate.length} events`);
   };
 
-  const clearAllOverrides = () => {
+  const clearAllOverrides = async () => {
     if (!confirm('Weet je zeker dat je alle capacity overrides wilt verwijderen? De originele capaciteiten worden hersteld.')) {
       return;
     }
@@ -149,8 +160,12 @@ export const BulkCapacityManager: React.FC = () => {
       removeOverride(override.eventId);
     });
 
-    localStorage.removeItem('capacity-overrides');
-    setOverrides(new Map());
+    try {
+      await storageService.saveCapacityOverrides({ data: {} });
+      setOverrides(new Map());
+    } catch (e) {
+      console.error('Failed to clear capacity overrides:', e);
+    }
   };
 
   // Quick Entry Functions

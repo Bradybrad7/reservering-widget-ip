@@ -6,6 +6,7 @@ import { apiService } from '../../services/apiService';
 import { priceService } from '../../services/priceService';
 import type { Event, Arrangement } from '../../types';
 import { formatDate, formatCurrency, cn } from '../../utils';
+import { shouldArchiveEvent } from '../../utils/eventArchiving';
 
 interface QuickBookingProps {
   onClose?: () => void;
@@ -40,7 +41,7 @@ export const QuickBooking: React.FC<QuickBookingProps> = ({ onClose }) => {
   }, [loadEvents]);
 
   const availableEvents = events
-    .filter(e => new Date(e.date) >= new Date() && e.isActive)
+    .filter(e => new Date(e.date) >= new Date() && e.isActive && !shouldArchiveEvent(e))
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   // 🆕 Fetch arrangement price from selected event

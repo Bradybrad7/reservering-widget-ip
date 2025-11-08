@@ -36,6 +36,7 @@ interface ConfigState {
 interface ConfigActions {
   loadConfig: () => Promise<void>;
   updateConfig: (config: Partial<GlobalConfig>) => Promise<boolean>;
+  updateEmailSettings: (emailSettings: Partial<import('../types').EmailSettings>, adminUsername?: string) => Promise<boolean>;
   updatePricing: (pricing: Partial<Pricing>) => Promise<boolean>;
   updateAddOns: (addOns: Partial<AddOns>) => Promise<boolean>;
   updateBookingRules: (rules: Partial<BookingRules>) => Promise<boolean>;
@@ -123,6 +124,43 @@ export const useConfigStore = create<ConfigState & ConfigActions>()(
       if (response.success) {
         set(state => ({
           config: state.config ? { ...state.config, ...config } : null
+        }));
+        return true;
+      }
+      return false;
+    },
+
+    updateEmailSettings: async (emailSettings: Partial<import('../types').EmailSettings>, adminUsername?: string) => {
+      const state = get();
+      const currentSettings = state.config?.emailSettings || {
+        enabled: true,
+        enabledTypes: {
+          confirmation: true,
+          statusUpdate: true,
+          reminder: true,
+          waitlist: true,
+          admin: true
+        }
+      };
+      
+      const updatedSettings = {
+        ...currentSettings,
+        ...emailSettings
+      };
+      
+      // Track who changed the settings
+      if (emailSettings.enabled === false) {
+        updatedSettings.lastDisabledAt = new Date();
+        updatedSettings.disabledBy = adminUsername;
+      } else if (emailSettings.enabled === true) {
+        updatedSettings.lastEnabledAt = new Date();
+        updatedSettings.enabledBy = adminUsername;
+      }
+      
+      const response = await apiService.updateConfig({ emailSettings: updatedSettings });
+      if (response.success) {
+        set(state => ({
+          config: state.config ? { ...state.config, emailSettings: updatedSettings } : null
         }));
         return true;
       }

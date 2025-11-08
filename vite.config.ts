@@ -42,10 +42,16 @@ export default defineConfig(({ mode }) => {
           main: resolve(__dirname, 'index.html'),
           admin: resolve(__dirname, 'admin.html'),
         }
-      }
+      },
+      // Note: Minify is enabled by default in production
     },
     css: {
       postcss: './postcss.config.js',
+    },
+    // ✨ Define environment mode for better optimization
+    define: {
+      'import.meta.env.PROD': mode === 'production',
+      'import.meta.env.DEV': mode === 'development',
     }
   }
 })

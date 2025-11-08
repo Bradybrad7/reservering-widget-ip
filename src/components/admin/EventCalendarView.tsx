@@ -11,11 +11,12 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, List } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, List, Archive } from 'lucide-react';
 import type { AdminEvent, Reservation, WaitlistEntry, EventTypesConfig } from '../../types';
 import { getEventComputedData } from './EventCommandCenter';
 import { storageService } from '../../services/storageService';
 import { getEventTypeName } from '../../utils/eventColors';
+import { categorizeEventsForAdmin, getEventStatusLabel } from '../../utils/eventArchiving';
 
 interface EventCalendarViewProps {
   events: AdminEvent[];
@@ -52,6 +53,7 @@ export const EventCalendarView: React.FC<EventCalendarViewProps> = ({
   const [selectedEventTypes, setSelectedEventTypes] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showArchived, setShowArchived] = useState(false); // ✨ NEW: Toggle voor gearchiveerde events
 
   // Load event types config
   useEffect(() => {
@@ -84,11 +86,22 @@ export const EventCalendarView: React.FC<EventCalendarViewProps> = ({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Filter events op basis van geselecteerde types
+  // ✨ NEW: Categoriseer events (active, within cutoff, archived)
+  const categorizedEvents = useMemo(() => {
+    return categorizeEventsForAdmin(events);
+  }, [events]);
+
+  // Filter events op basis van geselecteerde types EN archief toggle
   const filteredEvents = useMemo(() => {
-    if (selectedEventTypes.size === 0) return events; // Geen filters = toon alles
-    return events.filter(event => selectedEventTypes.has(event.type));
-  }, [events, selectedEventTypes]);
+    // Start met de juiste set events (active + cutoff, of ook archived)
+    let eventsToFilter = showArchived 
+      ? [...categorizedEvents.active, ...categorizedEvents.withinCutoff, ...categorizedEvents.archived]
+      : [...categorizedEvents.active, ...categorizedEvents.withinCutoff];
+    
+    // Filter op event type als er filters zijn
+    if (selectedEventTypes.size === 0) return eventsToFilter; // Geen filters = toon alles
+    return eventsToFilter.filter(event => selectedEventTypes.has(event.type));
+  }, [categorizedEvents, selectedEventTypes, showArchived]);
 
   // Genereer kalender dagen
   const calendarDays = useMemo(() => {
@@ -258,6 +271,18 @@ export const EventCalendarView: React.FC<EventCalendarViewProps> = ({
             >
               <Filter className="w-5 h-5" />
             </button>
+            
+            {/* ✨ NEW: Archive toggle */}
+            <button
+              onClick={() => setShowArchived(!showArchived)}
+              className={`p-2 rounded-lg transition-colors flex items-center gap-2 ${
+                showArchived ? 'bg-orange-600 text-white' : 'hover:bg-gray-700 text-gray-400'
+              }`}
+              title={showArchived ? 'Verberg gearchiveerde events' : 'Toon gearchiveerde events'}
+            >
+              <Archive className="w-5 h-5" />
+              {showArchived && <span className="text-xs font-medium">Archief</span>}
+            </button>
           </div>
         </div>
 
@@ -294,6 +319,24 @@ export const EventCalendarView: React.FC<EventCalendarViewProps> = ({
             <div className="mt-2 text-xs text-gray-500">
               {selectedEventTypes.size === 0 ? 'Geen types geselecteerd' : `${selectedEventTypes.size} type(s) zichtbaar`}
             </div>
+            
+            {/* ✨ NEW: Archief statistieken */}
+            {showArchived && (
+              <div className="mt-3 pt-3 border-t border-gray-700">
+                <div className="text-xs text-orange-400 font-medium mb-1">📁 Archief Overzicht:</div>
+                <div className="flex gap-4 text-xs text-gray-400">
+                  <div>
+                    <span className="text-green-400">{categorizedEvents.active.length}</span> Actief
+                  </div>
+                  <div>
+                    <span className="text-yellow-400">{categorizedEvents.withinCutoff.length}</span> Gesloten (2 dagen)
+                  </div>
+                  <div>
+                    <span className="text-orange-400">{categorizedEvents.archived.length}</span> Gearchiveerd
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -356,12 +399,16 @@ export const EventCalendarView: React.FC<EventCalendarViewProps> = ({
                     <div className="flex flex-wrap gap-1 justify-center">
                       {day.events.slice(0, 3).map((event, i) => {
                         const color = getEventDotColor(event);
+                        const status = getEventStatusLabel(event);
+                        const isArchived = status.label.includes('Gearchiveerd');
+                        const isClosed = status.label.includes('Gesloten');
+                        
                         return (
                           <div
                             key={i}
-                            className="w-2 h-2 rounded-full"
+                            className={`w-2 h-2 rounded-full ${isArchived ? 'opacity-40' : isClosed ? 'opacity-60' : ''}`}
                             style={{ backgroundColor: color }}
-                            title={getEventTypeName(event.type, eventTypesConfig)}
+                            title={`${getEventTypeName(event.type, eventTypesConfig)} - ${status.label}`}
                           />
                         );
                       })}
@@ -394,6 +441,7 @@ export const EventCalendarView: React.FC<EventCalendarViewProps> = ({
                 const isSelected = event.id === selectedEventId;
                 const eventDate = event.date instanceof Date ? event.date : new Date(event.date);
                 const color = getEventDotColor(event);
+                const statusLabel = getEventStatusLabel(event); // ✨ NEW: Get archiving status
                 
                 return (
                   <button
@@ -403,7 +451,7 @@ export const EventCalendarView: React.FC<EventCalendarViewProps> = ({
                       isSelected 
                         ? 'bg-blue-900/50 border-blue-500' 
                         : 'bg-gray-800 border-gray-700 hover:bg-gray-700'
-                    }`}
+                    } ${statusLabel.label.includes('Gearchiveerd') ? 'opacity-60' : ''}`}
                   >
                     {/* Datum header */}
                     <div className="flex items-center gap-2 mb-2">
@@ -418,13 +466,9 @@ export const EventCalendarView: React.FC<EventCalendarViewProps> = ({
                           month: 'short' 
                         })}
                       </div>
-                      <span className={`ml-auto px-2 py-0.5 rounded-full text-xs font-semibold ${
-                        stats.status.color === 'green' ? 'bg-green-500/20 text-green-400' :
-                        stats.status.color === 'orange' ? 'bg-orange-500/20 text-orange-400' :
-                        stats.status.color === 'red' ? 'bg-red-500/20 text-red-400' :
-                        'bg-gray-500/20 text-gray-400'
-                      }`}>
-                        {stats.status.text}
+                      {/* ✨ NEW: Show archiving status */}
+                      <span className={`ml-auto px-2 py-0.5 rounded-full text-xs font-semibold ${statusLabel.color}`}>
+                        {statusLabel.icon} {statusLabel.label}
                       </span>
                     </div>
                     
@@ -468,6 +512,7 @@ export const EventCalendarView: React.FC<EventCalendarViewProps> = ({
               const stats = getEventComputedData(event, allReservations, allWaitlistEntries);
               const isSelected = event.id === selectedEventId;
               const color = getEventDotColor(event);
+              const statusLabel = getEventStatusLabel(event); // ✨ NEW: Get archiving status
               
               return (
                 <button
@@ -477,7 +522,7 @@ export const EventCalendarView: React.FC<EventCalendarViewProps> = ({
                     isSelected 
                       ? 'bg-blue-900/50 border-blue-500' 
                       : 'bg-gray-800 border-gray-700 hover:bg-gray-700'
-                  }`}
+                  } ${statusLabel.label.includes('Gearchiveerd') ? 'opacity-60' : ''}`}
                 >
                   {/* Compacter: alleen essentiele info */}
                   <div className="flex items-center gap-2 mb-1">
@@ -488,13 +533,9 @@ export const EventCalendarView: React.FC<EventCalendarViewProps> = ({
                     <span className="font-semibold text-white text-sm flex-1">
                       {getEventTypeName(event.type, eventTypesConfig)}
                     </span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                      stats.status.color === 'green' ? 'bg-green-500/20 text-green-400' :
-                      stats.status.color === 'orange' ? 'bg-orange-500/20 text-orange-400' :
-                      stats.status.color === 'red' ? 'bg-red-500/20 text-red-400' :
-                      'bg-gray-500/20 text-gray-400'
-                    }`}>
-                      {stats.status.text}
+                    {/* ✨ NEW: Show archiving status instead of booking status */}
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusLabel.color}`}>
+                      {statusLabel.icon}
                     </span>
                   </div>
                   <div className="text-xs text-gray-400 mb-1.5">

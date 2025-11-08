@@ -7,6 +7,7 @@ import type { AdminEvent, Arrangement, CustomerFormData, Reservation, Reservatio
 import { priceService } from '../../services/priceService';
 import { TagConfigService } from '../../services/tagConfigService';
 import { formatCurrency, formatDate, cn } from '../../utils';
+import { shouldArchiveEvent } from '../../utils/eventArchiving';
 
 /**
  * ⚡ ADMIN POWER-USER: Manual Booking Manager
@@ -149,7 +150,8 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
   const availableEvents = events.filter(e => {
     const eventDate = new Date(e.date);
     const now = new Date();
-    return eventDate >= now && e.isActive;
+    // ✨ UPDATED: Exclude archived events (past or inactive)
+    return eventDate >= now && e.isActive && !shouldArchiveEvent(e);
   }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   // Debug logging - comprehensive state tracking

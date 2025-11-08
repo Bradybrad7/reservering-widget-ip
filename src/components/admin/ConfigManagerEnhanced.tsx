@@ -10,8 +10,15 @@ import {
   Calendar,
   DollarSign,
   Wand2,
-  FileText
+  FileText,
+  Server,
+  Mail,
+  Tag
 } from 'lucide-react';
+import { EmailTestComponent } from './EmailTestComponent';
+import EmailDebugTest from './EmailDebugTest';
+import MailingConfig from './MailingConfig';
+import { TagsManager } from './TagsManager';
 import { useConfigStore } from '../../store/configStore';
 import { getAllTextKeys, cn } from '../../utils';
 import { TagConfigService } from '../../services/tagConfigService';
@@ -21,7 +28,7 @@ interface ConfigManagerEnhancedProps {
   activeSection?: AdminSection;
 }
 
-type ConfigSection = 'general' | 'booking' | 'pricing' | 'wizard' | 'texts' | 'promotions' | 'reminders' | 'vouchers' | 'data' | 'capacity' | 'health' | 'audit';
+type ConfigSection = 'general' | 'booking' | 'pricing' | 'wizard' | 'texts' | 'mailing' | 'promotions' | 'reminders' | 'vouchers' | 'data' | 'capacity' | 'health' | 'audit' | 'system' | 'tags';
 
 export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ activeSection: initialSection }) => {
   const [activeTab, setActiveTab] = React.useState<ConfigSection>(initialSection as ConfigSection || 'general');
@@ -469,6 +476,28 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
     );
   };
 
+  const renderSystemSection = () => {
+    return (
+      <div className="space-y-6">
+        <CollapsibleGroup
+          id="email-test"
+          title="Email Test Tool"
+          description="Test of email verzending correct werkt"
+        >
+          <EmailTestComponent />
+        </CollapsibleGroup>
+        
+        <CollapsibleGroup
+          id="email-debug"
+          title="🧪 Email Debug & Environment Test"
+          description="Advanced debugging voor email problemen - test environment variables en email service"
+        >
+          <EmailDebugTest />
+        </CollapsibleGroup>
+      </div>
+    );
+  };
+
   const renderGeneralSection = () => {
     if (!localConfig) return null;
 
@@ -673,8 +702,14 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
         return renderWizardSection();
       case 'texts':
         return renderTextsSection();
+      case 'tags':
+        return <TagsManager />;
+      case 'mailing':
+        return <MailingConfig />;
       case 'general':
         return renderGeneralSection();
+      case 'system':
+        return renderSystemSection();
       default:
         return null;
     }
@@ -690,14 +725,20 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
             {currentSection === 'booking' && 'Boekingsregels'}
             {currentSection === 'wizard' && 'Wizard Configuratie'}
             {currentSection === 'texts' && 'Teksten Aanpassen'}
+            {currentSection === 'tags' && 'Reservering Tags'}
+            {currentSection === 'mailing' && 'E-mail Templates'}
             {currentSection === 'general' && 'Algemene Instellingen'}
+            {currentSection === 'system' && 'Systeem & Tools'}
           </h2>
           <p className="text-neutral-400 mt-1">
             {currentSection === 'pricing' && 'Configureer prijzen voor arrangementen en extra opties'}
             {currentSection === 'booking' && 'Stel regels in voor het boekingsproces'}
             {currentSection === 'wizard' && 'Bepaal welke stappen zichtbaar zijn'}
             {currentSection === 'texts' && 'Pas alle teksten in de widget aan'}
+            {currentSection === 'tags' && 'Beheer tags voor het categoriseren van reserveringen'}
+            {currentSection === 'mailing' && 'Bewerk e-mail templates voor klanten en administratie'}
             {currentSection === 'general' && 'Basis instellingen voor je organisatie'}
+            {currentSection === 'system' && 'Systeem beheer en diagnostische tools'}
           </p>
         </div>
 
@@ -716,7 +757,10 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
           { id: 'booking' as ConfigSection, label: 'Booking', icon: Calendar },
           { id: 'pricing' as ConfigSection, label: 'Prijzen', icon: DollarSign },
           { id: 'wizard' as ConfigSection, label: 'Wizard', icon: Wand2 },
-          { id: 'texts' as ConfigSection, label: 'Teksten', icon: FileText }
+          { id: 'texts' as ConfigSection, label: 'Teksten', icon: FileText },
+          { id: 'tags' as ConfigSection, label: 'Tags', icon: Tag },
+          { id: 'mailing' as ConfigSection, label: 'E-mail', icon: Mail },
+          { id: 'system' as ConfigSection, label: 'Systeem', icon: Server }
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = currentSection === tab.id;

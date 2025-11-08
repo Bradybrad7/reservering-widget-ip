@@ -253,11 +253,29 @@ export const useReservationStore = create<ReservationStore>()(
       // Load availability for the selected event
       await get().loadEventAvailability(event.id);
       
-      // Altijd doorsturen naar persons step - gebruikers kunnen boeken tot over capaciteit
-      // De datum sluit automatisch als capaciteit overschreden wordt
+      // ✨ FIXED: Check if event is full and auto-activate waitlist mode
+      const availability = get().eventAvailability[event.id];
+      const isFullCapacity = availability?.bookingStatus === 'full';
+      
+      // Update the selected event with waitlistActive if capacity is full
+      if (isFullCapacity) {
+        console.log('🚨 Event is at full capacity - activating waitlist mode');
+        const waitlistEvent = { 
+          ...event, 
+          waitlistActive: true 
+        };
+        set({ selectedEvent: waitlistEvent });
+        
+        // ✨ DIRECT TO WAITLIST: Skip persons step, go directly to waitlist form
+        console.log('🚀 Redirecting directly to waitlistPrompt - no intermediate steps needed');
+        set({ currentStep: 'waitlistPrompt' });
+        return;
+      }
+      
+      // Normal booking flow - go to persons step first
       set({ currentStep: 'persons' });
       
-      // Calculate initial price
+      // Calculate initial price (only for normal bookings)
       get().calculateCurrentPrice();
     },
 
@@ -278,15 +296,16 @@ export const useReservationStore = create<ReservationStore>()(
     },
 
     updateFormData: (data: Partial<CustomerFormData>) => {
+      const { selectedEvent } = get();
       const newFormData = { ...get().formData, ...data };
       
       set({ formData: newFormData });
       
       // ✨ NEW: Auto-save draft to localStorage
-      if (get().selectedEvent) {
+      if (selectedEvent) {
         try {
           localStorage.setItem('draft-reservation', JSON.stringify({
-            eventId: get().selectedEvent!.id,
+            eventId: selectedEvent.id,
             formData: newFormData,
             timestamp: Date.now(),
             step: get().currentStep
@@ -296,9 +315,15 @@ export const useReservationStore = create<ReservationStore>()(
         }
       }
       
-      // Validate form and recalculate price
+      // Validate form and recalculate price (SKIP in waitlist mode)
       get().validateForm();
-      get().calculateCurrentPrice();
+      
+      // ✨ SKIP price calculation in waitlist mode - just basic name/email validation needed
+      if (selectedEvent?.waitlistActive !== true) {
+        get().calculateCurrentPrice();
+      } else {
+        console.log('⏭️ Skipping price recalculation - waitlist mode active');
+      }
     },
 
     validateForm: () => {
@@ -637,6 +662,13 @@ export const useReservationStore = create<ReservationStore>()(
       const { selectedEvent, formData } = get();
       
       if (!selectedEvent) {
+        set({ priceCalculation: null });
+        return;
+      }
+
+      // ✨ SKIP price calculation in waitlist mode - no pricing needed for simple waitlist signup
+      if (selectedEvent.waitlistActive === true) {
+        console.log('⏭️ Skipping price calculation - waitlist mode active');
         set({ priceCalculation: null });
         return;
       }

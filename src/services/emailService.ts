@@ -1,1105 +1,765 @@
-import type { Reservation, Event } from '../types';
+import type { Reservation, Event, MerchandiseItem } from '../types';
 import { format } from 'date-fns';
 import { nl } from 'date-fns/locale';
-
-// Import WaitlistEntry type
-import type { WaitlistEntry } from '../types';
-
-// Import Firebase for calling cloud functions
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { app } from '../firebase';
-
-// Import QR code helper
-import { generateQRCodeDataURL } from '../utils/qrCodeHelper';
-
-/**
- * Email Service
- * 
- * Sends emails via Microsoft Graph API or Firebase Cloud Functions
- * Supports both direct MS Graph integration and cloud function fallback
- */
-
-const functions = getFunctions(app);
-
-// SMTP Email Configuration
-const EMAIL_FROM = import.meta.env.VITE_EMAIL_FROM || 'info@inspiration-point.nl';
-const EMAIL_FROM_NAME = import.meta.env.VITE_EMAIL_FROM_NAME || 'Inspiration Point Theater';
+import { storageService } from './storageService';
 
 interface EmailTemplate {
   subject: string;
   html: string;
-  text: string;
 }
-
-/**
- * Main email sending function
- * Uses SMTP via Firebase Cloud Functions for secure email delivery
- */
-async function sendEmailViaCloudFunction(
-  to: string[],
-  subject: string,
-  htmlBody: string,
-  textBody: string
-): Promise<{ success: boolean; error?: string }> {
-  
-  // Development mode: just log to console
-  if (import.meta.env.DEV) {
-    console.log('📧 [EMAIL] Development mode - Email would be sent via SMTP Function:');
-    console.log('   To:', to.join(', '));
-    console.log('   Subject:', subject);
-    console.log('   Text:', textBody.substring(0, 200) + '...');
-    return { success: true };
-  }
-
-  // Production: call SMTP Firebase Cloud Function
-  try {
-    console.log('📧 [SMTP] Sending email via SMTP Firebase Function...');
-    
-    const sendSmtpEmail = httpsCallable(functions, 'sendSmtpEmail');
-    const result = await sendSmtpEmail({
-      to,
-      subject,
-      html: htmlBody,
-      text: textBody,
-      from: EMAIL_FROM,
-      fromName: EMAIL_FROM_NAME
-    });
-    
-    const data = result.data as { success: boolean; error?: string; messageId?: string };
-    
-    if (data.success) {
-      console.log('✅ [SMTP] Email sent successfully:', data.messageId);
-    } else {
-      console.error('❌ [SMTP] Email send failed:', data.error);
-    }
-    
-    return data;
-  } catch (error) {
-    console.error('❌ [SMTP] Error calling SMTP cloud function:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown SMTP error' 
-    };
-  }
-}
-
-const generateReservationConfirmationEmail = async (
-  reservation: Reservation,
-  event: Event
-): Promise<EmailTemplate> => {
-  const eventDate = format(event.date, 'EEEE d MMMM yyyy', { locale: nl });
-  const eventTime = event.startsAt;
-  
-  // Generate QR code as base64 image
-  let qrCodeDataUrl = '';
-  try {
-    qrCodeDataUrl = await generateQRCodeDataURL(reservation, { width: 300 });
-  } catch (error) {
-    console.error('Failed to generate QR code for email:', error);
-  }
-  
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #D4AF37 0%, #C5A028 100%); color: white; padding: 30px; text-align: center; }
-        .content { background: white; padding: 30px; border: 1px solid #e0e0e0; }
-        .details { background: #f9f9f9; padding: 20px; margin: 20px 0; border-radius: 8px; }
-        .details-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e0e0e0; }
-        .details-row:last-child { border-bottom: none; }
-        .label { font-weight: bold; color: #666; }
-        .value { color: #333; }
-        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        .button { display: inline-block; padding: 12px 30px; background: #D4AF37; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-        .status { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; }
-        .status-pending { background: #FFA500; color: white; }
-        .status-confirmed { background: #28a745; color: white; }
-        .status-waitlist { background: #6c757d; color: white; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>🎭 Reservering Bevestiging</h1>
-          <p>Inspiration Point</p>
-        </div>
-        
-        <div class="content">
-          <p>Beste ${reservation.contactPerson},</p>
-          
-          <p>Bedankt voor uw reservering bij Inspiration Point!</p>
-          
-          ${reservation.status === 'pending' 
-            ? '<p><span class="status status-pending">IN BEHANDELING</span> Uw reservering is ontvangen en wordt binnenkort bevestigd.</p>'
-            : reservation.status === 'confirmed'
-            ? '<p><span class="status status-confirmed">BEVESTIGD</span> Uw reservering is bevestigd!</p>'
-            : '<p><span class="status status-waitlist">WACHTLIJST</span> U staat op de wachtlijst. We nemen contact op zodra er plaats vrijkomt.</p>'
-          }
-          
-          <div class="details">
-            <h3>📋 Reservering Details</h3>
-            
-            <div class="details-row">
-              <span class="label">Reserveringsnummer:</span>
-              <span class="value">${reservation.id}</span>
-            </div>
-            
-            <div class="details-row">
-              <span class="label">Bedrijfsnaam:</span>
-              <span class="value">${reservation.companyName}</span>
-            </div>
-            
-            <div class="details-row">
-              <span class="label">Datum:</span>
-              <span class="value">${eventDate}</span>
-            </div>
-            
-            <div class="details-row">
-              <span class="label">Aanvang:</span>
-              <span class="value">${eventTime}</span>
-            </div>
-            
-            <div class="details-row">
-              <span class="label">Aantal personen:</span>
-              <span class="value">${reservation.numberOfPersons}</span>
-            </div>
-            
-            <div class="details-row">
-              <span class="label">Arrangement:</span>
-              <span class="value">${reservation.arrangement === 'BWF' ? 'Borrel, Show & Buffet' : 'Borrel, Show, Buffet & Muziek'}</span>
-            </div>
-            
-            ${reservation.preDrink?.enabled ? `
-            <div class="details-row">
-              <span class="label">Pre-drink:</span>
-              <span class="value">✅ Ja (${reservation.preDrink.quantity} personen)</span>
-            </div>
-            ` : ''}
-            
-            ${reservation.afterParty?.enabled ? `
-            <div class="details-row">
-              <span class="label">After-party:</span>
-              <span class="value">✅ Ja (${reservation.afterParty.quantity} personen)</span>
-            </div>
-            ` : ''}
-            
-            ${reservation.merchandise && reservation.merchandise.length > 0 ? `
-            <div class="details-row">
-              <span class="label">Merchandise:</span>
-              <span class="value">🛍️ ${reservation.merchandise.length} item(s) besteld</span>
-            </div>
-            ` : ''}
-            
-            <div class="details-row">
-              <span class="label">Totaal bedrag:</span>
-              <span class="value"><strong>€${reservation.totalPrice.toFixed(2)}</strong></span>
-            </div>
-          </div>
-          
-          ${reservation.merchandise && reservation.merchandise.length > 0 ? `
-          <div class="details" style="background: linear-gradient(135deg, #f3e8ff, #e9d5ff); border: 2px solid #8b5cf6; border-radius: 8px;">
-            <h3 style="color: #6b21a8; margin-bottom: 15px;">🛍️ Merchandise Bestelling</h3>
-            <p style="color: #6b21a8; margin-bottom: 10px;">U hebt ${reservation.merchandise.length} merchandise item(s) besteld:</p>
-            ${reservation.merchandise.map((item: any) => `
-              <div class="details-row">
-                <span class="label">Item:</span>
-                <span class="value">${item.quantity}x besteld</span>
-              </div>
-            `).join('')}
-            <p style="color: #6b21a8; font-style: italic; margin-top: 15px; font-size: 14px;">
-              Uw merchandise wordt klaargezet voor afhaling tijdens het evenement! 🎁
-            </p>
-          </div>
-          ` : ''}
-          
-          ${(reservation.celebrationOccasion || reservation.partyPerson || reservation.celebrationDetails) ? `
-          <div class="details" style="background: linear-gradient(135deg, #fdf2f8, #fce7f3); border: 2px solid #ec4899; border-radius: 8px;">
-            <h3 style="color: #be185d; margin-bottom: 15px;">🎉 Speciale Gelegenheid</h3>
-            ${reservation.celebrationOccasion ? `
-            <div class="details-row">
-              <span class="label">Gelegenheid:</span>
-              <span class="value">${reservation.celebrationOccasion === 'verjaardag' ? '🎂 Verjaardag' :
-                                  reservation.celebrationOccasion === 'jubileum' ? '💍 Jubileum / Trouwdag' :
-                                  reservation.celebrationOccasion === 'pensioen' ? '🎓 Pensioen' :
-                                  reservation.celebrationOccasion === 'promotie' ? '🎯 Promotie' :
-                                  reservation.celebrationOccasion === 'geslaagd' ? '📚 Geslaagd' :
-                                  reservation.celebrationOccasion === 'verloving' ? '💎 Verloving' :
-                                  reservation.celebrationOccasion === 'geboorte' ? '👶 Geboorte' :
-                                  reservation.celebrationOccasion === 'afstuderen' ? '🎓 Afstuderen' :
-                                  '🎈 ' + reservation.celebrationOccasion}</span>
-            </div>
-            ` : ''}
-            ${reservation.partyPerson ? `
-            <div class="details-row">
-              <span class="label">Voor wie:</span>
-              <span class="value">${reservation.partyPerson}</span>
-            </div>
-            ` : ''}
-            ${reservation.celebrationDetails ? `
-            <div class="details-row">
-              <span class="label">Details:</span>
-              <span class="value">${reservation.celebrationDetails}</span>
-            </div>
-            ` : ''}
-            <p style="color: #be185d; font-style: italic; margin-top: 15px; font-size: 14px;">
-              Wij zorgen ervoor dat jullie bijzondere dag extra speciaal wordt! 🎉
-            </p>
-          </div>
-          ` : ''}
-
-          ${reservation.comments ? `
-          <div class="details">
-            <h4>💬 Uw opmerkingen:</h4>
-            <p>${reservation.comments}</p>
-          </div>
-          ` : ''}
-          
-          ${qrCodeDataUrl ? `
-          <div class="details" style="text-align: center; background: white; padding: 30px; border: 2px dashed #D4AF37;">
-            <h3 style="color: #D4AF37; margin-bottom: 15px;">📱 Check-in QR Code</h3>
-            <img src="${qrCodeDataUrl}" alt="Check-in QR Code" style="max-width: 300px; width: 100%; height: auto; margin: 10px 0;" />
-            <p style="color: #666; font-size: 14px; margin-top: 15px;">
-              <strong>Toon deze QR code bij aankomst voor snelle check-in</strong><br/>
-              Of gebruik reserveringsnummer: <code style="background: #f0f0f0; padding: 2px 8px; border-radius: 3px;">${reservation.id}</code>
-            </p>
-          </div>
-          ` : ''}
-          
-          <p>Wij nemen binnenkort contact met u op voor verdere details en betalingsinformatie.</p>
-          
-          <p>Heeft u vragen? Neem gerust contact met ons op:</p>
-          <ul>
-            <li>📞 Telefoon: [TELEFOONNUMMER]</li>
-            <li>📧 Email: [EMAIL]</li>
-          </ul>
-        </div>
-        
-        <div class="footer">
-          <p>© ${new Date().getFullYear()} Inspiration Point. Alle rechten voorbehouden.</p>
-          <p>Deze email is automatisch gegenereerd. Gelieve niet te beantwoorden.</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
-  
-  const text = `
-Reservering Bevestiging - Inspiration Point
-
-Beste ${reservation.contactPerson},
-
-Bedankt voor uw reservering bij Inspiration Point!
-
-Status: ${reservation.status === 'pending' ? 'IN BEHANDELING' : reservation.status === 'confirmed' ? 'BEVESTIGD' : 'WACHTLIJST'}
-
-Reservering Details:
-- Reserveringsnummer: ${reservation.id}
-- Bedrijfsnaam: ${reservation.companyName}
-- Datum: ${eventDate}
-- Aanvang: ${eventTime}
-- Aantal personen: ${reservation.numberOfPersons}
-- Arrangement: ${reservation.arrangement === 'BWF' ? 'Borrel, Show & Buffet' : 'Borrel, Show, Buffet & Muziek'}
-${reservation.preDrink?.enabled ? `- Pre-drink: Ja (${reservation.preDrink.quantity} personen)\n` : ''}
-${reservation.afterParty?.enabled ? `- After-party: Ja (${reservation.afterParty.quantity} personen)\n` : ''}
-- Totaal bedrag: €${reservation.totalPrice.toFixed(2)}
-
-${reservation.comments ? `Uw opmerkingen:\n${reservation.comments}\n\n` : ''}
-Wij nemen binnenkort contact met u op voor verdere details en betalingsinformatie.
-
-Met vriendelijke groet,
-Inspiration Point
-  `;
-  
-  return {
-    subject: `Reservering Bevestiging - ${eventDate} - Inspiration Point`,
-    html,
-    text
-  };
-};
-
-/**
- * Generate pending reservation email for customer (in review)
- */
-const generatePendingReservationEmail = async (
-  reservation: Reservation,
-  event: Event
-): Promise<EmailTemplate> => {
-  const eventDate = format(event.date, 'EEEE d MMMM yyyy', { locale: nl });
-  const eventTime = event.startsAt;
-  
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #FFA500 0%, #FF8C00 100%); color: white; padding: 30px; text-align: center; }
-        .content { background: white; padding: 30px; border: 1px solid #e0e0e0; }
-        .details { background: #fff8e7; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #FFA500; }
-        .details-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e0e0e0; }
-        .details-row:last-child { border-bottom: none; }
-        .label { font-weight: bold; color: #666; }
-        .value { color: #333; }
-        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        .status { display: inline-block; padding: 10px 20px; background: #FFA500; color: white; border-radius: 5px; font-weight: bold; }
-        .next-steps { background: #f0f8ff; border: 1px solid #4a9eff; padding: 20px; margin: 20px 0; border-radius: 8px; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>📋 Reservering Ontvangen</h1>
-          <p>Inspiration Point</p>
-        </div>
-        
-        <div class="content">
-          <p>Beste ${reservation.contactPerson},</p>
-          
-          <div class="status">
-            ⏳ UW RESERVERING IS IN BEHANDELING
-          </div>
-          
-          <p>Bedankt voor uw reservering bij Inspiration Point! We hebben uw aanvraag ontvangen en nemen deze in behandeling.</p>
-          
-          <div class="details">
-            <h3>📋 Uw Reserveringsgegevens</h3>
-            <div class="details-row">
-              <div class="label">Reserveringsnummer:</div>
-              <div class="value"><strong>${reservation.id}</strong></div>
-            </div>
-            <div class="details-row">
-              <div class="label">Bedrijfsnaam:</div>
-              <div class="value">${reservation.companyName}</div>
-            </div>
-            <div class="details-row">
-              <div class="label">Datum & Tijd:</div>
-              <div class="value">${eventDate} om ${eventTime}</div>
-            </div>
-            <div class="details-row">
-              <div class="label">Aantal personen:</div>
-              <div class="value">${reservation.numberOfPersons}</div>
-            </div>
-            <div class="details-row">
-              <div class="label">Arrangement:</div>
-              <div class="value">${reservation.arrangement}</div>
-            </div>
-            <div class="details-row">
-              <div class="label">Totaal bedrag:</div>
-              <div class="value"><strong>€${reservation.totalPrice.toFixed(2)}</strong></div>
-            </div>
-          </div>
-
-          <div class="next-steps">
-            <h3>📞 Wat gebeurt er nu?</h3>
-            <ol>
-              <li><strong>Beoordeling</strong> - Wij controleren uw reservering en beschikbaarheid</li>
-              <li><strong>Bevestiging</strong> - U ontvangt binnen 1-2 werkdagen een definitieve bevestiging</li>
-              <li><strong>Betalingsinformatie</strong> - Bij bevestiging ontvangt u de betalingsgegevens</li>
-              <li><strong>Geniet</strong> - Wij verheugen ons erop u te mogen verwelkomen!</li>
-            </ol>
-          </div>
-          
-          <p><strong>Let op:</strong> Uw reservering is nog niet definitief. U ontvangt een officiële bevestiging zodra wij uw aanvraag hebben gecontroleerd.</p>
-          
-          <p>Heeft u vragen over uw reservering? Neem dan contact met ons op:</p>
-          <ul>
-            <li>📞 Telefoon: [TELEFOONNUMMER]</li>
-            <li>📧 Email: info@inspiration-point.nl</li>
-          </ul>
-          
-          <p>Met vriendelijke groet,<br/>
-          Het team van Inspiration Point</p>
-        </div>
-        
-        <div class="footer">
-          <p>© ${new Date().getFullYear()} Inspiration Point. Alle rechten voorbehouden.</p>
-          <p>Reserveringsnummer: ${reservation.id}</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
-  
-  const text = `
-Reservering Ontvangen - Inspiration Point
-
-Beste ${reservation.contactPerson},
-
-UW RESERVERING IS IN BEHANDELING
-
-Bedankt voor uw reservering bij Inspiration Point! We hebben uw aanvraag ontvangen en nemen deze in behandeling.
-
-RESERVERINGSGEGEVENS:
-- Reserveringsnummer: ${reservation.id}
-- Bedrijfsnaam: ${reservation.companyName}
-- Datum & Tijd: ${eventDate} om ${eventTime}
-- Aantal personen: ${reservation.numberOfPersons}
-- Arrangement: ${reservation.arrangement}
-- Totaal bedrag: €${reservation.totalPrice.toFixed(2)}
-
-WAT GEBEURT ER NU?
-1. Beoordeling - Wij controleren uw reservering en beschikbaarheid
-2. Bevestiging - U ontvangt binnen 1-2 werkdagen een definitieve bevestiging
-3. Betalingsinformatie - Bij bevestiging ontvangt u de betalingsgegevens
-4. Geniet - Wij verheugen ons erop u te mogen verwelkomen!
-
-LET OP: Uw reservering is nog niet definitief. U ontvangt een officiële bevestiging zodra wij uw aanvraag hebben gecontroleerd.
-
-Heeft u vragen? Neem contact op:
-📞 Telefoon: [TELEFOONNUMMER]
-📧 Email: info@inspiration-point.nl
-
-Met vriendelijke groet,
-Het team van Inspiration Point
-
-Reserveringsnummer: ${reservation.id}
-  `;
-  
-  return {
-    subject: `⏳ Reservering ontvangen en in behandeling - ${reservation.companyName} (${eventDate})`,
-    html,
-    text
-  };
-};
-
-const generateStatusUpdateEmail = (
-  reservation: Reservation,
-  event: Event,
-  newStatus: string
-): EmailTemplate => {
-  const eventDate = format(event.date, 'EEEE d MMMM yyyy', { locale: nl });
-  
-  let statusMessage = '';
-  let statusColor = '#D4AF37';
-  
-  switch (newStatus) {
-    case 'confirmed':
-      statusMessage = '✅ Uw reservering is bevestigd!';
-      statusColor = '#28a745';
-      break;
-    case 'cancelled':
-      statusMessage = '❌ Uw reservering is geannuleerd.';
-      statusColor = '#dc3545';
-      break;
-    case 'waitlist':
-      statusMessage = '⏳ U staat op de wachtlijst.';
-      statusColor = '#6c757d';
-      break;
-    default:
-      statusMessage = 'Uw reservering status is bijgewerkt.';
-  }
-  
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: ${statusColor}; color: white; padding: 30px; text-align: center; }
-        .content { background: white; padding: 30px; border: 1px solid #e0e0e0; }
-        .status-badge { font-size: 24px; padding: 20px; background: #f9f9f9; text-align: center; margin: 20px 0; border-radius: 8px; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>Status Update</h1>
-          <p>Inspiration Point</p>
-        </div>
-        
-        <div class="content">
-          <p>Beste ${reservation.contactPerson},</p>
-          
-          <div class="status-badge">
-            ${statusMessage}
-          </div>
-          
-          <p><strong>Reservering:</strong> ${reservation.id}</p>
-          <p><strong>Datum:</strong> ${eventDate}</p>
-          <p><strong>Bedrijf:</strong> ${reservation.companyName}</p>
-          
-          ${newStatus === 'confirmed' ? `
-            <p>We verheugen ons erop u te mogen verwelkomen op ${eventDate}!</p>
-            <p>U ontvangt binnenkort nadere informatie over de betaling en verdere details.</p>
-          ` : ''}
-          
-          ${newStatus === 'cancelled' ? `
-            <p>Uw reservering is geannuleerd. Heeft u hier vragen over? Neem dan contact met ons op.</p>
-          ` : ''}
-          
-          ${newStatus === 'waitlist' ? `
-            <p>Helaas is het evenement op dit moment volgeboekt. U bent toegevoegd aan de wachtlijst en we nemen contact op zodra er plaats vrijkomt.</p>
-          ` : ''}
-          
-          <p>Met vriendelijke groet,<br>Inspiration Point</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
-  
-  const text = `
-Status Update - Inspiration Point
-
-Beste ${reservation.contactPerson},
-
-${statusMessage}
-
-Reservering: ${reservation.id}
-Datum: ${eventDate}
-Bedrijf: ${reservation.companyName}
-
-Met vriendelijke groet,
-Inspiration Point
-  `;
-  
-  return {
-    subject: `Status Update - Reservering ${reservation.id}`,
-    html,
-    text
-  };
-};
-
-const generateReminderEmail = (
-  reservation: Reservation,
-  event: Event
-): EmailTemplate => {
-  const eventDate = format(event.date, 'EEEE d MMMM yyyy', { locale: nl });
-  const doorsOpen = event.doorsOpen;
-  
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #D4AF37 0%, #C5A028 100%); color: white; padding: 30px; text-align: center; }
-        .content { background: white; padding: 30px; border: 1px solid #e0e0e0; }
-        .highlight { background: #fff3cd; padding: 20px; border-left: 4px solid #D4AF37; margin: 20px 0; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>⏰ Herinnering</h1>
-          <p>Uw bezoek aan Inspiration Point</p>
-        </div>
-        
-        <div class="content">
-          <p>Beste ${reservation.contactPerson},</p>
-          
-          <p>We willen u eraan herinneren dat uw bezoek aan Inspiration Point binnenkort plaatsvindt!</p>
-          
-          <div class="highlight">
-            <h3>📅 ${eventDate}</h3>
-            <p><strong>Deuren open:</strong> ${doorsOpen}</p>
-            <p><strong>Aanvang show:</strong> ${event.startsAt}</p>
-            <p><strong>Aantal personen:</strong> ${reservation.numberOfPersons}</p>
-          </div>
-          
-          <h4>🚗 Parkeren & Bereikbaarheid</h4>
-          <p>[PARKEERINFORMATIE TOEVOEGEN]</p>
-          
-          <h4>🍽️ Uw Arrangement</h4>
-          <p>${reservation.arrangement === 'BWF' ? 'Borrel, Show & Buffet' : 'Borrel, Show, Buffet & Muziek'}</p>
-          
-          <p>We kijken ernaar uit u te mogen verwelkomen!</p>
-          
-          <p>Met vriendelijke groet,<br>Het team van Inspiration Point</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
-  
-  const text = `
-Herinnering - Inspiration Point
-
-Beste ${reservation.contactPerson},
-
-Uw bezoek aan Inspiration Point vindt binnenkort plaats!
-
-Datum: ${eventDate}
-Deuren open: ${doorsOpen}
-Aanvang show: ${event.startsAt}
-Aantal personen: ${reservation.numberOfPersons}
-
-We kijken ernaar uit u te mogen verwelkomen!
-
-Met vriendelijke groet,
-Het team van Inspiration Point
-  `;
-  
-  return {
-    subject: `Herinnering - Uw bezoek op ${eventDate}`,
-    html,
-    text
-  };
-};
 
 /**
  * Generate admin notification email for new booking
+ * Simple black/white layout for internal use
  */
 const generateAdminNewBookingEmail = async (
   reservation: Reservation,
   event: Event
 ): Promise<EmailTemplate> => {
-  const eventDate = format(event.date, 'EEEE d MMMM yyyy', { locale: nl });
-  const eventTime = event.startsAt;
-  const bookingDate = format(reservation.createdAt, 'dd-MM-yyyy HH:mm', { locale: nl });
+  const eventDate = format(event.date, 'dd-MM-yyyy', { locale: nl });
   
-  // Calculate pricing details
+  // Load merchandise items to get real names
+  let merchandiseItems: MerchandiseItem[] = [];
+  try {
+    merchandiseItems = await storageService.getMerchandise();
+  } catch (error) {
+    console.error('Failed to load merchandise items:', error);
+  }
+  
+  // Format customer name
+  const fullName = `${reservation.firstName || ''} ${reservation.lastName || ''}`.trim() || reservation.contactPerson || 'Niet opgegeven';
+  
+  // Format arrangement info
+  const arrangement = reservation.arrangement === 'BWF' ? 'BWF' : 'Deluxe';
   const basePrice = reservation.pricingSnapshot?.basePrice || 0;
-  const arrangementTotal = reservation.pricingSnapshot?.arrangementTotal || 0;
-  const preDrinkTotal = reservation.pricingSnapshot?.preDrinkTotal || 0;
-  const afterPartyTotal = reservation.pricingSnapshot?.afterPartyTotal || 0;
-  const merchandiseTotal = reservation.pricingSnapshot?.merchandiseTotal || 0;
-  const discountAmount = reservation.pricingSnapshot?.discountAmount || 0;
-  const voucherAmount = reservation.pricingSnapshot?.voucherAmount || 0;
+  const arrangementInfo = basePrice > 0 ? `€${basePrice.toFixed(2)} ${arrangement} p.p.` : arrangement;
   
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 700px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; padding: 30px; text-align: center; }
-        .content { background: white; padding: 30px; border: 1px solid #e0e0e0; }
-        .alert { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
-        .details { background: #f8f9fa; padding: 20px; margin: 20px 0; border-radius: 8px; }
-        .details-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #dee2e6; }
-        .details-row:last-child { border-bottom: none; }
-        .label { font-weight: bold; color: #495057; flex: 1; }
-        .value { color: #212529; flex: 2; }
-        .total-row { background: #e7f3ff; padding: 10px; margin: 10px 0; border-radius: 5px; font-weight: bold; }
-        .urgent { background: #f8d7da; border-left: 4px solid #dc3545; padding: 15px; margin: 15px 0; }
-        .contact-info { background: #d4edda; border-left: 4px solid #28a745; padding: 15px; margin: 15px 0; }
-        .action-needed { background: #ffeaa7; border-left: 4px solid #fdcb6e; padding: 15px; margin: 15px 0; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>🚨 NIEUWE RESERVERING</h1>
-          <p>Inspiration Point Admin</p>
-          <p><strong>Geboekt op: ${bookingDate}</strong></p>
-        </div>
+  // Collect ALL info for comments section in one block with clear headers
+  const commentLines = [];
+  
+  // Add customer comments first
+  if (reservation.comments) {
+    commentLines.push(`OPMERKING: ${reservation.comments}`);
+  }
+  
+  // Add merchandise
+  if (reservation.merchandise && reservation.merchandise.length > 0) {
+    const merchandiseText = reservation.merchandise.map(item => {
+      const merchandiseItem = merchandiseItems.find(m => m.id === item.itemId);
+      const productName = merchandiseItem?.name || `Product ID: ${item.itemId}`;
+      const price = merchandiseItem?.price || 0;
+      const totalPrice = price * item.quantity;
+      return `${productName} ${item.quantity}x (€${totalPrice.toFixed(2)})`;
+    }).join(', ');
+    
+    commentLines.push(`MERCHANDISE: ${merchandiseText}`);
+  }
+  
+  // Add celebration info
+  if (reservation.celebrationOccasion) {
+    let celebration = reservation.celebrationOccasion;
+    if (reservation.partyPerson) {
+      celebration += ` voor ${reservation.partyPerson}`;
+    }
+    if (reservation.celebrationDetails) {
+      celebration += ` (${reservation.celebrationDetails})`;
+    }
+    commentLines.push(`VIERING: ${celebration}`);
+  }
+  
+  // Add dietary requirements
+  if (reservation.dietaryRequirements) {
+    const dietary = [];
+    if (reservation.dietaryRequirements.vegetarian) {
+      dietary.push(`Vegetarisch ${reservation.dietaryRequirements.vegetarianCount || 0}x`);
+    }
+    if (reservation.dietaryRequirements.vegan) {
+      dietary.push(`Veganistisch ${reservation.dietaryRequirements.veganCount || 0}x`);
+    }
+    if (reservation.dietaryRequirements.glutenFree) {
+      dietary.push(`Glutenvrij ${reservation.dietaryRequirements.glutenFreeCount || 0}x`);
+    }
+    if (reservation.dietaryRequirements.lactoseFree) {
+      dietary.push(`Lactosevrij ${reservation.dietaryRequirements.lactoseFreeCount || 0}x`);
+    }
+    if (reservation.dietaryRequirements.other) {
+      dietary.push(reservation.dietaryRequirements.other);
+    }
+    if (dietary.length > 0) {
+      commentLines.push(`ALLERGIE/DIEET: ${dietary.join(', ')}`);
+    }
+  }
+  
+  // Add invoice address if different
+  const hasInvoiceAddress = reservation.invoiceAddress && 
+    reservation.invoiceAddress !== reservation.address;
+  
+  if (hasInvoiceAddress) {
+    commentLines.push(`FACTUURADRES: ${reservation.invoiceAddress || ''} ${reservation.invoiceHouseNumber || ''}, ${reservation.invoicePostalCode || ''} ${reservation.invoiceCity || ''}`);
+  }
+  
+  // Build HTML for comments section with each item on separate line
+  const commentsHtml = commentLines.length > 0 ? 
+    commentLines.map(line => `<div style="display: block; margin-bottom: 10px; line-height: 1.6;">${line}</div>`).join('') : '';
+
+  // Simple black/white email for internal admin use
+  const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Nieuwe Voorlopige Reservering</title>
+</head>
+<body style="font-family: Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #333; margin: 0; padding: 20px; background-color: #f5f5f5;">
+    
+    <div style="max-width: 650px; margin: 0 auto; background-color: #ffffff; border: 1px solid #ddd; border-radius: 4px;">
         
-        <div class="content">
-          <div class="alert">
-            <h3>⚡ ACTIE VEREIST</h3>
-            <p>Er is zojuist een nieuwe reservering binnengekomen die verwerkt moet worden in het reserveringssysteem.</p>
-          </div>
-
-          <div class="details">
-            <h3>📋 RESERVERINGSGEGEVENS</h3>
-            <div class="details-row">
-              <div class="label">Reserveringsnummer:</div>
-              <div class="value"><strong>${reservation.id}</strong></div>
-            </div>
-            <div class="details-row">
-              <div class="label">Status:</div>
-              <div class="value"><span style="background: ${reservation.status === 'pending' ? '#ffc107' : reservation.status === 'confirmed' ? '#28a745' : '#6c757d'}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">${reservation.status.toUpperCase()}</span></div>
-            </div>
-            <div class="details-row">
-              <div class="label">Evenement:</div>
-              <div class="value">${eventDate} om ${eventTime}</div>
-            </div>
-            <div class="details-row">
-              <div class="label">Arrangement:</div>
-              <div class="value">${reservation.arrangement}</div>
-            </div>
-            <div class="details-row">
-              <div class="label">Aantal personen:</div>
-              <div class="value">${reservation.numberOfPersons}</div>
-            </div>
-          </div>
-
-          <div class="details">
-            <h3>👤 CONTACTGEGEVENS</h3>
-            <div class="details-row">
-              <div class="label">Bedrijfsnaam:</div>
-              <div class="value"><strong>${reservation.companyName}</strong></div>
-            </div>
-            <div class="details-row">
-              <div class="label">Contactpersoon:</div>
-              <div class="value">${reservation.salutation} ${reservation.contactPerson}</div>
-            </div>
-            <div class="details-row">
-              <div class="label">Email:</div>
-              <div class="value"><a href="mailto:${reservation.email}">${reservation.email}</a></div>
-            </div>
-            <div class="details-row">
-              <div class="label">Telefoon:</div>
-              <div class="value"><a href="tel:${reservation.phoneCountryCode}${reservation.phone}">${reservation.phoneCountryCode} ${reservation.phone}</a></div>
-            </div>
-            <div class="details-row">
-              <div class="label">Adres:</div>
-              <div class="value">${reservation.address}<br/>${reservation.postalCode} ${reservation.city}</div>
-            </div>
-          </div>
-
-          <div class="details">
-            <h3>💰 FINANCIËLE DETAILS</h3>
-            <div class="details-row">
-              <div class="label">Basisprijs per persoon:</div>
-              <div class="value">€${basePrice.toFixed(2)}</div>
-            </div>
-            <div class="details-row">
-              <div class="label">Arrangement totaal:</div>
-              <div class="value">€${arrangementTotal.toFixed(2)}</div>
-            </div>
-            ${preDrinkTotal > 0 ? `
-            <div class="details-row">
-              <div class="label">Borrel totaal:</div>
-              <div class="value">€${preDrinkTotal.toFixed(2)}</div>
-            </div>
-            ` : ''}
-            ${afterPartyTotal > 0 ? `
-            <div class="details-row">
-              <div class="label">Nafeest totaal:</div>
-              <div class="value">€${afterPartyTotal.toFixed(2)}</div>
-            </div>
-            ` : ''}
-            ${merchandiseTotal > 0 ? `
-            <div class="details-row">
-              <div class="label">Merchandise totaal:</div>
-              <div class="value">€${merchandiseTotal.toFixed(2)}</div>
-            </div>
-            ` : ''}
-            ${discountAmount > 0 ? `
-            <div class="details-row">
-              <div class="label">Korting:</div>
-              <div class="value">-€${discountAmount.toFixed(2)}</div>
-            </div>
-            ` : ''}
-            ${voucherAmount > 0 ? `
-            <div class="details-row">
-              <div class="label">Voucher:</div>
-              <div class="value">-€${voucherAmount.toFixed(2)}</div>
-            </div>
-            ` : ''}
-            <div class="total-row">
-              <div class="details-row">
-                <div class="label">TOTAAL TE BETALEN:</div>
-                <div class="value"><strong>€${reservation.totalPrice.toFixed(2)}</strong></div>
-              </div>
-            </div>
-          </div>
-
-          ${reservation.preDrink ? `
-          <div class="details">
-            <h3>🍷 BORREL VOORAF</h3>
-            <p><strong>Gekozen:</strong> Ja</p>
-          </div>
-          ` : ''}
-
-          ${reservation.afterParty ? `
-          <div class="details">
-            <h3>🎉 NAFEEST</h3>
-            <p><strong>Gekozen:</strong> Ja</p>
-          </div>
-          ` : ''}
-
-          ${reservation.merchandise && reservation.merchandise.length > 0 ? `
-          <div class="details">
-            <h3>🛍️ MERCHANDISE</h3>
-            ${reservation.merchandise.map((item: any) => `
-              <div class="details-row">
-                <div class="label">${item.itemId}:</div>
-                <div class="value">${item.quantity}x</div>
-              </div>
-            `).join('')}
-          </div>
-          ` : ''}
-
-          ${reservation.celebrationOccasion ? `
-          <div class="details">
-            <h3>🎂 CELEBRATION</h3>
-            <div class="details-row">
-              <div class="label">Gelegenheid:</div>
-              <div class="value">${reservation.celebrationOccasion}</div>
-            </div>
-            ${reservation.celebrationDetails ? `
-            <div class="details-row">
-              <div class="label">Details:</div>
-              <div class="value">${reservation.celebrationDetails}</div>
-            </div>
-            ` : ''}
-          </div>
-          ` : ''}
-
-          ${reservation.comments ? `
-          <div class="details">
-            <h3>💬 OPMERKINGEN KLANT</h3>
-            <p style="background: #f8f9fa; padding: 15px; border-radius: 5px; font-style: italic;">"${reservation.comments}"</p>
-          </div>
-          ` : ''}
-
-          <div class="action-needed">
-            <h3>📋 ACTIES TE ONDERNEMEN:</h3>
-            <ol>
-              <li><strong>Voeg reservering toe aan het reserveringssysteem</strong></li>
-              <li>Controleer beschikbaarheid voor ${eventDate}</li>
-              <li>Verstuur betalingsinformatie naar klant</li>
-              <li>Bevestig reservering wanneer betaling ontvangen is</li>
-              <li>Noteer eventuele bijzonderheden in het systeem</li>
-            </ol>
-          </div>
-
-          <div class="contact-info">
-            <h3>📞 KLANTCONTACT</h3>
-            <p><strong>Email:</strong> <a href="mailto:${reservation.email}">${reservation.email}</a></p>
-            <p><strong>Telefoon:</strong> <a href="tel:${reservation.phoneCountryCode}${reservation.phone}">${reservation.phoneCountryCode} ${reservation.phone}</a></p>
-          </div>
+        <!-- Header -->
+        <div style="background-color: #000000; padding: 20px; text-align: center;">
+            <h1 style="margin: 0; font-size: 22px; color: #ffffff;">🔔 Nieuwe Voorlopige Reservering</h1>
         </div>
-      </div>
-    </body>
-    </html>
+
+        <!-- Content -->
+        <div style="padding: 30px;">
+            
+            <p style="margin: 0 0 20px 0; font-size: 15px;">Geachte medewerker Inspiration Point,</p>
+            
+            <p style="margin: 0 0 25px 0; font-size: 15px;"><strong>Er is een nieuwe voorlopige reservering ontvangen:</strong></p>
+            
+            <!-- Reservering Details -->
+            <div style="background-color: #fafafa; border: 1px solid #e0e0e0; border-radius: 4px; padding: 20px; margin-bottom: 20px;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: bold; width: 40%;">Datum:</td>
+                        <td style="padding: 6px 0;">${eventDate}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: bold;">Deuren open:</td>
+                        <td style="padding: 6px 0;">${event.doorsOpen}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: bold;">Show start:</td>
+                        <td style="padding: 6px 0;">${event.startsAt}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: bold;">Ongeveer gedaan:</td>
+                        <td style="padding: 6px 0;">${event.endsAt}</td>
+                    </tr>
+                    ${reservation.companyName ? `
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: bold;">Bedrijfsnaam:</td>
+                        <td style="padding: 6px 0;">${reservation.companyName}</td>
+                    </tr>
+                    ` : ''}
+                    ${reservation.salutation ? `
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: bold;">Aanhef:</td>
+                        <td style="padding: 6px 0;">${reservation.salutation}</td>
+                    </tr>
+                    ` : ''}
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: bold;">Naam:</td>
+                        <td style="padding: 6px 0;">${fullName}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: bold;">Adres:</td>
+                        <td style="padding: 6px 0;">${reservation.address || ''} ${reservation.houseNumber || ''}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: bold;">Postcode & Plaats:</td>
+                        <td style="padding: 6px 0;">${reservation.postalCode || ''} ${reservation.city || ''}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: bold;">Telefoon:</td>
+                        <td style="padding: 6px 0;">${reservation.phoneCountryCode || ''}${reservation.phone || ''}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: bold;">Email:</td>
+                        <td style="padding: 6px 0;">${reservation.email || ''}</td>
+                    </tr>
+                    <tr style="border-top: 2px solid #ddd;">
+                        <td style="padding: 12px 0 6px 0; font-weight: bold; font-size: 16px;">Aantal personen:</td>
+                        <td style="padding: 12px 0 6px 0; font-size: 16px; font-weight: bold;">${reservation.numberOfPersons || 0}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: bold;">Arrangement:</td>
+                        <td style="padding: 6px 0;">${arrangementInfo}</td>
+                    </tr>
+                    ${reservation.preDrink?.enabled ? `
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: bold;">Preparty:</td>
+                        <td style="padding: 6px 0;">Ja (€${(reservation.pricingSnapshot?.preDrinkPrice || 0).toFixed(2)} p.p.)</td>
+                    </tr>
+                    ` : ''}
+                    ${reservation.afterParty?.enabled ? `
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: bold;">Afterparty:</td>
+                        <td style="padding: 6px 0;">Ja (€${(reservation.pricingSnapshot?.afterPartyPrice || 0).toFixed(2)} p.p.)</td>
+                    </tr>
+                    ` : ''}
+                    <tr style="border-top: 2px solid #ddd;">
+                        <td style="padding: 12px 0 0 0; font-weight: bold; font-size: 17px;">Totaalprijs:</td>
+                        <td style="padding: 12px 0 0 0; font-size: 17px; font-weight: bold;">€${(reservation.pricingSnapshot?.finalTotal || 0).toFixed(2)}</td>
+                    </tr>
+                </table>
+            </div>
+
+            ${commentsHtml ? `
+            <!-- Opmerkingen -->
+            <div style="background-color: #fff9e6; border: 1px solid #e8d7a6; border-radius: 4px; padding: 20px; margin-bottom: 20px;">
+                <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #333;">📝 Opmerkingen & Extra Informatie</h3>
+                <div style="font-size: 14px; color: #444;">${commentsHtml}</div>
+            </div>
+            ` : ''}
+
+            <!-- Extra Info -->
+            <div style="background-color: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 4px; padding: 15px; margin-bottom: 20px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                    <tr>
+                        <td style="padding: 4px 0; color: #666;">Nieuwsbrief:</td>
+                        <td style="padding: 4px 0; text-align: right;">${reservation.newsletterOptIn ? 'Ja' : 'Nee'}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 4px 0; color: #666;">Voorwaarden gelezen:</td>
+                        <td style="padding: 4px 0; text-align: right;">${reservation.acceptTerms ? 'Ja' : 'Nee'}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 4px 0; color: #666;">Reservering ID:</td>
+                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #333;">${reservation.id || 'Niet beschikbaar'}</td>
+                    </tr>
+                </table>
+            </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div style="background-color: #f5f5f5; padding: 20px; text-align: center; border-top: 1px solid #ddd; font-size: 13px; color: #666;">
+            <p style="margin: 0 0 5px 0;"><strong>Inspiration Point</strong></p>
+            <p style="margin: 0 0 5px 0;">Maastrichterweg 13-17, 5554 GE Valkenswaard</p>
+            <p style="margin: 0;">040-2110679 | info@inspiration-point.nl | www.inspiration-point.nl</p>
+        </div>
+
+    </div>
+</body>
+</html>
   `;
-  
-  const text = `
-🚨 NIEUWE RESERVERING - ${bookingDate}
 
-RESERVERINGSGEGEVENS:
-- Nummer: ${reservation.id}
-- Status: ${reservation.status.toUpperCase()}
-- Evenement: ${eventDate} om ${eventTime}
-- Arrangement: ${reservation.arrangement}
-- Aantal personen: ${reservation.numberOfPersons}
-
-CONTACTGEGEVENS:
-- Bedrijf: ${reservation.companyName}
-- Contactpersoon: ${reservation.salutation} ${reservation.contactPerson}
-- Email: ${reservation.email}
-- Telefoon: ${reservation.phoneCountryCode} ${reservation.phone}
-- Adres: ${reservation.address}, ${reservation.postalCode} ${reservation.city}
-
-FINANCIËLE DETAILS:
-- Arrangement: €${arrangementTotal.toFixed(2)}
-${preDrinkTotal > 0 ? `- Borrel: €${preDrinkTotal.toFixed(2)}\n` : ''}${afterPartyTotal > 0 ? `- Nafeest: €${afterPartyTotal.toFixed(2)}\n` : ''}${merchandiseTotal > 0 ? `- Merchandise: €${merchandiseTotal.toFixed(2)}\n` : ''}${discountAmount > 0 ? `- Korting: -€${discountAmount.toFixed(2)}\n` : ''}${voucherAmount > 0 ? `- Voucher: -€${voucherAmount.toFixed(2)}\n` : ''}TOTAAL: €${reservation.totalPrice.toFixed(2)}
-
-${reservation.preDrink ? 'BORREL VOORAF: Ja\n' : ''}${reservation.afterParty ? 'NAFEEST: Ja\n' : ''}${reservation.celebrationOccasion ? `CELEBRATION: ${reservation.celebrationOccasion}${reservation.celebrationDetails ? ` - ${reservation.celebrationDetails}` : ''}\n` : ''}${reservation.comments ? `OPMERKINGEN: ${reservation.comments}\n` : ''}
-ACTIES TE ONDERNEMEN:
-1. Voeg reservering toe aan het reserveringssysteem
-2. Controleer beschikbaarheid voor ${eventDate}
-3. Verstuur betalingsinformatie naar klant
-4. Bevestig reservering wanneer betaling ontvangen is
-5. Noteer eventuele bijzonderheden in het systeem
-
-KLANTCONTACT:
-Email: ${reservation.email}
-Telefoon: ${reservation.phoneCountryCode} ${reservation.phone}
-  `;
-  
   return {
-    subject: `🚨 NIEUWE RESERVERING ${reservation.id} - ${reservation.companyName} (${eventDate})`,
-    html,
-    text
+    subject: `Nieuwe voorlopige boeking - ${eventDate} - ${reservation.numberOfPersons} personen - ${fullName}`,
+    html: htmlContent
   };
 };
 
 /**
- * Generate admin notification email for status changes
+ * Generate pending reservation email for customer (BEAUTIFUL VERSION)
  */
-const generateAdminStatusChangeEmail = (
+const generateCustomerPendingEmail = (
   reservation: Reservation,
-  event: Event,
-  newStatus: string
+  event: Event
 ): EmailTemplate => {
   const eventDate = format(event.date, 'EEEE d MMMM yyyy', { locale: nl });
   const eventTime = event.startsAt;
-  const changeDate = format(new Date(), 'dd-MM-yyyy HH:mm', { locale: nl });
-  
-  // Determine status color and message
-  let statusColor = '#6c757d';
-  let statusMessage = newStatus.toUpperCase();
-  let actionRequired = '';
-  
-  switch (newStatus) {
-    case 'confirmed':
-      statusColor = '#28a745';
-      statusMessage = '✅ BEVESTIGD';
-      actionRequired = 'Geen actie vereist - klant is geïnformeerd';
-      break;
-    case 'cancelled':
-      statusColor = '#dc3545';
-      statusMessage = '❌ GEANNULEERD';
-      actionRequired = 'Update capaciteit en check wachtlijst voor dit evenement';
-      break;
-    case 'rejected':
-      statusColor = '#dc3545';
-      statusMessage = '⛔ AFGEWEZEN';
-      actionRequired = 'Klant is geïnformeerd over afwijzing';
-      break;
-    case 'waitlist':
-      statusColor = '#ffc107';
-      statusMessage = '⏳ WACHTLIJST';
-      actionRequired = 'Klant toegevoegd aan wachtlijst - monitor beschikbaarheid';
-      break;
-  }
+  const eventEndTime = event.endsAt;
+  const arrangement = reservation.arrangement === 'BWF' ? 'Premium' : 'Deluxe';
+  const basePrice = reservation.pricingSnapshot?.basePrice || 0;
+  const priceInfo = basePrice > 0 ? ` (€${basePrice.toFixed(2)} per persoon)` : '';
+  const fullName = `${reservation.firstName || ''} ${reservation.lastName || ''}`.trim() || reservation.contactPerson || '';
   
   const html = `
     <!DOCTYPE html>
     <html>
     <head>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: ${statusColor}; color: white; padding: 30px; text-align: center; }
-        .content { background: white; padding: 30px; border: 1px solid #e0e0e0; }
-        .status-change { background: #f8f9fa; border: 2px solid ${statusColor}; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center; }
-        .details { background: #f8f9fa; padding: 20px; margin: 20px 0; border-radius: 8px; }
-        .details-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #dee2e6; }
-        .details-row:last-child { border-bottom: none; }
-        .label { font-weight: bold; color: #495057; }
-        .value { color: #212529; }
-        .action-note { background: #d1ecf1; border-left: 4px solid #bee5eb; padding: 15px; margin: 15px 0; }
-      </style>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Reservering Ontvangen</title>
     </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>📊 STATUS WIJZIGING</h1>
-          <p>Inspiration Point Admin</p>
-          <p><strong>Gewijzigd op: ${changeDate}</strong></p>
-        </div>
-        
-        <div class="content">
-          <div class="status-change">
-            <h2 style="color: ${statusColor}; margin: 0;">${statusMessage}</h2>
-            <p style="margin: 10px 0 0 0;">Reservering ${reservation.id}</p>
-          </div>
+    <body style="margin: 0; padding: 0; background-color: #0a0a0a; font-family: Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background: linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%);">
+            
+            <!-- Header met Logo -->
+            <div style="background: linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #8B0000 100%); padding: 40px 30px; text-align: center; border-bottom: 3px solid #FFD700;">
+                <img src="https://irp.cdn-website.com/e8046ea7/dms3rep/multi/logo-ip+%281%29.png" alt="Inspiration Point Logo" style="max-height: 80px; margin-bottom: 15px;">
+                <h1 style="margin: 0; font-size: 28px; font-weight: bold; color: #FFD700; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">Reserveringsaanvraag Ontvangen</h1>
+            </div>
 
-          <div class="details">
-            <h3>📋 RESERVERINGSGEGEVENS</h3>
-            <div class="details-row">
-              <div class="label">Reserveringsnummer:</div>
-              <div class="value"><strong>${reservation.id}</strong></div>
-            </div>
-            <div class="details-row">
-              <div class="label">Bedrijf:</div>
-              <div class="value">${reservation.companyName}</div>
-            </div>
-            <div class="details-row">
-              <div class="label">Contactpersoon:</div>
-              <div class="value">${reservation.salutation} ${reservation.contactPerson}</div>
-            </div>
-            <div class="details-row">
-              <div class="label">Email:</div>
-              <div class="value"><a href="mailto:${reservation.email}">${reservation.email}</a></div>
-            </div>
-            <div class="details-row">
-              <div class="label">Telefoon:</div>
-              <div class="value"><a href="tel:${reservation.phoneCountryCode}${reservation.phone}">${reservation.phoneCountryCode} ${reservation.phone}</a></div>
-            </div>
-            <div class="details-row">
-              <div class="label">Evenement:</div>
-              <div class="value">${eventDate} om ${eventTime}</div>
-            </div>
-            <div class="details-row">
-              <div class="label">Aantal personen:</div>
-              <div class="value">${reservation.numberOfPersons}</div>
-            </div>
-            <div class="details-row">
-              <div class="label">Totaal bedrag:</div>
-              <div class="value">€${reservation.totalPrice.toFixed(2)}</div>
-            </div>
-          </div>
+            <!-- Content -->
+            <div style="padding: 40px 30px;">
+                
+                <!-- Status Badge -->
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <div style="display: inline-block; background: linear-gradient(135deg, #FF8C00 0%, #FFD700 100%); color: #000000; padding: 15px 30px; border-radius: 50px; font-size: 16px; font-weight: bold; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);">
+                        ⏳ AANVRAAG IN BEHANDELING
+                    </div>
+                </div>
 
-          <div class="action-note">
-            <h3>📝 Actie vereist:</h3>
-            <p>${actionRequired}</p>
-          </div>
+                <!-- Greeting -->
+                <h2 style="color: #FFD700; font-size: 22px; margin-bottom: 20px; text-align: center;">
+                    Beste ${fullName},
+                </h2>
+                
+                <p style="color: #E5E5E5; font-size: 16px; line-height: 1.6; margin-bottom: 25px; text-align: center;">
+                    Hartelijk dank voor uw reserveringsaanvraag bij Inspiration Point. 
+                    Uw aanvraag wordt momenteel door ons team beoordeeld.
+                </p>
+
+                <div style="background: linear-gradient(135deg, #0047AB 0%, #003380 100%); border: 2px solid #FFD700; border-radius: 12px; padding: 20px; margin: 25px 0; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);">
+                    <p style="margin: 0; color: #FFFFFF; font-size: 15px; font-weight: 600; text-align: center;">
+                        📧 U ontvangt binnen twee werkdagen bericht over de beschikbaarheid
+                    </p>
+                </div>
+
+            <!-- Reservation Details -->
+            <div style="background: linear-gradient(135deg, #1a1a1a 0%, #2a0a0a 100%); border: 2px solid #FFD700; border-radius: 12px; padding: 25px; margin: 30px 0; box-shadow: 0 8px 20px rgba(255, 215, 0, 0.2);">
+                <h3 style="color: #FFD700; margin: 0 0 20px 0; font-size: 18px; text-align: center; border-bottom: 1px solid #FFD700; padding-bottom: 10px;">
+                    🎭 Aanvraag Overzicht
+                </h3>
+                
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 10px 0; color: #B8860B; font-weight: bold; font-size: 14px;">Datum:</td>
+                        <td style="padding: 10px 0; color: #FFFFFF; text-align: right; font-size: 14px;">${eventDate}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px 0; color: #B8860B; font-weight: bold; font-size: 14px;">Deuren open:</td>
+                        <td style="padding: 10px 0; color: #FFFFFF; text-align: right; font-size: 14px;">${event.doorsOpen}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px 0; color: #B8860B; font-weight: bold; font-size: 14px;">Show start:</td>
+                        <td style="padding: 10px 0; color: #FFFFFF; text-align: right; font-size: 14px;">${eventTime}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px 0; color: #B8860B; font-weight: bold; font-size: 14px;">Ongeveer gedaan:</td>
+                        <td style="padding: 10px 0; color: #FFFFFF; text-align: right; font-size: 14px;">${eventEndTime}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px 0; color: #B8860B; font-weight: bold; font-size: 14px;">Aantal personen:</td>
+                        <td style="padding: 10px 0; color: #FFFFFF; text-align: right; font-size: 14px;">${reservation.numberOfPersons}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px 0; color: #B8860B; font-weight: bold; font-size: 14px;">Arrangement:</td>
+                        <td style="padding: 10px 0; color: #FFFFFF; text-align: right; font-size: 14px;">${arrangement}${priceInfo}</td>
+                    </tr>
+                    <tr style="border-top: 1px solid #FFD700;">
+                        <td style="padding: 15px 0 0 0; color: #FFD700; font-weight: bold; font-size: 14px;">Referentienummer:</td>
+                        <td style="padding: 15px 0 0 0; color: #FFD700; text-align: right; font-size: 14px; font-weight: bold;">${reservation.id}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Important Notice -->
+            <div style="background: linear-gradient(135deg, #8B0000 0%, #660000 100%); border: 2px solid #FFD700; border-radius: 12px; padding: 25px; margin: 25px 0; box-shadow: 0 8px 20px rgba(255, 215, 0, 0.2);">
+                <h3 style="color: #FFD700; margin: 0 0 15px 0; font-size: 18px; text-align: center;">⚠️ Let Op: Nog Geen Definitieve Reservering</h3>
+                <p style="color: #FFFFFF; font-size: 15px; line-height: 1.6; margin: 0 0 12px 0; text-align: center;">
+                    Uw aanvraag wacht op bevestiging van ons team. We controleren eerst de beschikbaarheid voor uw gewenste datum en arrangement.
+                </p>
+                <p style="color: #FFD700; font-size: 15px; line-height: 1.6; margin: 0; font-weight: 600; text-align: center;">
+                    Alleen na onze bevestigingsmail is uw reservering definitief.
+                </p>
+            </div>
+
+            <!-- Process Steps -->
+            <div style="background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%); border: 2px solid #B8860B; border-radius: 12px; padding: 25px; margin: 25px 0;">
+                <h3 style="color: #FFD700; margin: 0 0 15px 0; font-size: 18px;">📋 Hoe werkt het proces?</h3>
+                <ol style="color: #E5E5E5; font-size: 15px; line-height: 1.8; margin: 0; padding-left: 20px;">
+                    <li style="margin-bottom: 10px;"><strong style="color: #FFD700;">Nu:</strong> Wij controleren beschikbaarheid voor uw gewenste datum</li>
+                    <li style="margin-bottom: 10px;"><strong style="color: #FFD700;">Binnen 2 werkdagen:</strong> U ontvangt een bevestigings- of afwijzingsmail</li>
+                    <li style="margin-bottom: 10px;"><strong style="color: #FFD700;">Bij beschikbaarheid:</strong> Uw reservering is definitief bevestigd</li>
+                    <li style="margin-bottom: 10px;"><strong style="color: #FFD700;">3 weken voor de voorstelling:</strong> U ontvangt de factuur</li>
+                    <li><strong style="color: #FFD700;">2 weken voor de voorstelling:</strong> Betaling dient ontvangen te zijn via bankoverschrijving</li>
+                </ol>
+            </div>
+
+            <!-- Contact Info -->
+            <div style="text-align: center; margin: 30px 0; padding: 20px; background: rgba(139, 0, 0, 0.2); border: 1px solid #8B0000; border-radius: 8px;">
+                <p style="color: #FFD700; font-size: 14px; font-weight: bold; margin: 0 0 10px 0;">Vragen over uw reservering?</p>
+                <p style="color: #E5E5E5; font-size: 14px; margin: 0;">
+                    Neem gerust contact met ons op<br>
+                    <a href="mailto:info@inspiration-point.nl" style="color: #FFD700; text-decoration: none; font-weight: bold;">info@inspiration-point.nl</a><br>
+                    <span style="color: #B8B8B8;">040-2110679</span>
+                </p>
+            </div>
+
+            </div>
+
+            <!-- Footer -->
+            <div style="background: #000000; padding: 25px 30px; text-align: center; border-top: 2px solid #FFD700;">
+                <p style="margin: 0; font-size: 16px; font-weight: bold; color: #FFD700;">Met vriendelijke groet,</p>
+                <p style="margin: 8px 0; font-size: 14px; color: #B8860B;">Maastrichterweg 13-17, 5554 GE Valkenswaard</p>
+                <p style="margin: 8px 0 0 0; font-size: 12px; color: #666;">www.inspiration-point.nl</p>
+            </div>
+
         </div>
-      </div>
     </body>
     </html>
   `;
   
-  const text = `
-📊 STATUS WIJZIGING - ${changeDate}
-
-${statusMessage}
-Reservering: ${reservation.id}
-
-RESERVERINGSGEGEVENS:
-- Bedrijf: ${reservation.companyName}
-- Contactpersoon: ${reservation.salutation} ${reservation.contactPerson}
-- Email: ${reservation.email}
-- Telefoon: ${reservation.phoneCountryCode} ${reservation.phone}
-- Evenement: ${eventDate} om ${eventTime}
-- Aantal personen: ${reservation.numberOfPersons}
-- Totaal bedrag: €${reservation.totalPrice.toFixed(2)}
-
-ACTIE VEREIST:
-${actionRequired}
-  `;
-  
   return {
-    subject: `📊 Status gewijzigd: ${reservation.id} naar ${statusMessage} (${reservation.companyName})`,
-    html,
-    text
+    subject: `Reserveringsaanvraag ontvangen - ${eventDate}`,
+    html
   };
+};
+
+/**
+ * Generate payment confirmation email for customer (NEW)
+ */
+const generatePaymentConfirmationEmail = (
+  reservation: Reservation,
+  event: Event
+): EmailTemplate => {
+  const eventDate = format(event.date, 'EEEE d MMMM yyyy', { locale: nl });
+  const eventTime = event.startsAt;
+  const eventEndTime = event.endsAt;
+  const fullName = `${reservation.firstName || ''} ${reservation.lastName || ''}`.trim() || reservation.contactPerson || '';
+  
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Betaling Ontvangen</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #0a0a0a; font-family: Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background: linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%);">
+            
+            <!-- Header met Logo -->
+            <div style="background: linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #8B0000 100%); padding: 40px 30px; text-align: center; border-bottom: 3px solid #FFD700;">
+                <img src="https://irp.cdn-website.com/e8046ea7/dms3rep/multi/logo-ip+%281%29.png" alt="Inspiration Point Logo" style="max-height: 80px; margin-bottom: 15px;">
+                <h1 style="margin: 0; font-size: 28px; font-weight: bold; color: #FFD700; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">Betaling Ontvangen ✓</h1>
+            </div>
+
+            <!-- Content -->
+            <div style="padding: 40px 30px;">
+                
+                <!-- Success Badge -->
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <div style="display: inline-block; background: linear-gradient(135deg, #006400 0%, #228B22 100%); color: white; padding: 15px 30px; border-radius: 50px; font-size: 16px; font-weight: bold; box-shadow: 0 4px 15px rgba(34, 139, 34, 0.4);">
+                        ✓ BETALING GOEDGEKEURD
+                    </div>
+                </div>
+
+                <!-- Greeting -->
+                <h2 style="color: #FFD700; font-size: 22px; margin-bottom: 20px; text-align: center;">
+                    Beste ${fullName},
+                </h2>
+                
+                <p style="color: #E5E5E5; font-size: 16px; line-height: 1.6; margin-bottom: 25px; text-align: center;">
+                    Goed nieuws! Wij hebben uw betaling in goede orde ontvangen. 
+                    Uw reservering is nu <strong style="color: #FFD700;">volledig bevestigd</strong>!
+                </p>
+
+                <!-- Reservation Details -->
+                <div style="background: linear-gradient(135deg, #1a1a1a 0%, #2a0a0a 100%); border: 2px solid #FFD700; border-radius: 12px; padding: 25px; margin: 30px 0; box-shadow: 0 8px 20px rgba(255, 215, 0, 0.2);">
+                    <h3 style="color: #FFD700; margin: 0 0 20px 0; font-size: 18px; text-align: center; border-bottom: 1px solid #FFD700; padding-bottom: 10px;">
+                        🎭 Uw Reservering
+                    </h3>
+                    
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="padding: 10px 0; color: #B8860B; font-weight: bold; font-size: 14px;">Datum:</td>
+                            <td style="padding: 10px 0; color: #FFFFFF; text-align: right; font-size: 14px;">${eventDate}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 10px 0; color: #B8860B; font-weight: bold; font-size: 14px;">Deuren open:</td>
+                            <td style="padding: 10px 0; color: #FFFFFF; text-align: right; font-size: 14px;">${event.doorsOpen}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 10px 0; color: #B8860B; font-weight: bold; font-size: 14px;">Show start:</td>
+                            <td style="padding: 10px 0; color: #FFFFFF; text-align: right; font-size: 14px;">${eventTime}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 10px 0; color: #B8860B; font-weight: bold; font-size: 14px;">Ongeveer gedaan:</td>
+                            <td style="padding: 10px 0; color: #FFFFFF; text-align: right; font-size: 14px;">${eventEndTime}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 10px 0; color: #B8860B; font-weight: bold; font-size: 14px;">Aantal personen:</td>
+                            <td style="padding: 10px 0; color: #FFFFFF; text-align: right; font-size: 14px;">${reservation.numberOfPersons}</td>
+                        </tr>
+                        <tr style="border-top: 1px solid #FFD700;">
+                            <td style="padding: 15px 0 0 0; color: #FFD700; font-weight: bold; font-size: 16px;">Betaald bedrag:</td>
+                            <td style="padding: 15px 0 0 0; color: #FFD700; text-align: right; font-size: 18px; font-weight: bold;">
+                                €${(reservation.pricingSnapshot?.finalTotal || 0).toFixed(2)}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- What's Next -->
+                <div style="background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%); border: 2px solid #8B0000; border-radius: 12px; padding: 25px; margin: 25px 0;">
+                    <h3 style="color: #FFD700; margin: 0 0 15px 0; font-size: 18px;">📋 Wat nu?</h3>
+                    <ul style="color: #E5E5E5; font-size: 15px; line-height: 1.8; margin: 0; padding-left: 20px;">
+                        <li style="margin-bottom: 10px;">Uw reservering is <strong style="color: #FFD700;">volledig bevestigd</strong></li>
+                        <li style="margin-bottom: 10px;">Zie hierboven voor de exacte tijden van de voorstelling</li>
+                        <li style="margin-bottom: 10px;">U ontvangt binnenkort meer informatie per email</li>
+                        <li>Wij kijken ernaar uit u te verwelkomen! 🎭</li>
+                    </ul>
+                </div>
+
+                <!-- Contact Info -->
+                <div style="text-align: center; margin: 30px 0; padding: 20px; background: rgba(139, 0, 0, 0.2); border: 1px solid #8B0000; border-radius: 8px;">
+                    <p style="color: #FFD700; font-size: 14px; font-weight: bold; margin: 0 0 10px 0;">Vragen?</p>
+                    <p style="color: #E5E5E5; font-size: 14px; margin: 0;">
+                        Neem gerust contact met ons op<br>
+                        <a href="mailto:info@inspiration-point.nl" style="color: #FFD700; text-decoration: none; font-weight: bold;">info@inspiration-point.nl</a><br>
+                        <span style="color: #B8B8B8;">040-2110679</span>
+                    </p>
+                </div>
+
+            </div>
+
+            <!-- Footer -->
+            <div style="background: #000000; padding: 25px 30px; text-align: center; border-top: 2px solid #FFD700;">
+                <p style="margin: 0; font-size: 16px; font-weight: bold; color: #FFD700;">Tot snel!</p>
+                <p style="margin: 8px 0; font-size: 14px; color: #B8860B;">Maastrichterweg 13-17, 5554 GE Valkenswaard</p>
+                <p style="margin: 8px 0 0 0; font-size: 12px; color: #666;">www.inspiration-point.nl</p>
+            </div>
+
+        </div>
+    </body>
+    </html>
+  `;
+
+  return {
+    subject: `✓ Betaling ontvangen - ${eventDate} - Inspiration Point`,
+    html
+  };
+};
+
+/**
+ * Generate waitlist confirmation email for customer (NEW)
+ */
+const generateWaitlistCustomerEmail = (
+  waitlistEntry: any,
+  event: Event
+): EmailTemplate => {
+  const eventDate = format(event.date, 'EEEE d MMMM yyyy', { locale: nl });
+  const eventTime = event.startsAt;
+  const eventEndTime = event.endsAt;
+  
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Wachtlijst Registratie</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #0a0a0a; font-family: Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background: linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%);">
+            
+            <!-- Header met Logo -->
+            <div style="background: linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #8B0000 100%); padding: 40px 30px; text-align: center; border-bottom: 3px solid #FFD700;">
+                <img src="https://irp.cdn-website.com/e8046ea7/dms3rep/multi/logo-ip+%281%29.png" alt="Inspiration Point Logo" style="max-height: 80px; margin-bottom: 15px;">
+                <h1 style="margin: 0; font-size: 28px; font-weight: bold; color: #FFD700; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">Wachtlijst Registratie</h1>
+            </div>
+
+            <!-- Content -->
+            <div style="padding: 40px 30px;">
+                
+                <!-- Info Badge -->
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <div style="display: inline-block; background: linear-gradient(135deg, #FF8C00 0%, #FFD700 100%); color: #000000; padding: 15px 30px; border-radius: 50px; font-size: 16px; font-weight: bold; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);">
+                        ⏳ OP WACHTLIJST GEPLAATST
+                    </div>
+                </div>
+
+                <!-- Greeting -->
+                <h2 style="color: #FFD700; font-size: 22px; margin-bottom: 20px; text-align: center;">
+                    Beste ${waitlistEntry.name},
+                </h2>
+                
+                <p style="color: #E5E5E5; font-size: 16px; line-height: 1.6; margin-bottom: 25px; text-align: center;">
+                    Bedankt voor uw interesse in onze voorstelling!
+                </p>
+
+                <!-- Important Notice -->
+                <div style="background: linear-gradient(135deg, #8B0000 0%, #660000 100%); border: 2px solid #FFD700; border-radius: 12px; padding: 25px; margin: 25px 0; box-shadow: 0 8px 20px rgba(255, 215, 0, 0.2);">
+                    <h3 style="color: #FFD700; margin: 0 0 15px 0; font-size: 18px; text-align: center;">⚠️ Let Op: Dit is GEEN Boeking</h3>
+                    <p style="color: #FFFFFF; font-size: 15px; line-height: 1.6; margin: 0; text-align: center;">
+                        U staat nu op de wachtlijst voor deze voorstelling. Dit betekent dat u <strong style="color: #FFD700;">nog geen gereserveerde plaats</strong> heeft.
+                    </p>
+                </div>
+
+                <!-- Event Details -->
+                <div style="background: linear-gradient(135deg, #1a1a1a 0%, #2a0a0a 100%); border: 2px solid #FFD700; border-radius: 12px; padding: 25px; margin: 30px 0;">
+                    <h3 style="color: #FFD700; margin: 0 0 20px 0; font-size: 18px; text-align: center; border-bottom: 1px solid #FFD700; padding-bottom: 10px;">
+                        🎭 Voorstelling
+                    </h3>
+                    
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="padding: 10px 0; color: #B8860B; font-weight: bold; font-size: 14px;">Datum:</td>
+                            <td style="padding: 10px 0; color: #FFFFFF; text-align: right; font-size: 14px;">${eventDate}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 10px 0; color: #B8860B; font-weight: bold; font-size: 14px;">Deuren open:</td>
+                            <td style="padding: 10px 0; color: #FFFFFF; text-align: right; font-size: 14px;">18:30</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 10px 0; color: #B8860B; font-weight: bold; font-size: 14px;">Show start:</td>
+                            <td style="padding: 10px 0; color: #FFFFFF; text-align: right; font-size: 14px;">${eventTime}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 10px 0; color: #B8860B; font-weight: bold; font-size: 14px;">Ongeveer gedaan:</td>
+                            <td style="padding: 10px 0; color: #FFFFFF; text-align: right; font-size: 14px;">${eventEndTime}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 10px 0; color: #B8860B; font-weight: bold; font-size: 14px;">Gewenste personen:</td>
+                            <td style="padding: 10px 0; color: #FFFFFF; text-align: right; font-size: 14px;">${waitlistEntry.numberOfPersons}</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- How it Works -->
+                <div style="background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%); border: 2px solid #B8860B; border-radius: 12px; padding: 25px; margin: 25px 0;">
+                    <h3 style="color: #FFD700; margin: 0 0 15px 0; font-size: 18px;">📋 Hoe werkt de wachtlijst?</h3>
+                    <ul style="color: #E5E5E5; font-size: 15px; line-height: 1.8; margin: 0; padding-left: 20px;">
+                        <li style="margin-bottom: 10px;">Bij een <strong style="color: #FFD700;">annulering</strong> nemen wij <strong style="color: #FFD700;">zo snel mogelijk</strong> contact met u op</li>
+                        <li style="margin-bottom: 10px;">Wachtlijst plaatsen = <strong style="color: #FFD700;">op volgorde</strong> van aanmelding</li>
+                        <li style="margin-bottom: 10px;">U ontvangt een bericht via <strong style="color: #FFD700;">email of telefoon</strong></li>
+                        <li style="margin-bottom: 10px;">U heeft <strong style="color: #FFD700;">24 uur</strong> de tijd om te reageren</li>
+                        <li>Als u niet reageert, gaan wij naar de volgende persoon op de lijst</li>
+                    </ul>
+                </div>
+
+                <!-- Contact Info -->
+                <div style="text-align: center; margin: 30px 0; padding: 20px; background: rgba(139, 0, 0, 0.2); border: 1px solid #8B0000; border-radius: 8px;">
+                    <p style="color: #FFD700; font-size: 14px; font-weight: bold; margin: 0 0 10px 0;">Vragen?</p>
+                    <p style="color: #E5E5E5; font-size: 14px; margin: 0;">
+                        Neem gerust contact met ons op<br>
+                        <a href="mailto:info@inspiration-point.nl" style="color: #FFD700; text-decoration: none; font-weight: bold;">info@inspiration-point.nl</a><br>
+                        <span style="color: #B8B8B8;">040-2110679</span>
+                    </p>
+                </div>
+
+            </div>
+
+            <!-- Footer -->
+            <div style="background: #000000; padding: 25px 30px; text-align: center; border-top: 2px solid #FFD700;">
+                <p style="margin: 0; font-size: 16px; font-weight: bold; color: #FFD700;">Hopelijk tot snel!</p>
+                <p style="margin: 8px 0; font-size: 14px; color: #B8860B;">Maastrichterweg 13-17, 5554 GE Valkenswaard</p>
+                <p style="margin: 8px 0 0 0; font-size: 12px; color: #666;">www.inspiration-point.nl</p>
+            </div>
+
+        </div>
+    </body>
+    </html>
+  `;
+
+  return {
+    subject: `⏳ Wachtlijst registratie - ${eventDate} - Inspiration Point`,
+    html
+  };
+};
+
+/**
+ * Generate admin notification for new waitlist entry (NEW)
+ */
+const generateWaitlistAdminEmail = (
+  waitlistEntry: any,
+  event: Event
+): EmailTemplate => {
+  const eventDate = format(event.date, 'dd-MM-yyyy', { locale: nl });
+  
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Nieuwe Wachtlijst Registratie</title>
+</head>
+<body style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #333; margin: 0; padding: 20px; background-color: #f9f9f9;">
+    
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        
+        <p>Geachte medewerker Inspiration Point,</p>
+        
+        <p><strong>Er is een nieuwe wachtlijst registratie ontvangen:</strong></p>
+        
+        <div style="background: #fff3cd; padding: 20px; border-radius: 6px; border-left: 4px solid #ffc107; margin: 20px 0;">
+            
+            <h3 style="margin: 0 0 15px 0; color: #856404;">⏳ WACHTLIJST REGISTRATIE</h3>
+            
+            <p><strong>Voorstelling datum:</strong> ${eventDate}</p>
+            <p><strong>Naam:</strong> ${waitlistEntry.name}</p>
+            <p><strong>Email:</strong> ${waitlistEntry.email}</p>
+            <p><strong>Telefoon:</strong> ${waitlistEntry.phone || 'Niet opgegeven'}</p>
+            <p><strong>Aantal personen:</strong> ${waitlistEntry.numberOfPersons}</p>
+            
+            ${waitlistEntry.comments ? `
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 4px; margin-top: 15px;">
+                <p style="margin: 0;"><strong>Opmerkingen:</strong></p>
+                <p style="margin: 8px 0 0 0;">${waitlistEntry.comments}</p>
+            </div>` : ''}
+            
+        </div>
+        
+        <div style="background: #d1ecf1; padding: 15px; border-radius: 6px; border-left: 4px solid #17a2b8; margin: 20px 0;">
+            <p style="margin: 0; color: #0c5460;"><strong>💡 Actie vereist:</strong> Bij annuleringen deze persoon contacteren!</p>
+        </div>
+        
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; color: #666; font-size: 13px;">
+            <p style="margin-bottom: 5px;"><strong>Met vriendelijke groet,</strong></p>
+            <p style="margin-bottom: 5px;"><strong>Inspiration Point</strong></p>
+            <p style="margin-bottom: 5px;">Maastrichterweg 13 - 17</p>
+            <p style="margin-bottom: 5px;">5554 GE Valkenswaard</p>
+            <p style="margin-bottom: 5px;">040-2110679</p>
+            <p style="margin-bottom: 5px;">info@inspiration-point.nl</p>
+            <p style="margin-bottom: 5px;">www.inspiration-point.nl</p>
+        </div>
+        
+    </div>
+</body>
+</html>
+  `;
+
+  return {
+    subject: `⏳ Nieuwe wachtlijst registratie - ${eventDate}`,
+    html
+  };
+};
+
+/**
+ * Send email via Firebase Cloud Function
+ */
+const sendEmail = async (to: string, subject: string, html: string): Promise<boolean> => {
+  try {
+    console.log('📧 [EMAIL] Sending HTML-only email via Firebase Cloud Function...');
+    console.log('   To:', to);
+    console.log('   Subject:', subject);
+    
+    const response = await fetch('https://europe-west1-dinner-theater-booking.cloudfunctions.net/sendSmtpEmail', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        to,
+        subject,
+        html
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ [EMAIL] Firebase Cloud Function failed:', response.status, errorText);
+      return false;
+    }
+
+    const result = await response.json();
+    console.log('✅ [EMAIL] Email sent successfully via Firebase:', result);
+    return true;
+
+  } catch (error) {
+    console.error('❌ [EMAIL] Error sending email via Firebase Cloud Function:', error);
+    return false;
+  }
 };
 
 export const emailService = {
   /**
-   * Send reservation confirmation email
-   */
-  async sendReservationConfirmation(
-    reservation: Reservation,
-    event: Event
-  ): Promise<{ success: boolean; error?: string }> {
-    try {
-      const template = await generateReservationConfirmationEmail(reservation, event);
-      
-      console.log('📧 [EMAIL] Sending reservation confirmation...');
-      console.log('   To:', reservation.email);
-      console.log('   Subject:', template.subject);
-      
-      // ✅ Send confirmation to customer
-      const customerResult = await sendEmailViaCloudFunction(
-        [reservation.email],
-        template.subject,
-        template.html,
-        template.text
-      );
-      
-      // ✅ Send admin notification about new booking
-      const adminResult = await this.sendAdminNewBookingNotification(reservation, event);
-      
-      if (customerResult.success) {
-        console.log('✅ [EMAIL] Confirmation email sent to customer');
-        if (adminResult.success) {
-          console.log('✅ [EMAIL] Admin notification sent');
-        } else {
-          console.warn('⚠️ [EMAIL] Admin notification failed:', adminResult.error);
-        }
-        return { success: true };
-      } else {
-        console.error('❌ [EMAIL] Failed to send customer email:', customerResult.error);
-        return { success: false, error: customerResult.error };
-      }
-      
-    } catch (error) {
-      console.error('❌ [EMAIL] Email service error:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to send email' 
-      };
-    }
-  },
-
-  /**
-   * Send admin notification about new booking
+   * Send admin notification for new booking
    */
   async sendAdminNewBookingNotification(
     reservation: Reservation,
@@ -1109,410 +769,145 @@ export const emailService = {
       const template = await generateAdminNewBookingEmail(reservation, event);
       
       console.log('📧 [ADMIN] Sending new booking notification...');
-      console.log('   To:', EMAIL_FROM);
-      console.log('   Subject:', template.subject);
+      console.log('   Reservation ID:', reservation.id);
+      console.log('   Customer:', reservation.contactPerson);
       
-      // Send to admin email
-      const result = await sendEmailViaCloudFunction(
-        [EMAIL_FROM],
+      const success = await sendEmail(
+        'info@inspiration-point.nl',
         template.subject,
-        template.html,
-        template.text
+        template.html
       );
       
-      if (result.success) {
-        console.log('✅ [ADMIN] New booking notification sent successfully');
-        return { success: true };
-      } else {
-        console.error('❌ [ADMIN] Failed to send notification:', result.error);
-        return { success: false, error: result.error };
-      }
-      
+      return { success };
     } catch (error) {
-      console.error('❌ [ADMIN] Admin notification error:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to send admin notification' 
-      };
+      console.error('❌ [ADMIN] Error sending admin notification:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   },
 
   /**
-   * Send admin notification about status change
+   * Send reservation confirmation email (sends both admin and customer emails)
    */
-  async sendAdminStatusChangeNotification(
-    reservation: Reservation,
-    event: Event,
-    newStatus: string
-  ): Promise<{ success: boolean; error?: string }> {
-    try {
-      const template = generateAdminStatusChangeEmail(reservation, event, newStatus);
-      
-      console.log('📧 [ADMIN] Sending status change notification...');
-      console.log('   To:', EMAIL_FROM);
-      console.log('   Subject:', template.subject);
-      
-      // Send to admin email
-      const result = await sendEmailViaCloudFunction(
-        [EMAIL_FROM],
-        template.subject,
-        template.html,
-        template.text
-      );
-      
-      if (result.success) {
-        console.log('✅ [ADMIN] Status change notification sent successfully');
-        return { success: true };
-      } else {
-        console.error('❌ [ADMIN] Failed to send status change notification:', result.error);
-        return { success: false, error: result.error };
-      }
-      
-    } catch (error) {
-      console.error('❌ [ADMIN] Admin status change notification error:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to send admin status change notification' 
-      };
-    }
-  },
-
-  /**
-   * Send pending reservation notification to customer
-   */
-  async sendPendingReservationNotification(
+  async sendReservationConfirmation(
     reservation: Reservation,
     event: Event
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const template = await generatePendingReservationEmail(reservation, event);
-      
-      console.log('📧 [EMAIL] Sending pending reservation notification...');
-      console.log('   To:', reservation.email);
-      console.log('   Subject:', template.subject);
-      
-      // ✅ Send "in review" email to customer
-      const customerResult = await sendEmailViaCloudFunction(
-        [reservation.email],
-        template.subject,
-        template.html,
-        template.text
-      );
-      
-      // ✅ Send admin notification about new booking
+      console.log('📧 [EMAIL] Starting reservation confirmation process...');
+      console.log('   Reservation ID:', reservation.id);
+      console.log('   Customer email:', reservation.email);
+
+      // 1. Send admin notification first
+      console.log('\n1️⃣ Sending admin notification...');
       const adminResult = await this.sendAdminNewBookingNotification(reservation, event);
       
-      if (customerResult.success) {
-        console.log('✅ [EMAIL] Pending notification email sent to customer');
-        if (adminResult.success) {
-          console.log('✅ [EMAIL] Admin notification sent');
-        } else {
-          console.warn('⚠️ [EMAIL] Admin notification failed:', adminResult.error);
-        }
-        return { success: true };
-      } else {
-        console.error('❌ [EMAIL] Failed to send customer email:', customerResult.error);
-        return { success: false, error: customerResult.error };
+      if (!adminResult.success) {
+        console.error('❌ Admin email failed, but continuing with customer email...');
       }
-      
-    } catch (error) {
-      console.error('❌ [EMAIL] Email service error:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to send pending notification' 
-      };
-    }
-  },
 
-  /**
-   * Send status update email
-   */
-  async sendStatusUpdate(
-    reservation: Reservation,
-    event: Event,
-    newStatus: string
-  ): Promise<{ success: boolean; error?: string }> {
-    try {
-      const template = generateStatusUpdateEmail(reservation, event, newStatus);
+      // 2. Send pending notification to customer
+      console.log('\n2️⃣ Sending customer pending notification...');
+      const customerTemplate = generateCustomerPendingEmail(reservation, event);
       
-      console.log('📧 [EMAIL] Sending status update...');
-      console.log('   To:', reservation.email);
-      console.log('   Subject:', template.subject);
-      console.log('   New Status:', newStatus);
-      
-      // ✅ Send status update to customer
-      const customerResult = await sendEmailViaCloudFunction(
-        [reservation.email],
-        template.subject,
-        template.html,
-        template.text
+      const customerSuccess = await sendEmail(
+        reservation.email,
+        customerTemplate.subject,
+        customerTemplate.html
       );
       
-      // ✅ Send admin notification about status change
-      const adminResult = await this.sendAdminStatusChangeNotification(reservation, event, newStatus);
-      
-      if (customerResult.success) {
-        console.log('✅ [EMAIL] Status update email sent to customer');
-        if (adminResult.success) {
-          console.log('✅ [EMAIL] Admin status change notification sent');
-        } else {
-          console.warn('⚠️ [EMAIL] Admin status notification failed:', adminResult.error);
-        }
-        return { success: true };
+      if (customerSuccess) {
+        console.log('✅ [CUSTOMER] Pending notification sent to customer');
       } else {
-        return { success: false, error: customerResult.error };
+        console.log('❌ [CUSTOMER] Failed to send pending notification to customer');
       }
+
+      // Consider it successful if at least admin email worked
+      const overallSuccess = adminResult.success || customerSuccess;
       
-    } catch (error) {
-      console.error('❌ [EMAIL] Email service error:', error);
+      console.log('\n📊 Email sending summary:');
+      console.log('   Admin email:', adminResult.success ? '✅ SUCCESS' : '❌ FAILED');
+      console.log('   Customer email:', customerSuccess ? '✅ SUCCESS' : '❌ FAILED');
+      console.log('   Overall result:', overallSuccess ? '✅ SUCCESS' : '❌ FAILED');
+
       return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to send email' 
+        success: overallSuccess,
+        error: !overallSuccess ? 'Both admin and customer emails failed' : undefined
       };
+    } catch (error) {
+      console.error('❌ [EMAIL] Error in reservation confirmation process:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   },
 
   /**
-   * Send reminder email (for upcoming events)
+   * Send payment confirmation email to customer
    */
-  async sendReminder(
+  async sendPaymentConfirmation(
     reservation: Reservation,
     event: Event
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const template = generateReminderEmail(reservation, event);
+      console.log('📧 [PAYMENT] Sending payment confirmation...');
+      console.log('   Reservation ID:', reservation.id);
+      console.log('   Customer email:', reservation.email);
+
+      const template = generatePaymentConfirmationEmail(reservation, event);
       
-      console.log('📧 [EMAIL] Sending reminder...');
-      console.log('   To:', reservation.email);
-      console.log('   Subject:', template.subject);
-      
-      // ✅ Send via Firebase Cloud Function
-      const result = await sendEmailViaCloudFunction(
-        [reservation.email],
+      const success = await sendEmail(
+        reservation.email,
         template.subject,
-        template.html,
-        template.text
+        template.html
       );
       
-      if (result.success) {
-        console.log('✅ [EMAIL] Reminder email sent successfully');
-        return { success: true };
+      if (success) {
+        console.log('✅ [PAYMENT] Payment confirmation sent to customer');
       } else {
-        return { success: false, error: result.error };
+        console.log('❌ [PAYMENT] Failed to send payment confirmation');
       }
-      
+
+      return { success };
     } catch (error) {
-      console.error('❌ [EMAIL] Email service error:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to send email' 
-      };
+      console.error('❌ [PAYMENT] Error sending payment confirmation:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   },
 
   /**
-   * Send bulk emails to multiple reservations
+   * Send waitlist confirmation to customer and admin notification
    */
-  async sendBulkEmails(
-    reservations: Reservation[],
-    events: Map<string, Event>,
-    emailType: 'confirmation' | 'reminder' | 'custom'
-  ): Promise<{ success: boolean; sent: number; failed: number }> {
-    let sent = 0;
-    let failed = 0;
-    
-    for (const reservation of reservations) {
-      const event = events.get(reservation.eventId);
-      if (!event) {
-        failed++;
-        continue;
-      }
-      
-      try {
-        if (emailType === 'confirmation') {
-          await this.sendReservationConfirmation(reservation, event);
-        } else if (emailType === 'reminder') {
-          await this.sendReminder(reservation, event);
-        }
-        sent++;
-      } catch (error) {
-        console.error(`Failed to send email to ${reservation.email}:`, error);
-        failed++;
-      }
-    }
-    
-    return { success: true, sent, failed };
-  },
-
-  /**
-   * ⚡ AUTOMATION: Send waitlist spot available notification
-   * Called automatically when a reservation is cancelled and capacity becomes available
-   */
-  async sendWaitlistSpotAvailable(
-    entry: WaitlistEntry
+  async sendWaitlistConfirmation(
+    waitlistEntry: any,
+    event: Event
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const eventDate = format(new Date(entry.eventDate), 'EEEE d MMMM yyyy', { locale: nl });
-      
-      // Generate a unique booking link with token (for direct conversion)
-      const bookingToken = `waitlist-${entry.id}-${Date.now()}`;
-      const bookingLink = `https://inspirationpoint.nl/boeken?token=${bookingToken}&eventId=${entry.eventId}&persons=${entry.numberOfPersons}`;
-      
-      const subject = `🎉 Goed nieuws! Er is plaats vrijgekomen voor ${eventDate}`;
-      
-      // Note: html and text are prepared for future use
-      const _html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 30px; text-align: center; }
-            .content { background: white; padding: 30px; border: 1px solid #e0e0e0; }
-            .details { background: #f0fff4; padding: 20px; margin: 20px 0; border-radius: 8px; border: 2px solid #28a745; }
-            .cta-button { display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #D4AF37 0%, #C5A028 100%); color: white; text-decoration: none; border-radius: 8px; margin: 20px 0; font-weight: bold; font-size: 16px; box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3); }
-            .cta-button:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(212, 175, 55, 0.4); }
-            .urgency { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0; }
-            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>🎉 Er is plaats voor u!</h1>
-              <p>Inspiration Point</p>
-            </div>
-            
-            <div class="content">
-              <p>Beste ${entry.customerName},</p>
-              
-              <p><strong>Geweldig nieuws!</strong> Er is een plaats vrijgekomen voor het evenement waar u op de wachtlijst stond:</p>
-              
-              <div class="details">
-                <h3>📅 Evenement Details</h3>
-                <p><strong>Datum:</strong> ${eventDate}</p>
-                <p><strong>Aantal personen:</strong> ${entry.numberOfPersons}</p>
-                <p style="color: #666; font-size: 14px;"><em>U kunt uw arrangement kiezen tijdens het boeken</em></p>
-              </div>
-              
-              <div class="urgency">
-                <p><strong>⏰ Belangrijk:</strong> Deze plaats is exclusief voor u gereserveerd voor <strong>24 uur</strong>. Hierna wordt de volgende persoon op de wachtlijst geïnformeerd.</p>
-              </div>
-              
-              <div style="text-align: center;">
-                <a href="${bookingLink}" class="cta-button">
-                  🎭 BOEK NU UW PLAATS
-                </a>
-              </div>
-              
-              <p style="margin-top: 30px;">Of kopieer deze link naar uw browser:</p>
-              <p style="background: #f5f5f5; padding: 10px; border-radius: 5px; word-break: break-all; font-size: 12px;">${bookingLink}</p>
-              
-              <p style="margin-top: 30px;">Heeft u vragen of wilt u telefonisch boeken?</p>
-              <ul>
-                <li>📞 Telefoon: [TELEFOONNUMMER]</li>
-                <li>📧 Email: [EMAIL]</li>
-              </ul>
-              
-              <p>We kijken ernaar uit u te mogen verwelkomen!</p>
-              
-              <p style="margin-top: 20px;">Met vriendelijke groet,<br>Het team van Inspiration Point</p>
-            </div>
-            
-            <div class="footer">
-              <p>© ${new Date().getFullYear()} Inspiration Point. Alle rechten voorbehouden.</p>
-              <p>U ontvangt deze email omdat u op onze wachtlijst staat voor dit evenement.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
-      
-      const _text = `
-Goed nieuws! Er is plaats vrijgekomen - Inspiration Point
+      console.log('📧 [WAITLIST] Sending waitlist confirmation...');
+      console.log('   Entry ID:', waitlistEntry.id);
+      console.log('   Customer email:', waitlistEntry.email);
 
-Beste ${entry.customerName},
-
-Geweldig nieuws! Er is een plaats vrijgekomen voor het evenement waar u op de wachtlijst stond:
-
-Datum: ${eventDate}
-Aantal personen: ${entry.numberOfPersons}
-U kunt uw arrangement kiezen tijdens het boeken.
-
-⏰ BELANGRIJK: Deze plaats is exclusief voor u gereserveerd voor 24 uur. 
-Hierna wordt de volgende persoon op de wachtlijst geïnformeerd.
-
-BOEK NU UW PLAATS:
-${bookingLink}
-
-Heeft u vragen of wilt u telefonisch boeken?
-Telefoon: [TELEFOONNUMMER]
-Email: [EMAIL]
-
-We kijken ernaar uit u te mogen verwelkomen!
-
-Met vriendelijke groet,
-Het team van Inspiration Point
-
-© ${new Date().getFullYear()} Inspiration Point
-      `.trim();
-      
-      console.log('📧 ⚡ [AUTOMATION] Sending waitlist spot available email...');
-      console.log('   To:', entry.customerEmail);
-      console.log('   Subject:', subject);
-      console.log('   Booking Link:', bookingLink);
-      console.log('   Valid for: 24 hours');
-      
-      // ✅ Send via Firebase Cloud Function
-      const result = await sendEmailViaCloudFunction(
-        [entry.customerEmail],
-        subject,
-        _html,
-        _text
+      // 1. Send customer waitlist confirmation
+      const customerTemplate = generateWaitlistCustomerEmail(waitlistEntry, event);
+      const customerSuccess = await sendEmail(
+        waitlistEntry.email,
+        customerTemplate.subject,
+        customerTemplate.html
       );
-      
-      if (result.success) {
-        console.log('✅ [EMAIL] Waitlist notification sent successfully');
-        return { success: true };
-      } else {
-        return { success: false, error: result.error };
-      }
-      
-    } catch (error) {
-      console.error('❌ [EMAIL] Waitlist email service error:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to send waitlist email' 
-      };
-    }
-  },
 
-  /**
-   * Alias for sendReservationConfirmation for backward compatibility
-   */
-  async sendConfirmation(reservation: Reservation): Promise<{ success: boolean; error?: string }> {
-    // This is a simplified version - in real implementation, fetch the event
-    console.log('📧 [COMPAT] sendConfirmation called - using mock event data');
-    
-    // Mock event data - in production, this would fetch from API
-    const mockEvent: Event = {
-      id: reservation.eventId,
-      date: reservation.eventDate,
-      startsAt: '19:30',
-      endsAt: '22:30',
-      doorsOpen: '19:00',
-      type: 'REGULAR' as const,
-      showId: 'show-1',
-      capacity: 100,
-      isActive: true,
-      bookingOpensAt: new Date(reservation.eventDate.getTime() - 30 * 24 * 60 * 60 * 1000),
-      bookingClosesAt: new Date(reservation.eventDate),
-      allowedArrangements: ['BWF', 'BWFM']
-    };
-    
-    return this.sendReservationConfirmation(reservation, mockEvent);
+      // 2. Send admin notification
+      const adminTemplate = generateWaitlistAdminEmail(waitlistEntry, event);
+      const adminSuccess = await sendEmail(
+        'info@inspiration-point.nl',
+        adminTemplate.subject,
+        adminTemplate.html
+      );
+
+      console.log('📊 Waitlist email summary:');
+      console.log('   Customer email:', customerSuccess ? '✅ SUCCESS' : '❌ FAILED');
+      console.log('   Admin email:', adminSuccess ? '✅ SUCCESS' : '❌ FAILED');
+
+      return { success: customerSuccess || adminSuccess };
+    } catch (error) {
+      console.error('❌ [WAITLIST] Error sending waitlist confirmation:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
   }
 };
-
-export default emailService;

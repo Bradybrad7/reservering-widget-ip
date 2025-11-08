@@ -31,15 +31,36 @@ export const formatPostalCode = (postalCode: string): string => {
   return cleanCode;
 };
 
-// Email validation
+// Email validation (enhanced with additional checks)
 export const validateEmail = (email: string): { isValid: boolean; message?: string } => {
   if (!email) {
     return { isValid: false, message: 'E-mailadres is verplicht' };
   }
   
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  // Trim whitespace
+  const trimmedEmail = email.trim();
   
-  if (!emailRegex.test(email)) {
+  // Basic format check
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(trimmedEmail)) {
+    return { isValid: false, message: 'Voer een geldig e-mailadres in' };
+  }
+  
+  // Additional security checks
+  const [local, domain] = trimmedEmail.split('@');
+  
+  // Local part validation (max 64 characters)
+  if (local.length > 64) {
+    return { isValid: false, message: 'E-mailadres is te lang' };
+  }
+  
+  // No consecutive dots
+  if (local.includes('..') || domain.includes('..')) {
+    return { isValid: false, message: 'Voer een geldig e-mailadres in' };
+  }
+  
+  // Domain validation
+  if (domain.length > 255 || !domain.includes('.')) {
     return { isValid: false, message: 'Voer een geldig e-mailadres in' };
   }
   
@@ -138,4 +159,122 @@ export const validateTermsAcceptance = (acceptTerms: boolean): { isValid: boolea
   }
   
   return { isValid: true };
+};
+
+// ============================================
+// XSS PROTECTION & INPUT SANITIZATION
+// ============================================
+
+/**
+ * Escapes HTML special characters to prevent XSS attacks
+ */
+export const escapeHtml = (text: string): string => {
+  if (!text || typeof text !== 'string') return '';
+  
+  const htmlEscapeMap: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#x27;',
+    '/': '&#x2F;',
+  };
+  
+  return text.replace(/[&<>"'/]/g, (char) => htmlEscapeMap[char] || char);
+};
+
+/**
+ * Sanitizes user input by removing potentially dangerous characters
+ * Use this before storing user input in database
+ */
+export const sanitizeInput = (input: string): string => {
+  if (!input || typeof input !== 'string') return '';
+  
+  let cleaned = input.trim();
+  
+  // Remove script tags
+  cleaned = cleaned.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  
+  // Remove event handlers (onclick, onload, etc.)
+  cleaned = cleaned.replace(/on\w+\s*=\s*["'][^"']*["']/gi, '');
+  
+  // Remove javascript: protocol
+  cleaned = cleaned.replace(/javascript:/gi, '');
+  
+  // Remove data: protocol (can be used for XSS)
+  cleaned = cleaned.replace(/data:text\/html/gi, '');
+  
+  return cleaned;
+};
+
+/**
+ * Sanitizes textarea input (preserves newlines but prevents XSS)
+ */
+export const sanitizeTextArea = (text: string): string => {
+  if (!text || typeof text !== 'string') return '';
+  
+  // Escape HTML but preserve newlines
+  return escapeHtml(text);
+};
+
+/**
+ * Enhanced Dutch phone validation
+ */
+export const isValidDutchPhone = (phone: string): boolean => {
+  if (!phone || typeof phone !== 'string') return false;
+  
+  // Remove all spaces, dashes, and parentheses
+  const cleaned = phone.replace(/[\s\-()]/g, '');
+  
+  // Dutch mobile: starts with 06, 10 digits total
+  const mobileRegex = /^0[6][0-9]{8}$/;
+  
+  // Dutch landline: starts with 0 + area code (2-3 digits) + number
+  const landlineRegex = /^0[1-5789][0-9]{7,8}$/;
+  
+  // International format: +31 (country code) + rest
+  const internationalRegex = /^\+31[1-9][0-9]{8}$/;
+  
+  return mobileRegex.test(cleaned) || 
+         landlineRegex.test(cleaned) || 
+         internationalRegex.test(cleaned);
+};
+
+/**
+ * Validates Dutch postal code with extra security checks
+ */
+export const isValidDutchPostalCode = (postalCode: string): boolean => {
+  if (!postalCode || typeof postalCode !== 'string') return false;
+  
+  // Remove spaces
+  const cleaned = postalCode.replace(/\s/g, '').toUpperCase();
+  
+  // Dutch postal code: 4 digits + 2 letters (not SA, SD, SS)
+  const postalRegex = /^[1-9][0-9]{3}[A-Z]{2}$/;
+  
+  if (!postalRegex.test(cleaned)) return false;
+  
+  // Check for invalid combinations
+  const letters = cleaned.substring(4, 6);
+  const invalidCombinations = ['SA', 'SD', 'SS'];
+  if (invalidCombinations.includes(letters)) return false;
+  
+  return true;
+};
+
+/**
+ * Validates person name (allows letters, spaces, hyphens, apostrophes)
+ */
+export const isValidName = (name: string): boolean => {
+  if (!name || typeof name !== 'string') return false;
+  
+  const trimmed = name.trim();
+  
+  // Must be at least 2 characters
+  if (trimmed.length < 2) return false;
+  
+  // Only letters, spaces, hyphens, and apostrophes (including accented characters)
+  const nameRegex = /^[a-zA-ZÀ-ÿ\s\-']+$/;
+  
+  return nameRegex.test(trimmed);
 };

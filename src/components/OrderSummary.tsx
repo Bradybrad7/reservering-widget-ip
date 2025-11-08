@@ -279,16 +279,6 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
               </p>
             </div>
           </div>
-          
-          {/* Savings Badge */}
-          {priceCalculation.breakdown?.arrangement && priceCalculation.breakdown.arrangement.persons >= 50 && (
-            <div className="mt-2 pt-2 border-t border-neutral-800/20">
-              <p className="text-xs text-success-700 font-semibold flex items-center gap-1">
-                <span>✨</span>
-                <span>Groepskorting toegepast voor grote groep!</span>
-              </p>
-            </div>
-          )}
         </div>
       </div>
     );
@@ -458,19 +448,21 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
         )}
       </div>
 
-      {/* Price Breakdown */}
-      <div className="mb-6 pt-4 border-t border-gold-500/30">
-        {renderPriceBreakdown()}
-      </div>
+      {/* Price Breakdown - Only show in normal booking mode, not in waitlist mode */}
+      {!isWaitlistActive && (
+        <div className="mb-6 pt-4 border-t border-gold-500/30">
+          {renderPriceBreakdown()}
+        </div>
+      )}
 
       {/* Waitlist Warning - Only when waitlist is manually activated */}
       {isWaitlistActive && (
         <div className="mb-4 p-4 bg-danger-500/15 border-2 border-danger-500/40 rounded-lg backdrop-blur-sm">
           <p className="text-sm font-medium text-danger-400 mb-1">
-            ⚠️ Wachtlijst geactiveerd
+            ⚠️ Voorstelling vol - Wachtlijst geactiveerd
           </p>
           <p className="text-xs text-text-secondary">
-            Deze voorstelling accepteert momenteel alleen wachtlijst aanmeldingen. We nemen contact met u op als er een plek vrijkomt.
+            Deze voorstelling is momenteel vol. We plaatsen u op de wachtlijst en nemen contact met u op zodra er een plek vrijkomt.
           </p>
         </div>
       )}

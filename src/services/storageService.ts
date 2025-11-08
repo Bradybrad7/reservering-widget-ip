@@ -207,6 +207,28 @@ class StorageService {
     await firestoreService.config.saveBookingRules(rules);
   }
 
+  async getVoucherSettings(): Promise<any> {
+    const settings = await firestoreService.config.getVoucherSettings();
+    return settings || {
+      globalBWFEnabled: true,
+      globalBWFMEnabled: true,
+      perEventType: {}
+    };
+  }
+
+  async saveVoucherSettings(settings: any): Promise<void> {
+    await firestoreService.config.saveVoucherSettings(settings);
+  }
+
+  async getCapacityOverrides(): Promise<any> {
+    const overrides = await firestoreService.config.getCapacityOverrides();
+    return overrides || {};
+  }
+
+  async saveCapacityOverrides(overrides: any): Promise<void> {
+    await firestoreService.config.saveCapacityOverrides(overrides);
+  }
+
   // ============================================
   // MERCHANDISE
   // ============================================
@@ -588,6 +610,70 @@ class StorageService {
     
     await this.saveShows(filtered);
     return true;
+  }
+
+  /**
+   * Email Template Management
+   */
+  
+  async getEmailTemplates(): Promise<any[]> {
+    try {
+      const { collection, getDocs } = await import('firebase/firestore');
+      const templatesCollection = collection(firestoreService.db, 'email_templates');
+      const snapshot = await getDocs(templatesCollection);
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+      console.error('Error loading email templates:', error);
+      return [];
+    }
+  }
+
+  async saveEmailTemplates(templates: any[]): Promise<void> {
+    try {
+      const { collection, doc, setDoc, getDocs, deleteDoc } = await import('firebase/firestore');
+      const templatesCollection = collection(firestoreService.db, 'email_templates');
+      
+      // Clear existing templates
+      const existingSnapshot = await getDocs(templatesCollection);
+      for (const docRef of existingSnapshot.docs) {
+        await deleteDoc(docRef.ref);
+      }
+      
+      // Save new templates
+      for (const template of templates) {
+        const docRef = doc(templatesCollection, template.id);
+        await setDoc(docRef, template);
+      }
+      
+      console.log('✅ Email templates saved successfully');
+    } catch (error) {
+      console.error('Error saving email templates:', error);
+      throw error;
+    }
+  }
+
+  async getEmailTemplate(templateId: string): Promise<any | null> {
+    try {
+      const { doc, getDoc } = await import('firebase/firestore');
+      const docRef = doc(firestoreService.db, 'email_templates', templateId);
+      const snapshot = await getDoc(docRef);
+      return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null;
+    } catch (error) {
+      console.error('Error loading email template:', error);
+      return null;
+    }
+  }
+
+  async saveEmailTemplate(template: any): Promise<void> {
+    try {
+      const { doc, setDoc } = await import('firebase/firestore');
+      const docRef = doc(firestoreService.db, 'email_templates', template.id);
+      await setDoc(docRef, template);
+      console.log('✅ Email template saved:', template.id);
+    } catch (error) {
+      console.error('Error saving email template:', error);
+      throw error;
+    }
   }
 }
 

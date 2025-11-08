@@ -445,7 +445,7 @@ export const nl = {
   // Success message
   successPage: {
     title: 'Reservering verzonden!',
-    message: 'Bedankt voor uw reservering. Je ontvangt binnen een week een boekingsbevestiging per e-mail. Check ook je spam.',
+    message: 'Bedankt voor uw reservering. U ontvangt binnen 2 werkdagen een boekingsbevestiging per e-mail. Check ook uw spam. De factuur ontvangt u 3 weken voor de voorstelling, betaling dient 2 weken voor de voorstelling ontvangen te zijn via bankoverschrijving.',
     backToCalendar: 'Nieuwe reservering',
     details: 'Details van uw reservering:'
   },

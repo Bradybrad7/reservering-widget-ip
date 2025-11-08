@@ -17,6 +17,7 @@ import { useVoucherStore } from '../../store/voucherStore';
 import { useConfigStore } from '../../store/configStore';
 import { formatCurrency } from '../../utils';
 import type { Arrangement } from '../../types';
+import { storageService } from '../../services/storageService';
 
 type DeliveryMethod = 'pickup' | 'shipping';
 
@@ -60,7 +61,7 @@ const SHIPPING_COST = 3.95;
 
 // Arrangement descriptions
 const ARRANGEMENT_INFO: Record<Arrangement, { name: string; description: string; features: string[] }> = {
-  BWF: {
+  Standard: {
     name: 'Standaard',
     description: 'Show met eten buffet en standaard dranken',
     features: [
@@ -70,8 +71,30 @@ const ARRANGEMENT_INFO: Record<Arrangement, { name: string; description: string;
       'Port, sherry en martini'
     ]
   },
-  BWFM: {
+  Premium: {
     name: 'Premium',
+    description: 'Alles van standaard plus mixdranken en speciale bieren',
+    features: [
+      'Toegang tot de show',
+      'Eten buffet',
+      'Bier, wijn, fris',
+      'Port, sherry en martini',
+      'Mixdranken',
+      'Speciale bieren'
+    ]
+  },
+  BWF: {
+    name: 'Standaard (BWF)',
+    description: 'Show met eten buffet en standaard dranken',
+    features: [
+      'Toegang tot de show',
+      'Eten buffet',
+      'Bier, wijn, fris',
+      'Port, sherry en martini'
+    ]
+  },
+  BWFM: {
+    name: 'Premium (BWFM)',
     description: 'Alles van standaard plus mixdranken en speciale bieren',
     features: [
       'Toegang tot de show',
@@ -124,29 +147,30 @@ export const VoucherPurchasePageNew: React.FC = () => {
   useEffect(() => {
     if (!eventTypesConfig) return;
 
-    console.log('🎟️ [VoucherPage] Building voucher options from eventTypesConfig');
+    const loadOptionsWithSettings = async () => {
+      console.log('🎟️ [VoucherPage] Building voucher options from eventTypesConfig');
 
-    // 🆕 Load voucher settings from localStorage
-    const voucherSettingsRaw = localStorage.getItem('voucherSettings');
-    let voucherSettings = {
-      globalBWFEnabled: true,
-      globalBWFMEnabled: true,
-      perEventType: {} as Record<string, { BWF?: boolean; BWFM?: boolean; }>
-    };
-    
-    if (voucherSettingsRaw) {
+      // 🆕 Load voucher settings from Firestore
+      let voucherSettings = {
+        globalBWFEnabled: true,
+        globalBWFMEnabled: true,
+        perEventType: {} as Record<string, { BWF?: boolean; BWFM?: boolean; }>
+      };
+      
       try {
-        voucherSettings = JSON.parse(voucherSettingsRaw);
-        console.log('✅ [VoucherPage] Loaded voucher settings:', voucherSettings);
+        const settings = await storageService.getVoucherSettings();
+        if (settings) {
+          voucherSettings = settings;
+          console.log('✅ [VoucherPage] Loaded voucher settings:', voucherSettings);
+        }
       } catch (e) {
-        console.error('❌ Failed to parse voucher settings');
+        console.error('❌ Failed to load voucher settings');
       }
-    }
 
-    const options: ArrangementOption[] = [];
-    
-    // Loop through ALL enabled event types from the new configuration
-    eventTypesConfig.types.forEach((eventType) => {
+      const options: ArrangementOption[] = [];
+      
+      // Loop through ALL enabled event types from the new configuration
+      eventTypesConfig.types.forEach((eventType: any) => {
       // Only include enabled event types
       if (!eventType.enabled) {
         console.log(`⏭️ [VoucherPage] Skipping disabled event type: ${eventType.name}`);
@@ -191,10 +215,13 @@ export const VoucherPurchasePageNew: React.FC = () => {
           available: true
         });
       }
-    });
+      });
 
-    console.log(`🎟️ [VoucherPage] Total voucher options created: ${options.length}`);
-    setArrangements(options);
+      console.log(`🎟️ [VoucherPage] Total voucher options created: ${options.length}`);
+      setArrangements(options);
+    };
+
+    loadOptionsWithSettings();
   }, [eventTypesConfig]);
 
   // Helper function to get readable event type label (fallback)

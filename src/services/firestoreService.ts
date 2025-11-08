@@ -73,6 +73,8 @@ export const COLLECTIONS = {
   WAITLIST_ENTRIES: 'waitlistEntries',
   VOUCHER_TEMPLATES: 'voucherTemplates',
   ISSUED_VOUCHERS: 'issuedVouchers',
+  VOUCHER_SETTINGS: 'voucherSettings',
+  CAPACITY_OVERRIDES: 'capacityOverrides',
   COUNTERS: 'counters'
 } as const;
 
@@ -85,6 +87,7 @@ const SINGLETON_DOCS = {
   WIZARD_CONFIG: 'current',
   EVENT_TYPES_CONFIG: 'current',
   TEXT_CUSTOMIZATION: 'current',
+  VOUCHER_SETTINGS: 'current',
   EVENT_COUNTER: 'eventCounter',
   RESERVATION_COUNTER: 'reservationCounter'
 } as const;
@@ -969,6 +972,52 @@ class ConfigService {
     return onSnapshot(docRef, (snapshot) => {
       callback(snapshot.exists() ? snapshot.data() as Pricing : null);
     });
+  }
+
+  /**
+   * Get voucher settings
+   */
+  async getVoucherSettings(): Promise<any | null> {
+    const docRef = doc(db, COLLECTIONS.VOUCHER_SETTINGS, SINGLETON_DOCS.VOUCHER_SETTINGS);
+    const docSnap = await getDoc(docRef);
+    
+    if (!docSnap.exists()) return null;
+    
+    return docSnap.data();
+  }
+
+  /**
+   * Save voucher settings
+   */
+  async saveVoucherSettings(settings: any): Promise<void> {
+    const docRef = doc(db, COLLECTIONS.VOUCHER_SETTINGS, SINGLETON_DOCS.VOUCHER_SETTINGS);
+    await setDoc(docRef, {
+      ...settings,
+      updatedAt: serverTimestamp()
+    } as any);
+  }
+
+  /**
+   * Get capacity overrides
+   */
+  async getCapacityOverrides(): Promise<any | null> {
+    const docRef = doc(db, COLLECTIONS.CAPACITY_OVERRIDES, 'current');
+    const docSnap = await getDoc(docRef);
+    
+    if (!docSnap.exists()) return null;
+    
+    return docSnap.data();
+  }
+
+  /**
+   * Save capacity overrides
+   */
+  async saveCapacityOverrides(overrides: any): Promise<void> {
+    const docRef = doc(db, COLLECTIONS.CAPACITY_OVERRIDES, 'current');
+    await setDoc(docRef, {
+      ...overrides,
+      updatedAt: serverTimestamp()
+    } as any);
   }
 }
 

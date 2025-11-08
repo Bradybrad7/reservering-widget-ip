@@ -211,9 +211,9 @@ class PaymentReminderService {
   }
 
   /**
-   * Stel betaling vervaldatum in (automatisch: 1 week voor event)
+   * Stel betaling vervaldatum in (automatisch: 2 weken voor voorstelling)
    */
-  async setPaymentDueDate(reservationId: string, daysBeforeEvent: number = 7): Promise<void> {
+  async setPaymentDueDate(reservationId: string, daysBeforeEvent: number = 14): Promise<void> {
     const reservations = await storageService.getReservations();
     const now = new Date();
 

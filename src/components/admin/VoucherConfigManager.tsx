@@ -9,6 +9,7 @@ import React, { useState, useEffect } from 'react';
 import { Save, Gift, Eye, EyeOff, AlertCircle, RefreshCw } from 'lucide-react';
 import { useConfigStore } from '../../store/configStore';
 import { formatCurrency } from '../../utils';
+import { storageService } from '../../services/storageService';
 
 interface VoucherSettings {
   globalBWFEnabled: boolean;
@@ -30,26 +31,28 @@ export const VoucherConfigManager: React.FC = () => {
   });
   const [isSaving, setIsSaving] = useState(false);
 
-  // Load voucher settings from localStorage
+  // Load voucher settings from Firestore
   useEffect(() => {
-    console.log('📋 [VoucherConfig] Loading settings...');
-    const stored = localStorage.getItem('voucherSettings');
-    if (stored) {
+    const loadSettings = async () => {
+      console.log('📋 [VoucherConfig] Loading settings from Firestore...');
       try {
-        const parsed = JSON.parse(stored);
-        setVoucherSettings(parsed);
-        console.log('✅ [VoucherConfig] Settings loaded:', parsed);
+        const settings = await storageService.getVoucherSettings();
+        if (settings) {
+          setVoucherSettings(settings);
+          console.log('✅ [VoucherConfig] Settings loaded:', settings);
+        }
       } catch (e) {
-        console.error('❌ Failed to parse voucher settings:', e);
+        console.error('❌ Failed to load voucher settings:', e);
       }
-    }
+    };
+    loadSettings();
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
     try {
-      localStorage.setItem('voucherSettings', JSON.stringify(voucherSettings));
-      console.log('💾 [VoucherConfig] Settings saved:', voucherSettings);
+      await storageService.saveVoucherSettings(voucherSettings);
+      console.log('💾 [VoucherConfig] Settings saved to Firestore:', voucherSettings);
       alert('✅ Voucher configuratie opgeslagen!');
     } catch (error) {
       console.error('❌ Error saving voucher config:', error);

@@ -91,11 +91,23 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const isEventAvailable = (event: Event): { available: boolean; reason?: string } => {
   const now = new Date();
   
-  // Check if event date has passed (events should close at midnight of the event day)
+  // ✨ CRITICAL FIX: Check if event date has passed OR is within 2 days
+  // Events worden 2 dagen voor de voorstelling gesloten voor nieuwe boekingen
+  const eventDate = new Date(event.date);
+  const twoDaysBeforeEvent = new Date(eventDate);
+  twoDaysBeforeEvent.setDate(twoDaysBeforeEvent.getDate() - 2);
+  twoDaysBeforeEvent.setHours(0, 0, 0, 0); // Start of that day
+  
+  // Check if event date has completely passed (after midnight)
   const eventEndOfDay = new Date(event.date);
   eventEndOfDay.setHours(23, 59, 59, 999); // End of event day
   if (now > eventEndOfDay) {
     return { available: false, reason: 'Event date has passed' };
+  }
+  
+  // ✨ NEW: Check if we're within 2-day cutoff period
+  if (now >= twoDaysBeforeEvent) {
+    return { available: false, reason: 'Booking closed - less than 2 days before event' };
   }
   
   // Check if booking is open
@@ -108,10 +120,9 @@ const isEventAvailable = (event: Event): { available: boolean; reason?: string }
     return { available: false, reason: 'Booking deadline passed' };
   }
   
-  // Check capacity
-  if (event.remainingCapacity !== undefined && event.remainingCapacity <= 0) {
-    return { available: false, reason: 'Event is sold out' };
-  }
+  // ✨ FIXED: Don't block on capacity - let waitlist system handle it
+  // Capacity check is done in getAvailability() for bookingStatus
+  // This allows full events to show "waitlist available" instead of blocking completely
   
   // Check if event is active
   if (!event.isActive) {
@@ -129,9 +140,40 @@ export const apiService = {
     
     try {
       const events = await storageService.getEvents();
+      
+      // ✨ CRITICAL FIX: Calculate remaining capacity for each event
+      const reservations = await storageService.getReservations();
+      const eventsWithCapacity = events.map(event => {
+        // Count confirmed persons for this event (exclude cancelled/rejected)
+        const confirmedReservations = reservations.filter(
+          r => r.eventId === event.id && 
+               r.status !== 'cancelled' && 
+               r.status !== 'rejected'
+        );
+        
+        const bookedPersons = confirmedReservations.reduce(
+          (total, r) => total + r.numberOfPersons, 
+          0
+        );
+        
+        const remainingCapacity = event.capacity - bookedPersons;
+        
+        console.log(`📊 Event ${event.id.substring(0, 8)} capacity:`, {
+          capacity: event.capacity,
+          booked: bookedPersons,
+          remaining: remainingCapacity,
+          reservations: confirmedReservations.length
+        });
+        
+        return {
+          ...event,
+          remainingCapacity: Math.max(0, remainingCapacity) // Never negative
+        };
+      });
+      
       return {
         success: true,
-        data: events
+        data: eventsWithCapacity
       };
     } catch (error) {
       return {
@@ -153,9 +195,32 @@ export const apiService = {
       const events = allEvents.filter(event => 
         event.date >= startDate && event.date <= endDate
       );
+      
+      // ✨ CRITICAL FIX: Calculate remaining capacity for filtered events
+      const reservations = await storageService.getReservations();
+      const eventsWithCapacity = events.map(event => {
+        const confirmedReservations = reservations.filter(
+          r => r.eventId === event.id && 
+               r.status !== 'cancelled' && 
+               r.status !== 'rejected'
+        );
+        
+        const bookedPersons = confirmedReservations.reduce(
+          (total, r) => total + r.numberOfPersons, 
+          0
+        );
+        
+        const remainingCapacity = event.capacity - bookedPersons;
+        
+        return {
+          ...event,
+          remainingCapacity: Math.max(0, remainingCapacity)
+        };
+      });
+      
       return {
         success: true,
-        data: events
+        data: eventsWithCapacity
       };
     } catch (error) {
       return {
@@ -202,17 +267,34 @@ export const apiService = {
 
     let bookingStatus: Availability['bookingStatus'] = 'open';
     
-    if (!available) {
-      if (reason === 'Booking deadline passed') bookingStatus = 'cutoff';
-      else if (reason === 'Event is sold out') bookingStatus = 'full';
-      else if (event.type === 'REQUEST') bookingStatus = 'request';
-      else bookingStatus = 'closed';
+    // ✨ FIXED: Check capacity FIRST before other availability checks
+    // This ensures full events get 'full' status even if available is true
+    if (remainingCapacity <= 0) {
+      bookingStatus = 'full';
+      console.log(`🚨 Event ${eventId.substring(0, 8)} is FULL - capacity: ${event.capacity}, remaining: ${remainingCapacity}`);
+    } else if (!available) {
+      // Event is blocked due to date/cutoff/closed reasons
+      if (reason === 'Booking deadline passed' || reason === 'Booking closed - less than 2 days before event') {
+        bookingStatus = 'cutoff';
+      } else if (event.type === 'REQUEST') {
+        bookingStatus = 'request';
+      } else {
+        bookingStatus = 'closed';
+      }
     } else if (event.type === 'REQUEST') {
       bookingStatus = 'request';
     } else if (remainingCapacity <= 10 && remainingCapacity > 0) {
-      bookingStatus = 'open'; // ✨ Changed: Keep status as 'open' but with warning
+      bookingStatus = 'open'; // ✨ Keep status as 'open' but with warning
+      console.log(`⚠️ Event ${eventId.substring(0, 8)} nearly full - ${remainingCapacity} spots remaining`);
       // Frontend can show "Beperkt beschikbaar" or "Bijna uitverkocht"
     }
+
+    console.log(`📋 getAvailability for ${eventId.substring(0, 8)}:`, {
+      bookingStatus,
+      remainingCapacity,
+      available,
+      reason
+    });
 
     return {
       success: true,
@@ -362,25 +444,64 @@ export const apiService = {
       const reservation = await storageService.addReservation(reservationData);
       console.log('✅ [API] Reservation created with Firestore ID:', reservation.id);
 
-      // ✨ SEND EMAIL NOTIFICATIONS
+      // ✨ SEND EMAIL NOTIFICATIONS - ALWAYS FORCE SEND
       try {
-        console.log('📧 [API] Sending email notifications for new reservation...');
+        console.log('📧 [API] FORCE SENDING email notifications for new reservation...');
+        console.log('📧 [API] Environment check:', {
+          isDev: import.meta.env.DEV,
+          forceEmail: import.meta.env.VITE_FORCE_EMAIL_IN_DEV,
+          emailFrom: import.meta.env.VITE_EMAIL_FROM
+        });
+        
         const events = await storageService.getEvents();
-        const event = events.find(e => e.id === eventId);
-        if (event) {
-          // For pending reservations, send "in review" email to customer
-          const emailResult = await emailService.sendPendingReservationNotification(reservation, event);
-          if (emailResult.success) {
-            console.log('✅ [API] Email notifications sent successfully');
-          } else {
-            console.error('⚠️ [API] Email notifications failed:', emailResult.error);
-          }
+        console.log('📧 [API] Found events:', events.length);
+        
+        let event = events.find(e => e.id === eventId);
+        console.log('📧 [API] Found matching event:', event ? event.id : 'NOT FOUND');
+        
+        // ✨ FORCE EMAIL SENDING - Create mock event if not found
+        if (!event) {
+          console.log('📧 [API] Event not found - creating mock event for email sending...');
+          event = {
+            id: eventId,
+            date: reservation.eventDate || new Date(),
+            startsAt: '19:30',
+            endsAt: '22:30',
+            doorsOpen: '19:00',
+            type: 'REGULAR' as const,
+            showId: 'mock-show',
+            capacity: 100,
+            isActive: true,
+            bookingOpensAt: new Date(),
+            bookingClosesAt: new Date(),
+            allowedArrangements: ['BWF', 'BWFM'] as const
+          };
+          console.log('📧 [API] Created mock event for email:', event.id);
+        }
+        
+        // ✨ ALWAYS TRY TO SEND EMAIL - Don't let missing events stop emails
+        console.log('📧 [API] Calling emailService.sendReservationConfirmation...');
+        console.log('📧 [API] Reservation:', { id: reservation.id, email: reservation.email });
+        console.log('📧 [API] Event:', { id: event.id, date: event.date });
+        
+        // Send both admin and customer emails
+        const emailResult = await emailService.sendReservationConfirmation(reservation, event);
+        
+        console.log('📧 [API] Email result:', emailResult);
+        
+        if (emailResult.success) {
+          console.log('✅ [API] Email notifications sent successfully');
         } else {
-          console.error('⚠️ [API] Could not send emails - event not found');
+          console.error('⚠️ [API] Email notifications failed:', emailResult.error);
         }
       } catch (error) {
         console.error('❌ [API] Email notification error:', error);
+        if (error instanceof Error) {
+          console.error('❌ [API] Error stack:', error.stack);
+        }
         // Don't fail the reservation if email fails
+      } finally {
+        console.log('📧 [API] Email notification attempt completed');
       }
 
       // ✨ FIXED: Capacity IS updated immediately when reservation is placed
@@ -427,8 +548,21 @@ export const apiService = {
         const reservations = allReservations.filter(r => r.eventId === event.id);
         const revenue = reservations.reduce((sum, res) => sum + res.totalPrice, 0);
         
+        // ✨ CRITICAL FIX: Calculate remaining capacity for admin view
+        const confirmedReservations = reservations.filter(
+          r => r.status !== 'cancelled' && r.status !== 'rejected'
+        );
+        
+        const bookedPersons = confirmedReservations.reduce(
+          (total, r) => total + r.numberOfPersons, 
+          0
+        );
+        
+        const remainingCapacity = event.capacity - bookedPersons;
+        
         return {
           ...event,
+          remainingCapacity: Math.max(0, remainingCapacity),
           reservations,
           revenue
         };
@@ -793,6 +927,17 @@ export const apiService = {
     await delay(300);
     
     try {
+      // Get the reservation before updating to check capacity changes
+      const reservations = await storageService.getReservations();
+      const reservation = reservations.find(r => r.id === reservationId);
+      
+      if (!reservation) {
+        return {
+          success: false,
+          error: 'Reservation not found'
+        };
+      }
+
       const success = await storageService.updateReservation(reservationId, { 
         status,
         updatedAt: new Date()
@@ -805,12 +950,17 @@ export const apiService = {
         };
       }
       
-      const reservations = await storageService.getReservations();
-      const reservation = reservations.find(r => r.id === reservationId)!;
+      // ✨ AUTO-DEACTIVATE WAITLIST: Check if capacity freed up when changing to cancelled/rejected
+      if ((status === 'cancelled' || status === 'rejected') && reservation.eventId) {
+        await apiService.checkAndDeactivateWaitlistIfCapacityAvailable(reservation.eventId);
+      }
+      
+      const updatedReservations = await storageService.getReservations();
+      const updatedReservation = updatedReservations.find(r => r.id === reservationId)!;
       
       return {
         success: true,
-        data: reservation,
+        data: updatedReservation,
         message: 'Reservation status updated successfully'
       };
     } catch (error) {
@@ -872,6 +1022,10 @@ export const apiService = {
     await delay(200);
     
     try {
+      // Get reservation data before deletion for capacity check
+      const reservations = await storageService.getReservations();
+      const reservation = reservations.find(r => r.id === reservationId);
+      
       console.log('🗑️ [API] Calling storageService.deleteReservation');
       const success = await storageService.deleteReservation(reservationId);
       console.log('🗑️ [API] storageService.deleteReservation returned:', success);
@@ -882,6 +1036,11 @@ export const apiService = {
           success: false,
           error: 'Reservation not found'
         };
+      }
+      
+      // ✨ AUTO-DEACTIVATE WAITLIST: Check if capacity freed up after deletion
+      if (reservation && reservation.eventId) {
+        await apiService.checkAndDeactivateWaitlistIfCapacityAvailable(reservation.eventId);
       }
       
       console.log('✅ [API] Delete successful');
@@ -1178,6 +1337,9 @@ export const apiService = {
           });
           
           console.log(`✅ Capacity restored for event ${event.id}: ${currentRemaining} -> ${newRemaining} (freed ${reservation.numberOfPersons} spots)`);
+          
+          // ✨ AUTO-DEACTIVATE WAITLIST: Check if waitlist should be deactivated
+          await apiService.checkAndDeactivateWaitlistIfCapacityAvailable(event.id);
         }
       }
 
@@ -2601,6 +2763,49 @@ export const apiService = {
         success: false,
         error: 'Failed to process payment webhook'
       };
+    }
+  },
+
+  // ✨ AUTO-DEACTIVATE WAITLIST: Check if waitlist should be deactivated when capacity becomes available
+  async checkAndDeactivateWaitlistIfCapacityAvailable(eventId: string): Promise<void> {
+    try {
+      console.log(`🔍 [AUTO-WAITLIST] Checking if waitlist should be deactivated for event ${eventId}...`);
+      
+      // Get current event data including waitlist status
+      const events = await storageService.getEvents();
+      const event = events.find(e => e.id === eventId);
+      
+      if (!event) {
+        console.log(`⚠️ [AUTO-WAITLIST] Event ${eventId} not found`);
+        return;
+      }
+      
+      if (!event.waitlistActive) {
+        console.log(`ℹ️ [AUTO-WAITLIST] Waitlist already inactive for event ${eventId}`);
+        return;
+      }
+      
+      // Get current capacity status
+      const eventResponse = await this.getEvent(eventId);
+      if (!eventResponse.success || !eventResponse.data) {
+        console.log(`⚠️ [AUTO-WAITLIST] Failed to get event data for ${eventId}`);
+        return;
+      }
+      
+      const eventData = eventResponse.data;
+      const remainingCapacity = eventData.remainingCapacity || 0;
+      
+      console.log(`📊 [AUTO-WAITLIST] Event ${eventId} - Remaining capacity: ${remainingCapacity}, Waitlist active: ${event.waitlistActive}`);
+      
+      // If there's capacity available, deactivate waitlist
+      if (remainingCapacity > 0) {
+        await storageService.updateEvent(eventId, { waitlistActive: false });
+        console.log(`🟢 Waitlist AUTO-DEACTIVATED for event ${eventId} - Remaining capacity: ${remainingCapacity}`);
+      } else {
+        console.log(`🔴 [AUTO-WAITLIST] Event ${eventId} still full (capacity: ${remainingCapacity}), keeping waitlist active`);
+      }
+    } catch (error) {
+      console.error(`❌ [AUTO-WAITLIST] Error checking waitlist status for event ${eventId}:`, error);
     }
   }
 };

@@ -18,6 +18,7 @@ import {
   hexToRgba,
   getEventTypeName
 } from '../utils/eventColors';
+import { filterActiveEvents } from '../utils/eventArchiving';
 import { nl } from '../config/defaults';
 
 interface CalendarProps {
@@ -45,6 +46,12 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
   const { loadWaitlistStatusForDates } = useWaitlistStore();
   const [waitlistCounts, setWaitlistCounts] = useState<Record<string, number>>({});
 
+  // ✨ NEW: Filter out archived events for customer view
+  // Events are automatically archived when date has passed or inactive
+  const activeEvents = useMemo(() => {
+    return filterActiveEvents(events);
+  }, [events]);
+
   // 🔧 FIX: Load shows and config only once on mount (not on every render)
   useEffect(() => {
     loadShows();
@@ -61,7 +68,7 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
   // ✨ NEW: Load waitlist status for current month
   useEffect(() => {
     const loadWaitlistData = async () => {
-      const monthEvents = events.filter(event => 
+      const monthEvents = activeEvents.filter(event => 
         isInCurrentMonth(event.date, currentMonth)
       );
       
@@ -75,11 +82,34 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
     loadWaitlistData();
     // ⚠️ Intentionally excluding loadWaitlistStatusForDates from deps to prevent infinite loop
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [events, currentMonth]);
+  }, [activeEvents, currentMonth]);
 
-  // ✨ OPTIMIZED: Hover-based lazy loading for availability (October 2025)
-  // Instead of loading all availabilities on mount, we load them on hover
-  const [hoverTimers, setHoverTimers] = useState<Record<string, number>>({});
+  // ✨ CRITICAL FIX: Load availability for all visible events immediately
+  // Previously used hover-based lazy loading, but that caused inconsistent WACHTLIJST display
+  useEffect(() => {
+    const loadAllAvailability = async () => {
+      const visibleEvents = activeEvents.filter(event => 
+        isInCurrentMonth(event.date, currentMonth)
+      );
+      
+      // Load availability for all events that don't have it yet
+      const promises = visibleEvents
+        .filter(event => !eventAvailability[event.id])
+        .map(event => loadEventAvailability(event.id));
+      
+      if (promises.length > 0) {
+        console.log(`🔄 Loading availability for ${promises.length} events in calendar`);
+        await Promise.all(promises);
+        console.log(`✅ Loaded availability for all calendar events`);
+      }
+    };
+    
+    loadAllAvailability();
+  }, [activeEvents, currentMonth, eventAvailability, loadEventAvailability]);
+
+  // ✨ KEEP: Hover-based loading for additional performance (optional)
+  // This is now backup - main loading happens in useEffect above
+  const [hoverTimers, setHoverTimers] = useState<Record<string, NodeJS.Timeout>>({});
 
   const handleDayHover = useCallback((event: Event | undefined) => {
     if (!event || eventAvailability[event.id]) {
@@ -163,8 +193,8 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
   }, [currentMonth]);
 
   const eventsMap = useMemo(() => {
-    return new Map(events.map(event => [event.date.toDateString(), event]));
-  }, [events]);
+    return new Map(activeEvents.map(event => [event.date.toDateString(), event]));
+  }, [activeEvents]);
 
   const getDayClassName = useCallback((date: Date, event?: Event): string => {
     const isCurrentMonth = isInCurrentMonth(date, currentMonth);
@@ -213,9 +243,9 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
       setCurrentMonth(newDate);
     };
     
-    // Get unique years from events (only future events)
+    // Get unique years from events (only future active events)
     const eventYears = new Set<number>();
-    events.forEach(event => {
+    activeEvents.forEach(event => {
       const eventDate = new Date(event.date);
       if (eventDate >= today) {
         eventYears.add(eventDate.getFullYear());
@@ -229,9 +259,9 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
       yearOptions.sort((a, b) => a - b);
     }
     
-    // Check which months have events for the selected year
+    // Check which months have active events for the selected year
     const monthsWithEvents = new Set<number>();
-    events.forEach(event => {
+    activeEvents.forEach(event => {
       const eventDate = new Date(event.date);
       if (eventDate >= today && eventDate.getFullYear() === currentYear) {
         monthsWithEvents.add(eventDate.getMonth());
@@ -454,7 +484,7 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
                               'bg-red-600 text-white': isSelected
                             }
                           )}>
-                            WACHTLIJST {waitlistCount > 0 && `(${waitlistCount})`}
+                            VOL - WACHTLIJST {waitlistCount > 0 && `(${waitlistCount})`}
                           </div>
                         );
                       } else if (availability.bookingStatus === 'request') {
@@ -495,7 +525,7 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
     );
   };
 
-  const currentMonthEvents = events.filter(event => 
+  const currentMonthEvents = activeEvents.filter(event => 
     isInCurrentMonth(event.date, currentMonth)
   );
 

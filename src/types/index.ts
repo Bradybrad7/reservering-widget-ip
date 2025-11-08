@@ -1,8 +1,14 @@
+// Import email types
+import type { EmailLog, EmailSettings, WaitlistBookingToken } from './email';
+
+// Re-export email types for convenience
+export type { EmailLog, EmailSettings, EmailTypeToggles, EmailTemplate, EmailType, EmailTrigger, EmailStatus, WaitlistBookingToken } from './email';
+
 // Core enums and types
 // EventType is now dynamic and matches event type keys from configuration
 // Common types: 'weekday', 'weekend', 'matinee', 'care_heroes', 'special_event', etc.
 export type EventType = string;
-export type Arrangement = 'BWF' | 'BWFM';
+export type Arrangement = 'Standard' | 'Premium' | 'BWF' | 'BWFM';
 // DayType is now dynamic and matches event type keys
 export type DayType = string;
 export type Salutation = 'Dhr' | 'Mevr' | '';
@@ -214,6 +220,8 @@ export interface GlobalConfig {
   };
   // ✨ NEW: Voucher-specific settings
   voucherShippingCost?: number; // Verzendkosten voor vouchers (default: 3.95)
+  // ✨ NEW: Email settings
+  emailSettings?: EmailSettings; // Email toggle configuration
 }
 
 // Booking rules
@@ -407,6 +415,7 @@ export interface Reservation extends CustomerFormData {
   notes?: string; // Admin notes
   checkedInAt?: Date; // NEW: Check-in timestamp
   checkedInBy?: string; // NEW: Who performed the check-in
+  emailLog?: EmailLog[]; // ✨ NEW: Email history for this reservation
   
   // 🆕 OPTION SYSTEM: Temporary 1-week hold (October 2025)
   // When status = 'option': minimal booking info (naam, adres, telefoon)
@@ -448,6 +457,7 @@ export interface WaitlistEntry {
   contactedAt?: Date;
   contactedBy?: string;
   convertedToReservationId?: string; // If converted to actual reservation
+  emailLog?: EmailLog[]; // ✨ NEW: Email history for waitlist communications
 }
 
 // Availability response
@@ -699,7 +709,7 @@ export type AdminSection =
   | 'events'         // All event management (tabs: overview, calendar, templates, shows, types)
   | 'reservations'   // All reservations with filter tabs (all, pending, confirmed, cancelled)
   | 'waitlist'       // Waitlist management (separate workflow)
-  | 'payments'       // Payment overview & deadline management (1 week before event)
+  | 'payments'       // Payment overview & deadline management (factuur 3 weken voor voorstelling, betaling 2 weken voor voorstelling)
   | 'archive'        // Archived/deleted reservations
   | 'checkin'        // Check-in system (day-of workflow)
   | 'customers'      // CRM & customer management

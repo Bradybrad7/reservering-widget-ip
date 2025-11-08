@@ -11,6 +11,7 @@ import type {
 import { apiService } from '../services/apiService';
 import { emailService } from '../services/emailService';
 import { auditLogger } from '../services/auditLogger';
+import { cacheReservations } from '../services/dataCache';
 import { findChanges } from '../utils/findChanges';
 import { eventBus, ReservationEvents, type CapacityFreedData } from '../services/eventBus';
 import { validateReservationUpdate, isValidStatusTransition } from '../utils/validators';
@@ -113,6 +114,44 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
     // Actions
     loadReservations: async () => {
       console.log('🔄 [STORE] loadReservations called');
+      set({ isLoadingReservations: true });
+      try {
+        // ✨ Use cache with stale-while-revalidate
+        const cachedData = await cacheReservations.get(async () => {
+          const response = await apiService.getAdminReservations();
+          console.log('🔄 [STORE] API response:', {
+            success: response.success,
+            count: response.data?.length,
+            ids: response.data?.map(r => r.id)
+          });
+          
+          if (response.success && response.data) {
+            // 🔧 FIX: Filter out any old timestamp-based IDs (these are invalid)
+            const validReservations = response.data.filter(r => {
+              const isValid = /^res-\d{1,6}$/.test(r.id);
+              if (!isValid) {
+                console.warn('⚠️ [STORE] Filtering out invalid reservation ID:', r.id);
+              }
+              return isValid;
+            });
+            
+            console.log('✅ [STORE] Valid reservations:', validReservations.length);
+            return validReservations;
+          }
+          throw new Error(response.error || 'Failed to load reservations');
+        });
+        
+        console.log('✅ [STORE] Setting reservations in state:', cachedData.length);
+        set({ reservations: cachedData, isLoadingReservations: false });
+      } catch (error) {
+        console.error('❌ [STORE] Failed to load reservations:', error);
+        set({ isLoadingReservations: false });
+      }
+    },
+    
+    // Keep old implementation for fallback
+    __loadReservationsUncached: async () => {
+      console.log('🔄 [STORE] loadReservations called (UNCACHED)');
       set({ isLoadingReservations: true });
       try {
         const response = await apiService.getAdminReservations();
@@ -250,6 +289,10 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
       
       if (response.success) {
         console.log('✅ [STORE] API call successful, updating Zustand state...');
+        
+        // ✨ Invalidate cache on update
+        cacheReservations.invalidate();
+        
         // Update state
         set(state => ({
           reservations: state.reservations.map(r =>
@@ -311,7 +354,11 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
         // Send email notification if confirmed
         if (status === 'confirmed') {
           console.log('📧 [STORE] Sending confirmation email...');
-          await emailService.sendConfirmation(reservation);
+          console.log('📧 [STORE] Note: Email service will handle event lookup internally');
+          
+          // For now, skip email sending from status update
+          // Email is already sent when reservation is created via apiService
+          console.log('📧 [STORE] Skipping email - already sent during reservation creation');
         }
         
         // ⚡ AUTOMATION: Emit capacity freed event via EventBus when cancelled
