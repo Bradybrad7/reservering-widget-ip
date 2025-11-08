@@ -1,4 +1,4 @@
-import React, { memo, useState } from 'react';
+import React, { memo, useState, useEffect, useRef } from 'react';
 import { Calculator, Calendar as CalendarIcon, Users, CreditCard, Clock, Tag, X } from 'lucide-react';
 // Types imported through store
 import { useReservationStore } from '../store/reservationStore';
@@ -24,12 +24,17 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
     isSubmitting,
     goToNextStep,
     updateFormData,
+    setCurrentStep, // ✨ NEW: For interactive edit buttons
   } = useReservationStore();
 
   // Discount code state
   const [discountCode, setDiscountCode] = useState('');
   const [appliedCode, setAppliedCode] = useState<string | null>(null);
   const [discountError, setDiscountError] = useState<string | null>(null);
+  
+  // ✨ NEW: Price flash animation state
+  const [showPriceFlash, setShowPriceFlash] = useState(false);
+  const previousPriceRef = useRef<number | null>(null);
 
   // Check if waitlist is manually activated (not based on capacity)
   const isWaitlistActive = selectedEvent?.waitlistActive === true;
@@ -81,6 +86,28 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
     updateFormData({ promotionCode: undefined, voucherCode: undefined });
   };
 
+  // ✨ NEW: Detect price changes and trigger flash animation
+  useEffect(() => {
+    if (!priceCalculation) return;
+    
+    const currentPrice = priceCalculation.totalPrice;
+    
+    // Only animate if price actually changed (not initial render)
+    if (previousPriceRef.current !== null && previousPriceRef.current !== currentPrice) {
+      setShowPriceFlash(true);
+      
+      // Remove flash class after animation completes
+      const timer = setTimeout(() => {
+        setShowPriceFlash(false);
+      }, 1000); // Match animation duration in CSS
+      
+      return () => clearTimeout(timer);
+    }
+    
+    // Update ref for next comparison
+    previousPriceRef.current = currentPrice;
+  }, [priceCalculation?.totalPrice]);
+
   if (!selectedEvent) {
     return (
       <div className={cn('card-theatre p-4 rounded-2xl animate-fade-in', className)}>
@@ -104,16 +131,29 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
 
   const renderEventInfo = () => (
     <div className="space-y-2">
-      <div className="flex items-start space-x-3">
-        <CalendarIcon className="w-5 h-5 text-primary-500 mt-0.5" />
-        <div>
-          <p className="font-semibold text-text-primary text-sm">
-            {formatDate(selectedEvent.date)}
-          </p>
-          <p className="text-xs text-text-muted">
-            {getEventTypeName(selectedEvent.type)}
-          </p>
+      {/* ✨ ENHANCED: Date with edit button */}
+      <div className="flex items-start justify-between group">
+        <div className="flex items-start space-x-3 flex-1">
+          <CalendarIcon className="w-5 h-5 text-primary-500 mt-0.5" />
+          <div>
+            <p className="font-semibold text-text-primary text-sm">
+              {formatDate(selectedEvent.date)}
+            </p>
+            <p className="text-xs text-text-muted">
+              {getEventTypeName(selectedEvent.type)}
+            </p>
+          </div>
         </div>
+        <button
+          onClick={() => setCurrentStep('calendar')}
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-primary-500/20 text-primary-400 hover:text-primary-300"
+          title="Wijzig datum"
+          aria-label="Wijzig datum"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+          </svg>
+        </button>
       </div>
 
       <div className="flex items-center space-x-3">
@@ -128,21 +168,47 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
         </div>
       </div>
 
+      {/* ✨ ENHANCED: Number of persons with edit button */}
       {formData.numberOfPersons && (
-        <div className="flex items-center space-x-3">
-          <Users className="w-5 h-5 text-primary-500" />
-          <p className="text-xs text-text-primary">
-            {formData.numberOfPersons} {formData.numberOfPersons === 1 ? 'persoon' : 'personen'}
-          </p>
+        <div className="flex items-center justify-between group">
+          <div className="flex items-center space-x-3">
+            <Users className="w-5 h-5 text-primary-500" />
+            <p className="text-xs text-text-primary">
+              {formData.numberOfPersons} {formData.numberOfPersons === 1 ? 'persoon' : 'personen'}
+            </p>
+          </div>
+          <button
+            onClick={() => setCurrentStep('persons')}
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-primary-500/20 text-primary-400 hover:text-primary-300"
+            title="Wijzig aantal personen"
+            aria-label="Wijzig aantal personen"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+          </button>
         </div>
       )}
 
+      {/* ✨ ENHANCED: Arrangement with edit button */}
       {formData.arrangement && (
-        <div className="flex items-center space-x-3">
-          <CreditCard className="w-5 h-5 text-primary-500" />
-          <p className="text-xs text-text-primary">
-            {nl.arrangements[formData.arrangement]}
-          </p>
+        <div className="flex items-center justify-between group">
+          <div className="flex items-center space-x-3">
+            <CreditCard className="w-5 h-5 text-primary-500" />
+            <p className="text-xs text-text-primary">
+              {(nl.arrangements as Record<string, string>)[formData.arrangement]}
+            </p>
+          </div>
+          <button
+            onClick={() => setCurrentStep('package')}
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-primary-500/20 text-primary-400 hover:text-primary-300"
+            title="Wijzig arrangement"
+            aria-label="Wijzig arrangement"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+          </button>
         </div>
       )}
     </div>
@@ -182,7 +248,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
         <div className="flex justify-between items-center p-2 bg-gradient-to-br from-primary-500/15 to-primary-600/10 rounded-lg border border-primary-500/30 backdrop-blur-sm">
           <div className="flex-1">
             <p className="text-xs font-semibold text-text-primary">
-              {nl.arrangements[priceCalculation.breakdown.arrangement.type]}
+              {(nl.arrangements as Record<string, string>)[priceCalculation.breakdown.arrangement.type]}
             </p>
             <p className="text-[10px] text-text-muted">
               {priceCalculation.breakdown.arrangement.persons} × {formatCurrency(priceCalculation.breakdown.arrangement.pricePerPerson)}
@@ -193,9 +259,9 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
           </p>
         </div>
 
-        {/* Pre-drink - Zwart/Goud */}
+        {/* ✨ ENHANCED: Pre-drink with edit button */}
         {priceCalculation.breakdown.preDrink && (
-          <div className="flex justify-between items-center p-2 bg-gradient-to-br from-info-500/15 to-info-600/10 rounded-lg border border-info-400/30 backdrop-blur-sm">
+          <div className="group relative flex justify-between items-center p-2 bg-gradient-to-br from-info-500/15 to-info-600/10 rounded-lg border border-info-400/30 backdrop-blur-sm">
             <div className="flex-1">
               <p className="text-xs font-semibold text-text-primary flex items-center gap-2">
                 🍹 {nl.summary.preDrink}
@@ -204,15 +270,27 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
                 {priceCalculation.breakdown.preDrink.persons} × {formatCurrency(priceCalculation.breakdown.preDrink.pricePerPerson)}
               </p>
             </div>
-            <p className="font-bold text-info-300 text-sm">
-              {formatCurrency(priceCalculation.breakdown.preDrink.total)}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="font-bold text-info-300 text-sm">
+                {formatCurrency(priceCalculation.breakdown.preDrink.total)}
+              </p>
+              <button
+                onClick={() => setCurrentStep('package')}
+                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-info-500/30 text-info-300 hover:text-info-200"
+                title="Wijzig add-ons"
+                aria-label="Wijzig add-ons"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </button>
+            </div>
           </div>
         )}
 
-        {/* After party - Zwart/Goud */}
+        {/* ✨ ENHANCED: After party with edit button */}
         {priceCalculation.breakdown.afterParty && (
-          <div className="flex justify-between items-center p-2 bg-gradient-to-br from-secondary-500/15 to-secondary-600/10 rounded-lg border border-secondary-400/30 backdrop-blur-sm">
+          <div className="group relative flex justify-between items-center p-2 bg-gradient-to-br from-secondary-500/15 to-secondary-600/10 rounded-lg border border-secondary-400/30 backdrop-blur-sm">
             <div className="flex-1">
               <p className="text-xs font-semibold text-text-primary flex items-center gap-2">
                 🎉 {nl.summary.afterParty}
@@ -221,16 +299,40 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
                 {priceCalculation.breakdown.afterParty.persons} × {formatCurrency(priceCalculation.breakdown.afterParty.pricePerPerson)}
               </p>
             </div>
-            <p className="font-bold text-secondary-400 text-sm">
-              {formatCurrency(priceCalculation.breakdown.afterParty.total)}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="font-bold text-secondary-400 text-sm">
+                {formatCurrency(priceCalculation.breakdown.afterParty.total)}
+              </p>
+              <button
+                onClick={() => setCurrentStep('package')}
+                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-secondary-500/30 text-secondary-400 hover:text-secondary-300"
+                title="Wijzig add-ons"
+                aria-label="Wijzig add-ons"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </button>
+            </div>
           </div>
         )}
 
-        {/* Merchandise */}
+        {/* ✨ ENHANCED: Merchandise with edit button */}
         {priceCalculation.breakdown.merchandise && priceCalculation.breakdown.merchandise.items.length > 0 && (
-          <div className="pt-2 border-t border-primary-500/20">
-            <p className="text-sm font-semibold text-text-primary mb-1.5">Merchandise</p>
+          <div className="pt-2 border-t border-primary-500/20 group">
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-sm font-semibold text-text-primary">Merchandise</p>
+              <button
+                onClick={() => setCurrentStep('merchandise')}
+                className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-primary-500/20 text-primary-400 hover:text-primary-300"
+                title="Wijzig merchandise"
+                aria-label="Wijzig merchandise"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </button>
+            </div>
             <div className="space-y-1.5 pl-2">
               {priceCalculation.breakdown.merchandise.items.map((item) => (
                 <div key={item.id} className="flex justify-between items-center">
@@ -263,8 +365,11 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
           </div>
         )}
 
-        {/* Total - Enhanced Goud Glow */}
-        <div className="mt-4 p-4 bg-gold-gradient rounded-2xl border-2 border-primary-500/50 shadow-gold-glow">
+        {/* ✨ ENHANCED: Total with price flash animation */}
+        <div className={cn(
+          "mt-4 p-4 bg-gold-gradient rounded-2xl border-2 border-primary-500/50 shadow-gold-glow transition-all",
+          showPriceFlash && "price-flash"
+        )}>
           <div className="flex justify-between items-center">
             <div>
               <p className="text-sm font-semibold text-text-primary/90 mb-1 flex items-center gap-2">
@@ -274,7 +379,10 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
               <p className="text-xs text-text-primary/80 font-medium">Inclusief BTW</p>
             </div>
             <div className="text-right">
-              <p className="text-3xl md:text-4xl font-black text-text-primary drop-shadow-lg">
+              <p className={cn(
+                "text-3xl md:text-4xl font-black text-text-primary drop-shadow-lg transition-transform",
+                showPriceFlash && "scale-110"
+              )}>
                 {formatCurrency(priceCalculation.totalPrice)}
               </p>
             </div>

@@ -34,10 +34,11 @@ import { cn } from '../../utils';
 import { EventMasterList } from './EventMasterList';
 import { EventDetailPanel } from './EventDetailPanel';
 import { EventCalendarView } from './EventCalendarView';
+import { EventWeekMonthView } from './EventWeekMonthView';
 import { BulkEventModal } from './BulkEventModal';
 import { getEventComputedData } from './EventCommandCenter';
 
-type ViewMode = 'list' | 'calendar' | 'grid';
+type ViewMode = 'list' | 'calendar' | 'grid' | 'week-month';
 
 interface QuickStats {
   totalEvents: number;
@@ -344,6 +345,18 @@ export const EventCommandCenterRevamped: React.FC = () => {
               <CalendarIcon className="w-4 h-4" />
             </button>
             <button
+              onClick={() => setViewMode('week-month')}
+              className={cn(
+                'flex items-center gap-2 px-3 py-1.5 rounded-md transition-all',
+                viewMode === 'week-month'
+                  ? 'bg-gold-500 text-white shadow-md'
+                  : 'text-neutral-300 hover:bg-neutral-600'
+              )}
+              title="Week/Maand overzicht"
+            >
+              <Clock className="w-4 h-4" />
+            </button>
+            <button
               onClick={() => setViewMode('list')}
               className={cn(
                 'flex items-center gap-2 px-3 py-1.5 rounded-md transition-all',
@@ -394,6 +407,24 @@ export const EventCommandCenterRevamped: React.FC = () => {
                     setViewMode('list'); // Switch naar detail view
                   }}
                   selectedEventId={selectedEventId}
+                />
+              </div>
+            )}
+
+            {/* Week/Month View */}
+            {viewMode === 'week-month' && (
+              <div className="h-full overflow-y-auto p-4">
+                <EventWeekMonthView
+                  events={filteredEvents}
+                  reservations={reservations}
+                  onEventClick={(event) => {
+                    setSelectedEventId(event.id);
+                    setViewMode('list'); // Switch naar detail view
+                  }}
+                  onEditEvent={(event) => {
+                    setSelectedEventId(event.id);
+                    setViewMode('list'); // Switch naar detail view
+                  }}
                 />
               </div>
             )}

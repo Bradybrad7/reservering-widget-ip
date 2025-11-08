@@ -32,6 +32,7 @@ import { useEventsStore } from '../../store/eventsStore';
 import { useConfigStore } from '../../store/configStore';
 import { getEventTypeColor, getEventTypeName, hexToRgba } from '../../utils/eventColors';
 import { EventCalendarView } from './EventCalendarView';
+import { DuplicateEventModal } from './DuplicateEventModal'; // ✨ NEW
 
 interface EventMasterListProps {
   events: AdminEvent[];
@@ -63,6 +64,10 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
   const [sortBy, setSortBy] = useState<'date' | 'capacity' | 'bookings'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showStats, setShowStats] = useState(true);
+  
+  // ✨ NEW: Duplicate modal state
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
+  const [eventToDuplicate, setEventToDuplicate] = useState<AdminEvent | null>(null);
 
   // Filter en sorteer events
   const filteredAndSortedEvents = useMemo(() => {
@@ -257,33 +262,15 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
     link.click();
   };
 
-  // 🆕 Duplicate event
-  const duplicateEvent = async (event: AdminEvent) => {
-    // Format date to YYYY-MM-DD
-    let dateStr: string;
-    if (event.date instanceof Date) {
-      dateStr = event.date.toISOString().split('T')[0];
-    } else {
-      dateStr = new Date(event.date).toISOString().split('T')[0];
-    }
-    
-    const newDate = prompt('Nieuwe datum (YYYY-MM-DD):', dateStr);
-    if (!newDate) return;
+  // ✨ ENHANCED: Open duplicate modal instead of prompt
+  const duplicateEvent = (event: AdminEvent) => {
+    setEventToDuplicate(event);
+    setDuplicateModalOpen(true);
+  };
 
-    const newEvent: Omit<AdminEvent, 'id'> = {
-      ...event,
-      date: new Date(newDate),
-    };
-    
-    // Remove the id property
-    const { id, ...eventWithoutId } = newEvent as any;
-
-    try {
-      await useEventsStore.getState().createEvent(eventWithoutId);
-      alert('✅ Evenement gedupliceerd!');
-    } catch (error) {
-      alert('❌ Fout bij dupliceren: ' + error);
-    }
+  const handleDuplicateSuccess = () => {
+    // Optionally reload events or show success message
+    // The modal will handle the actual duplication
   };
 
   // Load config on mount
@@ -766,6 +753,17 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
       </div>
         </>
       )}
+
+      {/* ✨ NEW: Duplicate Event Modal */}
+      <DuplicateEventModal
+        isOpen={duplicateModalOpen}
+        onClose={() => {
+          setDuplicateModalOpen(false);
+          setEventToDuplicate(null);
+        }}
+        event={eventToDuplicate}
+        onSuccess={handleDuplicateSuccess}
+      />
     </div>
   );
 };

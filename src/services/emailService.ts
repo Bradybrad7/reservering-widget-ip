@@ -787,17 +787,18 @@ export const emailService = {
 
   /**
    * Send reservation confirmation email (sends both admin and customer emails)
+   * 🆕 Uses NEW Dark Theatre template system
    */
   async sendReservationConfirmation(
     reservation: Reservation,
     event: Event
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      console.log('📧 [EMAIL] Starting reservation confirmation process...');
+      console.log('📧 [EMAIL] Starting reservation confirmation process (NEW TEMPLATES)...');
       console.log('   Reservation ID:', reservation.id);
       console.log('   Customer email:', reservation.email);
 
-      // 1. Send admin notification first
+      // 1. Send admin notification first (old template - admin prefers simple)
       console.log('\n1️⃣ Sending admin notification...');
       const adminResult = await this.sendAdminNewBookingNotification(reservation, event);
       
@@ -805,20 +806,17 @@ export const emailService = {
         console.error('❌ Admin email failed, but continuing with customer email...');
       }
 
-      // 2. Send pending notification to customer
-      console.log('\n2️⃣ Sending customer pending notification...');
-      const customerTemplate = generateCustomerPendingEmail(reservation, event);
+      // 2. Send customer email with NEW Dark Theatre template
+      console.log('\n2️⃣ Sending customer email (NEW Dark Theatre template)...');
+      const { modernEmailService } = await import('./modernEmailService');
       
-      const customerSuccess = await sendEmail(
-        reservation.email,
-        customerTemplate.subject,
-        customerTemplate.html
-      );
-      
-      if (customerSuccess) {
-        console.log('✅ [CUSTOMER] Pending notification sent to customer');
-      } else {
-        console.log('❌ [CUSTOMER] Failed to send pending notification to customer');
+      let customerSuccess = false;
+      try {
+        await modernEmailService.sendByStatus(reservation, event);
+        customerSuccess = true;
+        console.log('✅ [CUSTOMER] Email sent with new Dark Theatre template');
+      } catch (error) {
+        console.error('❌ [CUSTOMER] Failed to send new template email:', error);
       }
 
       // Consider it successful if at least admin email worked
@@ -826,7 +824,7 @@ export const emailService = {
       
       console.log('\n📊 Email sending summary:');
       console.log('   Admin email:', adminResult.success ? '✅ SUCCESS' : '❌ FAILED');
-      console.log('   Customer email:', customerSuccess ? '✅ SUCCESS' : '❌ FAILED');
+      console.log('   Customer email (NEW):', customerSuccess ? '✅ SUCCESS' : '❌ FAILED');
       console.log('   Overall result:', overallSuccess ? '✅ SUCCESS' : '❌ FAILED');
 
       return { 
@@ -841,31 +839,23 @@ export const emailService = {
 
   /**
    * Send payment confirmation email to customer
+   * 🆕 Uses NEW Dark Theatre template
    */
   async sendPaymentConfirmation(
     reservation: Reservation,
     event: Event
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      console.log('📧 [PAYMENT] Sending payment confirmation...');
+      console.log('📧 [PAYMENT] Sending payment confirmation (NEW TEMPLATE)...');
       console.log('   Reservation ID:', reservation.id);
       console.log('   Customer email:', reservation.email);
 
-      const template = generatePaymentConfirmationEmail(reservation, event);
+      const { modernEmailService } = await import('./modernEmailService');
       
-      const success = await sendEmail(
-        reservation.email,
-        template.subject,
-        template.html
-      );
-      
-      if (success) {
-        console.log('✅ [PAYMENT] Payment confirmation sent to customer');
-      } else {
-        console.log('❌ [PAYMENT] Failed to send payment confirmation');
-      }
+      await modernEmailService.sendPaymentConfirmation(reservation, event);
+      console.log('✅ [PAYMENT] Payment confirmation sent with new Dark Theatre template');
 
-      return { success };
+      return { success: true };
     } catch (error) {
       console.error('❌ [PAYMENT] Error sending payment confirmation:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };

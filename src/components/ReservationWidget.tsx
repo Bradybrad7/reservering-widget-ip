@@ -1,4 +1,4 @@
-import React, { useEffect, lazy, Suspense } from 'react';
+import React, { useEffect, lazy, Suspense, useState } from 'react';
 import type { ReservationWidgetProps } from '../types';
 import { useReservationStore } from '../store/reservationStore';
 import { ToastProvider, useToast, useFormErrorHandler } from './Toast';
@@ -6,6 +6,7 @@ import { StepIndicator } from './StepIndicator';
 import { StepLayout } from './StepLayout';
 import OrderSummary from './OrderSummary';
 import { MobileSummaryBar } from './MobileSummaryBar';
+import DraftRecoveryModal from './DraftRecoveryModal'; // ✨ NEW: Modal voor draft herstel
 import { cn, formatCurrency, formatTime } from '../utils';
 import { nl } from '../config/defaults';
 
@@ -25,6 +26,9 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
   onReservationComplete,
   className
 }) => {
+  // ✨ NEW: State for draft recovery modal
+  const [showDraftModal, setShowDraftModal] = useState(false);
+  
   const {
     currentStep,
     selectedEvent,
@@ -39,7 +43,9 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
     updateFormData,
     goToNextStep,
     goToPreviousStep,
-    setCurrentStep
+    setCurrentStep,
+    clearDraft,
+    reset
   } = useReservationStore();
 
   const { error, success, addToast } = useToast();
@@ -91,26 +97,12 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
         }
       }
       
-      // ✨ Check for draft reservation only if load succeeded
+      // ✨ NEW: Check for draft reservation and show modal
       const store = useReservationStore.getState();
       const draft = store.loadDraftReservation();
       
       if (draft.loaded) {
-        // Show success toast with action button to start fresh
-        addToast({
-          type: 'success',
-          title: 'Concept hersteld! 📋',
-          message: 'We hebben uw eerder ingevulde gegevens teruggeplaatst.',
-          duration: 10000, // Longer duration so user can see the action button
-          action: {
-            label: 'Nieuw beginnen',
-            onClick: () => {
-              store.clearDraft();
-              store.reset();
-              window.location.reload(); // Reload to start completely fresh
-            }
-          }
-        });
+        setShowDraftModal(true);
       }
     };
     
@@ -389,7 +381,7 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
                     </div>
                     <div>
                       <dt className="text-neutral-400">Arrangement</dt>
-                      <dd className="text-white font-medium">{formData.arrangement ? nl.arrangements[formData.arrangement] : '-'}</dd>
+                      <dd className="text-white font-medium">{formData.arrangement ? (nl.arrangements as Record<string, string>)[formData.arrangement] || formData.arrangement : '-'}</dd>
                     </div>
                     {formData.preDrink?.enabled && (
                       <div>
@@ -558,12 +550,14 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
 
   return (
     <div className={cn('w-full max-w-7xl mx-auto p-4 md:p-6', className)}>
-      {/* Step Indicator */}
+      {/* Step Indicator - ✨ ENHANCED: Sticky positioning for better visibility */}
       {currentStep !== 'success' && (
-        <StepIndicator
-          currentStep={currentStep}
-          selectedEvent={!!selectedEvent}
-        />
+        <div className="sticky top-0 z-30 bg-gradient-to-b from-dark-950 via-dark-950/95 to-transparent pb-2 -mx-4 md:-mx-6 px-4 md:px-6 mb-4">
+          <StepIndicator
+            currentStep={currentStep}
+            selectedEvent={!!selectedEvent}
+          />
+        </div>
       )}
 
       {/* Current Step Content */}
@@ -593,6 +587,20 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
           </div>
         </div>
       )}
+
+      {/* ✨ NEW: Draft Recovery Modal */}
+      <DraftRecoveryModal
+        isOpen={showDraftModal}
+        onContinue={() => setShowDraftModal(false)}
+        onStartFresh={() => {
+          clearDraft();
+          reset();
+          setShowDraftModal(false);
+          window.location.reload(); // Reload to start completely fresh
+        }}
+        draftData={formData}
+        draftEvent={selectedEvent}
+      />
     </div>
   );
 };

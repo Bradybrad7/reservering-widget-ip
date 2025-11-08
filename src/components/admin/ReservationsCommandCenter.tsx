@@ -44,7 +44,7 @@ import {
   Star,
   Package
 } from 'lucide-react';
-import type { Reservation, Event } from '../../types';
+import type { Reservation, Event, ReservationTag } from '../../types';
 import { apiService } from '../../services/apiService';
 import { TagConfigService } from '../../services/tagConfigService';
 import { formatCurrency, formatDate, cn } from '../../utils';
@@ -57,6 +57,9 @@ import { ReservationEditModal } from './ReservationEditModal';
 import { SystemMigrationImport } from './SystemMigrationImport';
 import { BulkReservationImport } from './BulkReservationImport';
 import { isOptionExpired, isOptionExpiringSoon } from '../../utils/optionHelpers';
+import { PDFExportManager } from './PDFExportManager';
+import { SimpleBulkImport } from './SimpleBulkImport';
+import { BulkTagModal } from './BulkTagModal'; // ✨ NEW
 
 type ViewMode = 'cards' | 'table' | 'timeline';
 
@@ -113,10 +116,13 @@ export const ReservationsCommandCenter: React.FC = () => {
   const [showMigrationImport, setShowMigrationImport] = useState(false);
   const [showEventSelector, setShowEventSelector] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
+  const [showSimpleImport, setShowSimpleImport] = useState(false);
   const [bulkImportEvent, setBulkImportEvent] = useState<Event | null>(null);
+  const [simpleImportEvent, setSimpleImportEvent] = useState<Event | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+  const [showBulkTagModal, setShowBulkTagModal] = useState(false); // ✨ NEW
 
   const reservations = storeReservations;
 
@@ -407,6 +413,38 @@ export const ReservationsCommandCenter: React.FC = () => {
     }
   };
 
+  // ✨ NEW: Handle bulk tag application
+  const handleBulkApplyTags = async (tags: ReservationTag[], mode: 'add' | 'replace') => {
+    const selectedIds = Array.from(selectedReservations);
+    
+    try {
+      // Update each reservation with new tags
+      for (const id of selectedIds) {
+        const reservation = reservations.find(r => r.id === id);
+        if (!reservation) continue;
+        
+        let newTags: ReservationTag[];
+        if (mode === 'replace') {
+          newTags = tags;
+        } else {
+          // Add mode: merge with existing tags (remove duplicates)
+          const existingTags = reservation.tags || [];
+          newTags = Array.from(new Set([...existingTags, ...tags]));
+        }
+        
+        // Update via API
+        await apiService.updateReservation(id, { tags: newTags });
+      }
+      
+      toast.success('Tags toegepast', `Tags toegepast op ${selectedIds.length} reservering(en)`);
+      clearSelection();
+      await loadReservations();
+    } catch (error) {
+      console.error('Error applying tags:', error);
+      toast.error('Fout', 'Kon tags niet toepassen');
+    }
+  };
+
   const handleExport = async () => {
     // Implementatie voor export
     toast.info('Export', 'Exporteren naar CSV...');
@@ -452,13 +490,36 @@ export const ReservationsCommandCenter: React.FC = () => {
             </button>
 
             <button
-              onClick={() => setShowEventSelector(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-              title="Bulk importeer reserveringen naar specifiek event"
+              onClick={() => {
+                if (events.length === 1) {
+                  setSimpleImportEvent(events[0]);
+                  setShowSimpleImport(true);
+                } else {
+                  // Show event selector for simple import
+                  const selectedEvent = prompt(`Selecteer event ID:\n${events.map(e => `${e.id}: ${formatDate(e.date)} - ${e.type}`).join('\n')}`);
+                  const event = events.find(e => e.id === selectedEvent);
+                  if (event) {
+                    setSimpleImportEvent(event);
+                    setShowSimpleImport(true);
+                  }
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+              title="Importeer alleen basis gegevens (naam, bedrijf, telefoon, email)"
               disabled={events.length === 0}
             >
               <Upload className="w-4 h-4" />
-              <span className="hidden md:inline">Bulk Import</span>
+              <span className="hidden md:inline">Basis Import</span>
+            </button>
+
+            <button
+              onClick={() => setShowEventSelector(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+              title="Bulk importeer complete reserveringen naar specifiek event"
+              disabled={events.length === 0}
+            >
+              <Upload className="w-4 h-4" />
+              <span className="hidden md:inline">Volledig Import</span>
             </button>
             
             <button
@@ -685,6 +746,14 @@ export const ReservationsCommandCenter: React.FC = () => {
                 <XCircle className="w-4 h-4" />
                 Annuleren
               </button>
+              {/* ✨ NEW: Bulk Tag Button */}
+              <button
+                onClick={() => setShowBulkTagModal(true)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors"
+              >
+                <Tag className="w-4 h-4" />
+                Taggen
+              </button>
               <button
                 onClick={handleBulkDelete}
                 className="flex items-center gap-2 px-3 py-1.5 bg-neutral-600 hover:bg-neutral-700 text-white rounded-lg text-sm transition-colors"
@@ -696,6 +765,13 @@ export const ReservationsCommandCenter: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* PDF Export Manager */}
+      <PDFExportManager
+        reservations={reservations}
+        events={events}
+        merchandiseItems={merchandiseItems}
+      />
 
       {/* Content gebied */}
       <div className="flex-1 overflow-hidden">
@@ -722,7 +798,7 @@ export const ReservationsCommandCenter: React.FC = () => {
                       <div
                         key={reservation.id}
                         className={cn(
-                          'bg-neutral-900/50 rounded-lg p-4 border-2 transition-all',
+                          'group bg-neutral-900/50 rounded-lg p-4 border-2 transition-all',
                           isSelected ? 'border-gold-500' : 'border-transparent hover:border-neutral-600'
                         )}
                       >
@@ -878,8 +954,8 @@ export const ReservationsCommandCenter: React.FC = () => {
                           )}
                         </div>
 
-                        {/* Actions */}
-                        <div className="flex items-center gap-2">
+                        {/* ✨ ENHANCED: Actions with hover visibility */}
+                        <div className="flex items-center gap-2 group/actions">
                           <button
                             onClick={() => handleViewDetails(reservation)}
                             className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg text-sm transition-colors"
@@ -888,33 +964,36 @@ export const ReservationsCommandCenter: React.FC = () => {
                             Details
                           </button>
 
-                          {reservation.status === 'pending' && (
-                            <button
-                              onClick={() => handleQuickConfirm(reservation.id)}
-                              className="flex items-center justify-center p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-                              title="Bevestigen"
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                            </button>
-                          )}
+                          {/* Quick actions - hidden by default, visible on card hover */}
+                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {reservation.status === 'pending' && (
+                              <button
+                                onClick={() => handleQuickConfirm(reservation.id)}
+                                className="flex items-center justify-center p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                                title="Bevestigen"
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                              </button>
+                            )}
 
-                          {(reservation.status === 'pending' || reservation.status === 'confirmed') && (
-                            <button
-                              onClick={() => handleQuickReject(reservation.id)}
-                              className="flex items-center justify-center p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-                              title="Annuleren"
-                            >
-                              <XCircle className="w-4 h-4" />
-                            </button>
-                          )}
+                            {(reservation.status === 'pending' || reservation.status === 'confirmed') && (
+                              <button
+                                onClick={() => handleQuickReject(reservation.id)}
+                                className="flex items-center justify-center p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                                title="Annuleren"
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </button>
+                            )}
 
-                          <button
-                            onClick={() => handleEditReservation(reservation)}
-                            className="flex items-center justify-center p-2 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg transition-colors"
-                            title="Bewerken"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
+                            <button
+                              onClick={() => handleEditReservation(reservation)}
+                              className="flex items-center justify-center p-2 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg transition-colors"
+                              title="Bewerken"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -1551,6 +1630,28 @@ export const ReservationsCommandCenter: React.FC = () => {
           }}
         />
       )}
+
+      {showSimpleImport && simpleImportEvent && (
+        <SimpleBulkImport
+          event={simpleImportEvent}
+          onClose={() => {
+            setShowSimpleImport(false);
+            setSimpleImportEvent(null);
+          }}
+          onImportComplete={async () => {
+            await loadReservations();
+            toast.success('Import Voltooid', 'Contacten zijn geïmporteerd. Bewerk ze nu om details toe te voegen.');
+          }}
+        />
+      )}
+
+      {/* ✨ NEW: Bulk Tag Modal */}
+      <BulkTagModal
+        isOpen={showBulkTagModal}
+        onClose={() => setShowBulkTagModal(false)}
+        selectedCount={selectedReservations.size}
+        onApplyTags={handleBulkApplyTags}
+      />
     </div>
   );
 };

@@ -45,6 +45,9 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
   // ✨ NEW: Waitlist support
   const { loadWaitlistStatusForDates } = useWaitlistStore();
   const [waitlistCounts, setWaitlistCounts] = useState<Record<string, number>>({});
+  
+  // ✨ NEW: Finding next available event
+  const [isSearchingNext, setIsSearchingNext] = useState(false);
 
   // ✨ NEW: Filter out archived events for customer view
   // Events are automatically archived when date has passed or inactive
@@ -159,6 +162,52 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
     setCurrentMonth(newMonth);
   }, [currentMonth, setCurrentMonth]);
 
+  // ✨ NEW: Find next month with available events
+  const findNextAvailableMonth = useCallback(async () => {
+    setIsSearchingNext(true);
+    
+    try {
+      const today = new Date();
+      let searchMonth = new Date(currentMonth);
+      searchMonth.setMonth(searchMonth.getMonth() + 1); // Start with next month
+      
+      // Search up to 12 months ahead
+      for (let i = 0; i < 12; i++) {
+        const year = searchMonth.getFullYear();
+        const month = searchMonth.getMonth();
+        
+        // Load events for this month
+        await loadEventsForMonth(year, month);
+        
+        // Check if there are any active events in this month
+        const monthEvents = activeEvents.filter(event => {
+          const eventDate = new Date(event.date);
+          return eventDate.getFullYear() === year && 
+                 eventDate.getMonth() === month &&
+                 eventDate >= today && // Must be in the future
+                 event.isActive;
+        });
+        
+        if (monthEvents.length > 0) {
+          // Found a month with events!
+          setCurrentMonth(searchMonth);
+          setIsSearchingNext(false);
+          return;
+        }
+        
+        // Move to next month
+        searchMonth.setMonth(searchMonth.getMonth() + 1);
+      }
+      
+      // No events found in the next 12 months
+      alert('Er zijn geen evenementen gevonden in de komende 12 maanden.');
+    } catch (error) {
+      console.error('Error finding next available month:', error);
+    } finally {
+      setIsSearchingNext(false);
+    }
+  }, [currentMonth, setCurrentMonth, loadEventsForMonth, activeEvents]);
+
   const handleDateClick = useCallback((_date: Date, event?: Event) => {
     if (event && event.isActive) {
       // Direct selection - availability check is handled in selectEvent
@@ -211,11 +260,11 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
         // Not current month
         'bg-base/30 border-neutral-900 text-text-disabled opacity-50': 
           !isCurrentMonth,
-        // Today indicator
-        'ring-2 ring-primary-500/40': 
+        // Today indicator - ✨ NEW: with pulse animation
+        'ring-2 ring-primary-500/40 pulse-slow': 
           isDateToday && isCurrentMonth && !isSelected,
-        // Selected event - enhanced gold glow
-        'bg-gold-gradient border-primary-500 text-text-primary font-bold shadow-gold-glow scale-105 -translate-y-1': 
+        // Selected event - ✨ ENHANCED: gold glow with fade-in animation
+        'bg-gold-gradient border-primary-500 text-text-primary font-bold shadow-gold-glow scale-105 -translate-y-1 fade-in-glow': 
           isSelected,
         // Empty date
         'bg-elevated/20 border-border-subtle': 
@@ -372,6 +421,13 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
           const isFull = availability?.bookingStatus === 'full';
           const isRequestOnly = availability?.bookingStatus === 'request';
           
+          // ✨ NEW: Check if event is almost full (< 10 plaatsen OR < 15% capacity)
+          const isAlmostFull = availability && 
+            availability.bookingStatus === 'open' && 
+            availability.remainingCapacity !== undefined &&
+            (availability.remainingCapacity < 10 || 
+             (event && availability.remainingCapacity < event.capacity * 0.15));
+          
           // Get event type color from config
           const eventColor = event ? getEventTypeColor(event.type, eventTypesConfig || undefined) : null;
           
@@ -499,6 +555,19 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
                             OP AANVRAAG
                           </div>
                         );
+                      } else if (isAlmostFull && availability.remainingCapacity !== undefined) {
+                        // ✨ NEW: "Bijna vol" indicator
+                        return (
+                          <div className={cn(
+                            "text-[9px] font-bold tracking-tight leading-tight px-1 py-0.5 rounded mt-0.5 flex items-center gap-0.5",
+                            {
+                              'bg-orange-900/60 text-orange-200 border border-orange-500/40': !isSelected,
+                              'bg-orange-500 text-white': isSelected
+                            }
+                          )}>
+                            🔥 NOG {availability.remainingCapacity}
+                          </div>
+                        );
                       } else if (waitlistCount > 0) {
                         // Toon interesse (waitlist count) zonder capaciteitsdata
                         return (
@@ -565,7 +634,28 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
             {currentMonthEvents.length === 0 && (
               <div className="text-center py-8 text-dark-300 bg-neutral-800/30 rounded-xl border-2 border-dashed border-dark-700 mt-3 backdrop-blur-sm">
                 <p className="text-base md:text-lg font-semibold mb-1 text-neutral-300">Geen evenementen deze maand</p>
-                <p className="text-sm">Probeer een andere maand te selecteren</p>
+                <p className="text-sm mb-4">Probeer een andere maand te selecteren</p>
+                
+                <button
+                  onClick={findNextAvailableMonth}
+                  disabled={isSearchingNext}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-dark-950 font-semibold rounded-lg transition-all hover:scale-105 shadow-lg hover:shadow-gold-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSearchingNext ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Zoeken...
+                    </>
+                  ) : (
+                    <>
+                      <ChevronRight className="w-5 h-5" />
+                      Volgende beschikbare maand
+                    </>
+                  )}
+                </button>
               </div>
             )}
           </>
