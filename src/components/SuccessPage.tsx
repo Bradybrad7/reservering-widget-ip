@@ -1,0 +1,556 @@
+import React from 'react';
+import { CheckCircle, Calendar as CalendarIcon, Download, ArrowLeft } from 'lucide-react';
+import { useReservationStore } from '../store/reservationStore';
+import { 
+  formatCurrency, 
+  formatDate, 
+  formatTime, 
+  downloadICalEvent,
+  cn 
+} from '../utils';
+import { nl, getEventTypeName } from '../config/defaults';
+
+interface SuccessPageProps {
+  className?: string;
+  onNewReservation?: () => void;
+}
+
+const SuccessPage: React.FC<SuccessPageProps> = ({ className, onNewReservation }) => {
+  const {
+    completedReservation,
+    selectedEvent,
+    priceCalculation,
+    reset
+  } = useReservationStore();
+
+  if (!completedReservation || !selectedEvent) {
+    return (
+      <div className={cn('text-center py-8 text-text-muted', className)}>
+        Geen reserveringsgegevens gevonden.
+      </div>
+    );
+  }
+
+  const handleNewReservation = () => {
+    reset();
+    onNewReservation?.();
+  };
+
+  const handleDownloadCalendar = () => {
+    const startDateTime = new Date(selectedEvent.date);
+    const [startHours, startMinutes] = selectedEvent.startsAt.split(':');
+    startDateTime.setHours(parseInt(startHours), parseInt(startMinutes));
+
+    const endDateTime = new Date(selectedEvent.date);
+    const [endHours, endMinutes] = selectedEvent.endsAt.split(':');
+    endDateTime.setHours(parseInt(endHours), parseInt(endMinutes));
+
+    const title = `${getEventTypeName(selectedEvent.type)} - Inspiration Point`;
+    const location = 'Inspiration Point, Nederland'; // Update with actual address
+    const description = `Reservering voor ${completedReservation.numberOfPersons} personen\nArrangement: ${nl.arrangements[completedReservation.arrangement]}\nReserveringsnummer: ${completedReservation.id}`;
+
+    downloadICalEvent(
+      title,
+      startDateTime,
+      endDateTime,
+      `reservering-${completedReservation.id}.ics`,
+      location,
+      description
+    );
+  };
+
+  const isWaitlist = completedReservation.status === 'waitlist' || completedReservation.isWaitlist;
+  const isPending = completedReservation.status === 'pending';
+  const requestedOverCapacity = completedReservation.requestedOverCapacity || false;
+
+  // ✨ WAITLIST: Simplified confirmation page
+  if (isWaitlist) {
+    return (
+      <div className={cn('max-w-3xl mx-auto animate-fade-in', className)}>
+        {/* Waitlist Header */}
+        <div className="border-2 rounded-3xl p-8 mb-8 relative overflow-hidden shadow-gold-glow backdrop-blur-sm bg-gradient-to-br from-warning-500/20 to-warning-400/10 border-warning-500/30">
+          {/* Decorative Background Glow */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-warning-500/20 to-transparent rounded-full blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-warning-400/20 to-transparent rounded-full blur-3xl"></div>
+          
+          <div className="relative z-10">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-gold-glow animate-scale-in bg-gradient-to-br from-warning-400 to-warning-600">
+                <CheckCircle className="w-10 h-10 text-white" strokeWidth={2.5} />
+              </div>
+              <div>
+                <h1 className="text-3xl md:text-4xl font-black mb-2 text-shadow text-warning-300">
+                  🔔 Aanmelding Wachtlijst Ontvangen
+                </h1>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-warning-300">
+                    Wachtlijstnummer:
+                  </span>
+                  <span className="text-lg font-black px-3 py-1 rounded-lg shadow-md bg-gradient-to-r from-warning-500 to-warning-600 text-white">
+                    {completedReservation.id}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="card-theatre rounded-2xl p-6 shadow-lifted">
+              <p className="text-lg leading-relaxed font-medium mb-4 text-text-primary">
+                🎭 <strong>Bedankt voor uw interesse!</strong> Helaas is deze voorstelling momenteel volledig volgeboekt.
+              </p>
+              <p className="text-base leading-relaxed text-text-secondary mb-4">
+                U staat nu op de wachtlijst voor deze datum. Zodra er plaatsen vrijkomen, nemen wij zo spoedig mogelijk contact met u op.
+              </p>
+              <div className="p-4 bg-warning-500/10 border-2 border-warning-500/30 rounded-xl">
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">📧</span>
+                  <div>
+                    <p className="font-semibold text-warning-300 mb-2">
+                      Wat gebeurt er nu?
+                    </p>
+                    <ul className="space-y-2 text-sm text-text-secondary">
+                      <li className="flex items-start gap-2">
+                        <span className="text-warning-400 mt-0.5">✓</span>
+                        <span>U ontvangt een bevestiging van uw wachtlijst aanmelding op <strong className="text-text-primary">{completedReservation.email}</strong></span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-warning-400 mt-0.5">✓</span>
+                        <span>Bij vrijkomende plaatsen nemen wij <strong className="text-text-primary">direct</strong> contact met u op</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-warning-400 mt-0.5">📞</span>
+                        <span>Vragen? Bel ons of mail naar <a href="mailto:info@inspiration-point.nl" className="font-bold text-warning-400 hover:text-warning-300 underline">info@inspiration-point.nl</a></span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Basic Details - Only Date, Contact, and Number of Persons */}
+        <div className="card-theatre p-8 mb-8 rounded-2xl">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-gold-gradient rounded-xl flex items-center justify-center shadow-gold">
+              <CalendarIcon className="w-5 h-5 text-text-primary" />
+            </div>
+            <h2 className="text-2xl font-bold text-text-primary text-shadow">
+              Uw Wachtlijst Aanmelding
+            </h2>
+          </div>
+
+          <div className="space-y-4">
+            {/* Event Info */}
+            <div className="flex items-start space-x-3 pb-4 border-b border-border-default">
+              <CalendarIcon className="w-5 h-5 text-primary-500 mt-1" />
+              <div>
+                <p className="font-medium text-text-primary">
+                  {formatDate(selectedEvent.date)}
+                </p>
+                <p className="text-sm text-text-secondary">
+                  {getEventTypeName(selectedEvent.type)}
+                </p>
+                <p className="text-sm text-text-muted">
+                  Deuren: {formatTime(selectedEvent.doorsOpen)} | 
+                  Show: {formatTime(selectedEvent.startsAt)} - {formatTime(selectedEvent.endsAt)}
+                </p>
+              </div>
+            </div>
+
+            {/* Contact Info */}
+            <div className="pb-4 border-b border-border-default">
+              <h3 className="font-semibold text-primary-500 mb-2">Contactgegevens</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-text-secondary">
+                <div>
+                  <p><strong className="text-text-primary">Naam:</strong> {completedReservation.contactPerson}</p>
+                  <p><strong className="text-text-primary">E-mail:</strong> {completedReservation.email}</p>
+                </div>
+                <div>
+                  <p><strong className="text-text-primary">Telefoon:</strong> {completedReservation.phone}</p>
+                  <p><strong className="text-text-primary">Aantal personen:</strong> {completedReservation.numberOfPersons}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="space-y-4">
+          {/* New Reservation */}
+          <button
+            onClick={handleNewReservation}
+            className="group w-full flex items-center justify-center gap-3 py-4 px-8 bg-gold-gradient text-text-primary rounded-xl hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all duration-300 shadow-gold-glow hover:shadow-gold font-bold text-lg active:scale-95 animate-pulse-gold"
+          >
+            <ArrowLeft className="w-6 h-6 transition-transform group-hover:-translate-x-1" strokeWidth={2.5} />
+            <span>Terug naar kalender</span>
+          </button>
+        </div>
+
+        {/* Contact Info */}
+        <div className="mt-8 p-6 bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-2 border-blue-500/30 rounded-2xl shadow-lifted backdrop-blur-sm">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl flex items-center justify-center shadow-lifted flex-shrink-0">
+              <span className="text-2xl">💬</span>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-blue-400 mb-3">Contact</h3>
+              <p className="text-sm text-text-secondary leading-relaxed">
+                Heeft u vragen over uw wachtlijst aanmelding? Neem gerust contact met ons op via{' '}
+                <a href="mailto:info@inspiration-point.nl" className="font-bold text-blue-400 hover:text-blue-300 underline">
+                  info@inspiration-point.nl
+                </a>
+                {' '}of bel ons tijdens kantooruren.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // NORMAL BOOKING SUCCESS PAGE
+  return (
+    <div className={cn('max-w-3xl mx-auto animate-fade-in', className)}>
+      {/* Success Header - Dark Mode */}
+      <div className={cn(
+        "border-2 rounded-3xl p-8 mb-8 relative overflow-hidden shadow-gold-glow backdrop-blur-sm",
+        isWaitlist 
+          ? "bg-gradient-to-br from-danger-500/20 to-warning-500/10 border-danger-500/30"
+          : isPending && requestedOverCapacity
+          ? "bg-gradient-to-br from-warning-500/20 to-warning-400/10 border-warning-500/30"
+          : "bg-gradient-to-br from-primary-500/20 to-secondary-500/10 border-primary-500/30"
+      )}>
+        {/* Decorative Background Glow */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-primary-500/20 to-transparent rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-primary-400/20 to-transparent rounded-full blur-3xl"></div>
+        
+        <div className="relative z-10">
+          <div className="flex items-center gap-4 mb-6">
+            <div className={cn(
+              "w-16 h-16 rounded-2xl flex items-center justify-center shadow-gold-glow animate-scale-in",
+              isWaitlist 
+                ? "bg-red-gradient"
+                : isPending && requestedOverCapacity
+                ? "bg-gradient-to-br from-warning-400 to-warning-600"
+                : "bg-gold-gradient"
+            )}>
+              <CheckCircle className="w-10 h-10 text-white" strokeWidth={2.5} />
+            </div>
+            <div>
+              <h1 className={cn(
+                "text-3xl md:text-4xl font-black mb-2 text-shadow",
+                isWaitlist ? "text-danger-300" : "text-text-primary"
+              )}>
+                {isWaitlist 
+                  ? '🔔 Wachtlijst Aanmelding' 
+                  : isPending 
+                  ? '📋 Aanvraag Ontvangen!' 
+                  : '✅ Reservering Gelukt!'}
+              </h1>
+              <div className="flex items-center gap-2">
+                <span className={cn(
+                  "text-sm font-semibold",
+                  isWaitlist ? "text-danger-300" : isPending ? "text-primary-400" : "text-primary-500"
+                )}>
+                  {isWaitlist ? 'Wachtlijstnummer' : 'Aanvraagnummer'}:
+                </span>
+                <span className={cn(
+                  "text-lg font-black px-3 py-1 rounded-lg shadow-md",
+                  isWaitlist 
+                    ? "bg-danger-600 text-white"
+                    : isPending && requestedOverCapacity
+                    ? "bg-gradient-to-r from-warning-500 to-warning-600 text-white"
+                    : "bg-gold-gradient text-text-primary"
+                )}>
+                  {completedReservation.id}
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="card-theatre rounded-2xl p-6 shadow-lifted">
+            <p className={cn(
+              "text-lg leading-relaxed font-medium mb-4",
+              isWaitlist ? "text-danger-300" : "text-text-secondary"
+            )}>
+              {isWaitlist 
+                ? '🎭 Bedankt voor uw aanmelding op de wachtlijst! Deze datum is momenteel volledig volgeboekt. We nemen contact met u op zodra er een plek vrijkomt. U ontvangt binnenkort een bevestiging per e-mail.'
+                : isPending
+                ? '🎭 Bedankt voor uw aanvraag! Uw reservering is ontvangen en wordt beoordeeld door ons team. U ontvangt binnen 3 werkdagen een definitieve bevestiging of aanvullende informatie per e-mail.'
+                : '🎭 Bedankt voor uw reservering! U ontvangt binnenkort een bevestiging per e-mail met alle details.'
+              }
+            </p>
+            
+            {isPending && (
+              <div className={cn(
+                "p-4 rounded-xl border-2 mt-4",
+                requestedOverCapacity
+                  ? "bg-warning-500/10 border-warning-500/30"
+                  : "bg-blue-500/10 border-blue-500/30"
+              )}>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center mt-0.5">
+                    <span className="text-2xl">📋</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-text-primary mb-2">
+                      Wat gebeurt er nu?
+                    </p>
+                    <ul className="space-y-2 text-sm text-text-secondary">
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-400 mt-0.5">✓</span>
+                        <span>Uw aanvraag wordt <strong className="text-text-primary">binnen 3 werkdagen</strong> beoordeeld door ons team.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-400 mt-0.5">✓</span>
+                        <span>U ontvangt een definitieve bevestiging per e-mail op <strong className="text-text-primary">{completedReservation.email}</strong>.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-400 mt-0.5">📞</span>
+                        <span>Bij vragen kunt u ons bereiken via <a href="mailto:info@inspiration-point.nl" className="font-bold text-blue-400 hover:text-blue-300 underline">info@inspiration-point.nl</a></span>
+                      </li>
+                      {requestedOverCapacity && (
+                        <li className="flex items-start gap-2 mt-3 pt-3 border-t border-warning-500/30">
+                          <span className="text-warning-400 mt-0.5">💡</span>
+                          <span className="text-warning-200"><strong>Let op:</strong> Uw aanvraag kan extra tijd vergen omdat we kijken naar beschikbare capaciteit voor uw groep.</span>
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 📋 Twee kolommen layout: Boekingssamenvatting + Uitleg */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* LINKS: Boekingssamenvatting */}
+        <div className="card-theatre p-6 rounded-2xl">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-gold-gradient rounded-xl flex items-center justify-center shadow-gold">
+              <CalendarIcon className="w-5 h-5 text-text-primary" />
+            </div>
+            <h2 className="text-xl font-bold text-text-primary">
+              Uw Boeking
+            </h2>
+          </div>
+
+          <div className="space-y-3">
+            {/* Event Info */}
+            <div className="pb-3 border-b border-border-default">
+              <p className="text-sm text-text-muted mb-1">Datum & Tijd</p>
+              <p className="font-semibold text-text-primary">
+                {formatDate(selectedEvent.date)}
+              </p>
+              <p className="text-sm text-text-secondary">
+                {getEventTypeName(selectedEvent.type)} • Deuren: {formatTime(selectedEvent.doorsOpen)} • Show: {formatTime(selectedEvent.startsAt)} - {formatTime(selectedEvent.endsAt)}
+              </p>
+            </div>
+
+            {/* Persons & Arrangement */}
+            <div className="pb-3 border-b border-border-default">
+              <p className="text-sm text-text-muted mb-1">Arrangement</p>
+              <p className="font-semibold text-text-primary">
+                {completedReservation.numberOfPersons} personen • {nl.arrangements[completedReservation.arrangement]}
+              </p>
+              {completedReservation.partyPerson && (
+                <p className="text-sm text-primary-400 mt-1">
+                  🎉 Feestvierder: {completedReservation.partyPerson}
+                </p>
+              )}
+            </div>
+
+            {/* Add-ons */}
+            {(completedReservation.preDrink.enabled || completedReservation.afterParty.enabled) && (
+              <div className="pb-3 border-b border-border-default">
+                <p className="text-sm text-text-muted mb-1">Extra's</p>
+                {completedReservation.preDrink.enabled && (
+                  <p className="text-sm text-text-secondary">✓ Voorborrel ({completedReservation.preDrink.quantity} pers.)</p>
+                )}
+                {completedReservation.afterParty.enabled && (
+                  <p className="text-sm text-text-secondary">✓ AfterParty ({completedReservation.afterParty.quantity} pers.)</p>
+                )}
+              </div>
+            )}
+
+            {/* Contact */}
+            <div className="pb-3 border-b border-border-default">
+              <p className="text-sm text-text-muted mb-1">Contactgegevens</p>
+              <p className="text-sm text-text-secondary">{completedReservation.contactPerson}</p>
+              <p className="text-sm text-text-secondary">{completedReservation.email}</p>
+              <p className="text-sm text-text-secondary">{completedReservation.phone}</p>
+            </div>
+
+            {/* Price */}
+            {priceCalculation && (
+              <div className="pt-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-lg font-bold text-text-primary">Totaalprijs</span>
+                  <span className="text-2xl font-black text-primary-500">
+                    {formatCurrency(priceCalculation.totalPrice)}
+                  </span>
+                </div>
+                <p className="text-xs text-text-muted mt-1">Inclusief BTW</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* RECHTS: Wat gebeurt er nu? */}
+        <div className="card-theatre p-6 rounded-2xl">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-blue-gradient rounded-xl flex items-center justify-center shadow-lifted">
+              <span className="text-2xl">📋</span>
+            </div>
+            <h2 className="text-xl font-bold text-text-primary">
+              Wat gebeurt er nu?
+            </h2>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-primary-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-lg">1️⃣</span>
+              </div>
+              <div>
+                <p className="font-semibold text-text-primary mb-1">Bevestiging per e-mail</p>
+                <p className="text-sm text-text-secondary">
+                  U ontvangt direct een automatische ontvangstbevestiging op {completedReservation.email}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-primary-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-lg">2️⃣</span>
+              </div>
+              <div>
+                <p className="font-semibold text-text-primary mb-1">Beoordeling door ons team</p>
+                <p className="text-sm text-text-secondary">
+                  Binnen <strong className="text-primary-400">3 werkdagen</strong> controleren wij uw aanvraag en beschikbare capaciteit
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-primary-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-lg">3️⃣</span>
+              </div>
+              <div>
+                <p className="font-semibold text-text-primary mb-1">Definitieve bevestiging</p>
+                <p className="text-sm text-text-secondary">
+                  U ontvangt een definitieve bevestiging met alle details en betaalinformatie
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 p-4 bg-blue-500/10 rounded-xl border border-blue-500/30">
+              <p className="text-sm text-blue-300 mb-2">
+                <strong>💡 Goed om te weten:</strong>
+              </p>
+              <ul className="text-sm text-text-secondary space-y-1.5">
+                <li>• Betaling vindt plaats na bevestiging</li>
+                <li>• Kosteloos wijzigen tot 3 weken voor de show</li>
+                <li>• Vragen? <a href="mailto:info@inspiration-point.nl" className="text-primary-400 hover:text-primary-300 underline">info@inspiration-point.nl</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 🎯 Actions met fancy buttons */}
+      <div className="space-y-4">
+        {/* Download Calendar Event */}
+        <button
+          onClick={handleDownloadCalendar}
+          className="group w-full flex items-center justify-center gap-3 py-4 px-8 bg-gold-gradient text-text-primary rounded-xl hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all duration-300 shadow-gold-glow hover:shadow-gold font-bold text-lg active:scale-95 animate-pulse-gold"
+        >
+          <Download className="w-6 h-6 transition-transform group-hover:scale-110" strokeWidth={2.5} />
+          <span>📅 Voeg toe aan agenda</span>
+        </button>
+
+        {/* New Reservation */}
+        <button
+          onClick={handleNewReservation}
+          className="group w-full flex items-center justify-center gap-3 py-4 px-8 bg-bg-elevated border-2 border-border-default text-text-secondary rounded-xl hover:bg-bg-surface hover:border-primary-500/50 focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all duration-300 shadow-lifted hover:shadow-gold backdrop-blur-sm font-bold text-lg active:scale-95"
+        >
+          <ArrowLeft className="w-6 h-6 transition-transform group-hover:-translate-x-1" strokeWidth={2.5} />
+          <span>{nl.successPage.backToCalendar}</span>
+        </button>
+      </div>
+
+      {/* 💡 Additional Info met glassmorphism - PROMINENTER GEMAAKT */}
+      <div className="mt-8 p-8 bg-gradient-to-br from-amber-500/20 to-orange-500/10 border-4 border-amber-500/50 rounded-2xl shadow-2xl animate-slide-in backdrop-blur-sm">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-amber-600 rounded-xl flex items-center justify-center shadow-gold">
+            <span className="text-3xl">⚠️</span>
+          </div>
+          <h3 className="text-2xl font-bold text-amber-400 text-shadow">BELANGRIJK: Wat gebeurt er nu?</h3>
+        </div>
+        <ul className="text-base text-text-secondary space-y-4 ml-1">
+          <li className="flex items-start gap-3 p-4 bg-amber-500/10 rounded-lg border-2 border-amber-500/30">
+            <span className="text-amber-400 font-bold text-xl flex-shrink-0">⚠️</span>
+            <span className="text-text-primary">
+              <strong className="text-amber-400 text-lg">Dit is nog GEEN definitieve bevestiging!</strong>
+              <br />
+              <span className="text-base mt-2 block">
+                Wij hebben uw reservering ontvangen en moeten deze nog controleren op beschikbare capaciteit en details. 
+                U ontvangt binnen 3 werkdagen een definitieve bevestiging per e-mail.
+              </span>
+            </span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="text-primary-500 font-bold text-xl">✓</span>
+            <span>U ontvangt een automatische ontvangstbevestiging op <strong className="text-primary-400">{completedReservation.email}</strong></span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="text-primary-500 font-bold text-xl">✓</span>
+            <span>Binnen <strong className="text-primary-400">3 werkdagen</strong> neemt ons team contact met u op voor de definitieve bevestiging</span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="text-primary-500 font-bold text-xl">✓</span>
+            <span>Betaling vindt plaats <strong className="text-primary-400">na bevestiging</strong> via de methode die met u wordt afgesproken</span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="text-primary-500 font-bold text-xl">📧</span>
+            <span>Bij vragen kunt u contact opnemen via <a href="mailto:info@inspiration-point.nl" className="font-bold text-primary-400 hover:text-primary-300 underline">info@inspiration-point.nl</a></span>
+          </li>
+        </ul>
+      </div>
+
+      {/* 📝 Wijzigingsvoorwaarden */}
+      <div className="mt-4 p-6 bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-2 border-blue-500/30 rounded-2xl shadow-lifted backdrop-blur-sm">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl flex items-center justify-center shadow-lifted flex-shrink-0">
+            <span className="text-2xl">📝</span>
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-bold text-blue-400 mb-3">Wijzigings- en Annuleringsvoorwaarden</h3>
+            <p className="text-sm text-text-secondary leading-relaxed">
+              U kunt uw boeking <strong className="text-blue-400">kosteloos wijzigen tot 3 weken (21 dagen) voor de voorstelling</strong>. 
+              Voor vragen over wijzigingen, annuleringen of andere zaken kunt u altijd contact met ons opnemen via{' '}
+              <a href="mailto:info@inspiration-point.nl" className="font-bold text-blue-400 hover:text-blue-300 underline">
+                info@inspiration-point.nl
+              </a>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Status indicator for request events */}
+      {selectedEvent.type === 'REQUEST' && (
+        <div className="mt-4 p-4 bg-warning-500/10 border border-warning-500/30 rounded-lg backdrop-blur-sm">
+          <h3 className="font-semibold text-warning-400 mb-2">Reservering op aanvraag</h3>
+          <p className="text-sm text-text-secondary">
+            Uw reservering wordt behandeld als aanvraag. Wij nemen zo spoedig mogelijk contact 
+            met u op om de beschikbaarheid en mogelijkheden te bespreken.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default SuccessPage;

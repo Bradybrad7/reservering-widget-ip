@@ -1,0 +1,50 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "success": "Successfully saved",
+    "confirm": "Confirm",
+    "search": "Search..."
+  },
+  "booking": {
+    "title": "Book Now",
+    "submit": "Confirm Reservation",
+    "selectDate": "Select a date",
+    "selectPersons": "Number of persons",
+    "selectArrangement": "Choose arrangement",
+    "addons": "Add-ons",
+    "merchandise": "Merchandise",
+    "contactInfo": "Contact Information",
+    "summary": "Summary",
+    "success": "Thank you for your reservation!",
+    "companyName": "Company Name",
+    "contactPerson": "Contact Person",
+    "email": "Email Address",
+    "phone": "Phone Number",
+    "comments": "Comments"
+  },
+  "admin": {
+    "dashboard": "Dashboard",
+    "events": "Events",
+    "reservations": "Reservations",
+    "customers": "Customers",
+    "settings": "Settings",
+    "analytics": "Analytics",
+    "logout": "Logout",
+    "totalRevenue": "Total Revenue",
+    "totalReservations": "Total Reservations",
+    "upcomingEvents": "Upcoming Events",
+    "capacityUtilization": "Capacity Utilization"
+  },
+  "errors": {
+    "required": "This field is required",
+    "invalidEmail": "Invalid email address",
+    "invalidPhone": "Invalid phone number",
+    "capacityExceeded": "Capacity exceeded"
+  }
+}

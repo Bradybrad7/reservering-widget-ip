@@ -1,0 +1,109 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Events - Public read, admin write (in future add auth)
+    match /events/{eventId} {
+      allow read: if true; // Public can read events
+      allow write: if true; // TODO: Add authentication - only admins can write
+    }
+    
+    // Reservations - Public can create, admins can update/delete
+    match /reservations/{reservationId} {
+      allow read: if true; // Public can read their own reservations (later: filter by user)
+      allow create: if true; // Anyone can create a reservation
+      allow update, delete: if true; // TODO: Add authentication - only admins can update/delete
+    }
+    
+    // Configuration - Public read, admin write
+    match /config/{document} {
+      allow read: if true; // Public can read config
+      allow write: if true; // TODO: Add authentication - only admins can write
+    }
+    
+    // Configuration (alternative collection name)
+    match /configuration/{document} {
+      allow read: if true;
+      allow write: if true; // TODO: Add authentication
+    }
+    
+    // Pricing - Public read, admin write
+    match /pricing/{document} {
+      allow read: if true; // Public can read pricing
+      allow write: if true; // TODO: Add authentication - only admins can write
+    }
+    
+    // Add-ons - Public read, admin write
+    match /addons/{document} {
+      allow read: if true; // Public can read add-ons
+      allow write: if true; // TODO: Add authentication - only admins can write
+    }
+    
+    // Booking Rules - Public read, admin write
+    match /bookingRules/{document} {
+      allow read: if true; // Public can read booking rules
+      allow write: if true; // TODO: Add authentication - only admins can write
+    }
+    
+    // Merchandise - Public read, admin write
+    match /merchandise/{itemId} {
+      allow read: if true; // Public can read merchandise
+      allow write: if true; // TODO: Add authentication - only admins can write
+    }
+    
+    // Shows - Public read, admin write
+    match /shows/{showId} {
+      allow read: if true; // Public can read shows
+      allow write: if true; // TODO: Add authentication - only admins can write
+    }
+    
+    // Wizard Config - Public read, admin write
+    match /wizardConfig/{document} {
+      allow read: if true;
+      allow write: if true; // TODO: Add authentication
+    }
+    
+    // Event Types Config - Public read, admin write
+    match /eventTypesConfig/{document} {
+      allow read: if true;
+      allow write: if true; // TODO: Add authentication
+    }
+    
+    // Text Customization - Public read, admin write
+    match /textCustomization/{document} {
+      allow read: if true;
+      allow write: if true; // TODO: Add authentication
+    }
+    
+    // Waitlist Entries - Public create, admin read/update/delete
+    match /waitlistEntries/{entryId} {
+      allow read: if true; // TODO: Filter by user in future
+      allow create: if true; // Anyone can join waitlist
+      allow update, delete: if true; // TODO: Add authentication - only admins
+    }
+    
+    // Voucher Templates - Admin only
+    match /voucherTemplates/{templateId} {
+      allow read: if true; // TODO: Add authentication
+      allow write: if true; // TODO: Add authentication - only admins
+    }
+    
+    // Issued Vouchers - Public read (own vouchers), admin write
+    match /issuedVouchers/{voucherId} {
+      allow read: if true; // TODO: Filter by user
+      allow create, update, delete: if true; // TODO: Add authentication
+    }
+    
+    // Counters - System use only
+    match /counters/{counterId} {
+      allow read: if true;
+      allow write: if true; // TODO: Add authentication - system/admin only
+    }
+    
+    // Generic Data - For dynamic configuration storage
+    match /generic_data/{document} {
+      allow read: if true;
+      allow write: if true; // TODO: Add authentication - admin only
+    }
+  }
+}
