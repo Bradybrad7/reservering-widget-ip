@@ -209,7 +209,6 @@ export const EventWorkshop: React.FC = () => {
                 events={events}
                 reservations={reservations}
                 waitlistEntries={waitlistEntries}
-                eventTypes={eventTypes}
                 isLoading={isLoading}
               />
             )}

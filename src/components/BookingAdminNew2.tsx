@@ -2,7 +2,7 @@ import React from 'react';
 import type { BookingAdminProps } from '../types';
 import { AdminLayoutNew } from './admin/AdminLayoutNew';
 import { DashboardEnhanced } from './admin/DashboardEnhanced';
-import { ReservationsCommandCenter } from './admin/ReservationsCommandCenter';
+import { ReservationsManager } from './admin/ReservationsWorkbench'; // ✨ Reserveringen Beheer
 import { EventWorkshop } from './admin/EventWorkshop';
 import { CustomerManagerEnhanced } from './admin/CustomerManagerEnhanced';
 import { ProductsManager } from './admin/ProductsManager';
@@ -29,9 +29,9 @@ const BookingAdminNew: React.FC<BookingAdminProps> = () => {
       case 'events':
         return <EventWorkshop />;
 
-      // Reservations - Modern command center with cards, table, and timeline views
+      // Reservations - Reserveringen Beheer with 3 tabs (Dashboard, Reserveringen, Import & Export)
       case 'reservations':
-        return <ReservationsCommandCenter />;
+        return <ReservationsManager />;
 
       // Waitlist - Dedicated manager
       case 'waitlist':
