@@ -11,9 +11,41 @@
  * 4. ⏳ Aanvraag (pending)
  */
 
-import type { Reservation, Event } from '../types';
+import type { Reservation, Event, Show } from '../types';
 import type { EmailContentBlock } from './emailMasterTemplate';
 import { formatCurrency, formatDate, formatTime } from './emailMasterTemplate';
+
+/**
+ * Formatteer naam correct met hoofdletters
+ * Voorbeelden:
+ * - "jan de vries" → "Jan de Vries"
+ * - "PETER VAN DER BERG" → "Peter van der Berg"
+ * - "maria van den heuvel" → "Maria van den Heuvel"
+ */
+const formatName = (name: string): string => {
+  if (!name) return '';
+  
+  // Woorden die klein blijven (tussenvoegsels)
+  const lowercase = ['van', 'de', 'der', 'den', 'het', 'ten', 'ter', 'te', 'op', 'in', "'t"];
+  
+  return name
+    .trim()
+    .toLowerCase()
+    .split(' ')
+    .map((word, index) => {
+      // Eerste woord altijd met hoofdletter
+      if (index === 0) {
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      }
+      // Tussenvoegsels klein houden
+      if (lowercase.includes(word)) {
+        return word;
+      }
+      // Andere woorden met hoofdletter
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(' ');
+};
 
 /**
  * Helper functie voor tijd formattering met labels
@@ -30,9 +62,14 @@ const formatEventTimes = (doorsOpen: string, startsAt: string, endsAt: string): 
  */
 export const generateConfirmationEmailContent = async (
   reservation: Reservation,
-  event: Event
+  event: Event,
+  show?: Show
 ): Promise<EmailContentBlock> => {
-  const fullName = `${reservation.firstName || ''} ${reservation.lastName || ''}`.trim() || reservation.contactPerson || '';
+  // Format name with proper capitalization
+  const firstName = formatName(reservation.firstName || '');
+  const lastName = formatName(reservation.lastName || '');
+  const fullName = `${firstName} ${lastName}`.trim() || formatName(reservation.contactPerson || '') || '';
+  
   const arrangement = reservation.arrangement === 'BWF' ? 'Premium' : 'Deluxe';
   const basePrice = reservation.pricingSnapshot?.basePrice || 0;
   const priceInfo = basePrice > 0 ? ` (€${basePrice.toFixed(2)} per persoon)` : '';
@@ -62,7 +99,7 @@ export const generateConfirmationEmailContent = async (
     },
     {
       label: 'Evenement:',
-      value: event.type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      value: 'Dinner theater Show',
     },
     {
       label: 'Datum:',
@@ -201,6 +238,11 @@ export const generateConfirmationEmailContent = async (
 
   return {
     spotlightTitle: 'Uw reservering is bevestigd! 🎉',
+    // ✨ NEW: Show Identity (Logo + Description)
+    showInfo: show ? {
+      logoUrl: show.logoUrl || show.imageUrl,
+      description: show.description,
+    } : undefined,
     greeting: `Beste ${fullName},`,
     introText: 'Hartelijk dank voor uw reservering bij Inspiration Point. We kijken er naar uit om u te mogen ontvangen voor een onvergetelijke avond!',
     reservationDetails: details,
@@ -221,9 +263,14 @@ export const generateConfirmationEmailContent = async (
  */
 export const generateOptionEmailContent = async (
   reservation: Reservation,
-  event: Event
+  event: Event,
+  show?: Show
 ): Promise<EmailContentBlock> => {
-  const fullName = `${reservation.firstName || ''} ${reservation.lastName || ''}`.trim() || reservation.contactPerson || '';
+  // Format name with proper capitalization
+  const firstName = formatName(reservation.firstName || '');
+  const lastName = formatName(reservation.lastName || '');
+  const fullName = `${firstName} ${lastName}`.trim() || formatName(reservation.contactPerson || '') || '';
+  
   const arrangement = reservation.arrangement === 'BWF' ? 'Premium' : 'Deluxe';
   const basePrice = reservation.pricingSnapshot?.basePrice || 0;
   const priceInfo = basePrice > 0 ? ` (€${basePrice.toFixed(2)} per persoon)` : '';
@@ -244,7 +291,7 @@ export const generateOptionEmailContent = async (
     },
     {
       label: 'Evenement:',
-      value: event.type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      value: 'Dinner theater Show',
     },
     {
       label: 'Datum:',
@@ -295,6 +342,11 @@ export const generateOptionEmailContent = async (
   return {
     spotlightTitle: 'Uw optie is vastgelegd ⏰',
     spotlightSubtitle: `⚠️ Deze optie verloopt op: ${expiryDate}`,
+    // ✨ NEW: Show Identity (Logo + Description)
+    showInfo: show ? {
+      logoUrl: show.logoUrl || show.imageUrl,
+      description: show.description,
+    } : undefined,
     greeting: `Beste ${fullName},`,
     introText: 'We hebben uw plaatsen tijdelijk gereserveerd. Bevestig uw reservering voor de vervaldatum om deze definitief te maken.',
     reservationDetails: details,
@@ -324,7 +376,11 @@ export const generatePaymentConfirmationEmailContent = async (
   reservation: Reservation,
   event: Event
 ): Promise<EmailContentBlock> => {
-  const fullName = `${reservation.firstName || ''} ${reservation.lastName || ''}`.trim() || reservation.contactPerson || '';
+  // Format name with proper capitalization
+  const firstName = formatName(reservation.firstName || '');
+  const lastName = formatName(reservation.lastName || '');
+  const fullName = `${firstName} ${lastName}`.trim() || formatName(reservation.contactPerson || '') || '';
+  
   const arrangement = reservation.arrangement === 'BWF' ? 'Premium' : 'Deluxe';
   
   const details: EmailContentBlock['reservationDetails'] = [
@@ -334,7 +390,7 @@ export const generatePaymentConfirmationEmailContent = async (
     },
     {
       label: 'Evenement:',
-      value: event.type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      value: 'Dinner theater Show',
     },
     {
       label: 'Datum:',
@@ -408,7 +464,7 @@ export const generateWaitlistEmailContent = (
   const details: EmailContentBlock['reservationDetails'] = [
     {
       label: 'Evenement:',
-      value: event.type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      value: 'Dinner theater Show',
     },
     {
       label: 'Datum:',
@@ -447,9 +503,14 @@ export const generateWaitlistEmailContent = (
  */
 export const generatePendingEmailContent = async (
   reservation: Reservation,
-  event: Event
+  event: Event,
+  show?: Show
 ): Promise<EmailContentBlock> => {
-  const fullName = `${reservation.firstName || ''} ${reservation.lastName || ''}`.trim() || reservation.contactPerson || '';
+  // Format name with proper capitalization
+  const firstName = formatName(reservation.firstName || '');
+  const lastName = formatName(reservation.lastName || '');
+  const fullName = `${firstName} ${lastName}`.trim() || formatName(reservation.contactPerson || '') || '';
+  
   const arrangement = reservation.arrangement === 'BWF' ? 'Premium' : 'Deluxe';
   const basePrice = reservation.pricingSnapshot?.basePrice || 0;
   const priceInfo = basePrice > 0 ? ` (€${basePrice.toFixed(2)} per persoon)` : '';
@@ -470,15 +531,11 @@ export const generatePendingEmailContent = async (
     },
     {
       label: 'Evenement:',
-      value: event.type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      value: 'Dinner theater Show',
     },
     {
       label: 'Datum:',
       value: formatDate(event.date),
-    },
-    {
-      label: 'Tijd:',
-      value: formatEventTimes(event.doorsOpen, event.startsAt, event.endsAt),
     },
     {
       label: 'Aantal personen:',
@@ -486,39 +543,24 @@ export const generatePendingEmailContent = async (
     },
     {
       label: 'Arrangement:',
-      value: `${arrangement}${priceInfo}`,
+      value: `${arrangement}`,
     }
   );
 
   // Add-ons
   if (reservation.preDrink?.enabled) {
-    const preDrinkPrice = reservation.pricingSnapshot?.preDrinkPrice || 0;
     details.push({
       label: 'Preparty:',
-      value: `✅ Ja (€${preDrinkPrice.toFixed(2)} p.p.)`,
+      value: `✅ Ja`,
     });
   }
   
   if (reservation.afterParty?.enabled) {
-    const afterPartyPrice = reservation.pricingSnapshot?.afterPartyPrice || 0;
     details.push({
       label: 'Afterparty:',
-      value: `✅ Ja (€${afterPartyPrice.toFixed(2)} p.p.)`,
+      value: `✅ Ja`,
     });
   }
-
-  // Voorlopige prijs
-  details.push({
-    label: 'Voorlopige prijs:',
-    value: formatCurrency(reservation.pricingSnapshot?.finalTotal || reservation.totalPrice),
-    highlight: true,
-  });
-
-  // Referentienummer
-  details.push({
-    label: 'Referentienummer:',
-    value: reservation.id,
-  });
 
   // Build additional info with celebration, dietary, etc.
   const additionalInfoParts = [];
@@ -530,14 +572,19 @@ export const generatePendingEmailContent = async (
       <li><strong>Nu:</strong> Wij controleren beschikbaarheid voor uw gewenste datum</li>
       <li><strong>Binnen 2 werkdagen:</strong> U ontvangt een bevestigings- of afwijzingsmail</li>
       <li><strong>Bij beschikbaarheid:</strong> Uw reservering is definitief bevestigd</li>
-      <li><strong>3 weken voor de voorstelling:</strong> U ontvangt de factuur</li>
-      <li><strong>2 weken voor de voorstelling:</strong> Betaling dient ontvangen te zijn via bankoverschrijving</li>
+      <li><strong>3 weken voor de voorstelling:</strong> Geeft u het definitieve aantal gasten door en ontvangt u de factuur</li>
+      <li><strong>2 weken voor de voorstelling:</strong> Is uw betaling voldaan per bankoverschrijving</li>
     </ol>
   `);
 
   return {
     spotlightTitle: 'Uw aanvraag is ontvangen ⏳',
     spotlightSubtitle: '📧 U ontvangt binnen twee werkdagen bericht over de beschikbaarheid',
+    // ✨ NEW: Show Identity (Logo + Description)
+    showInfo: show ? {
+      logoUrl: show.logoUrl || show.imageUrl,
+      description: show.description,
+    } : undefined,
     greeting: `Beste ${fullName},`,
     introText: 'Hartelijk dank voor uw reserveringsaanvraag bij Inspiration Point. Uw aanvraag wordt momenteel door ons team beoordeeld.',
     reservationDetails: details,
@@ -566,17 +613,18 @@ export const generatePendingEmailContent = async (
  */
 export const generateEmailContentByStatus = async (
   reservation: Reservation,
-  event: Event
+  event: Event,
+  show?: Show
 ): Promise<EmailContentBlock> => {
   switch (reservation.status) {
     case 'confirmed':
-      return generateConfirmationEmailContent(reservation, event);
+      return generateConfirmationEmailContent(reservation, event, show);
     
     case 'option':
-      return generateOptionEmailContent(reservation, event);
+      return generateOptionEmailContent(reservation, event, show);
     
     case 'pending':
-      return generatePendingEmailContent(reservation, event);
+      return generatePendingEmailContent(reservation, event, show);
     
     // Note: waitlist heeft een aparte flow met WaitlistEntry ipv Reservation
     default:

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { ShoppingBag, Package, DollarSign, Tag, Gift, Settings, Boxes } from 'lucide-react';
+import { ShoppingBag, Package, DollarSign, Tag, Gift, Settings, Boxes, Theater } from 'lucide-react';
 import { cn } from '../../utils';
 // import type { AdminSection } from '../../types'; // Unused
 import { MerchandiseManager } from './MerchandiseManager';
 import { AddOnsManagerEnhanced } from './AddOnsManagerEnhanced';
 import { SimplePricingManager } from './SimplePricingManager'; // 🆕 NIEUWE SIMPELE PRICING MANAGER
 import { EventTypeManager } from './EventTypeManager'; // 🆕 EVENT TYPE BEHEER
+import { ShowManager } from './ShowManager'; // ✨ SHOW BEHEER (Logo + Description)
 import { PromotionsManager } from './PromotionsManager';
 import { VouchersManager } from './VouchersManager';
 import { VoucherConfigManager } from './VoucherConfigManager';
@@ -20,6 +21,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ activeTab: ini
   
   const tabs = [
     { id: 'orders', label: 'Bestellingen', icon: ShoppingBag }, // 🆕 NIEUW! Admin Inbox voor bestellingen
+    { id: 'shows', label: 'Shows', icon: Theater }, // ✨ SHOW BEHEER
     { id: 'event-types', label: 'Event Types', icon: Boxes },
     { id: 'pricing', label: 'Prijzen', icon: DollarSign },
     { id: 'addons', label: 'Add-ons', icon: ShoppingBag },
@@ -33,6 +35,8 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ activeTab: ini
     switch (activeTab) {
       case 'orders': // 🆕 NIEUW! Bestellingen inbox
         return <IssuedVouchersTable />;
+      case 'shows': // ✨ SHOW BEHEER (Logo + Description)
+        return <ShowManager />;
       case 'event-types':
         return <EventTypeManager />;
       case 'pricing':
@@ -63,7 +67,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ activeTab: ini
       </div>
 
       {/* Tab Navigation - Responsive Grid */}
-      <div className="bg-neutral-800/50 rounded-lg p-2 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
+      <div className="bg-neutral-800/50 rounded-lg p-2 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-9 gap-2">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;

@@ -16,7 +16,6 @@ import type { Show } from '../../types';
 export const ShowManager: React.FC = () => {
   const {
     shows,
-    isSubmitting,
     loadShows,
     createShow,
     updateShow,
@@ -26,6 +25,7 @@ export const ShowManager: React.FC = () => {
   const [editingShow, setEditingShow] = useState<Show | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [isNewShow, setIsNewShow] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     loadShows();
@@ -43,6 +43,7 @@ export const ShowManager: React.FC = () => {
       id: 'new',
       name: '',
       description: '',
+      logoUrl: '',
       imageUrl: '',
       isActive: true,
       createdAt: new Date(),
@@ -59,26 +60,52 @@ export const ShowManager: React.FC = () => {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       if (isNewShow) {
-        await createShow({
-          ...editingShow,
-          id: `show-${Date.now()}`,
-          createdAt: new Date(),
-          updatedAt: new Date()
+        const { id, createdAt, updatedAt, ...showData } = editingShow;
+        const success = await createShow({
+          ...showData,
+          name: editingShow.name,
+          description: editingShow.description,
+          logoUrl: editingShow.logoUrl,
+          imageUrl: editingShow.imageUrl,
+          isActive: editingShow.isActive
         });
+        if (success) {
+          alert('✅ Show succesvol aangemaakt!');
+        }
       } else {
-        await updateShow({
-          ...editingShow,
+        console.log('🔄 Updating show:', editingShow.id, {
+          name: editingShow.name,
+          description: editingShow.description,
+          logoUrl: editingShow.logoUrl,
+          imageUrl: editingShow.imageUrl,
+          isActive: editingShow.isActive
+        });
+        const success = await updateShow(editingShow.id, {
+          name: editingShow.name,
+          description: editingShow.description,
+          logoUrl: editingShow.logoUrl,
+          imageUrl: editingShow.imageUrl,
+          isActive: editingShow.isActive,
           updatedAt: new Date()
         });
+        if (success) {
+          alert('✅ Show succesvol bijgewerkt!');
+        } else {
+          alert('❌ Show kon niet worden bijgewerkt');
+          return;
+        }
       }
       setShowModal(false);
       setEditingShow(null);
-      loadShows();
+      await loadShows();
     } catch (error) {
-      console.error('Error saving show:', error);
-      alert('Er is een fout opgetreden bij het opslaan');
+      console.error('❌ Error saving show:', error);
+      alert('Er is een fout opgetreden bij het opslaan: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -98,8 +125,7 @@ export const ShowManager: React.FC = () => {
 
   const handleToggleActive = async (show: Show) => {
     try {
-      await updateShow({
-        ...show,
+      await updateShow(show.id, {
         isActive: !show.isActive,
         updatedAt: new Date()
       });
@@ -167,20 +193,20 @@ export const ShowManager: React.FC = () => {
               </button>
             </div>
 
-            {show.description && (
-              <p className="text-dark-300 text-sm mb-4">
-                {show.description}
-              </p>
-            )}
-
-            {show.imageUrl && (
+            {(show.logoUrl || show.imageUrl) && (
               <div className="mb-4">
                 <img
-                  src={show.imageUrl}
+                  src={show.logoUrl || show.imageUrl}
                   alt={show.name}
-                  className="w-full h-32 object-cover rounded"
+                  className="w-full h-32 object-contain bg-dark-700/50 rounded p-2"
                 />
               </div>
+            )}
+
+            {show.description && (
+              <p className="text-dark-300 text-sm mb-4 line-clamp-3">
+                {show.description}
+              </p>
             )}
 
             <div className="flex gap-2 mt-4">
@@ -241,39 +267,50 @@ export const ShowManager: React.FC = () => {
                 />
               </div>
 
-              {/* Description */}
+              {/* Logo URL */}
               <div>
                 <label className="block text-sm font-medium text-dark-200 mb-2">
-                  Beschrijving
-                </label>
-                <textarea
-                  value={editingShow.description}
-                  onChange={(e) => setEditingShow({ ...editingShow, description: e.target.value })}
-                  placeholder="Korte beschrijving van de show..."
-                  rows={3}
-                  className="w-full px-4 py-2 bg-dark-700 border border-dark-600 rounded-lg text-dark-50 focus:outline-none focus:ring-2 focus:ring-gold-500"
-                />
-              </div>
-
-              {/* Image URL */}
-              <div>
-                <label className="block text-sm font-medium text-dark-200 mb-2">
-                  Afbeelding URL
+                  Show Logo URL
+                  <span className="text-xs text-dark-400 ml-2">
+                    (Gebruikt in booking widget en emails)
+                  </span>
                 </label>
                 <input
                   type="text"
-                  value={editingShow.imageUrl || ''}
-                  onChange={(e) => setEditingShow({ ...editingShow, imageUrl: e.target.value })}
-                  placeholder="https://example.com/image.jpg"
+                  value={editingShow.logoUrl || editingShow.imageUrl || ''}
+                  onChange={(e) => setEditingShow({ ...editingShow, logoUrl: e.target.value, imageUrl: e.target.value })}
+                  placeholder="https://example.com/logo.jpg"
                   className="w-full px-4 py-2 bg-dark-700 border border-dark-600 rounded-lg text-dark-50 focus:outline-none focus:ring-2 focus:ring-gold-500"
                 />
-                {editingShow.imageUrl && (
-                  <img
-                    src={editingShow.imageUrl}
-                    alt="Preview"
-                    className="mt-2 w-full h-32 object-cover rounded"
-                  />
+                {(editingShow.logoUrl || editingShow.imageUrl) && (
+                  <div className="mt-2">
+                    <img
+                      src={editingShow.logoUrl || editingShow.imageUrl}
+                      alt="Logo Preview"
+                      className="w-full max-w-sm h-32 object-contain bg-dark-700 rounded p-2"
+                    />
+                  </div>
                 )}
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-dark-200 mb-2">
+                  Show Omschrijving
+                  <span className="text-xs text-dark-400 ml-2">
+                    (Korte wervende tekst - wordt getoond in booking en emails)
+                  </span>
+                </label>
+                <textarea
+                  value={editingShow.description || ''}
+                  onChange={(e) => setEditingShow({ ...editingShow, description: e.target.value })}
+                  placeholder="Een meeslepende voorstelling vol verrassingen en emotie..."
+                  rows={4}
+                  className="w-full px-4 py-2 bg-dark-700 border border-dark-600 rounded-lg text-dark-50 focus:outline-none focus:ring-2 focus:ring-gold-500"
+                />
+                <p className="text-xs text-dark-400 mt-1">
+                  💡 Tip: Schrijf platte tekst (geen HTML). Dit wordt automatisch veilig weergegeven.
+                </p>
               </div>
 
               {/* Active Toggle */}

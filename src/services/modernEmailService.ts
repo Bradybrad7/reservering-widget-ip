@@ -32,7 +32,8 @@ const EMAIL_CONFIG = {
   logoUrl: 'https://irp.cdn-website.com/e8046ea7/dms3rep/multi/logo-ip+%281%29.png',
   contactEmail: 'info@inspiration-point.nl',
   contactPhone: '040-2110679',
-  address: 'Maastrichterweg 13-17, 5554 GE Valkenswaard',
+  contactFax: '040-2126049',
+  address: 'Maastrichterweg 13 - 17, 5554 GE Valkenswaard',
   website: 'https://inspiration-point.nl',
 };
 
@@ -104,7 +105,9 @@ export const modernEmailService = {
     event: Event,
     previewMode = false
   ): Promise<ModernEmailLog> {
-    const content = await generateEmailContentByStatus(reservation, event);
+    // ✨ Get show info for email
+    const show = await this._getShowByEvent(event);
+    const content = await generateEmailContentByStatus(reservation, event, show);
     const html = generateEmailHTML(content, EMAIL_CONFIG.logoUrl);
     
     const emailLog: ModernEmailLog = {
@@ -172,7 +175,9 @@ export const modernEmailService = {
    * Genereer HTML preview zonder te verzenden
    */
   async previewHTML(reservation: Reservation, event: Event): Promise<string> {
-    const content = await generateEmailContentByStatus(reservation, event);
+    // ✨ Get show info for email
+    const show = await this._getShowByEvent(event);
+    const content = await generateEmailContentByStatus(reservation, event, show);
     return generateEmailHTML(content, EMAIL_CONFIG.logoUrl);
   },
 
@@ -184,7 +189,9 @@ export const modernEmailService = {
     event: Event,
     previewMode = false
   ): Promise<ModernEmailLog> {
-    const content = await generateConfirmationEmailContent(reservation, event);
+    // ✨ Get show info for email
+    const show = await this._getShowByEvent(event);
+    const content = await generateConfirmationEmailContent(reservation, event, show);
     return this._sendEmail(reservation, event, content, 'confirmed', previewMode);
   },
 
@@ -196,7 +203,9 @@ export const modernEmailService = {
     event: Event,
     previewMode = false
   ): Promise<ModernEmailLog> {
-    const content = await generateOptionEmailContent(reservation, event);
+    // ✨ Get show info for email
+    const show = await this._getShowByEvent(event);
+    const content = await generateOptionEmailContent(reservation, event, show);
     return this._sendEmail(reservation, event, content, 'option', previewMode);
   },
 
@@ -208,7 +217,9 @@ export const modernEmailService = {
     event: Event,
     previewMode = false
   ): Promise<ModernEmailLog> {
-    const content = await generatePendingEmailContent(reservation, event);
+    // ✨ Get show info for email
+    const show = await this._getShowByEvent(event);
+    const content = await generatePendingEmailContent(reservation, event, show);
     return this._sendEmail(reservation, event, content, 'pending', previewMode);
   },
 
@@ -261,6 +272,20 @@ export const modernEmailService = {
       emailLog.status = 'failed';
       emailLog.error = error instanceof Error ? error.message : 'Unknown error';
       throw error;
+    }
+  },
+
+  /**
+   * Private: Get show by event
+   */
+  async _getShowByEvent(event: Event) {
+    try {
+      const { storageService } = await import('./storageService');
+      const shows = await storageService.getShows();
+      return shows.find(show => show.id === event.showId);
+    } catch (error) {
+      console.warn('Could not load show info:', error);
+      return undefined;
     }
   },
 

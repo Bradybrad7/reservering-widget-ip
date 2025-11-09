@@ -2,6 +2,7 @@ import React, { memo, useState, useEffect, useRef } from 'react';
 import { Calculator, Calendar as CalendarIcon, Users, CreditCard, Clock, Tag, X } from 'lucide-react';
 // Types imported through store
 import { useReservationStore } from '../store/reservationStore';
+import { useEventsStore } from '../store/eventsStore';
 import { 
   formatCurrency, 
   formatDate, 
@@ -26,6 +27,8 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
     updateFormData,
     setCurrentStep, // ✨ NEW: For interactive edit buttons
   } = useReservationStore();
+
+  const { shows } = useEventsStore(); // ✨ Get shows for show info display
 
   // Discount code state
   const [discountCode, setDiscountCode] = useState('');
@@ -129,8 +132,23 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
     onReserve?.() || goToNextStep();
   };
 
-  const renderEventInfo = () => (
+  const renderEventInfo = () => {
+    // ✨ Get show info from showId
+    const show = shows.find(s => s.id === selectedEvent.showId);
+
+    return (
     <div className="space-y-2">
+      {/* ✨ NEW: Show Logo */}
+      {show && (show.logoUrl || show.imageUrl) && (
+        <div className="mb-4 pb-4 border-b border-gold-500/30">
+          <img 
+            src={show.logoUrl || show.imageUrl} 
+            alt={show.name}
+            className="w-full h-auto max-h-32 object-contain rounded-lg"
+          />
+        </div>
+      )}
+
       {/* ✨ ENHANCED: Date with edit button */}
       <div className="flex items-start justify-between group">
         <div className="flex items-start space-x-3 flex-1">
@@ -212,7 +230,8 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
         </div>
       )}
     </div>
-  );
+    );
+  };
 
   const renderPriceBreakdown = () => {
     if (!priceCalculation) {

@@ -117,8 +117,9 @@ export type StepKey =
 export interface Show {
   id: string;
   name: string;
-  description: string;
-  imageUrl?: string;
+  description?: string; // ✨ Korte omschrijving van de show
+  logoUrl?: string;     // ✨ URL naar het show logo/afbeelding
+  imageUrl?: string;    // Deprecated - gebruik logoUrl
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

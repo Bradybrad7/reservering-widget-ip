@@ -5,7 +5,7 @@
  * - Dashboard: Statistieken en quick actions
  * - Boekingen: Lijst van alle reserveringen voor dit event
  * - Wachtlijst: Lijst van alle wachtlijst entries
- * - Bewerken: Event eigenschappen aanpassen
+ * - Bewerken: Event eigenschappen aanpassen (met inline editing)
  */
 
 import React, { useState } from 'react';
@@ -14,6 +14,7 @@ import type { EventStats } from './EventCommandCenter';
 import { useReservationsStore } from '../../store/reservationsStore';
 import { useWaitlistStore } from '../../store/waitlistStore';
 import { useEventsStore } from '../../store/eventsStore';
+import { InlineEdit } from '../ui/InlineEdit';
 
 interface EventDetailPanelProps {
   event: AdminEvent;
@@ -530,7 +531,7 @@ const WaitlistStatusBadge: React.FC<{ status: WaitlistEntry['status'] }> = ({ st
 };
 
 // ============================================================================
-// EDIT TAB
+// EDIT TAB (met Inline Editing)
 // ============================================================================
 
 interface EditTabProps {
@@ -539,99 +540,107 @@ interface EditTabProps {
 }
 
 const EditTab: React.FC<EditTabProps> = ({ event, updateEvent }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({
-    capacity: event.capacity,
-    notes: event.notes || '',
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const success = await updateEvent(event.id, formData);
-    if (success) {
-      setIsEditing(false);
-    }
-  };
-
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="text-lg font-semibold">Event Instellingen</h4>
-        <button
-          onClick={() => setIsEditing(!isEditing)}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition-colors"
-        >
-          {isEditing ? 'Annuleren' : 'Bewerken'}
-        </button>
+      <div className="mb-6">
+        <h4 className="text-lg font-semibold text-white mb-2">✏️ Event Instellingen</h4>
+        <p className="text-sm text-gray-400">
+          Klik op een waarde om direct te bewerken - wijzigingen worden meteen opgeslagen
+        </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="bg-gray-800 rounded-lg p-4 space-y-4">
+      {/* Editable Fields */}
+      <div className="bg-gray-800 rounded-lg overflow-hidden border border-gray-700">
+        <div className="divide-y divide-gray-700">
           {/* Capaciteit */}
-          <div>
+          <div className="p-4 hover:bg-gray-750 transition-colors">
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Capaciteit
             </label>
-            <input
+            <InlineEdit
+              value={event.capacity}
               type="number"
-              value={formData.capacity}
-              onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) })}
-              disabled={!isEditing}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onSave={async (newValue) => {
+                const capacity = typeof newValue === 'number' ? newValue : parseInt(String(newValue));
+                return await updateEvent(event.id, { capacity });
+              }}
+              validator={(value) => {
+                const num = typeof value === 'number' ? value : parseInt(String(value));
+                return num > 0 && num <= 1000;
+              }}
+              className="text-white text-lg font-semibold"
             />
+            <p className="text-xs text-gray-500 mt-1">Maximaal aantal personen voor dit event</p>
           </div>
 
           {/* Notities */}
-          <div>
+          <div className="p-4 hover:bg-gray-750 transition-colors">
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Notities
             </label>
-            <textarea
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              disabled={!isEditing}
-              rows={4}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Voeg notities toe..."
+            <InlineEdit
+              value={event.notes || 'Klik om notities toe te voegen...'}
+              type="text"
+              onSave={async (newValue) => {
+                return await updateEvent(event.id, { notes: String(newValue) });
+              }}
+              placeholder="Klik om notities toe te voegen..."
+              className="text-white text-sm"
             />
+            <p className="text-xs text-gray-500 mt-1">Interne notities voor dit event</p>
           </div>
         </div>
-
-        {isEditing && (
-          <button
-            type="submit"
-            className="w-full px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
-          >
-            Wijzigingen Opslaan
-          </button>
-        )}
-      </form>
+      </div>
 
       {/* Read-only info */}
-      <div className="mt-6 bg-gray-800 rounded-lg p-4">
-        <h5 className="font-semibold mb-3 text-gray-300">Event Details (Alleen-lezen)</h5>
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
+      <div className="mt-6 bg-gray-800 rounded-lg p-4 border border-gray-700">
+        <h5 className="font-semibold mb-3 text-gray-300 flex items-center gap-2">
+          <span>📋</span> Event Details (Alleen-lezen)
+        </h5>
+        <div className="space-y-3 text-sm">
+          <div className="flex justify-between items-center py-2 border-b border-gray-700">
             <span className="text-gray-400">Type:</span>
-            <span className="text-white">{event.type}</span>
+            <span className="text-white font-medium">{event.type}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex justify-between items-center py-2 border-b border-gray-700">
+            <span className="text-gray-400">Datum:</span>
+            <span className="text-white font-medium">
+              {new Date(event.date).toLocaleDateString('nl-NL', { 
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+              })}
+            </span>
+          </div>
+          <div className="flex justify-between items-center py-2 border-b border-gray-700">
             <span className="text-gray-400">Show ID:</span>
-            <span className="text-white font-mono text-xs">{event.showId}</span>
+            <span className="text-white font-mono text-xs bg-gray-900 px-2 py-1 rounded">{event.showId}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex justify-between items-center py-2 border-b border-gray-700">
             <span className="text-gray-400">Deuren Open:</span>
-            <span className="text-white">{event.doorsOpen}</span>
+            <span className="text-white font-medium">{event.doorsOpen}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-gray-400">Start:</span>
-            <span className="text-white">{event.startsAt}</span>
+          <div className="flex justify-between items-center py-2 border-b border-gray-700">
+            <span className="text-gray-400">Start Tijd:</span>
+            <span className="text-white font-medium">{event.startsAt}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-gray-400">Einde:</span>
-            <span className="text-white">{event.endsAt}</span>
+          <div className="flex justify-between items-center py-2">
+            <span className="text-gray-400">Eind Tijd:</span>
+            <span className="text-white font-medium">{event.endsAt}</span>
           </div>
         </div>
+      </div>
+
+      {/* Tips */}
+      <div className="mt-6 bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+        <h6 className="text-sm font-semibold text-blue-400 mb-2">💡 Tips voor Inline Editing</h6>
+        <ul className="text-xs text-gray-300 space-y-1">
+          <li>• Klik op een waarde om deze te bewerken</li>
+          <li>• Druk op <kbd className="px-1 py-0.5 bg-gray-700 rounded">Enter</kbd> om op te slaan</li>
+          <li>• Druk op <kbd className="px-1 py-0.5 bg-gray-700 rounded">Esc</kbd> om te annuleren</li>
+          <li>• Wijzigingen worden direct opgeslagen in de database</li>
+        </ul>
       </div>
     </div>
   );

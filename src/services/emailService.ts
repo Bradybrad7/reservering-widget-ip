@@ -9,10 +9,42 @@ interface EmailTemplate {
 }
 
 /**
+ * Formatteer naam correct met hoofdletters
+ * Voorbeelden:
+ * - "jan de vries" → "Jan de Vries"
+ * - "PETER VAN DER BERG" → "Peter van der Berg"
+ * - "maria van den heuvel" → "Maria van den Heuvel"
+ */
+const formatName = (name: string): string => {
+  if (!name) return '';
+  
+  // Woorden die klein blijven (tussenvoegsels)
+  const lowercase = ['van', 'de', 'der', 'den', 'het', 'ten', 'ter', 'te', 'op', 'in', "'t"];
+  
+  return name
+    .trim()
+    .toLowerCase()
+    .split(' ')
+    .map((word, index) => {
+      // Eerste woord altijd met hoofdletter
+      if (index === 0) {
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      }
+      // Tussenvoegsels klein houden
+      if (lowercase.includes(word)) {
+        return word;
+      }
+      // Andere woorden met hoofdletter
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(' ');
+};
+
+/**
  * Generate admin notification email for new booking
  * Simple black/white layout for internal use
  */
-const generateAdminNewBookingEmail = async (
+export const generateAdminNewBookingEmail = async (
   reservation: Reservation,
   event: Event
 ): Promise<EmailTemplate> => {
@@ -26,8 +58,10 @@ const generateAdminNewBookingEmail = async (
     console.error('Failed to load merchandise items:', error);
   }
   
-  // Format customer name
-  const fullName = `${reservation.firstName || ''} ${reservation.lastName || ''}`.trim() || reservation.contactPerson || 'Niet opgegeven';
+  // Format customer name with proper capitalization
+  const firstName = formatName(reservation.firstName || '');
+  const lastName = formatName(reservation.lastName || '');
+  const fullName = `${firstName} ${lastName}`.trim() || formatName(reservation.contactPerson || '') || 'Niet opgegeven';
   
   // Format arrangement info
   const arrangement = reservation.arrangement === 'BWF' ? 'BWF' : 'Deluxe';
@@ -98,148 +132,263 @@ const generateAdminNewBookingEmail = async (
     commentLines.push(`FACTUURADRES: ${reservation.invoiceAddress || ''} ${reservation.invoiceHouseNumber || ''}, ${reservation.invoicePostalCode || ''} ${reservation.invoiceCity || ''}`);
   }
   
-  // Build HTML for comments section with each item on separate line
+  // Build HTML for comments section with each item on separate line  
   const commentsHtml = commentLines.length > 0 ? 
-    commentLines.map(line => `<div style="display: block; margin-bottom: 10px; line-height: 1.6;">${line}</div>`).join('') : '';
+    commentLines.map(line => `<tr><td colspan="2" style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #f1f1f1; padding: 6px 0; line-height: 1.6;">${line}</td></tr>`).join('') : '';
 
-  // Simple black/white email for internal admin use
+  // Admin email - EXACT SAME STYLING as customer emails (Dark Theatre)
   const htmlContent = `
-<!DOCTYPE html>
-<html>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="nl">
 <head>
-    <meta charset="UTF-8">
-    <title>Nieuwe Voorlopige Reservering</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="format-detection" content="telephone=no" />
+  <title>Nieuwe Reservering</title>
+  <!--[if mso]>
+  <style type="text/css">
+    body, table, td {font-family: Arial, Helvetica, sans-serif !important;}
+  </style>
+  <![endif]-->
 </head>
-<body style="font-family: Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #333; margin: 0; padding: 20px; background-color: #f5f5f5;">
-    
-    <div style="max-width: 650px; margin: 0 auto; background-color: #ffffff; border: 1px solid #ddd; border-radius: 4px;">
+<body style="margin: 0; padding: 0; background-color: #1a1a1a; font-family: Arial, Helvetica, sans-serif;">
+  
+  <!-- OUTER CONTAINER TABLE -->
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #1a1a1a;">
+    <tr>
+      <td align="center" style="padding: 40px 20px;">
         
-        <!-- Header -->
-        <div style="background-color: #000000; padding: 20px; text-align: center;">
-            <h1 style="margin: 0; font-size: 22px; color: #ffffff;">🔔 Nieuwe Voorlopige Reservering</h1>
-        </div>
-
-        <!-- Content -->
-        <div style="padding: 30px;">
-            
-            <p style="margin: 0 0 20px 0; font-size: 15px;">Geachte medewerker Inspiration Point,</p>
-            
-            <p style="margin: 0 0 25px 0; font-size: 15px;"><strong>Er is een nieuwe voorlopige reservering ontvangen:</strong></p>
-            
-            <!-- Reservering Details -->
-            <div style="background-color: #fafafa; border: 1px solid #e0e0e0; border-radius: 4px; padding: 20px; margin-bottom: 20px;">
-                <table style="width: 100%; border-collapse: collapse;">
-                    <tr>
-                        <td style="padding: 6px 0; font-weight: bold; width: 40%;">Datum:</td>
-                        <td style="padding: 6px 0;">${eventDate}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 6px 0; font-weight: bold;">Deuren open:</td>
-                        <td style="padding: 6px 0;">${event.doorsOpen}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 6px 0; font-weight: bold;">Show start:</td>
-                        <td style="padding: 6px 0;">${event.startsAt}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 6px 0; font-weight: bold;">Ongeveer gedaan:</td>
-                        <td style="padding: 6px 0;">${event.endsAt}</td>
-                    </tr>
-                    ${reservation.companyName ? `
-                    <tr>
-                        <td style="padding: 6px 0; font-weight: bold;">Bedrijfsnaam:</td>
-                        <td style="padding: 6px 0;">${reservation.companyName}</td>
-                    </tr>
-                    ` : ''}
-                    ${reservation.salutation ? `
-                    <tr>
-                        <td style="padding: 6px 0; font-weight: bold;">Aanhef:</td>
-                        <td style="padding: 6px 0;">${reservation.salutation}</td>
-                    </tr>
-                    ` : ''}
-                    <tr>
-                        <td style="padding: 6px 0; font-weight: bold;">Naam:</td>
-                        <td style="padding: 6px 0;">${fullName}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 6px 0; font-weight: bold;">Adres:</td>
-                        <td style="padding: 6px 0;">${reservation.address || ''} ${reservation.houseNumber || ''}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 6px 0; font-weight: bold;">Postcode & Plaats:</td>
-                        <td style="padding: 6px 0;">${reservation.postalCode || ''} ${reservation.city || ''}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 6px 0; font-weight: bold;">Telefoon:</td>
-                        <td style="padding: 6px 0;">${reservation.phoneCountryCode || ''}${reservation.phone || ''}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 6px 0; font-weight: bold;">Email:</td>
-                        <td style="padding: 6px 0;">${reservation.email || ''}</td>
-                    </tr>
-                    <tr style="border-top: 2px solid #ddd;">
-                        <td style="padding: 12px 0 6px 0; font-weight: bold; font-size: 16px;">Aantal personen:</td>
-                        <td style="padding: 12px 0 6px 0; font-size: 16px; font-weight: bold;">${reservation.numberOfPersons || 0}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 6px 0; font-weight: bold;">Arrangement:</td>
-                        <td style="padding: 6px 0;">${arrangementInfo}</td>
-                    </tr>
-                    ${reservation.preDrink?.enabled ? `
-                    <tr>
-                        <td style="padding: 6px 0; font-weight: bold;">Preparty:</td>
-                        <td style="padding: 6px 0;">Ja (€${(reservation.pricingSnapshot?.preDrinkPrice || 0).toFixed(2)} p.p.)</td>
-                    </tr>
-                    ` : ''}
-                    ${reservation.afterParty?.enabled ? `
-                    <tr>
-                        <td style="padding: 6px 0; font-weight: bold;">Afterparty:</td>
-                        <td style="padding: 6px 0;">Ja (€${(reservation.pricingSnapshot?.afterPartyPrice || 0).toFixed(2)} p.p.)</td>
-                    </tr>
-                    ` : ''}
-                    <tr style="border-top: 2px solid #ddd;">
-                        <td style="padding: 12px 0 0 0; font-weight: bold; font-size: 17px;">Totaalprijs:</td>
-                        <td style="padding: 12px 0 0 0; font-size: 17px; font-weight: bold;">€${(reservation.pricingSnapshot?.finalTotal || 0).toFixed(2)}</td>
-                    </tr>
-                </table>
-            </div>
-
-            ${commentsHtml ? `
-            <!-- Opmerkingen -->
-            <div style="background-color: #fff9e6; border: 1px solid #e8d7a6; border-radius: 4px; padding: 20px; margin-bottom: 20px;">
-                <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #333;">📝 Opmerkingen & Extra Informatie</h3>
-                <div style="font-size: 14px; color: #444;">${commentsHtml}</div>
-            </div>
-            ` : ''}
-
-            <!-- Extra Info -->
-            <div style="background-color: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 4px; padding: 15px; margin-bottom: 20px;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-                    <tr>
-                        <td style="padding: 4px 0; color: #666;">Nieuwsbrief:</td>
-                        <td style="padding: 4px 0; text-align: right;">${reservation.newsletterOptIn ? 'Ja' : 'Nee'}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 4px 0; color: #666;">Voorwaarden gelezen:</td>
-                        <td style="padding: 4px 0; text-align: right;">${reservation.acceptTerms ? 'Ja' : 'Nee'}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 4px 0; color: #666;">Reservering ID:</td>
-                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #333;">${reservation.id || 'Niet beschikbaar'}</td>
-                    </tr>
-                </table>
-            </div>
-
-        </div>
-
-        <!-- Footer -->
-        <div style="background-color: #f5f5f5; padding: 20px; text-align: center; border-top: 1px solid #ddd; font-size: 13px; color: #666;">
-            <p style="margin: 0 0 5px 0;"><strong>Inspiration Point</strong></p>
-            <p style="margin: 0 0 5px 0;">Maastrichterweg 13-17, 5554 GE Valkenswaard</p>
-            <p style="margin: 0;">040-2110679 | info@inspiration-point.nl | www.inspiration-point.nl</p>
-        </div>
-
-    </div>
+        <!-- MAIN CONTAINER (600px max width) -->
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" style="max-width: 600px; width: 100%;">
+          
+          <!-- LOGO HEADER -->
+          <tr>
+            <td align="center" style="padding: 30px 0;">
+              <img src="https://www.inspiration-point.nl/wp-content/uploads/2023/02/cropped-IP-Logo-2023-transparant-small.png" alt="Inspiration Point" width="400" style="display: block; width: 400px; max-width: 100%; height: auto; border: 0;" />
+            </td>
+          </tr>
+          
+          <!-- SPOTLIGHT TITLE -->
+          <tr>
+            <td align="center" style="padding: 20px 0 30px 0;">
+              <h1 style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 28px; font-weight: bold; color: #D4AF37; line-height: 1.3;">
+                🔔 Nieuwe Reservering
+              </h1>
+            </td>
+          </tr>
+          
+          <!-- DARK CARD CONTENT BLOCK -->
+          <tr>
+            <td>
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #2a2a2a; border-radius: 8px;">
+                <tr>
+                  <td style="padding: 40px;">
+                    
+                    <!-- INTRO TEXT -->
+                    <p style="margin: 0 0 30px 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #aaaaaa; line-height: 1.6;">
+                      Er is een nieuwe voorlopige reservering ontvangen voor ${eventDate}.
+                    </p>
+                    
+                    <!-- RESERVATION DETAILS TABLE -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 30px; background-color: #1a1a1a; border: 2px solid #D4AF37; border-radius: 8px;">
+                      <tr>
+                        <td style="padding: 25px;">
+                          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                            <tr>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #888888; padding: 6px 0; vertical-align: top; width: 40%;">
+                                Datum
+                              </td>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #f1f1f1; padding: 6px 0; vertical-align: top; font-weight: bold;">
+                                ${eventDate}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #888888; padding: 6px 0; vertical-align: top;">
+                                Aantal personen
+                              </td>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #D4AF37; padding: 6px 0; vertical-align: top; font-weight: bold;">
+                                ${reservation.numberOfPersons || 0}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #888888; padding: 6px 0; vertical-align: top;">
+                                Arrangement
+                              </td>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #f1f1f1; padding: 6px 0; vertical-align: top;">
+                                ${arrangementInfo}
+                              </td>
+                            </tr>
+                            ${reservation.preDrink?.enabled ? `
+                            <tr>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #888888; padding: 6px 0; vertical-align: top;">
+                                Preparty
+                              </td>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #f1f1f1; padding: 6px 0; vertical-align: top;">
+                                Ja (€${(reservation.pricingSnapshot?.preDrinkPrice || 0).toFixed(2)} p.p.)
+                              </td>
+                            </tr>
+                            ` : ''}
+                            ${reservation.afterParty?.enabled ? `
+                            <tr>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #888888; padding: 6px 0; vertical-align: top;">
+                                Afterparty
+                              </td>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #f1f1f1; padding: 6px 0; vertical-align: top;">
+                                Ja (€${(reservation.pricingSnapshot?.afterPartyPrice || 0).toFixed(2)} p.p.)
+                              </td>
+                            </tr>
+                            ` : ''}
+                            
+                            <!-- CONTACT INFO SECTION -->
+                            <tr>
+                              <td colspan="2" style="padding: 15px 0 10px 0;">
+                                <div style="border-top: 1px solid #333333; padding-top: 15px;">
+                                  <p style="margin: 0 0 10px 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #D4AF37; font-weight: bold;">
+                                    Contactgegevens
+                                  </p>
+                                </div>
+                              </td>
+                            </tr>
+                            ${reservation.companyName ? `
+                            <tr>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #888888; padding: 6px 0; vertical-align: top;">
+                                Bedrijfsnaam
+                              </td>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #f1f1f1; padding: 6px 0; vertical-align: top;">
+                                ${reservation.companyName}
+                              </td>
+                            </tr>
+                            ` : ''}
+                            ${reservation.salutation ? `
+                            <tr>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #888888; padding: 6px 0; vertical-align: top;">
+                                Aanhef
+                              </td>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #f1f1f1; padding: 6px 0; vertical-align: top;">
+                                ${reservation.salutation}
+                              </td>
+                            </tr>
+                            ` : ''}
+                            <tr>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #888888; padding: 6px 0; vertical-align: top;">
+                                Naam
+                              </td>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #f1f1f1; padding: 6px 0; vertical-align: top; font-weight: bold;">
+                                ${fullName}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #888888; padding: 6px 0; vertical-align: top;">
+                                Email
+                              </td>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #f1f1f1; padding: 6px 0; vertical-align: top;">
+                                ${reservation.email || ''}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #888888; padding: 6px 0; vertical-align: top;">
+                                Telefoon
+                              </td>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #f1f1f1; padding: 6px 0; vertical-align: top;">
+                                ${reservation.phoneCountryCode || ''}${reservation.phone || ''}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #888888; padding: 6px 0; vertical-align: top;">
+                                Adres
+                              </td>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #f1f1f1; padding: 6px 0; vertical-align: top;">
+                                ${reservation.address || ''}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #888888; padding: 6px 0; vertical-align: top;">
+                                Huisnummer
+                              </td>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #f1f1f1; padding: 6px 0; vertical-align: top;">
+                                ${reservation.houseNumber || ''}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #888888; padding: 6px 0; vertical-align: top;">
+                                Postcode
+                              </td>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #f1f1f1; padding: 6px 0; vertical-align: top;">
+                                ${reservation.postalCode || ''}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #888888; padding: 6px 0; vertical-align: top;">
+                                Plaats
+                              </td>
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #f1f1f1; padding: 6px 0; vertical-align: top;">
+                                ${reservation.city || ''}
+                              </td>
+                            </tr>
+                            
+                            ${commentsHtml ? `
+                            <!-- EXTRA INFO SECTION -->
+                            <tr>
+                              <td colspan="2" style="padding: 15px 0 10px 0;">
+                                <div style="border-top: 1px solid #333333; padding-top: 15px;">
+                                  <p style="margin: 0 0 10px 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #D4AF37; font-weight: bold;">
+                                    📝 Opmerkingen & Extra Informatie
+                                  </p>
+                                </div>
+                              </td>
+                            </tr>
+                            ${commentsHtml}
+                            ` : ''}
+                            
+                            <!-- SYSTEM INFO -->
+                            <tr>
+                              <td colspan="2" style="padding: 20px 0 0 0;">
+                                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #333333; border-radius: 4px;">
+                                  <tr>
+                                    <td style="padding: 12px; text-align: center;">
+                                      <p style="margin: 0 0 5px 0; font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #888888;">
+                                        Nieuwsbrief: ${reservation.newsletterOptIn ? '✅ Ja' : '❌ Nee'} | Voorwaarden: ${reservation.acceptTerms ? '✅ Ja' : '❌ Nee'}
+                                      </p>
+                                      <p style="margin: 0; font-family: monospace; font-size: 11px; color: #666666;">
+                                        ID: ${reservation.id || 'N/A'}
+                                      </p>
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+                    
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- FOOTER -->
+          <tr>
+            <td align="center" style="padding: 30px 20px;">
+              <p style="margin: 0 0 10px 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #aaaaaa; line-height: 1.6;">
+                <strong style="color: #D4AF37;">Inspiration Point</strong><br />
+                Maastrichterweg 13-17, 5554 GE Valkenswaard<br />
+                <a href="tel:0402110679" style="color: #D4AF37; text-decoration: none;">040-2110679</a> | 
+                <a href="mailto:info@inspiration-point.nl" style="color: #D4AF37; text-decoration: none;">info@inspiration-point.nl</a>
+              </p>
+              <p style="margin: 10px 0 0 0; font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #888888;">
+                <a href="https://www.inspiration-point.nl" style="color: #888888; text-decoration: underline;">www.inspiration-point.nl</a>
+              </p>
+            </td>
+          </tr>
+          
+        </table>
+        
+      </td>
+    </tr>
+  </table>
+  
 </body>
 </html>
   `;

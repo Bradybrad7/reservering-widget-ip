@@ -3,7 +3,7 @@ import type { BookingAdminProps } from '../types';
 import { AdminLayoutNew } from './admin/AdminLayoutNew';
 import { DashboardEnhanced } from './admin/DashboardEnhanced';
 import { ReservationsCommandCenter } from './admin/ReservationsCommandCenter';
-import { EventCommandCenterRevamped } from './admin/EventCommandCenterRevamped';
+import { EventWorkshop } from './admin/EventWorkshop';
 import { CustomerManagerEnhanced } from './admin/CustomerManagerEnhanced';
 import { ProductsManager } from './admin/ProductsManager';
 import { ConfigManagerEnhanced } from './admin/ConfigManagerEnhanced';
@@ -25,9 +25,9 @@ const BookingAdminNew: React.FC<BookingAdminProps> = () => {
       case 'dashboard':
         return <DashboardEnhanced />;
 
-      // Events - Revamped manager with calendar, list, and grid views
+      // Events - Event Werkplaats v3 with 3 tabs (Overzicht, Werkplaats, Tools)
       case 'events':
-        return <EventCommandCenterRevamped />;
+        return <EventWorkshop />;
 
       // Reservations - Modern command center with cards, table, and timeline views
       case 'reservations':

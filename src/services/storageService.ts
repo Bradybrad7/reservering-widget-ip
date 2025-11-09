@@ -594,12 +594,21 @@ class StorageService {
   }
 
   async updateShow(showId: string, updates: Partial<Show>): Promise<boolean> {
+    console.log('📝 storageService.updateShow called with:', { showId, updates });
     const shows = await this.getShows();
+    console.log('📦 Current shows:', shows);
     const index = shows.findIndex(s => s.id === showId);
-    if (index === -1) return false;
+    console.log('🔍 Found show at index:', index);
+    if (index === -1) {
+      console.error('❌ Show not found with id:', showId);
+      return false;
+    }
     
+    const oldShow = { ...shows[index] };
     shows[index] = { ...shows[index], ...updates };
+    console.log('🔄 Updated show:', { old: oldShow, new: shows[index] });
     await this.saveShows(shows);
+    console.log('✅ Show saved successfully');
     return true;
   }
 
