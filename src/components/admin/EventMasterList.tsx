@@ -27,7 +27,7 @@ import {
   ArrowUpDown
 } from 'lucide-react';
 import type { AdminEvent, Reservation, WaitlistEntry, EventType } from '../../types';
-import { getEventComputedData } from './EventCommandCenter';
+import { getEventComputedData } from '../../utils/eventHelpers';
 import { useEventsStore } from '../../store/eventsStore';
 import { useConfigStore } from '../../store/configStore';
 import { getEventTypeColor, getEventTypeName, hexToRgba } from '../../utils/eventColors';

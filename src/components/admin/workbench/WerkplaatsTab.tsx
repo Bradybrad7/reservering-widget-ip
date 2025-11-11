@@ -41,6 +41,10 @@ interface WerkplaatsTabProps {
     status?: Reservation['status'];
     payment?: 'paid' | 'pending' | 'overdue';
     custom?: string;
+    customerEmail?: string;
+    customerName?: string;
+    eventId?: string;
+    eventName?: string;
   } | null;
   onClearPresetFilter: () => void;
   onRefresh: () => void;
@@ -78,7 +82,7 @@ export const WerkplaatsTab: React.FC<WerkplaatsTabProps> = ({
   // Modals
   const [showBulkTagModal, setShowBulkTagModal] = useState(false);
 
-  // Apply preset filter when it changes (from Dashboard navigation)
+  // Apply preset filter when it changes (from Dashboard navigation, CustomerManager, or EventWorkshop)
   useEffect(() => {
     if (presetFilter) {
       if (presetFilter.status) {
@@ -86,6 +90,13 @@ export const WerkplaatsTab: React.FC<WerkplaatsTabProps> = ({
       }
       if (presetFilter.payment) {
         setPaymentFilter(presetFilter.payment);
+      }
+      if (presetFilter.eventId) {
+        setEventFilter(presetFilter.eventId);
+      }
+      if (presetFilter.customerEmail) {
+        // Use search to filter by customer email
+        setSearchQuery(presetFilter.customerEmail);
       }
       // Auto-clear after applying
       setTimeout(() => onClearPresetFilter(), 100);

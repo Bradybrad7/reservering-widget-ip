@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { Users, AlertCircle } from 'lucide-react';
-import type { EventStats } from './EventCommandCenter';
+import type { EventStats } from '../../utils/eventHelpers';
 
 interface EventQuickStatsProps {
   stats: EventStats;

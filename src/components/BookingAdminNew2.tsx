@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import type { BookingAdminProps } from '../types';
 import { AdminLayoutNew } from './admin/AdminLayoutNew';
 import { DashboardEnhanced } from './admin/DashboardEnhanced';
@@ -16,8 +16,37 @@ import { HostCheckIn } from './admin/HostCheckIn';
 import { ArchivedReservationsManager } from './admin/ArchivedReservationsManager';
 import { PaymentOverview } from './admin/PaymentOverview';
 
+// ✨ Store imports voor proactief data laden
+import { useEventsStore } from '../store/eventsStore';
+import { useReservationsStore } from '../store/reservationsStore';
+import { useCustomersStore } from '../store/customersStore';
+import { useConfigStore } from '../store/configStore';
+import { useWaitlistStore } from '../store/waitlistStore';
+
 const BookingAdminNew: React.FC<BookingAdminProps> = () => {
   const { activeSection } = useAdminStore();
+  
+  // ✨ PROACTIEF DATA LADEN - Load alle belangrijke data bij startup
+  const { loadEvents } = useEventsStore();
+  const { loadReservations } = useReservationsStore();
+  const { loadCustomers } = useCustomersStore();
+  const { loadConfig } = useConfigStore();
+  const { loadWaitlistEntries } = useWaitlistStore();
+
+  useEffect(() => {
+    // Load alle kritieke data parallel bij eerste render
+    // Dit zorgt ervoor dat de data al beschikbaar is wanneer de gebruiker
+    // naar andere secties navigeert, waardoor de UX veel sneller aanvoelt
+    Promise.all([
+      loadEvents(),
+      loadReservations(),
+      loadCustomers(),
+      loadConfig(),
+      loadWaitlistEntries()
+    ]).catch(error => {
+      console.error('Error preloading admin data:', error);
+    });
+  }, [loadEvents, loadReservations, loadCustomers, loadConfig, loadWaitlistEntries]);
 
   const renderContent = () => {
     switch (activeSection) {

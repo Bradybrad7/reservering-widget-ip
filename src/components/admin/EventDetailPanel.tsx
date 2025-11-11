@@ -14,10 +14,11 @@ import type { EventStats } from './EventCommandCenter';
 import { useReservationsStore } from '../../store/reservationsStore';
 import { useWaitlistStore } from '../../store/waitlistStore';
 import { useEventsStore } from '../../store/eventsStore';
+import { useAdminStore } from '../../store/adminStore';
 import { InlineEdit } from '../ui/InlineEdit';
 import { ReservationEditModal } from './ReservationEditModal';
 import { ReservationDetailModal } from './modals/ReservationDetailModal';
-import { Edit, Eye, RefreshCw } from 'lucide-react';
+import { Edit, Eye, RefreshCw, List } from 'lucide-react';
 import { cn } from '../../utils';
 import { useToast } from '../Toast';
 
@@ -42,6 +43,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
   const { updateReservationStatus } = useReservationsStore();
   const { markAsContacted, deleteWaitlistEntry } = useWaitlistStore();
   const { updateEvent } = useEventsStore();
+  const { setActiveSection } = useAdminStore();
 
   return (
     <div className="flex flex-col h-full bg-gray-900 text-white">
@@ -76,6 +78,22 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
             <div className="text-lg font-bold mt-1 text-orange-400">{stats.waitlistCount}</div>
           </div>
         </div>
+
+        {/* Navigatie naar Reserveringen */}
+        <button
+          onClick={() => {
+            // Navigeer naar reserveringen met filter op dit event
+            setActiveSection('reservations');
+            sessionStorage.setItem('reservationFilter', JSON.stringify({
+              eventId: event.id,
+              eventName: `${new Date(event.date).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })} - ${event.type}`
+            }));
+          }}
+          className="w-full mt-4 px-4 py-3 bg-gold-500/10 hover:bg-gold-500/20 border border-gold-500/30 rounded-lg text-gold-400 hover:text-gold-300 transition-all flex items-center justify-center gap-2 group"
+        >
+          <List className="w-5 h-5 group-hover:scale-110 transition-transform" />
+          <span className="font-medium">Bekijk Alle Reserveringen ({reservations.length})</span>
+        </button>
       </div>
 
       {/* Tab Knoppen */}

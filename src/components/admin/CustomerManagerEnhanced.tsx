@@ -14,7 +14,8 @@ import {
   BarChart3,
   Package,
   X,
-  ArrowUpDown
+  ArrowUpDown,
+  List
 } from 'lucide-react';
 import { useCustomersStore } from '../../store/customersStore';
 import { useAdminStore } from '../../store/adminStore';
@@ -34,7 +35,7 @@ export const CustomerManagerEnhanced: React.FC = () => {
   } = useCustomersStore();
 
   // Get selectedItemId from adminStore for deep linking from search
-  const { selectedItemId, clearSelectedItemId } = useAdminStore();
+  const { selectedItemId, clearSelectedItemId, setActiveSection } = useAdminStore();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredCustomers, setFilteredCustomers] = useState<CustomerProfile[]>([]);
@@ -252,6 +253,25 @@ export const CustomerManagerEnhanced: React.FC = () => {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Navigatie naar Reserveringen */}
+              <div className="mt-4 pt-4 border-t border-neutral-700">
+                <button
+                  onClick={() => {
+                    // Navigeer naar reserveringen met filter op deze klant
+                    setActiveSection('reservations');
+                    // De ReservationsWorkbench zal automatisch filteren op email via presetFilter
+                    sessionStorage.setItem('reservationFilter', JSON.stringify({
+                      customerEmail: selectedCustomer.email,
+                      customerName: selectedCustomer.companyName
+                    }));
+                  }}
+                  className="w-full px-4 py-3 bg-gold-500/10 hover:bg-gold-500/20 border border-gold-500/30 rounded-lg text-gold-400 hover:text-gold-300 transition-all flex items-center justify-center gap-2 group"
+                >
+                  <List className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  <span className="font-medium">Bekijk Reserveringen ({selectedCustomer.totalBookings})</span>
+                </button>
               </div>
             </div>
 

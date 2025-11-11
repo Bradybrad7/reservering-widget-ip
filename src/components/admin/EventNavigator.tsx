@@ -13,7 +13,7 @@ import React, { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Search, Filter as FilterIcon } from 'lucide-react';
 import type { AdminEvent, Reservation, WaitlistEntry } from '../../types';
 import { cn } from '../../utils';
-import { getEventComputedData } from './EventCommandCenter';
+import { getEventComputedData } from '../../utils/eventHelpers';
 
 interface EventNavigatorProps {
   events: AdminEvent[];

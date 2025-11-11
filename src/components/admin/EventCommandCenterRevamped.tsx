@@ -36,7 +36,7 @@ import { EventDetailPanel } from './EventDetailPanel';
 import { EventCalendarView } from './EventCalendarView';
 import { EventWeekMonthView } from './EventWeekMonthView';
 import { BulkEventModal } from './BulkEventModal';
-import { getEventComputedData } from './EventCommandCenter';
+import { getEventComputedData } from '../../utils/eventHelpers';
 
 type ViewMode = 'list' | 'calendar' | 'grid' | 'week-month';
 

@@ -80,11 +80,30 @@ export const ReservationsManager: React.FC = () => {
     status?: Reservation['status'];
     payment?: 'paid' | 'pending' | 'overdue';
     custom?: string;
+    customerEmail?: string;
+    customerName?: string;
+    eventId?: string;
+    eventName?: string;
   } | null>(null);
 
   // Load data
   useEffect(() => {
     loadData();
+  }, []);
+
+  // Check voor inkomende navigatie filter (van CustomerManager of EventWorkshop)
+  useEffect(() => {
+    const filterData = sessionStorage.getItem('reservationFilter');
+    if (filterData) {
+      try {
+        const filter = JSON.parse(filterData);
+        setPresetFilter(filter);
+        setActiveTab('werkplaats');
+        sessionStorage.removeItem('reservationFilter');
+      } catch (e) {
+        console.error('Failed to parse reservation filter:', e);
+      }
+    }
   }, []);
 
   const loadData = async () => {

@@ -32,12 +32,14 @@ import {
   Trash2,
   Send,
   Download,
-  TrendingUp
+  TrendingUp,
+  ExternalLink
 } from 'lucide-react';
 import type { Reservation, Event, MerchandiseItem } from '../../../types';
 import { formatCurrency, formatDate, cn } from '../../../utils';
 import { InlineEdit } from '../../ui/InlineEdit';
 import { useReservationsStore } from '../../../store/reservationsStore';
+import { useAdminStore } from '../../../store/adminStore';
 import { apiService } from '../../../services/apiService';
 import { useToast } from '../../Toast';
 import { TagConfigService } from '../../../services/tagConfigService';
@@ -68,6 +70,7 @@ export const ReservationDetailPanel: React.FC<ReservationDetailPanelProps> = ({
 }) => {
   const toast = useToast();
   const { confirmReservation, rejectReservation, deleteReservation, markAsPaid } = useReservationsStore();
+  const { setActiveSection, setSelectedItemId } = useAdminStore();
   const [isProcessing, setIsProcessing] = useState(false);
 
   // === EMPTY STATE: Geen reservering geselecteerd ===
@@ -305,7 +308,16 @@ export const ReservationDetailPanel: React.FC<ReservationDetailPanelProps> = ({
           </InfoRow>
           
           <InfoRow label="Email">
-            <div className="text-white">{reservation.email}</div>
+            <button
+              onClick={() => {
+                setActiveSection('customers');
+                setSelectedItemId(reservation.email);
+              }}
+              className="text-gold-400 hover:text-gold-300 flex items-center gap-2 group"
+            >
+              <span>{reservation.email}</span>
+              <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
           </InfoRow>
 
           <InfoRow label="Telefoon">
@@ -337,9 +349,20 @@ export const ReservationDetailPanel: React.FC<ReservationDetailPanelProps> = ({
         {/* Event & Boeking Details */}
         <InfoBlok title="Event & Boeking" icon={Calendar}>
           <InfoRow label="Event">
-            <div className="text-white">
-              {event ? `${formatDate(event.date)} - ${event.type}` : 'Event onbekend'}
-            </div>
+            {event ? (
+              <button
+                onClick={() => {
+                  setActiveSection('events');
+                  setSelectedItemId(event.id);
+                }}
+                className="text-gold-400 hover:text-gold-300 flex items-center gap-2 group"
+              >
+                <span>{formatDate(event.date)} - {event.type}</span>
+                <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+            ) : (
+              <div className="text-white">Event onbekend</div>
+            )}
           </InfoRow>
 
           <InfoRow label="Aantal personen">

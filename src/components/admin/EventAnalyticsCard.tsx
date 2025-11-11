@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { TrendingUp, TrendingDown, Users, Clock, AlertCircle, CheckCircle, Minus } from 'lucide-react';
-import type { EventStats } from './EventCommandCenter';
+import type { EventStats } from '../../utils/eventHelpers';
 import type { AdminEvent } from '../../types';
 
 interface EventAnalyticsCardProps {

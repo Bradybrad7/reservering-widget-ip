@@ -13,7 +13,7 @@ import type { AdminEvent, Reservation, WaitlistEntry } from '../../types';
 import { EventNavigator } from './EventNavigator';
 import { MonthOverview } from './MonthOverview';
 import { EventDetailPanel } from './EventDetailPanel';
-import { getEventComputedData } from './EventCommandCenter';
+import { getEventComputedData } from '../../utils/eventHelpers';
 
 interface EventWorkshopWorkspaceProps {
   events: AdminEvent[];

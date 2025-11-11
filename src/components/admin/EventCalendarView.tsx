@@ -13,7 +13,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, List, Archive } from 'lucide-react';
 import type { AdminEvent, Reservation, WaitlistEntry, EventTypesConfig } from '../../types';
-import { getEventComputedData } from './EventCommandCenter';
+import { getEventComputedData } from '../../utils/eventHelpers';
 import { storageService } from '../../services/storageService';
 import { getEventTypeName } from '../../utils/eventColors';
 import { categorizeEventsForAdmin, getEventStatusLabel } from '../../utils/eventArchiving';
