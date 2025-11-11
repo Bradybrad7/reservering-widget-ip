@@ -204,6 +204,7 @@ export const ReservationsManager: React.FC = () => {
         {activeTab === 'tools' && (
           <ToolsTab
             events={events}
+            reservations={reservations}
             onRefresh={loadData}
           />
         )}

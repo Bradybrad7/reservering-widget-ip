@@ -42,7 +42,8 @@ import {
   MapPin,
   Building2,
   Star,
-  Package
+  Package,
+  Hash
 } from 'lucide-react';
 import type { Reservation, Event, ReservationTag } from '../../types';
 import { apiService } from '../../services/apiService';
@@ -480,6 +481,86 @@ export const ReservationsCommandCenter: React.FC = () => {
               <span className="hidden md:inline">Exporteren</span>
             </button>
 
+            {/* 🏷️ Tag Migration Button */}
+            <button
+              onClick={async () => {
+                const confirmed = confirm(
+                  '🏷️ Tag Migratie\n\n' +
+                  'Dit voegt automatische tags toe aan ALLE bestaande reserveringen:\n\n' +
+                  '• DELUXE - voor BWFM arrangement\n' +
+                  '• BORREL - voor pre-drink of after-party\n' +
+                  '• MERCHANDISE - voor merchandise items\n\n' +
+                  'Handmatige tags blijven behouden.\n\n' +
+                  'Doorgaan?'
+                );
+                
+                if (!confirmed) return;
+                
+                try {
+                  const { migrateReservationTags } = await import('../../services/tagMigrationService');
+                  toast.info('Migratie gestart', 'Tags worden toegevoegd...');
+                  
+                  const result = await migrateReservationTags();
+                  
+                  toast.success(
+                    'Migratie voltooid!',
+                    `✅ ${result.success} bijgewerkt | ⏭️ ${result.skipped} overgeslagen | ❌ ${result.failed} mislukt`
+                  );
+                  
+                  // Reload reservations
+                  await loadReservations();
+                } catch (error) {
+                  console.error('Migration failed:', error);
+                  toast.error('Migratie mislukt', error instanceof Error ? error.message : 'Onbekende fout');
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              title="Voeg automatische tags toe aan alle reserveringen"
+            >
+              <Tag className="w-4 h-4" />
+              <span className="hidden md:inline">Tags Migreren</span>
+            </button>
+
+            {/* 🎯 Table Number Migration Button */}
+            <button
+              onClick={async () => {
+                const confirmed = confirm(
+                  '🎯 Tafelnummer Sync\n\n' +
+                  'Dit wijst tafelnummers opnieuw toe aan ALLE reserveringen:\n\n' +
+                  '• Per event: eerste boeking = Tafel 1, tweede = Tafel 2, etc.\n' +
+                  '• Gebaseerd op aanmaakdatum (createdAt)\n' +
+                  '• Alleen actieve boekingen (niet geannuleerd)\n\n' +
+                  'Dit overschrijft bestaande tafelnummers!\n\n' +
+                  'Doorgaan?'
+                );
+                
+                if (!confirmed) return;
+                
+                try {
+                  const { reassignAllTableNumbers } = await import('../../services/tableNumberService');
+                  toast.info('Tafelnummer sync gestart', 'Alle events worden bijgewerkt...');
+                  
+                  const result = await reassignAllTableNumbers();
+                  
+                  toast.success(
+                    'Tafelnummers bijgewerkt!',
+                    `✅ ${result.updated} boekingen | ${result.totalEvents} events | ❌ ${result.failed} fouten`
+                  );
+                  
+                  // Reload reservations
+                  await loadReservations();
+                } catch (error) {
+                  console.error('Table number sync failed:', error);
+                  toast.error('Sync mislukt', error instanceof Error ? error.message : 'Onbekende fout');
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+              title="Wijs tafelnummers opnieuw toe aan alle reserveringen"
+            >
+              <Hash className="w-4 h-4" />
+              <span className="hidden md:inline">Tafelnummers Sync</span>
+            </button>
+
             <button
               onClick={() => setShowMigrationImport(true)}
               className="flex items-center gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors"
@@ -812,9 +893,16 @@ export const ReservationsCommandCenter: React.FC = () => {
                               className="w-4 h-4 rounded border-neutral-600 text-gold-500 focus:ring-gold-500 focus:ring-offset-0"
                             />
                             <div>
-                              <h3 className="font-semibold text-white">
-                                {reservation.contactPerson}
-                              </h3>
+                              <div className="flex items-center gap-2">
+                                {reservation.tableNumber && (
+                                  <span className="inline-flex items-center px-2 py-0.5 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded text-xs font-bold">
+                                    T{reservation.tableNumber}
+                                  </span>
+                                )}
+                                <h3 className="font-semibold text-white">
+                                  {reservation.contactPerson}
+                                </h3>
+                              </div>
                               {reservation.companyName && (
                                 <p className="text-sm text-neutral-400 flex items-center gap-1">
                                   <Building2 className="w-3 h-3" />
@@ -1034,6 +1122,9 @@ export const ReservationsCommandCenter: React.FC = () => {
                           />
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                          Tafel
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-400 uppercase tracking-wider">
                           ID
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-400 uppercase tracking-wider">
@@ -1089,6 +1180,15 @@ export const ReservationsCommandCenter: React.FC = () => {
                                 onChange={() => toggleSelection(reservation.id)}
                                 className="w-4 h-4 rounded border-neutral-600 text-gold-500"
                               />
+                            </td>
+                            <td className="px-4 py-3">
+                              {reservation.tableNumber ? (
+                                <span className="inline-flex items-center px-2 py-1 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded text-sm font-bold">
+                                  T{reservation.tableNumber}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-neutral-600">-</span>
+                              )}
                             </td>
                             <td className="px-4 py-3">
                               <span className="text-xs text-neutral-400 font-mono">
@@ -1442,6 +1542,30 @@ export const ReservationsCommandCenter: React.FC = () => {
                                               <AlertCircle className="w-3 h-3" />
                                               Verloopt
                                             </span>
+                                          )}
+                                          {/* 🏷️ Tags Display */}
+                                          {reservation.tags && reservation.tags.length > 0 && (
+                                            <div className="flex flex-wrap gap-1 justify-end mt-1">
+                                              {reservation.tags.map((tag, idx) => {
+                                                const tagId = typeof tag === 'string' ? tag : 
+                                                  (typeof tag === 'object' && tag && 'id' in tag ? (tag as any).id : String(tag));
+                                                const isAutomatic = ['DELUXE', 'BORREL', 'MERCHANDISE'].includes(tagId);
+                                                return (
+                                                  <span
+                                                    key={idx}
+                                                    className={cn(
+                                                      'px-2 py-0.5 rounded text-xs font-semibold border flex items-center gap-1',
+                                                      isAutomatic
+                                                        ? 'bg-gold-500/20 text-gold-300 border-gold-500/50'
+                                                        : 'bg-blue-500/20 text-blue-300 border-blue-500/50'
+                                                    )}
+                                                  >
+                                                    {isAutomatic && <span>🤖</span>}
+                                                    {tagId}
+                                                  </span>
+                                                );
+                                              })}
+                                            </div>
                                           )}
                                         </div>
 

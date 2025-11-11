@@ -7,12 +7,14 @@ import {
   ShoppingBag,
   AlertCircle,
   Loader,
-  ChevronDown
+  ChevronDown,
+  ClipboardList
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Reservation, Event, MerchandiseItem, MerchandiseSelection } from '../../types';
 import { formatDate, formatCurrency } from '../../utils';
+import { OperationalPDFService } from '../../services/operationalPdfService';
 
 interface PDFExportManagerProps {
   reservations: Reservation[];
@@ -20,7 +22,7 @@ interface PDFExportManagerProps {
   merchandiseItems?: MerchandiseItem[];
 }
 
-type ExportType = 'guest-list' | 'merchandise-list' | 'allergy-list' | 'week-overview';
+type ExportType = 'daily-rundown' | 'guest-list' | 'merchandise-list' | 'allergy-list' | 'week-overview';
 
 export const PDFExportManager: React.FC<PDFExportManagerProps> = ({
   reservations,
@@ -49,58 +51,122 @@ export const PDFExportManager: React.FC<PDFExportManagerProps> = ({
     });
   };
 
-  // Generate Guest List PDF
+  // 🎨 Gouden branding constanten
+  const BRAND_COLOR: [number, number, number] = [212, 175, 55]; // Gold
+
+  // 🆕 Generate Daily Rundown (NEW!)
+  const generateDailyRundownPDF = async () => {
+    const filtered = getFilteredReservations();
+    
+    await OperationalPDFService.generateDailyRundown({
+      reservations: filtered,
+      events: events as any,
+      merchandiseItems,
+      dateRange: {
+        start: new Date(dateRange.start),
+        end: new Date(dateRange.end)
+      }
+    });
+  };
+
+  // Generate Guest List PDF (NIEUW DESIGN - Print Vriendelijk)
   const generateGuestListPDF = () => {
     const doc = new jsPDF();
     const filtered = getFilteredReservations();
 
-    // Title
-    doc.setFontSize(20);
-    doc.text('Gastenlijst', 14, 20);
+    // Simple header - zwart op wit
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(1);
+    doc.line(14, 20, 196, 20);
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(24);
+    doc.setFont('helvetica', 'bold');
+    doc.text('GASTENLIJST', 14, 16);
     
     doc.setFontSize(10);
-    doc.text(`Periode: ${formatDate(new Date(dateRange.start))} - ${formatDate(new Date(dateRange.end))}`, 14, 28);
-    doc.text(`Gegenereerd: ${formatDate(new Date())}`, 14, 33);
-    doc.text(`Totaal aantal gasten: ${filtered.reduce((sum, r) => sum + r.numberOfPersons, 0)}`, 14, 38);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Periode: ${formatDate(new Date(dateRange.start))} - ${formatDate(new Date(dateRange.end))}`, 14, 27);
+    doc.text(`Gegenereerd: ${formatDate(new Date())} | Pagina 1`, 14, 32);
+
+    // Stats box
+    const totalGuests = filtered.reduce((sum, r) => sum + r.numberOfPersons, 0);
+    doc.setFillColor(240, 240, 240);
+    doc.rect(14, 36, 182, 10, 'F');
+    doc.setDrawColor(200, 200, 200);
+    doc.rect(14, 36, 182, 10, 'S');
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`TOTAAL: ${filtered.length} reserveringen | ${totalGuests} gasten`, 18, 42);
 
     // Table data
     const tableData = filtered.map(res => {
       const event = events.find(e => e.id === res.eventId);
+      
+      // � Format table number
+      const tableDisplay = res.tableNumber ? `T${res.tableNumber}` : '-';
+      
+      // �🏷️ Format tags for display
+      const tagsDisplay = res.tags && res.tags.length > 0 
+        ? res.tags.join(', ') 
+        : '-';
+      
+      // 📝 Format notes for display (truncate if too long)
+      const notesDisplay = res.notes 
+        ? (res.notes.length > 40 ? res.notes.substring(0, 40) + '...' : res.notes)
+        : '-';
+      
       return [
         formatDate(new Date(res.eventDate)),
+        tableDisplay, // 🎯 NEW: Table number first!
         res.contactPerson,
         res.companyName || '-',
         res.numberOfPersons.toString(),
         res.arrangement,
-        res.partyPerson || '-',
+        tagsDisplay, // 🏷️
+        notesDisplay, // 📝
         res.phone,
         res.email
       ];
     });
 
     autoTable(doc, {
-      startY: 45,
-      head: [['Datum', 'Naam', 'Bedrijf', 'Personen', 'Arr.', 'Feestvierder', 'Telefoon', 'Email']],
+      startY: 50,
+      head: [['Datum', 'Tafel', 'Naam', 'Bedrijf', 'Pers.', 'Arr.', 'Tags', 'Notities', 'Tel.', 'Email']],
       body: tableData,
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [41, 128, 185], textColor: 255 },
-      alternateRowStyles: { fillColor: [245, 245, 245] },
+      styles: { 
+        fontSize: 7, // Slightly smaller to fit more columns
+        cellPadding: 2,
+        textColor: [0, 0, 0],
+        lineColor: [200, 200, 200],
+        lineWidth: 0.1
+      },
+      headStyles: { 
+        fillColor: [0, 0, 0],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        halign: 'left',
+        fontSize: 8
+      },
+      alternateRowStyles: { fillColor: [250, 250, 250] },
       columnStyles: {
-        0: { cellWidth: 22 },
-        1: { cellWidth: 30 },
-        2: { cellWidth: 25 },
-        3: { cellWidth: 15 },
-        4: { cellWidth: 12 },
-        5: { cellWidth: 25 },
-        6: { cellWidth: 25 },
-        7: { cellWidth: 35 }
+        0: { cellWidth: 18 },  // Datum
+        1: { cellWidth: 10, halign: 'center', fontStyle: 'bold' }, // 🎯 Tafel
+        2: { cellWidth: 23 },  // Naam
+        3: { cellWidth: 18 },  // Bedrijf
+        4: { cellWidth: 10, halign: 'center' }, // Personen
+        5: { cellWidth: 12, halign: 'center' }, // Arrangement
+        6: { cellWidth: 23, fontSize: 7 }, // 🏷️ Tags
+        7: { cellWidth: 28, fontSize: 6 }, // 📝 Notities
+        8: { cellWidth: 18 }, // Telefoon
+        9: { cellWidth: 28 }  // Email
       }
     });
 
     doc.save(`Gastenlijst_${dateRange.start}_${dateRange.end}.pdf`);
   };
 
-  // Generate Merchandise List PDF
+  // Generate Merchandise List PDF (NIEUW DESIGN)
   const generateMerchandiseListPDF = () => {
     const doc = new jsPDF();
     const filtered = getFilteredReservations();
@@ -123,13 +189,20 @@ export const PDFExportManager: React.FC<PDFExportManagerProps> = ({
       }
     });
 
-    // Title
-    doc.setFontSize(20);
-    doc.text('Merchandise Overzicht', 14, 20);
+    // Simple header
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(1);
+    doc.line(14, 20, 196, 20);
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(24);
+    doc.setFont('helvetica', 'bold');
+    doc.text('MERCHANDISE OVERZICHT', 14, 16);
     
     doc.setFontSize(10);
-    doc.text(`Periode: ${formatDate(new Date(dateRange.start))} - ${formatDate(new Date(dateRange.end))}`, 14, 28);
-    doc.text(`Gegenereerd: ${formatDate(new Date())}`, 14, 33);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Periode: ${formatDate(new Date(dateRange.start))} - ${formatDate(new Date(dateRange.end))}`, 14, 27);
+    doc.text(`Gegenereerd: ${formatDate(new Date())}`, 14, 32);
 
     // Summary table
     const summaryData = Array.from(merchandiseByItem.entries()).map(([item, data]) => [
@@ -139,20 +212,38 @@ export const PDFExportManager: React.FC<PDFExportManagerProps> = ({
     ]);
 
     autoTable(doc, {
-      startY: 40,
+      startY: 38,
       head: [['Merchandise Item', 'Totaal Aantal', 'Klanten (voorbeeld)']],
       body: summaryData,
-      styles: { fontSize: 10, cellPadding: 3 },
-      headStyles: { fillColor: [155, 89, 182], textColor: 255 },
-      alternateRowStyles: { fillColor: [245, 245, 245] }
+      styles: { 
+        fontSize: 10, 
+        cellPadding: 3,
+        textColor: [0, 0, 0],
+        lineColor: [200, 200, 200],
+        lineWidth: 0.1
+      },
+      headStyles: { 
+        fillColor: [0, 0, 0], 
+        textColor: [255, 255, 255], 
+        fontStyle: 'bold',
+        halign: 'left'
+      },
+      alternateRowStyles: { fillColor: [250, 250, 250] }
     });
 
     // Detailed per reservation
     let finalY = (doc as any).lastAutoTable.finalY + 10;
     
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    doc.line(14, finalY, 196, finalY);
+    finalY += 8;
+    
+    doc.setTextColor(0, 0, 0);
     doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
     doc.text('Details per Reservering', 14, finalY);
-    finalY += 10;
+    finalY += 8;
 
     const detailData = filtered
       .filter(res => res.merchandise && res.merchandise.length > 0)
@@ -173,15 +264,26 @@ export const PDFExportManager: React.FC<PDFExportManagerProps> = ({
       startY: finalY,
       head: [['Datum', 'Klant', 'Merchandise']],
       body: detailData,
-      styles: { fontSize: 9, cellPadding: 2 },
-      headStyles: { fillColor: [155, 89, 182], textColor: 255 },
-      alternateRowStyles: { fillColor: [245, 245, 245] }
+      styles: { 
+        fontSize: 9, 
+        cellPadding: 3,
+        textColor: [0, 0, 0],
+        lineColor: [200, 200, 200],
+        lineWidth: 0.1
+      },
+      headStyles: { 
+        fillColor: [0, 0, 0], 
+        textColor: [255, 255, 255], 
+        fontStyle: 'bold',
+        halign: 'left'
+      },
+      alternateRowStyles: { fillColor: [250, 250, 250] }
     });
 
     doc.save(`Merchandise_${dateRange.start}_${dateRange.end}.pdf`);
   };
 
-  // Generate Allergy List PDF
+  // Generate Allergy List PDF (NIEUW DESIGN)
   const generateAllergyListPDF = () => {
     const doc = new jsPDF();
     const filtered = getFilteredReservations();
@@ -192,14 +294,21 @@ export const PDFExportManager: React.FC<PDFExportManagerProps> = ({
       return dr && (dr.vegetarian || dr.vegan || dr.glutenFree || dr.lactoseFree || dr.other);
     });
 
-    // Title
-    doc.setFontSize(20);
-    doc.text('Allergie & Dieetwensen Overzicht', 14, 20);
+    // Simple header
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(1);
+    doc.line(14, 20, 196, 20);
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(24);
+    doc.setFont('helvetica', 'bold');
+    doc.text('KEUKENLIJST - DIEETWENSEN', 14, 16);
     
     doc.setFontSize(10);
-    doc.text(`Periode: ${formatDate(new Date(dateRange.start))} - ${formatDate(new Date(dateRange.end))}`, 14, 28);
-    doc.text(`Gegenereerd: ${formatDate(new Date())}`, 14, 33);
-    doc.text(`Reserveringen met dieetwensen: ${withDietary.length} van ${filtered.length}`, 14, 38);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Periode: ${formatDate(new Date(dateRange.start))} - ${formatDate(new Date(dateRange.end))}`, 14, 27);
+    doc.text(`Gegenereerd: ${formatDate(new Date())}`, 14, 32);
+    doc.text(`Reserveringen met dieetwensen: ${withDietary.length} van ${filtered.length}`, 14, 37);
 
     // Summary counts
     let vegetarianTotal = 0;
@@ -215,13 +324,22 @@ export const PDFExportManager: React.FC<PDFExportManagerProps> = ({
       lactoseFreeTotal += dr.lactoseFreeCount || 0;
     });
 
-    doc.setFontSize(12);
-    doc.text('Totaal Overzicht:', 14, 48);
-    doc.setFontSize(10);
-    doc.text(`• Vegetarisch: ${vegetarianTotal} personen`, 20, 55);
-    doc.text(`• Veganistisch: ${veganTotal} personen`, 20, 60);
-    doc.text(`• Glutenvrij: ${glutenFreeTotal} personen`, 20, 65);
-    doc.text(`• Lactosevrij: ${lactoseFreeTotal} personen`, 20, 70);
+    // Totaal box - zwart/wit
+    doc.setFillColor(240, 240, 240);
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    doc.rect(14, 42, 100, 28, 'FD');
+    
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('TOTAAL OVERZICHT:', 18, 48);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Vegetarisch: ${vegetarianTotal} personen`, 20, 54);
+    doc.text(`Veganistisch: ${veganTotal} personen`, 20, 59);
+    doc.text(`Glutenvrij: ${glutenFreeTotal} personen`, 20, 64);
+    doc.text(`Lactosevrij: ${lactoseFreeTotal} personen`, 20, 69);
 
     // Detailed table
     const tableData = withDietary.map(res => {
@@ -243,24 +361,35 @@ export const PDFExportManager: React.FC<PDFExportManagerProps> = ({
     });
 
     autoTable(doc, {
-      startY: 80,
+      startY: 75,
       head: [['Datum', 'Klant', 'Totaal Personen', 'Dieetwensen']],
       body: tableData,
-      styles: { fontSize: 9, cellPadding: 3 },
-      headStyles: { fillColor: [231, 76, 60], textColor: 255 },
-      alternateRowStyles: { fillColor: [245, 245, 245] },
+      styles: { 
+        fontSize: 9, 
+        cellPadding: 3,
+        textColor: [0, 0, 0],
+        lineColor: [200, 200, 200],
+        lineWidth: 0.1
+      },
+      headStyles: { 
+        fillColor: [0, 0, 0], 
+        textColor: [255, 255, 255], 
+        fontStyle: 'bold',
+        halign: 'left'
+      },
+      alternateRowStyles: { fillColor: [250, 250, 250] },
       columnStyles: {
         0: { cellWidth: 25 },
         1: { cellWidth: 40 },
-        2: { cellWidth: 25 },
+        2: { cellWidth: 25, halign: 'center' },
         3: { cellWidth: 90 }
       }
     });
 
-    doc.save(`Allergieën_Dieetwensen_${dateRange.start}_${dateRange.end}.pdf`);
+    doc.save(`Keukenlijst_Dieetwensen_${dateRange.start}_${dateRange.end}.pdf`);
   };
 
-  // Generate Week Overview PDF
+  // Generate Week Overview PDF (met gouden branding)
   const generateWeekOverviewPDF = () => {
     const doc = new jsPDF();
     const filtered = getFilteredReservations();
@@ -308,13 +437,20 @@ export const PDFExportManager: React.FC<PDFExportManagerProps> = ({
       weekData.set(weekKey, existing);
     });
 
-    // Title
-    doc.setFontSize(20);
-    doc.text('Weekoverzicht Boekingen', 14, 20);
+    // Simple header - zwart op wit
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(1);
+    doc.line(14, 20, 196, 20);
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(24);
+    doc.setFont('helvetica', 'bold');
+    doc.text('WEEKOVERZICHT BOEKINGEN', 14, 16);
     
     doc.setFontSize(10);
-    doc.text(`Periode: ${formatDate(new Date(dateRange.start))} - ${formatDate(new Date(dateRange.end))}`, 14, 28);
-    doc.text(`Gegenereerd: ${formatDate(new Date())}`, 14, 33);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Periode: ${formatDate(new Date(dateRange.start))} - ${formatDate(new Date(dateRange.end))}`, 14, 27);
+    doc.text(`Gegenereerd: ${formatDate(new Date())}`, 14, 32);
 
     // Summary table
     const tableData = Array.from(weekData.entries())
@@ -335,25 +471,36 @@ export const PDFExportManager: React.FC<PDFExportManagerProps> = ({
       });
 
     autoTable(doc, {
-      startY: 40,
+      startY: 38,
       head: [['Week', 'Boekingen', 'Personen', 'Deluxe', 'Couvert', 'Merch.', 'Omzet']],
       body: tableData,
-      styles: { fontSize: 10, cellPadding: 3 },
-      headStyles: { fillColor: [46, 204, 113], textColor: 255 },
-      alternateRowStyles: { fillColor: [245, 245, 245] },
+      styles: { 
+        fontSize: 10, 
+        cellPadding: 3,
+        textColor: [0, 0, 0],
+        lineColor: [200, 200, 200],
+        lineWidth: 0.1
+      },
+      headStyles: { 
+        fillColor: [0, 0, 0], 
+        textColor: [255, 255, 255], 
+        fontStyle: 'bold',
+        halign: 'left'
+      },
+      alternateRowStyles: { fillColor: [250, 250, 250] },
       columnStyles: {
         0: { cellWidth: 50 },
-        1: { cellWidth: 20 },
-        2: { cellWidth: 20 },
-        3: { cellWidth: 20 },
-        4: { cellWidth: 20 },
-        5: { cellWidth: 20 },
-        6: { cellWidth: 30 }
+        1: { cellWidth: 20, halign: 'center' },
+        2: { cellWidth: 20, halign: 'center' },
+        3: { cellWidth: 20, halign: 'center' },
+        4: { cellWidth: 20, halign: 'center' },
+        5: { cellWidth: 20, halign: 'center' },
+        6: { cellWidth: 30, halign: 'right' }
       }
     });
 
-    // Totals
-    const finalY = (doc as any).lastAutoTable.finalY + 10;
+    // Totals box - zwart/wit
+    const finalY = (doc as any).lastAutoTable.finalY + 15;
     const totals = Array.from(weekData.values()).reduce((acc, data) => ({
       reservations: acc.reservations + data.reservations.length,
       persons: acc.persons + data.totalPersons,
@@ -363,15 +510,32 @@ export const PDFExportManager: React.FC<PDFExportManagerProps> = ({
       revenue: acc.revenue + data.revenue
     }), { reservations: 0, persons: 0, deluxe: 0, couvert: 0, merchandise: 0, revenue: 0 });
 
+    // Draw separator line
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    doc.line(14, finalY - 5, 196, finalY - 5);
+
+    // Totals box
+    doc.setFillColor(240, 240, 240);
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    doc.rect(14, finalY, 110, 38, 'FD');
+    
     doc.setFontSize(12);
-    doc.text('Totalen:', 14, finalY);
-    doc.setFontSize(10);
-    doc.text(`Totaal boekingen: ${totals.reservations}`, 20, finalY + 7);
-    doc.text(`Totaal personen: ${totals.persons}`, 20, finalY + 12);
-    doc.text(`Deluxe arrangementen: ${totals.deluxe}`, 20, finalY + 17);
-    doc.text(`Couvert arrangementen: ${totals.couvert}`, 20, finalY + 22);
-    doc.text(`Merchandise items: ${totals.merchandise}`, 20, finalY + 27);
-    doc.text(`Totale omzet: ${formatCurrency(totals.revenue)}`, 20, finalY + 32);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('TOTALEN OVERZICHT', 18, finalY + 7);
+    
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Totaal boekingen: ${totals.reservations}`, 20, finalY + 14);
+    doc.text(`Totaal personen: ${totals.persons}`, 20, finalY + 19);
+    doc.text(`Deluxe arrangementen: ${totals.deluxe}`, 20, finalY + 24);
+    doc.text(`Couvert arrangementen: ${totals.couvert}`, 20, finalY + 29);
+    doc.text(`Merchandise items: ${totals.merchandise}`, 20, finalY + 34);
+    
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Totale omzet: ${formatCurrency(totals.revenue)}`, 20, finalY + 39);
 
     doc.save(`Weekoverzicht_${dateRange.start}_${dateRange.end}.pdf`);
   };
@@ -385,6 +549,9 @@ export const PDFExportManager: React.FC<PDFExportManagerProps> = ({
       await new Promise(resolve => setTimeout(resolve, 500));
 
       switch (type) {
+        case 'daily-rundown':
+          await generateDailyRundownPDF();
+          break;
         case 'guest-list':
           generateGuestListPDF();
           break;
@@ -416,8 +583,8 @@ export const PDFExportManager: React.FC<PDFExportManagerProps> = ({
           <FileText className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">PDF Exports</h2>
-          <p className="text-sm text-slate-600">Printbare overzichten genereren</p>
+          <h2 className="text-lg font-semibold text-slate-900">Printbare PDF Rapporten</h2>
+          <p className="text-sm text-slate-600">Voor receptie, keuken en management (niet voor data-analyse)</p>
         </div>
       </div>
 
@@ -451,6 +618,54 @@ export const PDFExportManager: React.FC<PDFExportManagerProps> = ({
         </p>
       </div>
 
+      {/* 🆕 NIEUW: Dagelijks Draaiboek - Featured */}
+      <div className="mb-6">
+        <button
+          onClick={() => handleGeneratePDF('daily-rundown')}
+          disabled={isGenerating || filteredCount === 0}
+          className="group relative w-full bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100 hover:from-amber-100 hover:to-yellow-200 border-3 border-amber-400 rounded-xl p-6 transition-all hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed text-left"
+          style={{ borderWidth: '3px' }}
+        >
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-xl flex items-center justify-center shadow-lg">
+                <ClipboardList className="w-7 h-7 text-white" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-xl font-bold text-slate-900">Dagelijks Draaiboek</h3>
+                  <span className="px-2 py-0.5 bg-amber-500 text-white text-xs font-bold rounded-full">NIEUW!</span>
+                </div>
+                <p className="text-sm text-slate-700 font-medium">
+                  Alles-in-een overzicht: gasten, dieetwensen, merchandise, opmerkingen + QR codes
+                </p>
+                <p className="text-xs text-slate-600 mt-1">
+                  Vervangt de oude losse rapporten - Visuele kleurcodering - Check-in QR codes
+                </p>
+              </div>
+            </div>
+            {isGenerating && selectedExport === 'daily-rundown' ? (
+              <Loader className="w-6 h-6 text-amber-600 animate-spin" />
+            ) : (
+              <Download className="w-6 h-6 text-amber-600 group-hover:translate-y-1 transition-transform" />
+            )}
+          </div>
+          <div className="flex items-center gap-4 pt-3 border-t border-amber-200">
+            <span className="text-xs text-slate-600">Dieetwensen</span>
+            <span className="text-xs text-slate-600">Merchandise</span>
+            <span className="text-xs text-slate-600">Opmerkingen</span>
+            <span className="text-xs text-slate-600">QR Check-in</span>
+          </div>
+        </button>
+      </div>
+
+      {/* Divider */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex-1 h-px bg-slate-200"></div>
+        <span className="text-xs font-medium text-slate-500 uppercase">Losse rapporten (legacy)</span>
+        <div className="flex-1 h-px bg-slate-200"></div>
+      </div>
+
       {/* Export Options Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Guest List */}
@@ -471,7 +686,7 @@ export const PDFExportManager: React.FC<PDFExportManagerProps> = ({
           </div>
           <h3 className="font-semibold text-slate-900 mb-1">Gastenlijst</h3>
           <p className="text-sm text-slate-600">
-            Compleet overzicht van alle gasten met contactgegevens en arrangementen
+            Simpele tabel met basis gasteninfo
           </p>
         </button>
 
@@ -493,7 +708,7 @@ export const PDFExportManager: React.FC<PDFExportManagerProps> = ({
           </div>
           <h3 className="font-semibold text-slate-900 mb-1">Merchandise Lijst</h3>
           <p className="text-sm text-slate-600">
-            Overzicht van alle bestelde merchandise per item en per klant
+            Picklijst voor merchandise voorbereidingen
           </p>
         </button>
 
@@ -513,9 +728,9 @@ export const PDFExportManager: React.FC<PDFExportManagerProps> = ({
               <Download className="w-5 h-5 text-red-600 group-hover:translate-y-0.5 transition-transform" />
             )}
           </div>
-          <h3 className="font-semibold text-slate-900 mb-1">Allergie & Dieetwensen</h3>
+          <h3 className="font-semibold text-slate-900 mb-1">Keukenlijst</h3>
           <p className="text-sm text-slate-600">
-            Overzicht van alle dieetwensen en allergieën voor de keuken
+            Dieetwensen en allergieën voor de keuken
           </p>
         </button>
 
@@ -537,7 +752,7 @@ export const PDFExportManager: React.FC<PDFExportManagerProps> = ({
           </div>
           <h3 className="font-semibold text-slate-900 mb-1">Weekoverzicht</h3>
           <p className="text-sm text-slate-600">
-            Totaal deluxe, couverts, merchandise en omzet per week
+            Management rapport voor planning
           </p>
         </button>
       </div>

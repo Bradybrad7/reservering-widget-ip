@@ -37,7 +37,12 @@ const getMerchandiseItems = (): MerchandiseItem[] => {
 /**
  * Haal de pricing op voor een specifiek event type
  */
-export const getPricingForEventType = async (eventTypeKey: string): Promise<{ BWF: number; BWFM: number } | null> => {
+export const getPricingForEventType = async (eventTypeKey: string): Promise<{ 
+  Standard: number; 
+  Premium: number; 
+  BWF: number; 
+  BWFM: number 
+} | null> => {
   try {
     // Haal eventTypesConfig op
     const config = await storageService.getEventTypesConfig();
@@ -99,7 +104,13 @@ export const getArrangementPrice = async (
     return 0;
   }
 
-  const price = pricing[arrangement];
+  let price = pricing[arrangement];
+  
+  // 🔄 FALLBACK: Als Standard/Premium niet bestaat, map naar BWF/BWFM
+  if ((price === undefined || price === null) && (arrangement === 'Standard' || arrangement === 'Premium')) {
+    console.warn(`⚠️ ${arrangement} prijs niet gevonden, fallback naar legacy pricing`);
+    price = arrangement === 'Standard' ? pricing.BWF : pricing.BWFM;
+  }
   
   if (price === undefined || price === null) {
     console.error(`❌ Geen prijs voor arrangement '${arrangement}' bij type '${event.type}'!`);
@@ -115,7 +126,7 @@ export const getArrangementPrice = async (
  */
 export const updateEventTypePricing = async (
   eventTypeKey: string,
-  pricing: { BWF: number; BWFM: number }
+  pricing: { Standard: number; Premium: number; BWF: number; BWFM: number }
 ): Promise<boolean> => {
   try {
     console.log(`💾 Updating pricing for event type '${eventTypeKey}':`, pricing);
@@ -192,14 +203,24 @@ export const calculatePrice = async (
 
   // Pre-drink calculation
   let preDrinkTotal = 0;
-  if (preDrink.enabled && preDrink.quantity >= defaultAddOns.preDrink.minPersons) {
+  if (preDrink.enabled && preDrink.quantity > 0) {
+    // Minimum persons check only for validation, not for calculation
+    // Calculate price even if below minimum (admin can override)
     preDrinkTotal = defaultAddOns.preDrink.pricePerPerson * preDrink.quantity;
+    console.log(`🥂 Pre-drink: ${preDrink.quantity} × €${defaultAddOns.preDrink.pricePerPerson} = €${preDrinkTotal}`);
+  } else {
+    console.log(`❌ Pre-drink skipped: enabled=${preDrink.enabled}, quantity=${preDrink.quantity}`);
   }
 
   // After-party calculation
   let afterPartyTotal = 0;
-  if (afterParty.enabled && afterParty.quantity >= defaultAddOns.afterParty.minPersons) {
+  if (afterParty.enabled && afterParty.quantity > 0) {
+    // Minimum persons check only for validation, not for calculation
+    // Calculate price even if below minimum (admin can override)
     afterPartyTotal = defaultAddOns.afterParty.pricePerPerson * afterParty.quantity;
+    console.log(`🎉 After-party: ${afterParty.quantity} × €${defaultAddOns.afterParty.pricePerPerson} = €${afterPartyTotal}`);
+  } else {
+    console.log(`❌ After-party skipped: enabled=${afterParty.enabled}, quantity=${afterParty.quantity}`);
   }
 
   // Merchandise calculation
@@ -208,9 +229,11 @@ export const calculatePrice = async (
     const item = merchandiseItems.find(m => m.id === selection.itemId);
     return total + (item ? item.price * selection.quantity : 0);
   }, 0);
+  console.log(`🛍️ Merchandise total: €${merchandiseTotal} (${merchandise.length} items)`);
 
   // Calculate subtotal before discounts
   const subtotal = basePrice + preDrinkTotal + afterPartyTotal + merchandiseTotal;
+  console.log(`💰 Subtotal: €${basePrice} + €${preDrinkTotal} + €${afterPartyTotal} + €${merchandiseTotal} = €${subtotal}`);
 
   // Apply promotion code discount
   let discountAmount = 0;

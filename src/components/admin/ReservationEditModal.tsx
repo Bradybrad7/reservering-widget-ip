@@ -20,7 +20,10 @@ import {
   XCircle,
   ShoppingBag,
   Clock,
-  CheckCircle
+  CheckCircle,
+  ArrowRight,
+  RefreshCw,
+  Info
 } from 'lucide-react';
 import type { Reservation, MerchandiseItem, Event, Arrangement, PaymentStatus, PaymentTransaction } from '../../types';
 import { formatCurrency, formatDate, cn } from '../../utils';
@@ -53,7 +56,8 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
   const toast = useToast();
   const [allEvents, setAllEvents] = useState<Event[]>([]);
   const [selectedEventId, setSelectedEventId] = useState(reservation.eventId);
-  const [selectedEvent, setSelectedEvent] = useState<Event | undefined>(event);
+  // Cast AdminEvent to Event (they're compatible)
+  const [selectedEvent, setSelectedEvent] = useState<Event | undefined>(event as Event | undefined);
   
   const [formData, setFormData] = useState({
     // Personal details
@@ -129,7 +133,11 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
     paymentMethod: reservation.paymentMethod || '',
     paymentReceivedAt: reservation.paymentReceivedAt || undefined,
     paymentDueDate: reservation.paymentDueDate || undefined,
-    paymentNotes: reservation.paymentNotes || ''
+    paymentNotes: reservation.paymentNotes || '',
+    
+    // 🏷️ NEW: Tags & Notes (November 2025)
+    tags: reservation.tags || [],
+    notes: reservation.notes || ''
   });
 
   const [priceCalculation, setPriceCalculation] = useState<any>(null);
@@ -153,6 +161,27 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
     description: string;
   } | null>(null);
   const [pendingSaveData, setPendingSaveData] = useState<Partial<Reservation> | null>(null);
+  
+  // 📅 Event Selector Modal State
+  const [showEventSelector, setShowEventSelector] = useState(false);
+  const [eventPrices, setEventPrices] = useState<{ standardPrice: number; premiumPrice: number } | null>(null);
+
+  // Load event prices when selected event changes
+  useEffect(() => {
+    const loadPrices = async () => {
+      if (!selectedEvent) {
+        setEventPrices(null);
+        return;
+      }
+      
+      const standardPrice = await priceService.getArrangementPrice(selectedEvent, 'Standard');
+      const premiumPrice = await priceService.getArrangementPrice(selectedEvent, 'Premium');
+      
+      setEventPrices({ standardPrice, premiumPrice });
+    };
+    
+    loadPrices();
+  }, [selectedEvent?.id]);
 
   // Load all events on mount
   useEffect(() => {
@@ -160,15 +189,24 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
       const response = await apiService.getEvents();
       if (response.success && response.data) {
         setAllEvents(response.data);
+        // If no event was passed, find it in the loaded events
+        if (!event) {
+          const foundEvent = response.data.find(e => e.id === reservation.eventId);
+          if (foundEvent) {
+            setSelectedEvent(foundEvent as Event);
+          }
+        }
       }
     };
     loadEvents();
-  }, []);
+  }, [event, reservation.eventId]);
 
   // Update selected event when eventId changes
   useEffect(() => {
     const newEvent = allEvents.find(e => e.id === selectedEventId);
-    setSelectedEvent(newEvent);
+    if (newEvent) {
+      setSelectedEvent(newEvent as Event);
+    }
   }, [selectedEventId, allEvents]);
 
   // Recalculate price when form data OR selected event changes
@@ -181,18 +219,32 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
       return;
     }
 
-    const calculation = priceService.calculatePrice(selectedEvent, {
-      numberOfPersons: formData.numberOfPersons,
-      arrangement: formData.arrangement,
-      preDrink: formData.preDrink,
-      afterParty: formData.afterParty,
-      merchandise: formData.merchandise
-    });
+    // 🔄 ASYNC: calculatePrice is async, so we need to await it
+    const recalculatePrice = async () => {
+      console.log('🔄 Recalculating price with:', {
+        numberOfPersons: formData.numberOfPersons,
+        arrangement: formData.arrangement,
+        preDrink: formData.preDrink,
+        afterParty: formData.afterParty,
+        merchandise: formData.merchandise
+      });
 
-    setPriceCalculation(calculation);
+      const calculation = await priceService.calculatePrice(selectedEvent, {
+        numberOfPersons: formData.numberOfPersons,
+        arrangement: formData.arrangement,
+        preDrink: formData.preDrink,
+        afterParty: formData.afterParty,
+        merchandise: formData.merchandise
+      });
 
-    // Check capacity
-    checkCapacity();
+      console.log('✅ Price calculation result:', calculation);
+      setPriceCalculation(calculation);
+
+      // Check capacity
+      checkCapacity();
+    };
+
+    recalculatePrice();
   }, [
     formData.numberOfPersons,
     formData.arrangement,
@@ -316,7 +368,7 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
       // Dit is oké - we converteren de optie
     } else if (reservation.status !== 'option' && !formData.arrangement) {
       // Normale boeking zonder arrangement
-      toast.warning('Arrangement verplicht', 'Selecteer een arrangement (BWF of BWFM)');
+      toast.warning('Arrangement verplicht', 'Selecteer een arrangement (Standard of Premium)');
       return;
     }
 
@@ -410,19 +462,35 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
         updateData.paymentTransactions = [...existingTransactions, refundTransaction];
       }
 
-      // ✨ Als we een optie converteren, voeg communicatielog toe
+      // ✨ Communication Log Updates
+      const existingLog = reservation.communicationLog || [];
+      const newLogEntries = [];
+
+      // Als we een optie converteren, voeg log toe
       if (isConvertingOption) {
-        const existingLog = reservation.communicationLog || [];
-        updateData.communicationLog = [
-          ...existingLog,
-          {
-            id: `log-${Date.now()}`,
-            timestamp: new Date(),
-            type: 'status_change' as const,
-            message: `✅ Optie GEACCEPTEERD en geconverteerd naar bevestigde boeking - Arrangement: ${formData.arrangement} - Totaalprijs: €${(priceCalculation?.totalPrice || 0).toFixed(2)}`,
-            author: 'Admin'
-          }
-        ];
+        newLogEntries.push({
+          id: `log-${Date.now()}`,
+          timestamp: new Date(),
+          type: 'status_change' as const,
+          message: `✅ Optie GEACCEPTEERD en geconverteerd naar bevestigde boeking - Arrangement: ${formData.arrangement} - Totaalprijs: €${(priceCalculation?.totalPrice || 0).toFixed(2)}`,
+          author: 'Admin'
+        });
+      }
+
+      // 📅 Als het event is gewijzigd, voeg log toe
+      if (selectedEventId !== reservation.eventId && selectedEvent) {
+        newLogEntries.push({
+          id: `log-${Date.now()}-event`,
+          timestamp: new Date(),
+          type: 'note' as const,
+          message: `📅 Event gewijzigd: ${formatDate(event?.date || reservation.eventDate)} → ${formatDate(selectedEvent.date)} | Prijzen automatisch herberekend`,
+          author: 'Admin'
+        });
+      }
+
+      // Voeg alle nieuwe log entries toe
+      if (newLogEntries.length > 0) {
+        updateData.communicationLog = [...existingLog, ...newLogEntries];
       }
 
       const success = await updateReservation(reservation.id, updateData, reservation);
@@ -495,29 +563,86 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
             </div>
           )}
 
-          {/* Event Selector - NIEUW! */}
-          <div className="card-theatre p-4">
-            <label className="block text-sm font-semibold text-white mb-3">
-              <svg className="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              Evenement
-            </label>
-            <select
-              value={selectedEventId}
-              onChange={(e) => setSelectedEventId(e.target.value)}
-              className="w-full px-4 py-3 bg-dark-800 border-2 border-gold-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold-500"
-            >
-              {allEvents.map((evt) => (
-                <option key={evt.id} value={evt.id}>
-                  {formatDate(evt.date)} - {evt.type} - {evt.capacity} personen
-                </option>
-              ))}
-            </select>
-            {selectedEventId !== reservation.eventId && (
-              <div className="mt-2 p-2 bg-blue-500/20 border border-blue-500/30 rounded text-sm text-blue-300">
-                ⚠️ Event gewijzigd! Prijzen worden automatisch herberekend op basis van nieuwe event prijzen.
-              </div>
+          {/* Event Selector - ENHANCED! */}
+          <div className="card-theatre p-6 border-2 border-gold-500/30">
+            <div className="flex items-center justify-between mb-4">
+              <label className="text-lg font-bold text-white flex items-center gap-2">
+                <Calendar className="w-6 h-6 text-gold-400" />
+                Evenement & Prijzen
+              </label>
+              <button
+                onClick={() => setShowEventSelector(true)}
+                className="px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-lg transition-all flex items-center gap-2 font-semibold shadow-lg"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Wijzig Event
+              </button>
+            </div>
+
+            {selectedEvent && (
+              <>
+                {/* Current Event Info */}
+                <div className="bg-dark-900/50 rounded-lg p-4 mb-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-neutral-400 mb-1">Datum</p>
+                      <p className="text-white font-semibold">{formatDate(selectedEvent.date)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-neutral-400 mb-1">Type</p>
+                      <p className="text-white font-semibold">{selectedEvent.type}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-neutral-400 mb-1">Capaciteit</p>
+                      <p className="text-white font-semibold">{selectedEvent.capacity} personen</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-neutral-400 mb-1">Event ID</p>
+                      <p className="text-white font-mono text-sm">{selectedEvent.id}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Arrangement Prices for this Event */}
+                {eventPrices && (
+                  <div className="bg-gradient-to-br from-gold-500/10 to-gold-600/10 border border-gold-500/30 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <DollarSign className="w-5 h-5 text-gold-400" />
+                      <p className="text-sm font-semibold text-gold-400">Arrangement Prijzen voor dit Event</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-dark-900/50 rounded-lg p-3">
+                        <p className="text-xs text-neutral-400 mb-1">Standard</p>
+                        <p className="text-xl font-bold text-white">{formatCurrency(eventPrices.standardPrice)}</p>
+                        <p className="text-xs text-neutral-500 mt-1">{nl.arrangements.standardDescription}</p>
+                      </div>
+                      <div className="bg-dark-900/50 rounded-lg p-3">
+                        <p className="text-xs text-neutral-400 mb-1">Premium</p>
+                        <p className="text-xl font-bold text-white">{formatCurrency(eventPrices.premiumPrice)}</p>
+                        <p className="text-xs text-neutral-500 mt-1">{nl.arrangements.premiumDescription}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Event Change Warning */}
+                {selectedEventId !== reservation.eventId && (
+                  <div className="mt-4 p-4 bg-blue-500/20 border-2 border-blue-500 rounded-lg flex items-start gap-3">
+                    <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-blue-300 font-semibold mb-1">Event Gewijzigd!</p>
+                      <p className="text-sm text-blue-200">
+                        De totaalprijs wordt automatisch herberekend op basis van de prijzen van het nieuwe evenement.
+                        Controleer de nieuwe totaalprijs onderaan voordat u opslaat.
+                      </p>
+                      <div className="mt-2 text-xs text-blue-300">
+                        <strong>Origineel:</strong> {formatDate(event?.date || reservation.eventDate)} → 
+                        <strong className="ml-1">Nieuw:</strong> {formatDate(selectedEvent.date)}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -555,7 +680,7 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
               Arrangement {reservation.status === 'option' && <span className="text-orange-400">(wordt verplicht bij accepteren)</span>}
             </label>
             <div className="grid grid-cols-2 gap-3">
-              {(['BWF', 'BWFM'] as Arrangement[]).map((arr) => (
+              {(['Standard', 'Premium'] as Arrangement[]).map((arr) => (
                 <button
                   key={arr}
                   onClick={() => setFormData({ ...formData, arrangement: arr })}
@@ -614,7 +739,7 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
                         }
                         
                         // Show alert to guide user
-                        alert('✅ Selecteer nu een arrangement (BWF of BWFM) hieronder. De status wordt automatisch gewijzigd naar "Bevestigd" wanneer u opslaat.');
+                        alert('✅ Selecteer nu een arrangement (Standard of Premium) hieronder. De status wordt automatisch gewijzigd naar "Bevestigd" wanneer u opslaat.');
                       }}
                       className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors font-bold shadow-lg"
                     >
@@ -1639,34 +1764,250 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
             </label>
           </div>
 
-          {/* Price Summary */}
+          {/* 🏷️ Tags & Interne Notities (Admin Only) */}
+          <div className="card-theatre p-4 border-2 border-blue-500/30 bg-blue-500/5">
+            <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+              <Tag className="w-5 h-5 text-blue-400" />
+              🏷️ Tags & Interne Notities
+              <span className="text-xs text-neutral-400 font-normal ml-2">(Admin Only - Niet zichtbaar voor klant)</span>
+            </h3>
+            
+            <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg mb-4">
+              <p className="text-sm text-blue-200 flex items-start gap-2">
+                <span className="text-lg">ℹ️</span>
+                <span>
+                  <strong>Automatische Tags:</strong> DELUXE, BORREL, en MERCHANDISE worden automatisch toegevoegd op basis van de boeking.
+                  <br />
+                  <strong>Handmatige Tags:</strong> Voeg extra tags toe zoals 'MPL', 'VIP', 'PERS', etc.
+                </span>
+              </p>
+            </div>
+
+            {/* Tag Input */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-white mb-2">
+                Tags (automatisch + handmatig)
+              </label>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {formData.tags.map((tag, index) => {
+                  const isAutomatic = ['DELUXE', 'BORREL', 'MERCHANDISE'].includes(tag);
+                  return (
+                    <span
+                      key={index}
+                      className={cn(
+                        'px-3 py-1.5 rounded-full text-sm font-semibold flex items-center gap-2 transition-all',
+                        isAutomatic
+                          ? 'bg-gold-500/20 text-gold-300 border border-gold-500/50'
+                          : 'bg-blue-500/20 text-blue-300 border border-blue-500/50'
+                      )}
+                    >
+                      {isAutomatic && <span className="text-xs">🤖</span>}
+                      {tag}
+                      {!isAutomatic && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              tags: formData.tags.filter((_, i) => i !== index)
+                            });
+                          }}
+                          className="ml-1 hover:bg-red-500/30 rounded-full p-0.5 transition-colors"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  id="tagInput"
+                  placeholder="Voeg handmatige tag toe (bijv. MPL, VIP, PERS)..."
+                  className="flex-1 px-4 py-2 bg-dark-800 border border-blue-500/30 rounded text-white placeholder-neutral-500"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const input = e.currentTarget;
+                      const value = input.value.trim().toUpperCase();
+                      if (value && !formData.tags.includes(value)) {
+                        setFormData({
+                          ...formData,
+                          tags: [...formData.tags, value]
+                        });
+                        input.value = '';
+                      }
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const input = document.getElementById('tagInput') as HTMLInputElement;
+                    const value = input.value.trim().toUpperCase();
+                    if (value && !formData.tags.includes(value)) {
+                      setFormData({
+                        ...formData,
+                        tags: [...formData.tags, value]
+                      });
+                      input.value = '';
+                    }
+                  }}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-semibold transition-colors"
+                >
+                  Toevoegen
+                </button>
+              </div>
+              <p className="text-xs text-neutral-400 mt-2">
+                💡 Druk op Enter of klik op "Toevoegen" om een tag toe te voegen
+              </p>
+            </div>
+
+            {/* Internal Notes */}
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">
+                Interne Notities (Admin Only)
+              </label>
+              <textarea
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                className="w-full px-4 py-3 bg-dark-800 border border-blue-500/30 rounded-lg text-white resize-none font-mono text-sm"
+                rows={6}
+                placeholder="Notities voor intern gebruik (niet zichtbaar voor klant)...&#10;&#10;Bijvoorbeeld:&#10;- Contactpersoon is moeilijk bereikbaar&#10;- Speciale wensen besproken per telefoon&#10;- VIP behandeling vereist"
+              />
+              <p className="text-xs text-neutral-400 mt-2">
+                🔒 Deze notities zijn alleen zichtbaar voor admin en worden NIET verstuurd naar de klant
+              </p>
+            </div>
+          </div>
+
+          {/* Price Summary - ENHANCED! */}
           {priceCalculation && (
             <div className="bg-gradient-to-br from-gold-500/20 to-gold-600/20 border-2 border-gold-500 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-lg font-bold text-white">Nieuwe Totaalprijs</h3>
-                  <p className="text-2xl font-bold text-gold-400 mt-1">
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <DollarSign className="w-5 h-5 text-gold-400" />
+                    Nieuwe Totaalprijs
+                  </h3>
+                  <p className="text-3xl font-bold text-gold-400 mt-2">
                     {formatCurrency(priceCalculation.totalPrice)}
                   </p>
                 </div>
                 {priceDifference !== 0 && (
                   <div className={cn(
-                    'px-4 py-2 rounded-lg font-semibold',
+                    'px-4 py-2 rounded-lg font-bold text-lg',
                     priceDifference > 0 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
                   )}>
                     {priceDifference > 0 ? '+' : ''}{formatCurrency(priceDifference)}
                   </div>
                 )}
               </div>
-              <div className="space-y-1 text-sm text-neutral-300">
-                <div className="flex justify-between">
+
+              {/* Price Breakdown */}
+              <div className="space-y-2 text-sm bg-dark-900/50 rounded-lg p-4">
+                <div className="flex justify-between text-neutral-300">
                   <span>Originele prijs:</span>
-                  <span>{formatCurrency(reservation.totalPrice)}</span>
+                  <span className="font-semibold">{formatCurrency(reservation.totalPrice)}</span>
                 </div>
+                
+                {/* Show event change info if applicable */}
+                {selectedEventId !== reservation.eventId && (
+                  <div className="border-t border-gold-500/20 pt-2 mt-2">
+                    <p className="text-xs text-purple-400 font-semibold mb-2">
+                      📅 Event Gewijzigd - Nieuwe Prijzen Toegepast
+                    </p>
+                    <div className="flex justify-between text-neutral-400">
+                      <span>Origineel event:</span>
+                      <span className="text-neutral-300">{formatDate(event?.date || reservation.eventDate)}</span>
+                    </div>
+                    <div className="flex justify-between text-neutral-400">
+                      <span>Nieuw event:</span>
+                      <span className="text-white font-semibold">{selectedEvent && formatDate(selectedEvent.date)}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Price details - UITGEBREIDE BEREKENINGEN */}
+                <div className="border-t border-gold-500/20 pt-3 mt-2 space-y-2">
+                  {/* Arrangement */}
+                  <div className="bg-dark-900/30 rounded p-2">
+                    <div className="flex justify-between text-white font-semibold mb-1">
+                      <span>Arrangement ({priceCalculation.breakdown.arrangement.type})</span>
+                      <span>{formatCurrency(priceCalculation.basePrice)}</span>
+                    </div>
+                    <div className="text-xs text-neutral-400 pl-2">
+                      {formData.numberOfPersons} personen × {formatCurrency(priceCalculation.breakdown.arrangement.pricePerPerson)} = {formatCurrency(priceCalculation.basePrice)}
+                    </div>
+                  </div>
+
+                  {/* Pre-Drink */}
+                  {priceCalculation.breakdown.preDrink && (
+                    <div className="bg-dark-900/30 rounded p-2">
+                      <div className="flex justify-between text-white font-semibold mb-1">
+                        <span>🥂 Pre-Drink</span>
+                        <span>{formatCurrency(priceCalculation.preDrinkTotal)}</span>
+                      </div>
+                      <div className="text-xs text-neutral-400 pl-2">
+                        {priceCalculation.breakdown.preDrink.persons} personen × {formatCurrency(priceCalculation.breakdown.preDrink.pricePerPerson)} = {formatCurrency(priceCalculation.preDrinkTotal)}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* After Party */}
+                  {priceCalculation.breakdown.afterParty && (
+                    <div className="bg-dark-900/30 rounded p-2">
+                      <div className="flex justify-between text-white font-semibold mb-1">
+                        <span>🎉 After Party</span>
+                        <span>{formatCurrency(priceCalculation.afterPartyTotal)}</span>
+                      </div>
+                      <div className="text-xs text-neutral-400 pl-2">
+                        {priceCalculation.breakdown.afterParty.persons} personen × {formatCurrency(priceCalculation.breakdown.afterParty.pricePerPerson)} = {formatCurrency(priceCalculation.afterPartyTotal)}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Merchandise */}
+                  {priceCalculation.breakdown.merchandise && priceCalculation.breakdown.merchandise.items.length > 0 && (
+                    <div className="bg-dark-900/30 rounded p-2">
+                      <div className="flex justify-between text-white font-semibold mb-1">
+                        <span>🛍️ Merchandise</span>
+                        <span>{formatCurrency(priceCalculation.merchandiseTotal)}</span>
+                      </div>
+                      <div className="text-xs text-neutral-400 pl-2 space-y-1">
+                        {priceCalculation.breakdown.merchandise.items.map((item: any, idx: number) => (
+                          <div key={idx} className="flex justify-between">
+                            <span>{item.name} ({item.quantity}x)</span>
+                            <span>{item.quantity} × {formatCurrency(item.price)} = {formatCurrency(item.total)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Discount */}
+                  {priceCalculation.breakdown.discount && (
+                    <div className="bg-green-500/10 rounded p-2">
+                      <div className="flex justify-between text-green-400 font-semibold">
+                        <span>💰 Korting</span>
+                        <span>-{formatCurrency(priceCalculation.breakdown.discount.amount)}</span>
+                      </div>
+                      <div className="text-xs text-green-300 pl-2">
+                        {priceCalculation.breakdown.discount.description}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {priceDifference !== 0 && (
-                  <div className="flex justify-between font-semibold text-white">
-                    <span>Verschil:</span>
-                    <span>{priceDifference > 0 ? '+' : ''}{formatCurrency(priceDifference)}</span>
+                  <div className="border-t-2 border-gold-500/30 pt-2 mt-2 flex justify-between font-bold text-white">
+                    <span>Prijsverschil:</span>
+                    <span className={cn(
+                      priceDifference > 0 ? 'text-green-400' : 'text-red-400'
+                    )}>
+                      {priceDifference > 0 ? '+' : ''}{formatCurrency(priceDifference)}</span>
                   </div>
                 )}
               </div>
@@ -1787,6 +2128,112 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
             changeDescription={creditInfo.description}
           />
         )}
+
+        {/* 📅 Event Selector Modal */}
+        {showEventSelector && (
+          <EventSelectorModal
+            events={allEvents}
+            onSelect={(event) => {
+              setSelectedEventId(event.id);
+              setShowEventSelector(false);
+            }}
+            onClose={() => setShowEventSelector(false)}
+          />
+        )}
+      </div>
+    </div>
+  );
+};
+
+// EventSelectorModal Component (embedded)
+interface EventSelectorModalProps {
+  events: Event[];
+  onSelect: (event: Event) => void;
+  onClose: () => void;
+}
+
+const EventSelectorModal: React.FC<EventSelectorModalProps> = ({ events, onSelect, onClose }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Sort events by date (most recent first)
+  const sortedEvents = [...events].sort((a, b) => {
+    const dateA = a.date instanceof Date ? a.date : new Date(a.date);
+    const dateB = b.date instanceof Date ? b.date : new Date(b.date);
+    return dateB.getTime() - dateA.getTime();
+  });
+
+  // Filter events based on search
+  const filteredEvents = sortedEvents.filter(event => {
+    const dateStr = formatDate(event.date instanceof Date ? event.date : new Date(event.date));
+    const searchLower = searchTerm.toLowerCase();
+    return dateStr.toLowerCase().includes(searchLower) || 
+           event.type.toLowerCase().includes(searchLower) ||
+           event.id.toLowerCase().includes(searchLower);
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+      <div className="bg-neutral-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col border border-neutral-700">
+        {/* Header */}
+        <div className="p-6 border-b border-neutral-700">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold text-white">Selecteer Nieuw Event</h2>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-neutral-700 rounded-lg transition-colors"
+            >
+              <X className="w-6 h-6 text-neutral-400" />
+            </button>
+          </div>
+          <input
+            type="text"
+            placeholder="Zoek op datum, type of ID..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-4 py-2 bg-neutral-900 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+        </div>
+
+        {/* Event List */}
+        <div className="flex-1 overflow-auto p-4 space-y-2">
+          {filteredEvents.length === 0 ? (
+            <div className="text-center py-8 text-neutral-400">
+              Geen events gevonden
+            </div>
+          ) : (
+            filteredEvents.map(event => {
+              const eventDate = event.date instanceof Date ? event.date : new Date(event.date);
+              const isUpcoming = eventDate >= new Date();
+              
+              return (
+                <button
+                  key={event.id}
+                  onClick={() => onSelect(event)}
+                  className="w-full p-4 bg-neutral-900 hover:bg-neutral-700 rounded-lg border border-neutral-700 hover:border-purple-500 transition-all text-left group"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-1">
+                        <span className="text-lg font-semibold text-white">
+                          {formatDate(eventDate)}
+                        </span>
+                        {isUpcoming && (
+                          <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full font-medium">
+                            Aankomend
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-neutral-400">
+                        {event.type} • {event.capacity} personen • {event.id}
+                      </div>
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-neutral-600 group-hover:text-purple-400 transition-colors" />
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
       </div>
     </div>
   );

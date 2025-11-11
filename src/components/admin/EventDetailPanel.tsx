@@ -8,13 +8,18 @@
  * - Bewerken: Event eigenschappen aanpassen (met inline editing)
  */
 
-import React, { useState } from 'react';
-import type { AdminEvent, Reservation, WaitlistEntry } from '../../types';
+import React, { useState, useEffect } from 'react';
+import type { AdminEvent, Reservation, WaitlistEntry, MerchandiseItem } from '../../types';
 import type { EventStats } from './EventCommandCenter';
 import { useReservationsStore } from '../../store/reservationsStore';
 import { useWaitlistStore } from '../../store/waitlistStore';
 import { useEventsStore } from '../../store/eventsStore';
 import { InlineEdit } from '../ui/InlineEdit';
+import { ReservationEditModal } from './ReservationEditModal';
+import { ReservationDetailModal } from './modals/ReservationDetailModal';
+import { Edit, Eye, RefreshCw } from 'lucide-react';
+import { cn } from '../../utils';
+import { useToast } from '../Toast';
 
 interface EventDetailPanelProps {
   event: AdminEvent;
@@ -111,6 +116,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
           <BookingsTab 
             reservations={reservations} 
             updateReservationStatus={updateReservationStatus}
+            event={event}
           />
         )}
 
@@ -288,9 +294,77 @@ const StatCard: React.FC<{ label: string; value: number; color?: string }> = ({
 interface BookingsTabProps {
   reservations: Reservation[];
   updateReservationStatus: (id: string, status: Reservation['status']) => Promise<boolean>;
+  event: AdminEvent;
 }
 
-const BookingsTab: React.FC<BookingsTabProps> = ({ reservations, updateReservationStatus }) => {
+const BookingsTab: React.FC<BookingsTabProps> = ({ reservations, updateReservationStatus, event }) => {
+  const [editingReservation, setEditingReservation] = useState<Reservation | null>(null);
+  const [viewingReservation, setViewingReservation] = useState<Reservation | null>(null);
+  const [merchandiseItems, setMerchandiseItems] = useState<MerchandiseItem[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const toast = useToast();
+
+  // Load merchandise items
+  useEffect(() => {
+    const loadMerchandise = async () => {
+      try {
+        const response = await import('../../services/apiService').then(m => m.apiService.getMerchandise());
+        if (response.success && response.data) {
+          setMerchandiseItems(response.data);
+        }
+      } catch (error) {
+        console.error('Failed to load merchandise:', error);
+      }
+    };
+    loadMerchandise();
+  }, []);
+
+  // Sync all reservations - regenerate tags and recalculate prices
+  const syncAllReservations = async () => {
+    if (reservations.length === 0) return;
+    
+    setIsSyncing(true);
+    toast.info('Synchronisatie gestart', `${reservations.length} boekingen worden bijgewerkt...`);
+    
+    try {
+      const { firestoreService } = await import('../../services/firestoreService');
+      let updated = 0;
+      let errors = 0;
+
+      for (const reservation of reservations) {
+        try {
+          // Update reservation (this will auto-regenerate tags and recalculate prices)
+          await firestoreService.reservations.update(reservation.id, {
+            ...reservation,
+            // Force recalculation by passing full data
+            eventId: reservation.eventId,
+            numberOfPersons: reservation.numberOfPersons,
+            arrangement: reservation.arrangement,
+            merchandise: reservation.merchandise || []
+          });
+          updated++;
+        } catch (error) {
+          console.error(`Failed to sync reservation ${reservation.id}:`, error);
+          errors++;
+        }
+      }
+
+      // Show toast notification
+      if (errors === 0) {
+        toast.success('Synchronisatie voltooid', `${updated} boekingen bijgewerkt`);
+      } else {
+        toast.error('Synchronisatie gedeeltelijk mislukt', `${updated} gesynchroniseerd, ${errors} fouten`);
+      }
+
+      // Reload reservations from store
+      window.location.reload();
+    } catch (error) {
+      console.error('Sync failed:', error);
+      toast.error('Synchronisatie mislukt', 'Er ging iets mis bij het synchroniseren');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
   if (reservations.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500">
@@ -319,7 +393,23 @@ const BookingsTab: React.FC<BookingsTabProps> = ({ reservations, updateReservati
 
   return (
     <div>
-      <h4 className="text-lg font-semibold mb-4">Boekingen voor dit event</h4>
+      <div className="flex items-center justify-between mb-4">
+        <h4 className="text-lg font-semibold">Boekingen voor dit event</h4>
+        <button
+          onClick={syncAllReservations}
+          disabled={isSyncing || reservations.length === 0}
+          className={cn(
+            "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+            isSyncing || reservations.length === 0
+              ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700 text-white"
+          )}
+          title="Synchroniseer alle boekingen - herbereken prijzen en regenereer tags"
+        >
+          <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+          {isSyncing ? 'Synchroniseren...' : 'Sync All'}
+        </button>
+      </div>
       
       <div className="space-y-3">
         {sortedReservations.map(reservation => (
@@ -328,11 +418,37 @@ const BookingsTab: React.FC<BookingsTabProps> = ({ reservations, updateReservati
             className="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-gray-600 transition-colors"
           >
             <div className="flex items-start justify-between mb-3">
-              <div>
-                <h5 className="font-semibold text-white">{reservation.firstName} {reservation.lastName}</h5>
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-1">
+                  {reservation.tableNumber && (
+                    <span className="inline-flex items-center px-2.5 py-1 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-md text-sm font-semibold">
+                      Tafel {reservation.tableNumber}
+                    </span>
+                  )}
+                  <h5 className="font-semibold text-white">{reservation.firstName} {reservation.lastName}</h5>
+                </div>
                 <p className="text-sm text-gray-400">{reservation.email}</p>
+                {reservation.companyName && (
+                  <p className="text-sm text-gray-500">{reservation.companyName}</p>
+                )}
               </div>
-              <StatusBadge status={reservation.status} />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setViewingReservation(reservation)}
+                  className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                  title="Details bekijken"
+                >
+                  <Eye className="w-4 h-4 text-gray-400" />
+                </button>
+                <button
+                  onClick={() => setEditingReservation(reservation)}
+                  className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                  title="Bewerken"
+                >
+                  <Edit className="w-4 h-4 text-gray-400" />
+                </button>
+                <StatusBadge status={reservation.status} />
+              </div>
             </div>
 
             <div className="grid grid-cols-3 gap-4 text-sm mb-3">
@@ -349,6 +465,41 @@ const BookingsTab: React.FC<BookingsTabProps> = ({ reservations, updateReservati
                 <span className="ml-2 font-semibold text-white">€{reservation.totalPrice}</span>
               </div>
             </div>
+
+            {reservation.dietaryRequirements && (
+              <div className="text-xs text-gray-400 mb-2">
+                🍽️ Dieetwensen: {[
+                  reservation.dietaryRequirements.vegetarian && `${reservation.dietaryRequirements.vegetarianCount}x Vega`,
+                  reservation.dietaryRequirements.vegan && `${reservation.dietaryRequirements.veganCount}x Veganistisch`,
+                  reservation.dietaryRequirements.glutenFree && `${reservation.dietaryRequirements.glutenFreeCount}x Glutenvrij`,
+                  reservation.dietaryRequirements.lactoseFree && `${reservation.dietaryRequirements.lactoseFreeCount}x Lactosevrij`,
+                  reservation.dietaryRequirements.other && `${reservation.dietaryRequirements.otherCount}x ${reservation.dietaryRequirements.other}`
+                ].filter(Boolean).join(', ')}
+              </div>
+            )}
+
+            {/* Tags Display */}
+            {reservation.tags && reservation.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {reservation.tags.map((tag, idx) => {
+                  const isAutomatic = ['DELUXE', 'BORREL', 'MERCHANDISE'].includes(tag);
+                  return (
+                    <span
+                      key={idx}
+                      className={cn(
+                        "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium",
+                        isAutomatic
+                          ? "bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-300 border border-yellow-500/30"
+                          : "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                      )}
+                    >
+                      {isAutomatic && <span className="text-xs">🤖</span>}
+                      {tag}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
 
             {reservation.status === 'pending' && (
               <div className="flex gap-2">
@@ -378,6 +529,27 @@ const BookingsTab: React.FC<BookingsTabProps> = ({ reservations, updateReservati
           </div>
         ))}
       </div>
+
+      {/* View Details Modal */}
+      {viewingReservation && (
+        <ReservationDetailModal
+          reservation={viewingReservation}
+          event={event}
+          merchandiseItems={merchandiseItems}
+          onClose={() => setViewingReservation(null)}
+        />
+      )}
+
+      {/* Edit Modal */}
+      {editingReservation && (
+        <ReservationEditModal
+          reservation={editingReservation}
+          event={event}
+          merchandiseItems={merchandiseItems}
+          onClose={() => setEditingReservation(null)}
+          onSave={() => setEditingReservation(null)}
+        />
+      )}
     </div>
   );
 };

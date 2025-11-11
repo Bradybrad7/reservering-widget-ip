@@ -147,8 +147,10 @@ export interface Event {
 
 // Pricing structure
 export interface PricingByDayType {
-  BWF: number;
-  BWFM: number;
+  Standard: number;
+  Premium: number;
+  BWF: number;        // Legacy - kept for backward compatibility
+  BWFM: number;       // Legacy - kept for backward compatibility
 }
 
 export interface Pricing {
@@ -157,11 +159,19 @@ export interface Pricing {
   };
   // ✨ NEW: Control which arrangements are available for voucher purchase
   voucherSettings?: {
-    BWF: {
+    Standard: {
       available: boolean;
       description?: string; // What's included in this arrangement
     };
-    BWFM: {
+    Premium: {
+      available: boolean;
+      description?: string;
+    };
+    BWF?: {  // Legacy - kept for backward compatibility
+      available: boolean;
+      description?: string;
+    };
+    BWFM?: {  // Legacy - kept for backward compatibility
       available: boolean;
       description?: string;
     };
@@ -170,8 +180,10 @@ export interface Pricing {
   voucherAvailability?: {
     [eventType: string]: { // e.g., 'weekday', 'weekend', 'matinee'
       displayName?: string; // Custom name for voucher display (e.g., "Weekendshow" instead of "weekend")
-      BWF?: boolean; // Is BWF available for this event type?
-      BWFM?: boolean; // Is BWFM available for this event type?
+      Standard?: boolean; // Is Standard available for this event type?
+      Premium?: boolean; // Is Premium available for this event type?
+      BWF?: boolean; // Legacy - kept for backward compatibility
+      BWFM?: boolean; // Legacy - kept for backward compatibility
     };
   };
 }
@@ -251,8 +263,10 @@ export interface EventTypeConfig {
   showOnCalendar: boolean; // Whether to display on public calendar
   // 🆕 SIMPEL PRICING SYSTEEM - Vaste prijzen per event type!
   pricing: {
-    BWF: number;
-    BWFM: number;
+    Standard: number;
+    Premium: number;
+    BWF: number;        // Legacy - kept for backward compatibility
+    BWFM: number;       // Legacy - kept for backward compatibility
   };
 }
 
@@ -418,7 +432,12 @@ export interface Reservation extends CustomerFormData {
   checkedInBy?: string; // NEW: Who performed the check-in
   emailLog?: EmailLog[]; // ✨ NEW: Email history for this reservation
   
-  // 🆕 OPTION SYSTEM: Temporary 1-week hold (October 2025)
+  // � TABLE NUMBER: Auto-assigned based on booking order (November 2025)
+  // First booking of the day = Table 1, second = Table 2, etc.
+  // Critical for check-in process and PDF exports
+  tableNumber?: number; // Auto-assigned, sequential per event
+  
+  // �🆕 OPTION SYSTEM: Temporary 1-week hold (October 2025)
   // When status = 'option': minimal booking info (naam, adres, telefoon)
   // NO arrangement/pricing required yet - just securing capacity
   // Counts toward event capacity to reserve the seats

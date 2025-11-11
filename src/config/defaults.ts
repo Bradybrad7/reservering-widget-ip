@@ -37,10 +37,10 @@ export const defaultConfig: GlobalConfig = {
 // Keys should match event type keys (e.g., 'weekday', 'weekend', 'matinee', 'care_heroes')
 export const defaultPricing: Pricing = {
   byDayType: {
-    'weekday': { BWF: 70, BWFM: 85 },      // Doordeweeks (zo–do)
-    'weekend': { BWF: 80, BWFM: 95 },      // Weekend (vr–za)
-    'matinee': { BWF: 70, BWFM: 85 },      // Matinee voorstellingen
-    'care_heroes': { BWF: 65, BWFM: 80 }   // Zorgzame Helden korting
+    'weekday': { Standard: 70, Premium: 85, BWF: 70, BWFM: 85 },      // Doordeweeks (zo–do)
+    'weekend': { Standard: 80, Premium: 95, BWF: 80, BWFM: 95 },      // Weekend (vr–za)
+    'matinee': { Standard: 70, Premium: 85, BWF: 70, BWFM: 85 },      // Matinee voorstellingen
+    'care_heroes': { Standard: 65, Premium: 80, BWF: 65, BWFM: 80 }   // Zorgzame Helden korting
   }
 };
 
@@ -197,6 +197,8 @@ export const getDefaultEventTypesConfig = (): EventTypesConfig => ({
       enabled: true,
       showOnCalendar: false, // REGULAR wordt niet getoond (is standaard)
       pricing: {
+        Standard: 75,
+        Premium: 90,
         BWF: 75,
         BWFM: 90
       }
@@ -215,6 +217,8 @@ export const getDefaultEventTypesConfig = (): EventTypesConfig => ({
       enabled: true,
       showOnCalendar: true, // Matinee wel tonen (andere tijd/prijs)
       pricing: {
+        Standard: 70,
+        Premium: 85,
         BWF: 70,
         BWFM: 85
       }
@@ -233,6 +237,8 @@ export const getDefaultEventTypesConfig = (): EventTypesConfig => ({
       enabled: true,
       showOnCalendar: true, // Speciale show, wel tonen
       pricing: {
+        Standard: 65,
+        Premium: 80,
         BWF: 65,
         BWFM: 80
       }
@@ -251,6 +257,8 @@ export const getDefaultEventTypesConfig = (): EventTypesConfig => ({
       enabled: true,
       showOnCalendar: false, // REQUEST niet tonen (op aanvraag)
       pricing: {
+        Standard: 75,
+        Premium: 90,
         BWF: 75,
         BWFM: 90
       }
@@ -269,6 +277,8 @@ export const getDefaultEventTypesConfig = (): EventTypesConfig => ({
       enabled: true,
       showOnCalendar: false, // Niet beschikbaar, niet tonen
       pricing: {
+        Standard: 0,
+        Premium: 0,
         BWF: 0,
         BWFM: 0
       }
@@ -333,10 +343,14 @@ export const nl = {
   
   // Arrangements
   arrangements: {
-    BWF: 'Standaard Arrangement',
-    BWFM: 'Premium Arrangement',
-    bwfDescription: 'Bier, wijn, fris, port & Martini',
-    bwfmDescription: 'Bier, wijn, fris, sterke drank, speciale bieren en bubbels van het huis'
+    Standard: 'Standaard Arrangement',
+    Premium: 'Premium Arrangement',
+    BWF: 'Standaard Arrangement',  // Legacy
+    BWFM: 'Premium Arrangement',    // Legacy
+    standardDescription: 'Bier, wijn, fris, port & Martini',
+    premiumDescription: 'Bier, wijn, fris, sterke drank, speciale bieren en bubbels van het huis',
+    bwfDescription: 'Bier, wijn, fris, port & Martini',  // Legacy
+    bwfmDescription: 'Bier, wijn, fris, sterke drank, speciale bieren en bubbels van het huis'  // Legacy
   },
   
   // Form fields

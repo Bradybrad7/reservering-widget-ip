@@ -394,11 +394,32 @@ export const ReservationDetailModal: React.FC<{
               {reservation.tags && reservation.tags.length > 0 && (
                 <InfoRij label="Tags">
                   <div className="flex flex-wrap gap-2 mt-1">
-                    {reservation.tags.map((tag, idx) => (
-                      <span key={idx} className="px-3 py-1 bg-indigo-500/20 text-indigo-400 rounded-full text-xs font-semibold border border-indigo-500/30">
-                        {tag}
-                      </span>
-                    ))}
+                    {reservation.tags.map((tag, idx) => {
+                      const isAutomatic = ['DELUXE', 'BORREL', 'MERCHANDISE'].includes(tag);
+                      return (
+                        <span 
+                          key={idx} 
+                          className={cn(
+                            'px-3 py-1 rounded-full text-xs font-semibold border flex items-center gap-1',
+                            isAutomatic 
+                              ? 'bg-gold-500/20 text-gold-300 border-gold-500/50'
+                              : 'bg-blue-500/20 text-blue-300 border-blue-500/50'
+                          )}
+                        >
+                          {isAutomatic && <span>🤖</span>}
+                          {tag}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </InfoRij>
+              )}
+              {reservation.notes && (
+                <InfoRij label="🔒 Interne Notities (Admin Only)" vertical={true}>
+                  <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                    <p className="text-white text-sm whitespace-pre-wrap font-mono leading-relaxed">
+                      {reservation.notes}
+                    </p>
                   </div>
                 </InfoRij>
               )}

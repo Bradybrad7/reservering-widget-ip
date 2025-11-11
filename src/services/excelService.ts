@@ -34,21 +34,24 @@ interface ExportOptions {
 export class ExcelService {
   /**
    * Export reservations with custom columns
+   * NEW: Supports "roundtrip" mode for re-importing
    */
   static exportReservations(
     reservations: Reservation[],
     selectedColumns?: ExportColumn[],
-    options: ExportOptions = {}
+    options: ExportOptions & { roundtrip?: boolean } = {}
   ): void {
     const workbook = XLSX.utils.book_new();
 
-    // Default columns if none provided
-    const columns = selectedColumns || this.getDefaultReservationColumns();
+    // Use roundtrip columns if requested, otherwise use default or custom
+    const columns = options.roundtrip 
+      ? this.getRoundtripColumns()
+      : (selectedColumns || this.getDefaultReservationColumns());
 
     // Main data sheet
     const data = reservations.map(reservation => {
       const row: any = {};
-      columns.forEach(col => {
+      columns.forEach((col: ExportColumn) => {
         const value = this.getNestedValue(reservation, col.key);
         row[col.label] = col.formatter ? col.formatter(value) : value;
       });
@@ -58,7 +61,7 @@ export class ExcelService {
     const worksheet = XLSX.utils.json_to_sheet(data);
 
     // Set column widths
-    const wscols = columns.map(col => ({ wch: col.width || 15 }));
+    const wscols = columns.map((col: ExportColumn) => ({ wch: col.width || 15 }));
     worksheet['!cols'] = wscols;
 
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Reserveringen');
@@ -76,6 +79,52 @@ export class ExcelService {
     // Export
     const filename = options.filename || `Reserveringen-${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(workbook, filename);
+  }
+
+  /**
+   * NEW: Export current view with active filters
+   * This is the "what you see is what you export" function
+   */
+  static exportCurrentView(
+    reservations: Reservation[],
+    viewConfig: {
+      visibleColumns: string[];
+      filename?: string;
+      includeStats?: boolean;
+    }
+  ): void {
+    // Map visible column keys to ExportColumns
+    const columnMapping: Record<string, ExportColumn> = {
+      'contactPerson': { key: 'contactPerson', label: 'Contactpersoon', width: 20 },
+      'companyName': { key: 'companyName', label: 'Bedrijf', width: 25 },
+      'email': { key: 'email', label: 'Email', width: 25 },
+      'phone': { key: 'phone', label: 'Telefoon', width: 15 },
+      'eventDate': { 
+        key: 'eventDate', 
+        label: 'Datum',
+        formatter: (value) => formatDate(new Date(value)),
+        width: 12
+      },
+      'numberOfPersons': { key: 'numberOfPersons', label: 'Personen', width: 10 },
+      'arrangement': { key: 'arrangement', label: 'Arrangement', width: 10 },
+      'status': { key: 'status', label: 'Status', width: 12 },
+      'paymentStatus': { key: 'paymentStatus', label: 'Betaling', width: 12 },
+      'totalPrice': {
+        key: 'totalPrice',
+        label: 'Prijs',
+        formatter: (value) => value ? formatCurrency(value) : '-',
+        width: 12
+      }
+    };
+
+    const columns = viewConfig.visibleColumns
+      .map(key => columnMapping[key])
+      .filter(Boolean);
+
+    this.exportReservations(reservations, columns, {
+      filename: viewConfig.filename || `Export-Huidige-Weergave-${new Date().toISOString().split('T')[0]}.xlsx`,
+      includeStats: viewConfig.includeStats
+    });
   }
 
   /**
@@ -251,6 +300,63 @@ export class ExcelService {
         label: 'Totaalprijs', 
         formatter: (value) => value ? formatCurrency(value) : '-',
         width: 12
+      }
+    ];
+  }
+
+  /**
+   * NEW: Get columns for roundtrip export (import-compatible format)
+   * Matches the SmartImport template structure
+   */
+  private static getRoundtripColumns(): ExportColumn[] {
+    return [
+      // VERPLICHTE VELDEN
+      { key: 'firstName', label: 'Voornaam*', width: 15 },
+      { key: 'lastName', label: 'Achternaam*', width: 15 },
+      { key: 'email', label: 'Email*', width: 25 },
+      { key: 'numberOfPersons', label: 'Aantal Personen*', width: 12 },
+      
+      // OPTIONELE VELDEN
+      { key: 'salutation', label: 'Aanhef', width: 10 },
+      { key: 'phone', label: 'Telefoonnummer', width: 15 },
+      { key: 'phoneCountryCode', label: 'Landcode', width: 10 },
+      { key: 'companyName', label: 'Bedrijfsnaam', width: 25 },
+      { key: 'vatNumber', label: 'BTW Nummer', width: 18 },
+      { key: 'address', label: 'Adres', width: 20 },
+      { key: 'houseNumber', label: 'Huisnummer', width: 12 },
+      { key: 'postalCode', label: 'Postcode', width: 10 },
+      { key: 'city', label: 'Stad', width: 15 },
+      { key: 'country', label: 'Land', width: 15 },
+      { key: 'arrangement', label: 'Arrangement', width: 12 },
+      { key: 'partyPerson', label: 'Feestvierder', width: 20 },
+      {
+        key: 'dietaryRequirements.other',
+        label: 'Dieetwensen',
+        formatter: (value) => value || '',
+        width: 30
+      },
+      {
+        key: 'preDrink.enabled',
+        label: 'Borrel vooraf',
+        formatter: (value) => value ? 'ja' : 'nee',
+        width: 12
+      },
+      {
+        key: 'afterParty.quantity',
+        label: 'Afterparty',
+        formatter: (value) => value || 0,
+        width: 12
+      },
+      { key: 'promotionCode', label: 'Promocode', width: 15 },
+      { key: 'voucherCode', label: 'Vouchercode', width: 15 },
+      { key: 'comments', label: 'Opmerkingen', width: 30 },
+      { key: 'status', label: 'Status', width: 12 },
+      { key: 'paymentStatus', label: 'Betaalstatus', width: 12 },
+      {
+        key: 'tags',
+        label: 'Tags',
+        formatter: (value) => Array.isArray(value) ? value.join(', ') : '',
+        width: 20
       }
     ];
   }

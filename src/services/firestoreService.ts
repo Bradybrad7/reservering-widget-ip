@@ -337,6 +337,161 @@ class EventsService {
 export const eventsService = new EventsService();
 
 // ============================================
+// TABLE NUMBER SERVICE
+// ============================================
+
+/**
+ * 🎯 Get next table number for an event
+ * Table numbers are auto-assigned based on booking order:
+ * - First booking = Table 1
+ * - Second booking = Table 2
+ * - etc.
+ * 
+ * Only counts active reservations (not cancelled/rejected)
+ * 
+ * @param eventId - Event to get next table number for
+ * @returns Next available table number
+ */
+async function getNextTableNumber(eventId: string): Promise<number> {
+  const reservationsRef = collection(db, COLLECTIONS.RESERVATIONS);
+  const q = query(
+    reservationsRef,
+    where('eventId', '==', eventId),
+    where('status', 'in', ['pending', 'confirmed', 'checked-in', 'request', 'option'])
+  );
+  
+  const snapshot = await getDocs(q);
+  const existingReservations = snapshot.docs.map(doc => doc.data() as Reservation);
+  
+  // Find highest existing table number
+  const highestTableNumber = existingReservations.reduce((max, res) => {
+    const tableNum = res.tableNumber || 0;
+    return tableNum > max ? tableNum : max;
+  }, 0);
+  
+  const nextTableNumber = highestTableNumber + 1;
+  
+  firestoreLogger.debug('🎯 [TABLE NUMBER]', {
+    eventId,
+    existingReservations: existingReservations.length,
+    highestTableNumber,
+    nextTableNumber
+  });
+  
+  return nextTableNumber;
+}
+
+/**
+ * 🎯 Reassign table numbers for an event based on booking order
+ * This should be called when syncing/migrating existing reservations
+ * 
+ * @param eventId - Event ID to reassign table numbers for
+ * @returns Number of reservations updated
+ */
+async function reassignTableNumbers(eventId: string): Promise<number> {
+  const reservationsRef = collection(db, COLLECTIONS.RESERVATIONS);
+  const q = query(
+    reservationsRef,
+    where('eventId', '==', eventId),
+    where('status', 'in', ['pending', 'confirmed', 'checked-in', 'request', 'option']),
+    orderBy('createdAt', 'asc') // First booking gets Table 1
+  );
+  
+  const snapshot = await getDocs(q);
+  const reservations = snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  } as Reservation));
+  
+  firestoreLogger.info('🎯 [TABLE NUMBER REASSIGN]', {
+    eventId,
+    reservationsToUpdate: reservations.length
+  });
+  
+  // Update each reservation with sequential table number
+  let updated = 0;
+  for (let i = 0; i < reservations.length; i++) {
+    const reservation = reservations[i];
+    const tableNumber = i + 1; // 1-based indexing
+    
+    try {
+      const docRef = doc(db, COLLECTIONS.RESERVATIONS, reservation.id);
+      await updateDoc(docRef, {
+        tableNumber,
+        updatedAt: serverTimestamp()
+      });
+      updated++;
+      
+      firestoreLogger.debug(`🎯 Updated ${reservation.id} -> Table ${tableNumber}`);
+    } catch (error) {
+      firestoreLogger.error(`❌ Failed to update table number for ${reservation.id}:`, error);
+    }
+  }
+  
+  firestoreLogger.info(`✅ [TABLE NUMBER REASSIGN] Updated ${updated}/${reservations.length} reservations`);
+  return updated;
+}
+
+// TAG GENERATION SERVICE
+// ============================================
+
+/**
+ * 🏷️ Generate automatic tags based on reservation data
+ * 
+ * Automatic tags:
+ * - DELUXE: arrangement === 'BWFM'
+ * - BORREL: preDrink OR afterParty enabled
+ * - MERCHANDISE: has merchandise items
+ * 
+ * @param reservation - Reservation data to analyze
+ * @param existingTags - Existing tags to preserve (manual tags like 'MPL')
+ * @returns Array of tags (automatic + manual)
+ */
+function generateAutomaticTags(
+  reservation: Partial<Reservation>,
+  existingTags: string[] = []
+): string[] {
+  const automaticTags: string[] = [];
+  const manualTags = existingTags.filter(tag => 
+    !['DELUXE', 'BORREL', 'MERCHANDISE'].includes(tag)
+  );
+  
+  // 🌟 DELUXE: BWFM arrangement
+  if (reservation.arrangement === 'BWFM') {
+    automaticTags.push('DELUXE');
+  }
+  
+  // 🍷 BORREL: Pre-drink or After-party
+  const hasPreDrink = reservation.preDrink?.enabled && (reservation.preDrink?.quantity || 0) > 0;
+  const hasAfterParty = reservation.afterParty?.enabled && (reservation.afterParty?.quantity || 0) > 0;
+  
+  if (hasPreDrink || hasAfterParty) {
+    automaticTags.push('BORREL');
+  }
+  
+  // 🛍️ MERCHANDISE: Has merchandise items
+  if (reservation.merchandise && reservation.merchandise.length > 0) {
+    automaticTags.push('MERCHANDISE');
+  }
+  
+  // Combine manual tags (preserved) with new automatic tags
+  const allTags = [...new Set([...manualTags, ...automaticTags])];
+  
+  firestoreLogger.debug('🏷️ [TAG GENERATION]', {
+    arrangement: reservation.arrangement,
+    preDrink: reservation.preDrink,
+    afterParty: reservation.afterParty,
+    merchandiseCount: reservation.merchandise?.length || 0,
+    existingTags,
+    manualTags,
+    automaticTags,
+    finalTags: allTags
+  });
+  
+  return allTags;
+}
+
+// ============================================
 // RESERVATIONS SERVICE
 // ============================================
 
@@ -484,11 +639,19 @@ class ReservationsService {
       
       const docRef = doc(db, COLLECTIONS.RESERVATIONS, id);
       
+      // 🎯 Get next table number for this event BEFORE transaction
+      const tableNumber = await getNextTableNumber(reservation.eventId);
+      
       // ✅ Use transaction to ensure atomic operations
       await runTransaction(db, async (transaction) => {
+        // 🏷️ Generate automatic tags while preserving manual tags
+        const tags = generateAutomaticTags(reservation, reservation.tags || []);
+        
         // 1. Prepare reservation data with date conversions
         const data: any = {
           ...reservation,
+          tags, // Apply auto-generated + manual tags
+          tableNumber, // 🎯 Auto-assign table number based on booking order
           eventDate: Timestamp.fromDate(new Date(reservation.eventDate)),
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
@@ -604,8 +767,16 @@ class ReservationsService {
           eventId: current.eventId
         });
 
+        // 🏷️ Generate automatic tags while preserving manual tags
+        // Merge current data with updates to get complete picture for tag generation
+        const mergedData = { ...current, ...updates };
+        const tags = generateAutomaticTags(mergedData, updates.tags || current.tags || []);
+
         // 2. Prepare update data with date conversions
-        const updateData: any = { ...updates };
+        const updateData: any = { 
+          ...updates,
+          tags // Apply auto-generated + manual tags
+        };
         
         if (updates.eventDate) updateData.eventDate = Timestamp.fromDate(new Date(updates.eventDate));
         if (updates.paymentReceivedAt) updateData.paymentReceivedAt = Timestamp.fromDate(new Date(updates.paymentReceivedAt));
@@ -615,6 +786,13 @@ class ReservationsService {
         if (updates.optionExpiresAt) updateData.optionExpiresAt = Timestamp.fromDate(new Date(updates.optionExpiresAt));
         
         updateData.updatedAt = serverTimestamp();
+        
+        // 🔥 Remove undefined values (Firestore doesn't accept undefined)
+        Object.keys(updateData).forEach(key => {
+          if (updateData[key] === undefined) {
+            delete updateData[key];
+          }
+        });
         
         // 3. Calculate capacity change
         const oldStatus = current.status;
@@ -684,8 +862,11 @@ class ReservationsService {
         id: cleanId,
         error: errorMessage,
         code: errorCode,
+        errorObject: error,
         stack: error instanceof Error ? error.stack : undefined
       });
+      
+      console.error('🔥 FULL ERROR OBJECT:', error);
       
       // Check for specific error types
       if (errorCode === 'permission-denied') {
