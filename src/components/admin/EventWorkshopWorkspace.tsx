@@ -1,19 +1,23 @@
 /**
  * EventWorkshopWorkspace - Tab 2: De Gefocuste Werkplaats
  * 
- * Volledig herontworpen met maand-gecentreerde workflow:
+ * ✨ ENHANCED v4 (Nov 2025): 
+ * - Inklapbare kalenderweergave bovenaan voor visueel overzicht
  * - Links (30%): EventNavigator met maand-selector en per-week gegroepeerde lijst
  * - Rechts (70%): MonthOverview (geen selectie) OF EventDetailPanel (event geselecteerd)
  * 
- * Dit elimineert cognitieve overload: de admin ziet max 30 events tegelijk (één maand).
+ * Dit combineert visuele en lijst-weergave in één scherm.
  */
 
 import React, { useState, useMemo } from 'react';
+import { ChevronDown, ChevronUp, Calendar } from 'lucide-react';
 import type { AdminEvent, Reservation, WaitlistEntry } from '../../types';
 import { EventNavigator } from './EventNavigator';
 import { MonthOverview } from './MonthOverview';
 import { EventDetailPanel } from './EventDetailPanel';
+import { EventCalendarView } from './EventCalendarView';
 import { getEventComputedData } from '../../utils/eventHelpers';
+import { cn } from '../../utils';
 
 interface EventWorkshopWorkspaceProps {
   events: AdminEvent[];
@@ -31,6 +35,7 @@ export const EventWorkshopWorkspace: React.FC<EventWorkshopWorkspaceProps> = ({
   // State
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [calendarExpanded, setCalendarExpanded] = useState(false);
 
   // Detail data voor geselecteerd event
   const selectedEventData = useMemo(() => {
@@ -61,11 +66,56 @@ export const EventWorkshopWorkspace: React.FC<EventWorkshopWorkspaceProps> = ({
     : new Date().getFullYear();
 
   return (
-    <div className="flex h-full gap-4 p-6">
+    <div className="flex flex-col h-full gap-4 p-6">
       {/* ============================================================
-          LINKER KOLOM: EVENT NAVIGATOR (30%)
+          INKLAPBARE KALENDER WEERGAVE (Nieuw in v4)
           ============================================================ */}
-      <div className="w-[30%] bg-neutral-800/50 rounded-xl overflow-hidden border border-neutral-700">
+      <div className="bg-neutral-800/50 rounded-xl border border-neutral-700 overflow-hidden">
+        {/* Header - Altijd zichtbaar */}
+        <button
+          onClick={() => setCalendarExpanded(!calendarExpanded)}
+          className="w-full flex items-center justify-between p-4 hover:bg-neutral-700/30 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <Calendar className="w-5 h-5 text-gold-400" />
+            <div className="text-left">
+              <h3 className="text-sm font-semibold text-white">
+                Kalender Weergave
+              </h3>
+              <p className="text-xs text-neutral-400">
+                Visueel overzicht van alle events
+              </p>
+            </div>
+          </div>
+          {calendarExpanded ? (
+            <ChevronUp className="w-5 h-5 text-neutral-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-neutral-400" />
+          )}
+        </button>
+
+        {/* Calendar Content - Inklapbaar */}
+        {calendarExpanded && (
+          <div className="border-t border-neutral-700 p-4">
+            <EventCalendarView
+              events={events}
+              allReservations={reservations}
+              allWaitlistEntries={waitlistEntries}
+              onSelectEvent={setSelectedEventId}
+              selectedEventId={selectedEventId}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* ============================================================
+          HOOFD WERKGEBIED: NAVIGATOR + DETAIL
+          ============================================================ */}
+      <div className="flex flex-1 gap-4 min-h-0">
+        {/* ============================================================
+            LINKER KOLOM: EVENT NAVIGATOR (30%)
+            ============================================================ */}
+        <div className="w-[30%] bg-neutral-800/50 rounded-xl overflow-hidden border border-neutral-700">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
@@ -116,6 +166,7 @@ export const EventWorkshopWorkspace: React.FC<EventWorkshopWorkspaceProps> = ({
             onEventClick={setSelectedEventId}
           />
         )}
+      </div>
       </div>
     </div>
   );

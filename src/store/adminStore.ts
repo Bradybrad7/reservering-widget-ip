@@ -47,6 +47,14 @@ interface AdminState {
   // Dashboard Statistics (UI-only, computed from other stores on dashboard)
   stats: AdminStats | null;
   isLoadingStats: boolean;
+  
+  // ✨ NEW: Notification Badges for Sidebar (Nov 2025)
+  notificationBadges: {
+    reservations: number;  // Nieuwe aanvragen + requests
+    payments: number;      // Openstaande betalingen
+    waitlist: number;      // Actieve wachtlijst entries
+    archive: number;       // Items klaar voor archivering
+  };
 }
 
 // ============================================================================
@@ -72,6 +80,9 @@ interface AdminActions {
   
   // Dashboard Stats (aggregated data for dashboard overview)
   loadStats: () => Promise<void>;
+  
+  // ✨ NEW: Notification Badges (Nov 2025)
+  updateNotificationBadges: (badges: Partial<AdminState['notificationBadges']>) => void;
 }
 
 // ============================================================================
@@ -90,6 +101,12 @@ export const useAdminStore = create<AdminState & AdminActions>()(
     showConfigModal: false,
     stats: null,
     isLoadingStats: false,
+    notificationBadges: {
+      reservations: 0,
+      payments: 0,
+      waitlist: 0,
+      archive: 0
+    },
 
     // Navigation Actions
     setActiveSection: (section: AdminSection) => {
@@ -169,6 +186,16 @@ export const useAdminStore = create<AdminState & AdminActions>()(
       } finally {
         set({ isLoadingStats: false });
       }
+    },
+
+    // ✨ NEW: Update Notification Badges (Nov 2025)
+    updateNotificationBadges: (badges) => {
+      set((state) => ({
+        notificationBadges: {
+          ...state.notificationBadges,
+          ...badges
+        }
+      }));
     }
   }))
 );

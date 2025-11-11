@@ -30,9 +30,13 @@ import type { AdminEvent, Reservation, WaitlistEntry, EventType } from '../../ty
 import { getEventComputedData } from '../../utils/eventHelpers';
 import { useEventsStore } from '../../store/eventsStore';
 import { useConfigStore } from '../../store/configStore';
+import { useAdminStore } from '../../store/adminStore';
 import { getEventTypeColor, getEventTypeName, hexToRgba } from '../../utils/eventColors';
 import { EventCalendarView } from './EventCalendarView';
-import { DuplicateEventModal } from './DuplicateEventModal'; // ✨ NEW
+import { DuplicateEventModal } from './DuplicateEventModal';
+import { EventContextMenu } from './EventContextMenu';
+import { OperationalPDFService } from '../../services/operationalPdfService';
+import { useToast } from '../Toast';
 
 interface EventMasterListProps {
   events: AdminEvent[];
@@ -53,8 +57,10 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
   onCreateEvent,
   onBulkAdd,
 }) => {
-  const { bulkDeleteEvents, bulkCancelEvents } = useEventsStore();
+  const toast = useToast();
+  const { bulkDeleteEvents, bulkCancelEvents, updateEvent, deleteEvent } = useEventsStore();
   const { eventTypesConfig, loadConfig } = useConfigStore();
+  const { setActiveSection, setSelectedItemId } = useAdminStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'full' | 'waitlist' | 'closed'>('all');
   const [typeFilter, setTypeFilter] = useState<EventType | 'all'>('all');
@@ -68,6 +74,12 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
   // ✨ NEW: Duplicate modal state
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [eventToDuplicate, setEventToDuplicate] = useState<AdminEvent | null>(null);
+  
+  // ✨ NEW: Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    event: AdminEvent;
+    position: { x: number; y: number };
+  } | null>(null);
 
   // Filter en sorteer events
   const filteredAndSortedEvents = useMemo(() => {
@@ -271,6 +283,72 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
   const handleDuplicateSuccess = () => {
     // Optionally reload events or show success message
     // The modal will handle the actual duplication
+  };
+
+  // ✨ NEW: Context menu handlers
+  const handleContextMenu = (e: React.MouseEvent, event: AdminEvent) => {
+    e.preventDefault();
+    setContextMenu({
+      event,
+      position: { x: e.clientX, y: e.clientY },
+    });
+  };
+
+  const handleViewReservations = (eventId: string) => {
+    setActiveSection('reservations');
+    // TODO: Filter reservations by eventId
+    toast.success('Navigeren', 'Ga naar reserveringen voor dit event');
+  };
+
+  const handleExportGuestList = async (eventId: string) => {
+    try {
+      // Get event data
+      const event = events.find(e => e.id === eventId);
+      if (!event) {
+        toast.error('Fout', 'Event niet gevonden');
+        return;
+      }
+      // Get reservations for this event
+      const eventReservations = allReservations.filter(r => r.eventId === eventId);
+      
+      // Use the Daily Rundown export with single event
+      await OperationalPDFService.generateDailyRundown({
+        reservations: eventReservations,
+        events: [event],
+        merchandiseItems: [],
+        dateRange: { start: new Date(event.date), end: new Date(event.date) }
+      });
+      
+      toast.success('Geëxporteerd', 'Gastenlijst PDF is gegenereerd');
+    } catch (error) {
+      console.error('Error exporting guest list:', error);
+      toast.error('Fout', 'Kon gastenlijst niet exporteren');
+    }
+  };
+
+  const handleToggleActive = async (eventId: string, isActive: boolean) => {
+    try {
+      await updateEvent(eventId, { isActive });
+      toast.success(
+        isActive ? 'Geactiveerd' : 'Gedeactiveerd',
+        `Event is ${isActive ? 'geactiveerd' : 'gedeactiveerd'}`
+      );
+    } catch (error) {
+      console.error('Error toggling event:', error);
+      toast.error('Fout', 'Kon event status niet wijzigen');
+    }
+  };
+
+  const handleDeleteEvent = async (eventId: string) => {
+    if (!confirm('Weet je zeker dat je dit event wilt verwijderen?')) return;
+    
+    try {
+      await deleteEvent(eventId);
+      toast.success('Verwijderd', 'Event is verwijderd');
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      toast.error('Fout', 'Kon event niet verwijderen');
+    }
   };
 
   // Load config on mount
@@ -601,6 +679,7 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
                     ? 'bg-blue-900/50 border-l-4 border-l-blue-500' 
                     : 'hover:bg-gray-700/50'
                 } ${isChecked ? 'bg-blue-900/30' : ''}`}
+                onContextMenu={(e) => handleContextMenu(e, event)}
               >
                 <div className="flex items-start gap-3">
                   {/* 🆕 Checkbox (alleen zichtbaar in bulk mode) */}
@@ -764,6 +843,20 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
         event={eventToDuplicate}
         onSuccess={handleDuplicateSuccess}
       />
+
+      {/* ✨ NEW: Context Menu */}
+      {contextMenu && (
+        <EventContextMenu
+          position={contextMenu.position}
+          event={contextMenu.event}
+          onClose={() => setContextMenu(null)}
+          onViewReservations={handleViewReservations}
+          onDuplicate={duplicateEvent}
+          onExportGuestList={handleExportGuestList}
+          onToggleActive={handleToggleActive}
+          onDelete={handleDeleteEvent}
+        />
+      )}
     </div>
   );
 };

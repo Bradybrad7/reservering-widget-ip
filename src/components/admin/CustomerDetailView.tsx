@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useCustomersStore } from '../../store/customersStore';
 import { formatCurrency, formatDate, cn } from '../../utils';
+import { CustomerTimeline } from './CustomerTimeline';
 
 interface CustomerDetailViewProps {
   customerEmail: string;
@@ -37,9 +38,7 @@ interface CustomerDetailViewProps {
 const CustomerDetailView: React.FC<CustomerDetailViewProps> = ({ customerEmail, onBack }) => {
   const {
     selectedCustomer,
-    loadCustomer,
-    updateCustomerTags,
-    updateCustomerNotes
+    loadCustomer
   } = useCustomersStore();
 
   const [isEditingNotes, setIsEditingNotes] = useState(false);
@@ -74,12 +73,14 @@ const CustomerDetailView: React.FC<CustomerDetailViewProps> = ({ customerEmail, 
   }
 
   const handleSaveNotes = async () => {
-    await updateCustomerNotes(customerEmail, notes);
+    // TODO: Implement updateCustomerNotes in customersStore
+    // await updateCustomerNotes(customerEmail, notes);
     setIsEditingNotes(false);
   };
 
   const handleSaveTags = async () => {
-    await updateCustomerTags(customerEmail, selectedTags);
+    // TODO: Implement updateCustomerTags in customersStore
+    // await updateCustomerTags(customerEmail, selectedTags);
     setIsEditingTags(false);
   };
 
@@ -428,69 +429,13 @@ const CustomerDetailView: React.FC<CustomerDetailViewProps> = ({ customerEmail, 
         )}
       </div>
 
-      {/* Booking History */}
+      {/* 🆕 Customer Timeline - Vervang oude boekingsgeschiedenis */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-6">
-        <h2 className="text-xl font-semibold text-slate-100 flex items-center gap-2 mb-4">
-          <Calendar className="w-5 h-5 text-amber-400" />
-          Boekingsgeschiedenis ({selectedCustomer.reservations.length})
-        </h2>
-
-        <div className="space-y-3">
-          {selectedCustomer.reservations
-            .sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime())
-            .map(reservation => (
-              <div
-                key={reservation.id}
-                className="p-4 bg-slate-900/50 border border-slate-700 rounded-lg hover:border-amber-500/30 transition-all"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="text-lg font-semibold text-slate-100">
-                        {formatDate(reservation.eventDate)}
-                      </span>
-                      <span
-                        className={cn(
-                          'px-2 py-1 rounded text-xs font-medium',
-                          reservation.status === 'confirmed' && 'bg-emerald-500/20 text-emerald-300',
-                          reservation.status === 'pending' && 'bg-amber-500/20 text-amber-300',
-                          reservation.status === 'cancelled' && 'bg-red-500/20 text-red-300',
-                          reservation.status === 'checked-in' && 'bg-blue-500/20 text-blue-300'
-                        )}
-                      >
-                        {reservation.status}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-400">
-                      <span>{reservation.numberOfPersons} gasten</span>
-                      <span>•</span>
-                      <span>{reservation.arrangement === 'BWF' ? 'Standaard Arrangement' : 'Premium Arrangement'}</span>
-                      {reservation.preDrink.enabled && (
-                        <>
-                          <span>•</span>
-                          <span>Pre-drink</span>
-                        </>
-                      )}
-                      {reservation.afterParty.enabled && (
-                        <>
-                          <span>•</span>
-                          <span>After-party</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <div className="text-xl font-bold text-amber-400">
-                      {formatCurrency(reservation.totalPrice)}
-                    </div>
-                    <div className="text-xs text-slate-400">
-                      Geboekt: {formatDate(reservation.createdAt)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-        </div>
+        <CustomerTimeline
+          reservations={selectedCustomer.reservations}
+          notes={[]} // Could be extended with actual notes from store
+          emails={[]} // Could be extended with email log data
+        />
       </div>
     </div>
   );

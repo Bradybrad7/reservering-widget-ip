@@ -29,14 +29,16 @@ import {
   ScrollText,
   Film,
   Archive,
-  List
+  List,
+  Search
 } from 'lucide-react';
 import { cn } from '../../utils';
 import type { AdminSection, NavigationGroup } from '../../types';
 import { useAdminStore } from '../../store/adminStore';
-import { GlobalSearch } from './GlobalSearch';
+import { CommandPalette } from './CommandPalette';
 import { LanguageSelector } from '../ui/LanguageSelector';
 import { optionExpiryService } from '../../services/optionExpiryService';
+import { useNotificationBadges } from '../../hooks/useNotificationBadges';
 
 interface AdminLayoutNewProps {
   children: React.ReactNode;
@@ -155,8 +157,12 @@ const iconMap: Record<string, React.ElementType> = {
 };
 
 export const AdminLayoutNew: React.FC<AdminLayoutNewProps> = ({ children }) => {
-  const { activeSection, breadcrumbs, sidebarCollapsed, setActiveSection, setBreadcrumbs, toggleSidebar } = useAdminStore();
+  const { activeSection, breadcrumbs, sidebarCollapsed, notificationBadges, setActiveSection, setBreadcrumbs, toggleSidebar } = useAdminStore();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+
+  // ✨ Update notification badges automatically
+  useNotificationBadges();
 
   // ✨ AUTOMATIC OPTION EXPIRY CHECK - Runs once when admin loads
   useEffect(() => {
@@ -181,6 +187,19 @@ export const AdminLayoutNew: React.FC<AdminLayoutNewProps> = ({ children }) => {
     checkExpiredOptions();
   }, []); // Run once on mount
 
+  // ✨ COMMAND PALETTE - Global keyboard shortcut (Cmd+K / Ctrl+K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const handleNavigate = (section: AdminSection, _groupLabel: string, itemLabel: string) => {
     setActiveSection(section);
     setBreadcrumbs([
@@ -192,6 +211,13 @@ export const AdminLayoutNew: React.FC<AdminLayoutNewProps> = ({ children }) => {
   const renderNavItem = (group: NavigationGroup) => {
     const Icon = iconMap[group.icon];
     const isActive = activeSection === group.section;
+
+    // Get badge count for this section
+    let badgeCount = 0;
+    if (group.id === 'reservations') badgeCount = notificationBadges.reservations;
+    else if (group.id === 'payments') badgeCount = notificationBadges.payments;
+    else if (group.id === 'waitlist') badgeCount = notificationBadges.waitlist;
+    else if (group.id === 'archive') badgeCount = notificationBadges.archive;
 
     return (
       <button
@@ -205,7 +231,21 @@ export const AdminLayoutNew: React.FC<AdminLayoutNewProps> = ({ children }) => {
         )}
       >
         {Icon && <Icon className="w-5 h-5 flex-shrink-0" />}
-        {!sidebarCollapsed && <span className="truncate">{group.label}</span>}
+        {!sidebarCollapsed && (
+          <>
+            <span className="truncate flex-1">{group.label}</span>
+            {badgeCount > 0 && (
+              <span className={cn(
+                'px-2 py-0.5 text-xs font-bold rounded-full flex-shrink-0',
+                isActive 
+                  ? 'bg-white text-gold-600' 
+                  : 'bg-gold-500 text-black'
+              )}>
+                {badgeCount}
+              </span>
+            )}
+          </>
+        )}
       </button>
     );
   };
@@ -309,16 +349,17 @@ export const AdminLayoutNew: React.FC<AdminLayoutNewProps> = ({ children }) => {
 
               {/* Search and Actions */}
               <div className="hidden md:flex items-center gap-3">
-                {/* Global Search */}
-                <div className="w-96">
-                  <GlobalSearch onNavigate={(section, id) => {
-                    setActiveSection(section as AdminSection);
-                    // Store the selected ID in adminStore for the component to use
-                    if (id) {
-                      useAdminStore.setState({ selectedItemId: id });
-                    }
-                  }} />
-                </div>
+                {/* Command Palette Trigger */}
+                <button
+                  onClick={() => setCommandPaletteOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 rounded-lg transition-colors border border-neutral-700 hover:border-gold-500"
+                >
+                  <Search className="w-4 h-4" />
+                  <span className="text-sm">Zoek of voer commando uit...</span>
+                  <kbd className="ml-2 px-2 py-0.5 bg-neutral-900 border border-neutral-600 rounded text-xs">
+                    ⌘K
+                  </kbd>
+                </button>
 
                 {/* Language Selector */}
                 <LanguageSelector />
@@ -360,6 +401,12 @@ export const AdminLayoutNew: React.FC<AdminLayoutNewProps> = ({ children }) => {
           </div>
         </main>
       </div>
+
+      {/* Command Palette - Global Modal */}
+      <CommandPalette 
+        isOpen={commandPaletteOpen} 
+        onClose={() => setCommandPaletteOpen(false)} 
+      />
     </div>
   );
 };

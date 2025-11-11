@@ -59,7 +59,7 @@ const TABS: Tab[] = [
 
 export const EventWorkshop: React.FC = () => {
   // State
-  const [activeTab, setActiveTab] = useState<TabName>('overview');
+  const [activeTab, setActiveTab] = useState<TabName>('workspace');
 
   // Stores
   const { events, loadEvents, isLoadingEvents } = useEventsStore();
