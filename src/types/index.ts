@@ -83,21 +83,62 @@ export type PaymentStatus =
   | 'refunded'        // Payment was refunded
   | 'not_applicable'; // E.g., free event, voucher, or comp ticket
 
-// 💰 NEW: Payment Transaction Types (October 31, 2025)
-export type PaymentType = 'payment' | 'refund';
-export type PaymentMethod = 'bank_transfer' | 'pin' | 'cash' | 'ideal' | 'voucher' | 'other';
+// 💰 FINANCIAL SYSTEM V2 (November 12, 2025)
+// Gescheiden Payment en Refund types voor beter grootboek-beheer
 
-// 💰 Payment Transaction - Complete financial log
-// This replaces the simple paymentStatus with a full transaction history
+// Payment Methods
+export type PaymentMethod = 
+  | 'ideal'         // iDEAL (meest gebruikt)
+  | 'bank_transfer' // Bankoverschrijving
+  | 'pin'           // Pinterminal
+  | 'cash'          // Contant
+  | 'invoice'       // Factuur (betaling volgt later)
+  | 'voucher'       // Voucher/cadeaubon
+  | 'other';        // Overig
+
+// 💰 Payment - Inkomende betalingen
+export interface Payment {
+  id: string;                    // Unique payment ID (e.g., "pay_123")
+  amount: number;                // Bedrag in euros (altijd positief)
+  date: Date;                    // Betaaldatum
+  method: PaymentMethod;         // Betaalmethode
+  reference?: string;            // Transactie-ID, factuurnummer, voucher-code
+  note?: string;                 // Interne notitie over deze betaling
+  processedBy?: string;          // Admin die betaling registreerde
+}
+
+// Refund Reasons
+export type RefundReason = 
+  | 'cancellation'   // Annulering door klant
+  | 'rebooking'      // Overboeking naar andere datum
+  | 'goodwill'       // Coulance/goodwill
+  | 'discount'       // Korting achteraf toegepast
+  | 'overpayment'    // Te veel betaald
+  | 'other';         // Overige reden
+
+// 💰 Refund - Uitgaande restituties
+export interface Refund {
+  id: string;                    // Unique refund ID (e.g., "ref_123")
+  amount: number;                // Bedrag in euros (altijd positief)
+  date: Date;                    // Restitutiedatum
+  reason: RefundReason;          // Reden voor restitutie
+  method: PaymentMethod;         // Methode van terugbetaling (vaak 'bank_transfer')
+  reference?: string;            // Transactie-ID van de restitutie
+  note?: string;                 // Interne notitie (ZEER BELANGRIJK voor audit trail)
+  processedBy?: string;          // Admin die restitutie verwerkte
+}
+
+// DEPRECATED: PaymentTransaction - Wordt vervangen door Payment + Refund
+// Behouden voor backward compatibility
 export interface PaymentTransaction {
-  id: string;                    // Unique transaction ID (e.g., "txn_123")
-  date: Date;                    // Transaction date
-  type: PaymentType;             // 'payment' (incoming) or 'refund' (outgoing)
-  amount: number;                // Amount in euros (positive for payment, negative for refund)
-  method: PaymentMethod;         // Payment/refund method
-  notes?: string;                // Reason for transaction (especially important for refunds!)
-  processedBy?: string;          // Admin who processed this transaction
-  referenceNumber?: string;      // Bank reference, transaction ID, etc.
+  id: string;
+  date: Date;
+  type: 'payment' | 'refund';
+  amount: number;
+  method: PaymentMethod;
+  notes?: string;
+  processedBy?: string;
+  referenceNumber?: string;
 }
 
 // Wizard step types
@@ -407,18 +448,22 @@ export interface Reservation extends CustomerFormData {
   isWaitlist?: boolean;
   requestedOverCapacity?: boolean; // TRUE if booking was made when exceeding available capacity
   
-  // ✨ NEW: Financial/Payment Tracking (October 2025)
-  paymentStatus: PaymentStatus;
-  invoiceNumber?: string;           // Invoice reference number
-  paymentMethod?: string;           // 'bank_transfer', 'ideal', 'voucher', 'cash', etc.
-  paymentReceivedAt?: Date;         // Timestamp when payment was confirmed
-  paymentDueDate?: Date;            // When payment is expected
-  paymentNotes?: string;            // Admin notes about payment
+  // 💰 FINANCIAL SYSTEM V2 (November 12, 2025)
+  // Gescheiden grootboek voor betalingen en restituties
   
-  // 💰 NEW: Transaction-Based Payment Tracking (October 31, 2025)
-  // This replaces the simple payment status with a complete financial log
-  // Enables partial payments, refunds, and complete financial transparency
-  paymentTransactions?: PaymentTransaction[]; // Full transaction history
+  // DEPRECATED: paymentStatus - Now derived from payments/refunds
+  paymentStatus?: PaymentStatus;    // Behouden voor backward compatibility
+  
+  // Factuur informatie
+  invoiceNumber?: string;           // Invoice reference number
+  paymentDueDate?: Date;            // When payment is expected
+  
+  // 💰 HET GROOTBOEK: Alle financiële transacties per reservering
+  payments: Payment[];              // Alle inkomende betalingen
+  refunds: Refund[];                // Alle uitgaande restituties
+  
+  // DEPRECATED: paymentTransactions - Vervangen door payments + refunds
+  paymentTransactions?: PaymentTransaction[]; // Backward compatibility
   
   createdAt: Date;
   updatedAt: Date;
@@ -432,12 +477,17 @@ export interface Reservation extends CustomerFormData {
   checkedInBy?: string; // NEW: Who performed the check-in
   emailLog?: EmailLog[]; // ✨ NEW: Email history for this reservation
   
-  // � TABLE NUMBER: Auto-assigned based on booking order (November 2025)
+  // 🏓 TABLE NUMBER & CHECK-IN SYSTEM (November 2025)
   // First booking of the day = Table 1, second = Table 2, etc.
   // Critical for check-in process and PDF exports
   tableNumber?: number; // Auto-assigned, sequential per event
+  checkInTime?: Date; // When guest checked in
+  checkInNote?: string; // Optional note during check-in
+  actualPersons?: number; // Actual number of guests who showed up
+  specialRequests?: string; // Special requests/allergies (from dietary requirements)
+  adminNotes?: string; // Important admin notes (replaces notes for clarity)
   
-  // �🆕 OPTION SYSTEM: Temporary 1-week hold (October 2025)
+  // 🆕 OPTION SYSTEM: Temporary 1-week hold (October 2025)
   // When status = 'option': minimal booking info (naam, adres, telefoon)
   // NO arrangement/pricing required yet - just securing capacity
   // Counts toward event capacity to reserve the seats
@@ -455,6 +505,82 @@ export interface CommunicationLog {
   subject?: string;
   message: string;
   author: string; // Admin who made the entry
+}
+
+// 🗄️ ARCHIVED RECORD (November 12, 2025)
+// Onveranderbaar snapshot van een gearchiveerde reservering
+// Dit is het "Data Vault" systeem - complete financiële geschiedenis behouden
+export interface ArchivedRecord {
+  // Basis archief metadata
+  id: string;                       // Original reservation ID
+  archivedAt: Date;                 // Wanneer gearchiveerd
+  archivedBy: string;               // Admin die archiveerde
+  archiveReason: string;            // Reden voor archivering
+  
+  // Snapshot van de originele reservering data
+  reservation: {
+    // Klant informatie
+    companyName: string;
+    contactPerson: string;
+    email: string;
+    phone?: string;
+    
+    // Boeking details
+    eventId: string;
+    eventDate: Date;
+    eventType: string;              // Snapshot van event.type
+    showName?: string;              // Snapshot van show.name
+    numberOfPersons: number;
+    arrangement: Arrangement;
+    
+    // Status en timestamps
+    status: ReservationStatus;
+    createdAt: Date;
+    updatedAt: Date;
+    
+    // Optionele details
+    merchandise?: any[];
+    tags?: ReservationTag[];
+    notes?: string;
+    tableNumber?: number;
+  };
+  
+  // 💰 HET FINANCIËLE GROOTBOEK - De kern van het archiefsysteem
+  // Dit is de onveranderbare bewijslast van alle financiële transacties
+  financials: {
+    // Basis bedragen
+    totalPrice: number;             // Originele prijs van de reservering
+    
+    // Afgeleide totalen (berekend bij archivering)
+    totalPaid: number;              // Som van alle payments
+    totalRefunded: number;          // Som van alle refunds
+    netRevenue: number;             // totalPaid - totalRefunded (daadwerkelijke inkomsten)
+    
+    // De volledige transactie geschiedenis (onveranderbaar)
+    payments: Payment[];            // Alle inkomende betalingen
+    refunds: Refund[];              // Alle uitgaande restituties
+    
+    // Factuur informatie
+    invoiceNumber?: string;
+    paymentDueDate?: Date;
+  };
+  
+  // Communicatie geschiedenis
+  communication: {
+    emailsSent: number;             // Aantal verzonden emails
+    emailLog?: EmailLog[];          // Volledige email geschiedenis
+    communicationLog?: CommunicationLog[]; // Alle interacties
+  };
+  
+  // Zoekbare metadata voor de "Super-Search"
+  searchMetadata: {
+    keywords: string[];             // Voor full-text search
+    paymentReferences: string[];    // Alle payment references (voor zoeken op iDEAL-ID)
+    refundReferences: string[];     // Alle refund references
+    hasRefunds: boolean;            // Quick filter
+    isFullyRefunded: boolean;       // totalRefunded >= totalPaid
+    hasOutstandingBalance: boolean; // netRevenue < totalPrice
+  };
 }
 
 // ✨ NEW: Waitlist Entry - Separate from Reservations
@@ -721,18 +847,20 @@ export interface EmailReminderConfig {
 }
 
 // Admin navigation types
-// ✨ SIMPLIFIED ADMIN NAVIGATION (Oct 2025)
-// Reduced from 30+ items to 9 logical groups
+// ✨ OPERATIONS CONTROL CENTER (Nov 2025)
+// Combined operations hub for 80% of daily tasks
+// Reduced from 30+ items to 9 logical groups + unified operations center
 // Sub-pages implemented as tabs within main components
 export type AdminSection = 
   | 'dashboard'      // Home overview
-  | 'events'         // All event management (tabs: overview, calendar, templates, shows, types)
-  | 'reservations'   // All reservations with filter tabs (all, pending, confirmed, cancelled)
-  | 'waitlist'       // Waitlist management (separate workflow)
-  | 'payments'       // Payment overview & deadline management (factuur 3 weken voor voorstelling, betaling 2 weken voor voorstelling)
+  | 'operations'     // 🆕 OPERATIONS CONTROL CENTER - Unified hub for events, reservations, waitlist, customers, payments
+  | 'events'         // All event management (tabs: overview, calendar, templates, shows, types) - DEPRECATED: use 'operations'
+  | 'reservations'   // All reservations with filter tabs (all, pending, confirmed, cancelled) - DEPRECATED: use 'operations'
+  | 'waitlist'       // Waitlist management (separate workflow) - DEPRECATED: use 'operations'
+  | 'payments'       // Payment overview & deadline management - DEPRECATED: use 'operations'
   | 'archive'        // Archived/deleted reservations
   | 'checkin'        // Check-in system (day-of workflow)
-  | 'customers'      // CRM & customer management
+  | 'customers'      // CRM & customer management - DEPRECATED: use 'operations'
   | 'products'       // Products & Pricing (tabs: arrangements, addons, merchandise, promotions, vouchers)
   | 'reports'        // Analytics & reporting (tabs: dashboard, custom reports)
   | 'config';        // All configuration (tabs: general, booking, system)

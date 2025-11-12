@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Cache Reset</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #fff;
+            min-height: 100vh;
+        }
+        .container {
+            background: #2d2d2d;
+            border: 2px solid #D4AF37;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(212, 175, 55, 0.2);
+        }
+        h1 {
+            color: #D4AF37;
+            margin: 0 0 10px 0;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #aaa;
+            margin: 0 0 30px 0;
+            font-size: 14px;
+        }
+        .info-box {
+            background: rgba(212, 175, 55, 0.1);
+            border-left: 4px solid #D4AF37;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .info-box h3 {
+            margin: 0 0 10px 0;
+            color: #D4AF37;
+            font-size: 18px;
+        }
+        .info-box p {
+            margin: 5px 0;
+            color: #ccc;
+            line-height: 1.6;
+        }
+        button {
+            background: linear-gradient(135deg, #D4AF37 0%, #F59E0B 100%);
+            color: #000;
+            border: none;
+            padding: 16px 32px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            margin: 10px 0;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(212, 175, 55, 0.4);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .success {
+            background: rgba(16, 185, 129, 0.2);
+            border: 2px solid #10B981;
+            color: #10B981;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .success.show {
+            display: block;
+        }
+        .feature-list {
+            margin: 15px 0;
+        }
+        .feature-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #444;
+            color: #ccc;
+        }
+        .feature-item:last-child {
+            border-bottom: none;
+        }
+        .feature-item::before {
+            content: "✨ ";
+            color: #D4AF37;
+        }
+        code {
+            background: #1a1a1a;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #D4AF37;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Dashboard Intelligence v2.0</h1>
+        <p class="subtitle">Reset cache om nieuwe widgets te zien</p>
+
+        <div class="info-box">
+            <h3>Waarom deze stap nodig is?</h3>
+            <p>Je dashboard configuratie wordt opgeslagen in de browser (localStorage) voor snelheid. We hebben zojuist <strong>4 nieuwe intelligente widgets</strong> en <strong>2 nieuwe presets</strong> toegevoegd:</p>
+            
+            <div class="feature-list">
+                <div class="feature-item"><strong>Daily Focus</strong> - Dagelijkse briefing met prioriteiten</div>
+                <div class="feature-item"><strong>Waitlist Hotlist</strong> - Top kansen identificeren</div>
+                <div class="feature-item"><strong>Live Activity</strong> - Real-time feed van boekingen</div>
+                <div class="feature-item"><strong>Recent Bookings (CRM)</strong> - VIP & nieuwe klant highlighting</div>
+                <div class="feature-item"><strong>Zen Mode</strong> - Minimaal (alleen KPIs)</div>
+                <div class="feature-item"><strong>God Mode</strong> - Alles tegelijk (13 widgets)</div>
+            </div>
+            
+            <p style="margin-top: 15px;">Door de cache te resetten zie je meteen alle nieuwe features!</p>
+        </div>
+
+        <button onclick="resetDashboard()">
+            🔄 Reset Dashboard Cache & Activeer Nieuwe Features
+        </button>
+
+        <div class="success" id="success">
+            <strong>✅ Succesvol gereset!</strong>
+            <p style="margin: 10px 0 0 0;">
+                Je kunt nu terug naar het admin dashboard. De nieuwe widgets zijn beschikbaar onder "Aanpassen".
+            </p>
+            <p style="margin: 10px 0 0 0; color: #10B981;">
+                💡 <strong>Tip:</strong> Probeer de nieuwe presets: <code>Zen</code>, <code>Minimal</code>, <code>Analytics</code>, <code>Operations</code>, of <code>God Mode</code>!
+            </p>
+        </div>
+
+        <div class="info-box" style="margin-top: 30px;">
+            <h3>Wat gebeurt er?</h3>
+            <p>Deze actie:</p>
+            <p>• Wist oude dashboard configuratie</p>
+            <p>• Laadt nieuwe standaard configuratie met alle widgets</p>
+            <p>• Activeert <strong>Daily Focus</strong>, <strong>KPI Cards</strong>, en alle operations widgets</p>
+            <p>• Maakt nieuwe presets beschikbaar</p>
+        </div>
+    </div>
+
+    <script>
+        function resetDashboard() {
+            // Remove old dashboard config
+            localStorage.removeItem('dashboard-layout-storage');
+            
+            // Also clear any related cache
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.includes('dashboard')) {
+                    keysToRemove.push(key);
+                }
+            }
+            keysToRemove.forEach(key => localStorage.removeItem(key));
+            
+            // Show success message
+            document.getElementById('success').classList.add('show');
+            
+            // Optional: reload page after 2 seconds
+            setTimeout(() => {
+                // You can uncomment this to auto-reload
+                // window.location.href = '/admin';
+            }, 2000);
+        }
+    </script>
+</body>
+</html>

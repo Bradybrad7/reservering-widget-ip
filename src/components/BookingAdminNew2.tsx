@@ -1,13 +1,16 @@
 import React, { useEffect } from 'react';
 import type { BookingAdminProps } from '../types';
 import { AdminLayoutNew } from './admin/AdminLayoutNew';
-import { DashboardEnhanced } from './admin/DashboardEnhanced';
+import { DashboardModern } from './admin/DashboardModern';
 import { ReservationsManager } from './admin/ReservationsWorkbench'; // ✨ Reserveringen Beheer
 import { EventWorkshop } from './admin/EventWorkshop';
 import { CustomerManagerEnhanced } from './admin/CustomerManagerEnhanced';
 import { ProductsManager } from './admin/ProductsManager';
 import { ConfigManagerEnhanced } from './admin/ConfigManagerEnhanced';
 import { useAdminStore } from '../store/adminStore';
+
+// ✨ OPERATIONS CONTROL CENTER (Nov 2025)
+import { OperationsControlCenter } from './admin/OperationsControlCenter';
 
 // ✨ Nieuwe features
 import AdvancedAnalytics from './admin/AdvancedAnalytics';
@@ -52,23 +55,25 @@ const BookingAdminNew: React.FC<BookingAdminProps> = () => {
     switch (activeSection) {
       // Dashboard
       case 'dashboard':
-        return <DashboardEnhanced />;
+        return <DashboardModern />;
 
-      // Events - Event Werkplaats v3 with 3 tabs (Overzicht, Werkplaats, Tools)
+      // ✨ OPERATIONS CONTROL CENTER (Nov 2025)
+      // Unified hub voor Events, Reservations, Waitlist, Customers, Payments
+      case 'operations':
+        return <OperationsControlCenter />;
+
+      // DEPRECATED: Legacy individual sections (backward compatibility)
+      // These are now unified in the Operations Control Center
       case 'events':
         return <EventWorkshop />;
-
-      // Reservations - Reserveringen Beheer with 3 tabs (Dashboard, Reserveringen, Import & Export)
       case 'reservations':
         return <ReservationsManager />;
-
-      // Waitlist - Dedicated manager
       case 'waitlist':
         return <WaitlistManager />;
-
-      // Payments - Payment deadline management
       case 'payments':
         return <PaymentOverview />;
+      case 'customers':
+        return <CustomerManagerEnhanced />;
 
       // Archive - Archived/deleted reservations
       case 'archive':
@@ -77,10 +82,6 @@ const BookingAdminNew: React.FC<BookingAdminProps> = () => {
       // Check-in - Today's check-in + Manual booking
       case 'checkin':
         return <HostCheckIn />;
-
-      // Customers - CRM overview
-      case 'customers':
-        return <CustomerManagerEnhanced />;
 
       // Products - Arrangements, Add-ons, Merchandise, etc.
       case 'products':
@@ -95,7 +96,7 @@ const BookingAdminNew: React.FC<BookingAdminProps> = () => {
         return <ConfigManagerEnhanced />;
 
       default:
-        return <DashboardEnhanced />;
+        return <DashboardModern />;
     }
   };
 

@@ -15,6 +15,7 @@ import { useReservationsStore } from '../../store/reservationsStore';
 import { useWaitlistStore } from '../../store/waitlistStore';
 import { useEventsStore } from '../../store/eventsStore';
 import { useAdminStore } from '../../store/adminStore';
+import { useOperationsStore } from '../../store/operationsStore';
 import { InlineEdit } from '../ui/InlineEdit';
 import { ReservationEditModal } from './ReservationEditModal';
 import { ReservationDetailModal } from './modals/ReservationDetailModal';
@@ -44,6 +45,9 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
   const { markAsContacted, deleteWaitlistEntry } = useWaitlistStore();
   const { updateEvent } = useEventsStore();
   const { setActiveSection } = useAdminStore();
+  
+  // ✨ Operations Store - Voor intelligente cross-navigation
+  const { setActiveTab: setOperationsTab, setEventContext } = useOperationsStore();
 
   return (
     <div className="flex flex-col h-full bg-gray-900 text-white">
@@ -79,21 +83,39 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
           </div>
         </div>
 
-        {/* Navigatie naar Reserveringen */}
-        <button
-          onClick={() => {
-            // Navigeer naar reserveringen met filter op dit event
-            setActiveSection('reservations');
-            sessionStorage.setItem('reservationFilter', JSON.stringify({
-              eventId: event.id,
-              eventName: `${new Date(event.date).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })} - ${event.type}`
-            }));
-          }}
-          className="w-full mt-4 px-4 py-3 bg-gold-500/10 hover:bg-gold-500/20 border border-gold-500/30 rounded-lg text-gold-400 hover:text-gold-300 transition-all flex items-center justify-center gap-2 group"
-        >
-          <List className="w-5 h-5 group-hover:scale-110 transition-transform" />
-          <span className="font-medium">Bekijk Alle Reserveringen ({reservations.length})</span>
-        </button>
+        {/* ✨ INTELLIGENTE CROSS-NAVIGATION: Spring naar Reserveringen met context behouden */}
+        <div className="grid grid-cols-2 gap-3 mt-4">
+          <button
+            onClick={() => {
+              // Set event context en wissel naar Reserveringen tab
+              const eventDate = new Date(event.date).toLocaleDateString('nl-NL', { 
+                day: 'numeric', 
+                month: 'short' 
+              });
+              setEventContext(event.id, `${event.type} ${eventDate}`);
+              setOperationsTab('reservations');
+            }}
+            className="px-4 py-3 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-400 hover:text-blue-300 transition-all flex items-center justify-center gap-2 group"
+          >
+            <List className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            <span className="font-medium">Reserveringen ({reservations.length})</span>
+          </button>
+          
+          <button
+            onClick={() => {
+              const eventDate = new Date(event.date).toLocaleDateString('nl-NL', { 
+                day: 'numeric', 
+                month: 'short' 
+              });
+              setEventContext(event.id, `${event.type} ${eventDate}`);
+              setOperationsTab('waitlist');
+            }}
+            className="px-4 py-3 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 rounded-lg text-orange-400 hover:text-orange-300 transition-all flex items-center justify-center gap-2 group"
+          >
+            <List className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            <span className="font-medium">Wachtlijst ({waitlistEntries.length})</span>
+          </button>
+        </div>
       </div>
 
       {/* Tab Knoppen */}

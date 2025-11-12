@@ -29,6 +29,7 @@ import { useReservationsStore } from '../../store/reservationsStore';
 import { useWaitlistStore } from '../../store/waitlistStore';
 import { useAdminStore } from '../../store/adminStore';
 import { useConfigStore } from '../../store/configStore';
+import { useOperationsStore } from '../../store/operationsStore';
 import type { AdminEvent, Reservation, WaitlistEntry, EventType } from '../../types';
 import { cn } from '../../utils';
 import { EventMasterList } from './EventMasterList';
@@ -64,6 +65,9 @@ export const EventCommandCenterRevamped: React.FC = () => {
   const { entries: waitlistEntries, loadWaitlistEntries, isLoading: isLoadingWaitlist } = useWaitlistStore();
   const { selectedItemId, clearSelectedItemId } = useAdminStore();
   const { eventTypesConfig, loadConfig } = useConfigStore();
+  
+  // ✨ Operations Store - Voor context-bewuste workflow
+  const { setEventContext, clearEventContext, selectedEventContext } = useOperationsStore();
 
   // Data laden
   useEffect(() => {
@@ -481,6 +485,12 @@ export const EventCommandCenterRevamped: React.FC = () => {
                         onClick={() => {
                           setSelectedEventId(event.id);
                           setViewMode('list');
+                          // ✨ Set context voor Operations Control Center
+                          const eventDate = new Date(event.date).toLocaleDateString('nl-NL', { 
+                            day: 'numeric', 
+                            month: 'short' 
+                          });
+                          setEventContext(event.id, `${event.type} ${eventDate}`);
                         }}
                         className={cn(
                           'bg-neutral-900/50 rounded-lg p-4 text-left transition-all hover:bg-neutral-900 border-2',

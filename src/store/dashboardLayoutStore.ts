@@ -3,15 +3,19 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export type WidgetType =
-  | 'revenue-stats'
-  | 'reservations-stats'
+  | 'daily-focus'
+  | 'kpi-cards'
+  | 'quick-actions'
+  | 'expiring-options'
+  | 'overdue-payments'
+  | 'today-checkins'
   | 'upcoming-events'
   | 'recent-bookings'
-  | 'capacity-chart'
-  | 'popular-days'
-  | 'top-customers'
+  | 'waitlist-hotlist'
+  | 'live-activity'
   | 'revenue-trend'
-  | 'quick-actions';
+  | 'arrangement-distribution'
+  | 'capacity-utilization';
 
 export interface DashboardWidget {
   id: string;
@@ -43,67 +47,19 @@ interface DashboardLayoutActions {
 // Default widgets configuration
 const defaultWidgets: DashboardWidget[] = [
   {
-    id: 'revenue-stats',
-    type: 'revenue-stats',
-    title: 'Omzet Overzicht',
+    id: 'daily-focus',
+    type: 'daily-focus',
+    title: 'Mijn Focus Vandaag',
     enabled: true,
     order: 0,
-    size: 'medium'
+    size: 'full'
   },
   {
-    id: 'reservations-stats',
-    type: 'reservations-stats',
-    title: 'Reserveringen',
+    id: 'kpi-cards',
+    type: 'kpi-cards',
+    title: 'KPI Overzicht',
     enabled: true,
     order: 1,
-    size: 'medium'
-  },
-  {
-    id: 'upcoming-events',
-    type: 'upcoming-events',
-    title: 'Aankomende Events',
-    enabled: true,
-    order: 2,
-    size: 'large'
-  },
-  {
-    id: 'recent-bookings',
-    type: 'recent-bookings',
-    title: 'Recente Boekingen',
-    enabled: true,
-    order: 3,
-    size: 'large'
-  },
-  {
-    id: 'capacity-chart',
-    type: 'capacity-chart',
-    title: 'Bezettingsgraad',
-    enabled: false,
-    order: 4,
-    size: 'medium'
-  },
-  {
-    id: 'popular-days',
-    type: 'popular-days',
-    title: 'Populairste Dagen',
-    enabled: false,
-    order: 5,
-    size: 'small'
-  },
-  {
-    id: 'top-customers',
-    type: 'top-customers',
-    title: 'Top Klanten',
-    enabled: false,
-    order: 6,
-    size: 'medium'
-  },
-  {
-    id: 'revenue-trend',
-    type: 'revenue-trend',
-    title: 'Omzet Trend',
-    enabled: false,
-    order: 7,
     size: 'full'
   },
   {
@@ -111,36 +67,134 @@ const defaultWidgets: DashboardWidget[] = [
     type: 'quick-actions',
     title: 'Snelle Acties',
     enabled: true,
+    order: 2,
+    size: 'medium'
+  },
+  {
+    id: 'expiring-options',
+    type: 'expiring-options',
+    title: 'Aflopende Opties',
+    enabled: true,
+    order: 3,
+    size: 'medium'
+  },
+  {
+    id: 'overdue-payments',
+    type: 'overdue-payments',
+    title: 'Achterstallige Betalingen',
+    enabled: true,
+    order: 4,
+    size: 'medium'
+  },
+  {
+    id: 'today-checkins',
+    type: 'today-checkins',
+    title: 'Check-ins Vandaag',
+    enabled: true,
+    order: 5,
+    size: 'medium'
+  },
+  {
+    id: 'upcoming-events',
+    type: 'upcoming-events',
+    title: 'Aankomende Events',
+    enabled: false,
+    order: 6,
+    size: 'medium'
+  },
+  {
+    id: 'recent-bookings',
+    type: 'recent-bookings',
+    title: 'Recente Boekingen (CRM)',
+    enabled: false,
+    order: 7,
+    size: 'large'
+  },
+  {
+    id: 'waitlist-hotlist',
+    type: 'waitlist-hotlist',
+    title: 'Wachtlijst Hotlist',
+    enabled: false,
     order: 8,
-    size: 'small'
+    size: 'large'
+  },
+  {
+    id: 'live-activity',
+    type: 'live-activity',
+    title: 'Live Activiteiten',
+    enabled: false,
+    order: 9,
+    size: 'medium'
+  },
+  {
+    id: 'revenue-trend',
+    type: 'revenue-trend',
+    title: 'Omzet Trend',
+    enabled: false,
+    order: 10,
+    size: 'large'
+  },
+  {
+    id: 'arrangement-distribution',
+    type: 'arrangement-distribution',
+    title: 'Arrangement Verdeling',
+    enabled: false,
+    order: 11,
+    size: 'medium'
+  },
+  {
+    id: 'capacity-utilization',
+    type: 'capacity-utilization',
+    title: 'Bezettingsgraad',
+    enabled: false,
+    order: 12,
+    size: 'large'
   }
 ];
 
 // Preset configurations
 const defaultPresets = {
-  minimal: [
-    { ...defaultWidgets[0], enabled: true, order: 0 },
-    { ...defaultWidgets[1], enabled: true, order: 1 },
-    { ...defaultWidgets[8], enabled: true, order: 2 },
-    ...defaultWidgets.slice(2).map((w, i) => ({ ...w, enabled: false, order: i + 3 }))
-  ],
   standard: defaultWidgets,
+  zen: [
+    // ✨ Zen Mode: Only KPI Cards - Clean & Minimal
+    { ...defaultWidgets[1], enabled: true, order: 0, size: 'full' as const }, // KPI Cards only
+    ...defaultWidgets.filter((_, i) => i !== 1).map((w, i) => ({ ...w, enabled: false, order: i + 1 }))
+  ],
+  minimal: [
+    // Minimal: Daily Focus + KPIs + Quick Actions
+    { ...defaultWidgets[0], enabled: true, order: 0, size: 'full' as const }, // Daily Focus
+    { ...defaultWidgets[1], enabled: true, order: 1, size: 'full' as const }, // KPI Cards
+    { ...defaultWidgets[2], enabled: true, order: 2, size: 'medium' as const }, // Quick Actions
+    ...defaultWidgets.slice(3).map((w, i) => ({ ...w, enabled: false, order: i + 3 }))
+  ],
   analytics: [
-    { ...defaultWidgets[0], enabled: true, order: 0, size: 'small' as const },
-    { ...defaultWidgets[1], enabled: true, order: 1, size: 'small' as const },
-    { ...defaultWidgets[4], enabled: true, order: 2, size: 'medium' as const },
-    { ...defaultWidgets[7], enabled: true, order: 3, size: 'full' as const },
-    { ...defaultWidgets[5], enabled: true, order: 4, size: 'medium' as const },
-    { ...defaultWidgets[6], enabled: true, order: 5, size: 'medium' as const },
-    ...defaultWidgets.slice(2, 4).map((w, i) => ({ ...w, enabled: false, order: i + 6 }))
+    // Analytics: Focus on charts and visualizations
+    { ...defaultWidgets[0], enabled: true, order: 0, size: 'full' as const }, // Daily Focus
+    { ...defaultWidgets[1], enabled: true, order: 1, size: 'full' as const }, // KPI Cards
+    { ...defaultWidgets[9], enabled: true, order: 2, size: 'large' as const }, // Revenue Trend
+    { ...defaultWidgets[10], enabled: true, order: 3, size: 'medium' as const }, // Arrangement Distribution
+    { ...defaultWidgets[11], enabled: true, order: 4, size: 'large' as const }, // Capacity Utilization
+    { ...defaultWidgets[7], enabled: true, order: 5, size: 'large' as const }, // Waitlist Hotlist
+    ...defaultWidgets.slice(2, 7).map((w, i) => ({ ...w, enabled: false, order: i + 6 })),
+    { ...defaultWidgets[8], enabled: false, order: 11 } // Live Activity
   ],
   operations: [
-    { ...defaultWidgets[2], enabled: true, order: 0 },
-    { ...defaultWidgets[3], enabled: true, order: 1 },
-    { ...defaultWidgets[8], enabled: true, order: 2 },
-    { ...defaultWidgets[0], enabled: true, order: 3, size: 'small' as const },
-    { ...defaultWidgets[1], enabled: true, order: 4, size: 'small' as const },
-    ...defaultWidgets.slice(4).filter(w => w.id !== 'quick-actions').map((w, i) => ({ ...w, enabled: false, order: i + 5 }))
+    // Operations: Action-oriented with all operational widgets + CRM
+    { ...defaultWidgets[0], enabled: true, order: 0, size: 'full' as const }, // Daily Focus
+    { ...defaultWidgets[2], enabled: true, order: 1, size: 'medium' as const }, // Quick Actions
+    { ...defaultWidgets[3], enabled: true, order: 2, size: 'medium' as const }, // Expiring Options
+    { ...defaultWidgets[4], enabled: true, order: 3, size: 'medium' as const }, // Overdue Payments
+    { ...defaultWidgets[5], enabled: true, order: 4, size: 'medium' as const }, // Today Check-ins
+    { ...defaultWidgets[6], enabled: true, order: 5, size: 'medium' as const }, // Upcoming Events
+    { ...defaultWidgets[7], enabled: true, order: 6, size: 'large' as const }, // Recent Bookings (CRM)
+    { ...defaultWidgets[9], enabled: true, order: 7, size: 'medium' as const }, // Live Activity
+    { ...defaultWidgets[1], enabled: true, order: 8, size: 'full' as const }, // KPI Cards
+    { ...defaultWidgets[8], enabled: false, order: 9 }, // Waitlist Hotlist
+    ...defaultWidgets.slice(10).map((w, i) => ({ ...w, enabled: false, order: i + 10 }))
+  ],
+  god: [
+    // ✨ God Mode: EVERYTHING enabled - Total control
+    ...defaultWidgets.map((w, i) => ({ ...w, enabled: true, order: i }))
   ]
 };
 
@@ -198,7 +252,19 @@ export const useDashboardLayoutStore = create<DashboardLayoutState & DashboardLa
       }
     }),
     {
-      name: 'dashboard-layout-storage'
+      name: 'dashboard-layout-storage',
+      version: 2, // Increment to reset stored config with new widgets
+      migrate: (persistedState: any, version: number) => {
+        // If old version, reset to default to include new widgets
+        if (version < 2) {
+          return {
+            widgets: defaultWidgets,
+            isEditMode: false,
+            presets: defaultPresets
+          };
+        }
+        return persistedState;
+      }
     }
   )
 );

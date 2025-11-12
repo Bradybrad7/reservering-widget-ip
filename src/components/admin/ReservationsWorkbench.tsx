@@ -21,6 +21,7 @@ import type { Reservation, Event } from '../../types';
 import { apiService } from '../../services/apiService';
 import { useReservationsStore } from '../../store/reservationsStore';
 import { useConfigStore } from '../../store/configStore';
+import { useOperationsStore, useActiveContext } from '../../store/operationsStore';
 import { useToast } from '../Toast';
 import { cn } from '../../utils';
 
@@ -69,6 +70,9 @@ export const ReservationsManager: React.FC = () => {
   } = useReservationsStore();
 
   const { merchandiseItems, loadMerchandise } = useConfigStore();
+  
+  // ✨ Operations Store - Context-aware filtering
+  const { eventId, customerId, reservationId } = useActiveContext();
 
   // State
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
@@ -91,7 +95,35 @@ export const ReservationsManager: React.FC = () => {
     loadData();
   }, []);
 
-  // Check voor inkomende navigatie filter (van CustomerManager of EventWorkshop)
+  // ✨ INTELLIGENTE WORKFLOW: Reageer op Operations Context
+  // Wanneer een event, klant of reservering geselecteerd wordt in een andere tab,
+  // past deze workbench automatisch zijn filters aan
+  useEffect(() => {
+    if (eventId || customerId || reservationId) {
+      const filter: typeof presetFilter = {};
+      
+      if (eventId) {
+        filter.eventId = eventId;
+        const event = events.find(e => e.id === eventId);
+        if (event) {
+          filter.eventName = new Date(event.date).toLocaleDateString('nl-NL');
+        }
+      }
+      
+      if (customerId) {
+        filter.custom = customerId; // Dit wordt gebruikt om te filteren op customerId
+      }
+      
+      if (reservationId) {
+        filter.custom = reservationId; // Filter op specifieke reservering
+      }
+      
+      setPresetFilter(filter);
+      setActiveTab('werkplaats'); // Switch automatisch naar werkplaats tab
+    }
+  }, [eventId, customerId, reservationId, events]);
+
+  // Check voor inkomende navigatie filter (van CustomerManager of EventWorkshop - legacy)
   useEffect(() => {
     const filterData = sessionStorage.getItem('reservationFilter');
     if (filterData) {

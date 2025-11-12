@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useCustomersStore } from '../../store/customersStore';
 import { useAdminStore } from '../../store/adminStore';
+import { useOperationsStore } from '../../store/operationsStore';
 import { formatCurrency, formatDate, cn } from '../../utils';
 import type { CustomerProfile } from '../../types';
 
@@ -36,6 +37,9 @@ export const CustomerManagerEnhanced: React.FC = () => {
 
   // Get selectedItemId from adminStore for deep linking from search
   const { selectedItemId, clearSelectedItemId, setActiveSection } = useAdminStore();
+  
+  // ✨ Operations Store - Voor context-bewuste workflow
+  const { setCustomerContext } = useOperationsStore();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredCustomers, setFilteredCustomers] = useState<CustomerProfile[]>([]);
@@ -107,6 +111,8 @@ export const CustomerManagerEnhanced: React.FC = () => {
 
   const handleSelectCustomer = async (customer: CustomerProfile) => {
     await loadCustomer(customer.email);
+    // ✨ Set context voor Operations Control Center
+    setCustomerContext(customer.email, customer.companyName || customer.contactPerson);
   };
 
   const handleSaveNotes = async () => {
@@ -255,22 +261,30 @@ export const CustomerManagerEnhanced: React.FC = () => {
                 )}
               </div>
 
-              {/* Navigatie naar Reserveringen */}
-              <div className="mt-4 pt-4 border-t border-neutral-700">
+              {/* ✨ INTELLIGENTE CROSS-NAVIGATION: Spring naar Reserveringen of Betalingen met context */}
+              <div className="mt-4 pt-4 border-t border-neutral-700 space-y-3">
                 <button
                   onClick={() => {
-                    // Navigeer naar reserveringen met filter op deze klant
-                    setActiveSection('reservations');
-                    // De ReservationsWorkbench zal automatisch filteren op email via presetFilter
-                    sessionStorage.setItem('reservationFilter', JSON.stringify({
-                      customerEmail: selectedCustomer.email,
-                      customerName: selectedCustomer.companyName
-                    }));
+                    // Context is al gezet door handleSelectCustomer
+                    // Wissel alleen naar de juiste tab
+                    const { setActiveTab } = useOperationsStore.getState();
+                    setActiveTab('reservations');
                   }}
-                  className="w-full px-4 py-3 bg-gold-500/10 hover:bg-gold-500/20 border border-gold-500/30 rounded-lg text-gold-400 hover:text-gold-300 transition-all flex items-center justify-center gap-2 group"
+                  className="w-full px-4 py-3 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-400 hover:text-blue-300 transition-all flex items-center justify-center gap-2 group"
                 >
                   <List className="w-5 h-5 group-hover:scale-110 transition-transform" />
                   <span className="font-medium">Bekijk Reserveringen ({selectedCustomer.totalBookings})</span>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    const { setActiveTab } = useOperationsStore.getState();
+                    setActiveTab('payments');
+                  }}
+                  className="w-full px-4 py-3 bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 rounded-lg text-green-400 hover:text-green-300 transition-all flex items-center justify-center gap-2 group"
+                >
+                  <DollarSign className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  <span className="font-medium">Bekijk Betalingen</span>
                 </button>
               </div>
             </div>

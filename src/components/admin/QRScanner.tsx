@@ -7,6 +7,7 @@ import { formatDate, formatCurrency } from '../../utils';
 
 interface QRScannerProps {
   onReservationFound?: (reservation: Reservation) => void;
+  onScan?: (code: string) => void; // NEW: For Host Portal - just return the code
   onClose?: () => void;
   autoCheckIn?: boolean;
 }
@@ -19,6 +20,7 @@ interface QRScannerProps {
  */
 export const QRScanner: React.FC<QRScannerProps> = ({
   onReservationFound,
+  onScan,
   onClose,
   autoCheckIn = false
 }) => {
@@ -145,6 +147,11 @@ export const QRScanner: React.FC<QRScannerProps> = ({
   const handleManualSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (manualInput.trim()) {
+      // If onScan callback provided, use that instead
+      if (onScan) {
+        onScan(manualInput.trim());
+        return;
+      }
       searchReservation(manualInput.trim());
     }
   };

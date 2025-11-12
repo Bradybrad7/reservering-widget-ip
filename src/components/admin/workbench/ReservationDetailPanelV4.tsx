@@ -32,17 +32,37 @@ import {
   Send,
   Download,
   Trash2,
-  ExternalLink
+  ExternalLink,
+  Plus,
+  TrendingUp,
+  TrendingDown,
+  ArrowUpCircle,
+  ArrowDownCircle
 } from 'lucide-react';
 import type { Reservation, Event, MerchandiseItem } from '../../../types';
 import { formatCurrency, formatDate, cn } from '../../../utils';
 import { InlineEdit } from '../../ui/InlineEdit';
 import { useReservationsStore } from '../../../store/reservationsStore';
 import { useAdminStore } from '../../../store/adminStore';
+import { useOperationsStore } from '../../../store/operationsStore';
 import { EmailHistoryTimeline } from '../EmailHistoryTimeline';
 import { AuditLogViewer } from '../AuditLogViewer';
 import { useToast } from '../../Toast';
 import { apiService } from '../../../services/apiService';
+import { AddPaymentModal } from '../financial/AddPaymentModal';
+import { AddRefundModal } from '../financial/AddRefundModal';
+import {
+  getTotalPaid,
+  getTotalRefunded,
+  getNetRevenue,
+  getOutstandingBalance,
+  getFinancialTimeline,
+  getPaymentStatusLabel,
+  getPaymentStatusColor,
+  isFullyPaid,
+  hasPayments,
+  hasRefunds
+} from '../../../utils/financialHelpers';
 
 interface ReservationDetailPanelV4Props {
   reservation: Reservation | null;
@@ -410,6 +430,56 @@ interface OverviewTabProps {
 const OverviewTab: React.FC<OverviewTabProps> = ({ reservation, event, onUpdateField }) => {
   return (
     <div className="space-y-6 max-w-4xl">
+      {/* ✨ INTELLIGENTE CROSS-NAVIGATION */}
+      <section className="bg-gradient-to-r from-blue-900/20 to-purple-900/20 rounded-xl p-4 border border-blue-500/30">
+        <h3 className="text-sm font-medium text-blue-300 mb-3 flex items-center gap-2">
+          <ExternalLink className="w-4 h-4" />
+          Snelle Navigatie
+        </h3>
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            onClick={() => {
+              const { setActiveTab, setCustomerContext } = useOperationsStore.getState();
+              setCustomerContext(reservation.email, reservation.companyName || reservation.contactPerson);
+              setActiveTab('customers');
+            }}
+            className="px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-400 hover:text-blue-300 transition-all flex items-center justify-center gap-2 text-sm"
+          >
+            <Users className="w-4 h-4" />
+            Klantprofiel
+          </button>
+          
+          <button
+            onClick={() => {
+              const { setActiveTab, setEventContext } = useOperationsStore.getState();
+              if (event) {
+                const eventDate = new Date(event.date).toLocaleDateString('nl-NL', { 
+                  day: 'numeric', 
+                  month: 'short' 
+                });
+                setEventContext(reservation.eventId, `${event.type} ${eventDate}`);
+                setActiveTab('events');
+              }
+            }}
+            className="px-3 py-2 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded-lg text-purple-400 hover:text-purple-300 transition-all flex items-center justify-center gap-2 text-sm"
+          >
+            <Calendar className="w-4 h-4" />
+            Event Details
+          </button>
+          
+          <button
+            onClick={() => {
+              const { setActiveTab } = useOperationsStore.getState();
+              setActiveTab('payments');
+            }}
+            className="px-3 py-2 bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 rounded-lg text-green-400 hover:text-green-300 transition-all flex items-center justify-center gap-2 text-sm"
+          >
+            <DollarSign className="w-4 h-4" />
+            Betalingen
+          </button>
+        </div>
+      </section>
+
       {/* Klant Informatie */}
       <section className="bg-neutral-800/50 rounded-xl p-6 border border-neutral-700">
         <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
@@ -524,33 +594,279 @@ interface FinancialTabProps {
 }
 
 const FinancialTab: React.FC<FinancialTabProps> = ({ reservation, merchandiseItems, onRefresh }) => {
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showRefundModal, setShowRefundModal] = useState(false);
+
+  // Calculate financial metrics
+  const totalPaid = getTotalPaid(reservation);
+  const totalRefunded = getTotalRefunded(reservation);
+  const netRevenue = getNetRevenue(reservation);
+  const outstanding = getOutstandingBalance(reservation);
+  const timeline = getFinancialTimeline(reservation);
+
+  const statusLabel = getPaymentStatusLabel(reservation);
+  const statusColor = getPaymentStatusColor(reservation);
+
+  const statusColorClasses: Record<string, string> = {
+    green: 'bg-green-500/20 text-green-400 border-green-500/30',
+    yellow: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+    orange: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+    red: 'bg-red-500/20 text-red-400 border-red-500/30',
+    purple: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+  };
+
   return (
     <div className="space-y-6 max-w-4xl">
-      <section className="bg-neutral-800/50 rounded-xl p-6 border border-neutral-700">
-        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <DollarSign className="w-5 h-5 text-gold-400" />
-          Prijsopbouw
-        </h3>
-        <div className="space-y-2">
-          <div className="flex justify-between py-2 border-b border-neutral-700">
-            <span className="text-neutral-400">Basis prijs</span>
-            <span className="text-white font-medium">{formatCurrency(reservation.totalPrice || 0)}</span>
+      {/* Financial Summary Cards */}
+      <div className="grid grid-cols-4 gap-4">
+        <div className="bg-gradient-to-br from-blue-900/30 to-blue-800/20 rounded-xl p-4 border border-blue-500/30">
+          <div className="flex items-center gap-2 text-blue-400 text-sm mb-1">
+            <FileText className="w-4 h-4" />
+            Totaalprijs
           </div>
-          <div className="flex justify-between py-2 text-lg font-semibold">
-            <span className="text-white">Totaal</span>
-            <span className="text-gold-400">{formatCurrency(reservation.totalPrice || 0)}</span>
+          <div className="text-2xl font-bold text-white">
+            {formatCurrency(reservation.totalPrice)}
           </div>
         </div>
-      </section>
 
-      {/* Betalingen sectie - kan later uitgebreid worden */}
+        <div className="bg-gradient-to-br from-green-900/30 to-green-800/20 rounded-xl p-4 border border-green-500/30">
+          <div className="flex items-center gap-2 text-green-400 text-sm mb-1">
+            <ArrowDownCircle className="w-4 h-4" />
+            Totaal Betaald
+          </div>
+          <div className="text-2xl font-bold text-white">
+            {formatCurrency(totalPaid)}
+          </div>
+          {hasPayments(reservation) && (
+            <div className="text-xs text-green-400 mt-1">
+              {reservation.payments?.length} betaling(en)
+            </div>
+          )}
+        </div>
+
+        <div className="bg-gradient-to-br from-purple-900/30 to-purple-800/20 rounded-xl p-4 border border-purple-500/30">
+          <div className="flex items-center gap-2 text-purple-400 text-sm mb-1">
+            <ArrowUpCircle className="w-4 h-4" />
+            Gerestitueerd
+          </div>
+          <div className="text-2xl font-bold text-white">
+            {formatCurrency(totalRefunded)}
+          </div>
+          {hasRefunds(reservation) && (
+            <div className="text-xs text-purple-400 mt-1">
+              {reservation.refunds?.length} restitutie(s)
+            </div>
+          )}
+        </div>
+
+        <div className={cn(
+          "rounded-xl p-4 border",
+          outstanding > 0 
+            ? "bg-gradient-to-br from-orange-900/30 to-orange-800/20 border-orange-500/30"
+            : "bg-gradient-to-br from-gold-900/30 to-gold-800/20 border-gold-500/30"
+        )}>
+          <div className={cn(
+            "flex items-center gap-2 text-sm mb-1",
+            outstanding > 0 ? "text-orange-400" : "text-gold-400"
+          )}>
+            <TrendingUp className="w-4 h-4" />
+            {outstanding > 0 ? 'Nog te betalen' : 'Netto Inkomsten'}
+          </div>
+          <div className="text-2xl font-bold text-white">
+            {formatCurrency(outstanding > 0 ? outstanding : netRevenue)}
+          </div>
+          {outstanding === 0 && isFullyPaid(reservation) && (
+            <div className="text-xs text-gold-400 mt-1">
+              ✓ Volledig betaald
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Status Badge */}
+      <div className="flex items-center justify-between">
+        <span className={cn(
+          'inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border',
+          statusColorClasses[statusColor]
+        )}>
+          {statusLabel}
+        </span>
+
+        {/* Action Buttons */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowPaymentModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Betaling Toevoegen
+          </button>
+          
+          {hasPayments(reservation) && (
+            <button
+              onClick={() => setShowRefundModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Restitutie Toevoegen
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Financial Timeline */}
       <section className="bg-neutral-800/50 rounded-xl p-6 border border-neutral-700">
         <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <FileText className="w-5 h-5 text-gold-400" />
-          Betalingen
+          <History className="w-5 h-5 text-gold-400" />
+          Financiële Tijdlijn
         </h3>
-        <p className="text-neutral-400 text-sm">Betalingstracking komt hier...</p>
+
+        {timeline.length === 0 ? (
+          <div className="text-center py-8 text-neutral-400">
+            <DollarSign className="w-12 h-12 mx-auto mb-3 opacity-50" />
+            <p>Nog geen transacties geregistreerd</p>
+            <p className="text-sm mt-1">Voeg een betaling toe om te beginnen</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {timeline.map((transaction, idx) => {
+              const isPayment = transaction.type === 'payment';
+              const Icon = isPayment ? ArrowDownCircle : ArrowUpCircle;
+              const bgColor = isPayment ? 'bg-green-500/10 border-green-500/30' : 'bg-purple-500/10 border-purple-500/30';
+              const textColor = isPayment ? 'text-green-400' : 'text-purple-400';
+
+              return (
+                <div
+                  key={`${transaction.type}-${transaction.id}`}
+                  className={cn(
+                    "p-4 rounded-lg border",
+                    bgColor
+                  )}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3 flex-1">
+                      <Icon className={cn("w-5 h-5 mt-0.5 flex-shrink-0", textColor)} />
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2 mb-1">
+                          <span className={cn("font-semibold", textColor)}>
+                            {isPayment ? '💚 Betaling' : '💜 Restitutie'}
+                          </span>
+                          <span className="text-sm text-neutral-400">
+                            {formatDate(transaction.date)}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm mt-2">
+                          <div>
+                            <span className="text-neutral-400">Methode: </span>
+                            <span className="text-white font-medium">
+                              {transaction.method === 'ideal' && 'iDEAL'}
+                              {transaction.method === 'bank_transfer' && 'Bankoverschrijving'}
+                              {transaction.method === 'pin' && 'Pin'}
+                              {transaction.method === 'cash' && 'Contant'}
+                              {transaction.method === 'invoice' && 'Factuur'}
+                              {transaction.method === 'voucher' && 'Voucher'}
+                              {transaction.method === 'other' && 'Anders'}
+                            </span>
+                          </div>
+
+                          {transaction.reference && (
+                            <div>
+                              <span className="text-neutral-400">Referentie: </span>
+                              <span className="text-white font-mono text-xs">{transaction.reference}</span>
+                            </div>
+                          )}
+
+                          {!isPayment && 'reason' in transaction && (
+                            <div>
+                              <span className="text-neutral-400">Reden: </span>
+                              <span className="text-white">
+                                {(transaction as any).reason === 'cancellation' && 'Annulering'}
+                                {(transaction as any).reason === 'rebooking' && 'Overboeking'}
+                                {(transaction as any).reason === 'goodwill' && 'Coulance'}
+                                {(transaction as any).reason === 'discount' && 'Korting'}
+                                {(transaction as any).reason === 'overpayment' && 'Te veel betaald'}
+                                {(transaction as any).reason === 'other' && 'Anders'}
+                              </span>
+                            </div>
+                          )}
+
+                          {transaction.processedBy && (
+                            <div>
+                              <span className="text-neutral-400">Verwerkt door: </span>
+                              <span className="text-white">{transaction.processedBy}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {transaction.note && (
+                          <div className="mt-2 p-2 bg-neutral-900/50 rounded text-sm text-neutral-300">
+                            <span className="text-neutral-400">Notitie: </span>
+                            {transaction.note}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className={cn("text-xl font-bold ml-4 flex-shrink-0", textColor)}>
+                      {isPayment ? '+' : '−'} {formatCurrency(transaction.amount)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Net Revenue Summary */}
+        {timeline.length > 0 && (
+          <div className="mt-6 pt-6 border-t-2 border-gold-500/30">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm text-neutral-400 mb-1">Financiële Samenvatting</div>
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="text-green-400">Totaal Betaald: {formatCurrency(totalPaid)}</span>
+                  {totalRefunded > 0 && (
+                    <>
+                      <span className="text-neutral-600">−</span>
+                      <span className="text-purple-400">Totaal Gerestitueerd: {formatCurrency(totalRefunded)}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-neutral-400 mb-1">Netto Inkomsten</div>
+                <div className="text-3xl font-bold text-gold-400">
+                  {formatCurrency(netRevenue)}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
+
+      {/* Payment Modal */}
+      <AddPaymentModal
+        reservation={reservation}
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        onSuccess={() => {
+          setShowPaymentModal(false);
+          onRefresh();
+        }}
+      />
+
+      {/* Refund Modal */}
+      <AddRefundModal
+        reservation={reservation}
+        isOpen={showRefundModal}
+        onClose={() => setShowRefundModal(false)}
+        onSuccess={() => {
+          setShowRefundModal(false);
+          onRefresh();
+        }}
+      />
     </div>
   );
 };

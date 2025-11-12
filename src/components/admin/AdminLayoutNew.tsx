@@ -44,8 +44,8 @@ interface AdminLayoutNewProps {
   children: React.ReactNode;
 }
 
-// ✨ SIMPLIFIED NAVIGATION (Oct 2025)
-// From 30+ items to 9 logical groups with internal tabs
+// ✨ OPERATIONS CONTROL CENTER NAVIGATION (Nov 2025)
+// Unified operations hub replaces 5 separate pages (events, reservations, waitlist, customers, payments)
 const navigationGroups: NavigationGroup[] = [
   {
     id: 'dashboard',
@@ -55,73 +55,45 @@ const navigationGroups: NavigationGroup[] = [
     section: 'dashboard' as AdminSection
   },
   {
-    id: 'events',
-    label: 'Evenementen',
-    icon: 'Calendar',
+    id: 'operations',
+    label: 'Operations Control',
+    icon: 'ActivitySquare',
     order: 2,
-    section: 'events' as AdminSection
-  },
-  {
-    id: 'reservations',
-    label: 'Reserveringen',
-    icon: 'ListChecks',
-    order: 3,
-    section: 'reservations' as AdminSection
-  },
-  {
-    id: 'waitlist',
-    label: 'Wachtlijst',
-    icon: 'List',
-    order: 4,
-    section: 'waitlist' as AdminSection
-  },
-  {
-    id: 'payments',
-    label: 'Betalingen',
-    icon: 'DollarSign',
-    order: 5,
-    section: 'payments' as AdminSection
+    section: 'operations' as AdminSection
   },
   {
     id: 'archive',
     label: 'Archief',
     icon: 'Archive',
-    order: 6,
+    order: 3,
     section: 'archive' as AdminSection
   },
   {
     id: 'checkin',
     label: 'Check-in',
     icon: 'UserCheck',
-    order: 6,
+    order: 4,
     section: 'checkin' as AdminSection
-  },
-  {
-    id: 'customers',
-    label: 'Klanten',
-    icon: 'Users',
-    order: 7,
-    section: 'customers' as AdminSection
   },
   {
     id: 'products',
     label: 'Producten & Prijzen',
     icon: 'Package',
-    order: 8,
+    order: 5,
     section: 'products' as AdminSection
   },
   {
     id: 'reports',
     label: 'Rapportages',
     icon: 'TrendingUp',
-    order: 9,
+    order: 6,
     section: 'reports' as AdminSection
   },
   {
     id: 'config',
     label: 'Configuratie',
     icon: 'Settings',
-    order: 10,
+    order: 7,
     section: 'config' as AdminSection
   }
 ];

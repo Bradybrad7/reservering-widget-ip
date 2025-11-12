@@ -1,10 +1,13 @@
 /**
- * Payments Manager
+ * Payments Manager - Grootboek View
  * 
- * Overzicht van alle betalingen en restituties met maandfilter
- * Perfect voor het bijhouden van handmatige uitbetalingen
+ * Volledig herzien voor het nieuwe Financiële Grootboek Systeem
+ * - Afgeleide status in plaats van paymentStatus
+ * - Payments + Refunds tracking per reservering
+ * - Filter op restituties
+ * - Zoek op payment/refund references
  * 
- * October 31, 2025
+ * November 12, 2025
  */
 
 import React, { useState, useMemo } from 'react';
@@ -14,156 +17,182 @@ import {
   TrendingDown,
   Download,
   Calendar,
-  Filter,
   Search,
   FileText,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  ArrowUpCircle,
+  ArrowDownCircle,
+  Filter as FilterIcon
 } from 'lucide-react';
-import type { Reservation, PaymentTransaction } from '../../types';
+import type { Reservation, Payment, Refund } from '../../types';
 import { formatCurrency, formatDate } from '../../utils';
-import { exportTransactionsToCSV } from '../../services/paymentHelpers';
+import {
+  getTotalPaid,
+  getTotalRefunded,
+  getNetRevenue,
+  getPaymentStatus,
+  getPaymentStatusLabel,
+  getPaymentStatusColor,
+  hasRefunds,
+  isFullyRefunded
+} from '../../utils/financialHelpers';
 
 interface PaymentsManagerProps {
   reservations: Reservation[];
+  onSelectReservation?: (reservation: Reservation) => void;
 }
 
-interface TransactionWithReservation extends PaymentTransaction {
-  reservationId: string;
-  customerName: string;
-  eventDate: Date;
+interface ReservationFinancialSummary {
+  reservation: Reservation;
+  totalPaid: number;
+  totalRefunded: number;
+  netRevenue: number;
+  paymentCount: number;
+  refundCount: number;
+  status: string;
+  statusColor: string;
+  statusLabel: string;
 }
 
-export function PaymentsManager({ reservations }: PaymentsManagerProps) {
-  const [activeTab, setActiveTab] = useState<'all' | 'payments' | 'refunds'>('all');
-  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+export function PaymentsManager({ reservations, onSelectReservation }: PaymentsManagerProps) {
+  const [filterType, setFilterType] = useState<'all' | 'has-refunds' | 'fully-refunded'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Flatten alle transacties uit alle reserveringen
-  const allTransactions = useMemo((): TransactionWithReservation[] => {
-    const transactions: TransactionWithReservation[] = [];
-    
-    reservations.forEach(reservation => {
-      const paymentTransactions = reservation.paymentTransactions || [];
-      paymentTransactions.forEach(transaction => {
-        transactions.push({
-          ...transaction,
-          reservationId: reservation.id,
-          customerName: reservation.contactPerson,
-          eventDate: reservation.eventDate
-        });
-      });
-    });
+  // Bereken financiële samenvatting per reservering
+  const financialSummaries = useMemo((): ReservationFinancialSummary[] => {
+    return reservations
+      .map(reservation => {
+        const totalPaid = getTotalPaid(reservation);
+        const totalRefunded = getTotalRefunded(reservation);
+        const netRevenue = getNetRevenue(reservation);
+        const status = getPaymentStatus(reservation);
+        const statusColor = getPaymentStatusColor(reservation);
+        const statusLabel = getPaymentStatusLabel(reservation);
 
-    // Sorteer op datum (nieuwste eerst)
-    return transactions.sort((a, b) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
+        return {
+          reservation,
+          totalPaid,
+          totalRefunded,
+          netRevenue,
+          paymentCount: reservation.payments?.length || 0,
+          refundCount: reservation.refunds?.length || 0,
+          status,
+          statusColor,
+          statusLabel
+        };
+      })
+      .sort((a, b) => {
+        // Sorteer: eerst met refunds, dan op totaal betaald (hoog naar laag)
+        if (a.refundCount > 0 && b.refundCount === 0) return -1;
+        if (a.refundCount === 0 && b.refundCount > 0) return 1;
+        return b.totalPaid - a.totalPaid;
+      });
   }, [reservations]);
 
-  // Get unieke maanden uit transacties
-  const availableMonths = useMemo(() => {
-    const months = new Set<string>();
-    allTransactions.forEach(t => {
-      const date = new Date(t.date);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      months.add(monthKey);
-    });
-    return Array.from(months).sort().reverse();
-  }, [allTransactions]);
+  // Filter reserveringen
+  const filteredSummaries = useMemo(() => {
+    let filtered = financialSummaries;
 
-  // Filter transacties
-  const filteredTransactions = useMemo(() => {
-    let filtered = allTransactions;
-
-    // Filter op type
-    if (activeTab === 'payments') {
-      filtered = filtered.filter(t => t.type === 'payment');
-    } else if (activeTab === 'refunds') {
-      filtered = filtered.filter(t => t.type === 'refund');
+    // Filter op refund type
+    if (filterType === 'has-refunds') {
+      filtered = filtered.filter(s => s.refundCount > 0);
+    } else if (filterType === 'fully-refunded') {
+      filtered = filtered.filter(s => isFullyRefunded(s.reservation));
     }
 
-    // Filter op maand
-    if (selectedMonth !== 'all') {
-      filtered = filtered.filter(t => {
-        const date = new Date(t.date);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        return monthKey === selectedMonth;
-      });
-    }
-
-    // Filter op zoekterm
+    // Filter op zoekterm (klant naam, payment/refund references)
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(t =>
-        t.customerName.toLowerCase().includes(query) ||
-        t.reservationId.toLowerCase().includes(query) ||
-        t.notes?.toLowerCase().includes(query) ||
-        t.referenceNumber?.toLowerCase().includes(query)
-      );
+      filtered = filtered.filter(s => {
+        const reservation = s.reservation;
+        
+        // Zoek in klantgegevens
+        if (
+          reservation.companyName?.toLowerCase().includes(query) ||
+          reservation.contactPerson.toLowerCase().includes(query) ||
+          reservation.email.toLowerCase().includes(query)
+        ) {
+          return true;
+        }
+
+        // Zoek in payment references
+        if (reservation.payments) {
+          if (reservation.payments.some(p => p.reference?.toLowerCase().includes(query))) {
+            return true;
+          }
+        }
+
+        // Zoek in refund references
+        if (reservation.refunds) {
+          if (reservation.refunds.some(r => r.reference?.toLowerCase().includes(query))) {
+            return true;
+          }
+        }
+
+        return false;
+      });
     }
 
     return filtered;
-  }, [allTransactions, activeTab, selectedMonth, searchQuery]);
+  }, [financialSummaries, filterType, searchQuery]);
 
-  // Bereken statistieken
-  const stats = useMemo(() => {
-    const totalPayments = filteredTransactions
-      .filter(t => t.type === 'payment')
-      .reduce((sum, t) => sum + t.amount, 0);
-    
-    const totalRefunds = Math.abs(
-      filteredTransactions
-        .filter(t => t.type === 'refund')
-        .reduce((sum, t) => sum + t.amount, 0)
-    );
-    
-    const netAmount = totalPayments - totalRefunds;
+  // Bereken overall statistieken
+  const overallStats = useMemo(() => {
+    const totalPaid = filteredSummaries.reduce((sum, s) => sum + s.totalPaid, 0);
+    const totalRefunded = filteredSummaries.reduce((sum, s) => sum + s.totalRefunded, 0);
+    const netRevenue = filteredSummaries.reduce((sum, s) => sum + s.netRevenue, 0);
+    const totalPayments = filteredSummaries.reduce((sum, s) => sum + s.paymentCount, 0);
+    const totalRefunds = filteredSummaries.reduce((sum, s) => sum + s.refundCount, 0);
 
     return {
+      totalPaid,
+      totalRefunded,
+      netRevenue,
       totalPayments,
       totalRefunds,
-      netAmount,
-      paymentCount: filteredTransactions.filter(t => t.type === 'payment').length,
-      refundCount: filteredTransactions.filter(t => t.type === 'refund').length
+      reservationCount: filteredSummaries.length
     };
-  }, [filteredTransactions]);
+  }, [filteredSummaries]);
 
-  // Payment method label
-  const getPaymentMethodLabel = (method: string): string => {
-    const labels: Record<string, string> = {
-      bank_transfer: 'Bankoverschrijving',
-      ideal: 'iDEAL',
-      pin: 'PIN',
-      cash: 'Contant',
-      voucher: 'Voucher',
-      other: 'Anders'
+  // Status color classes
+  const getStatusColorClass = (color: string) => {
+    const classes: Record<string, string> = {
+      green: 'bg-green-500/20 text-green-400 border-green-500/30',
+      yellow: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+      orange: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+      red: 'bg-red-500/20 text-red-400 border-red-500/30',
+      purple: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
     };
-    return labels[method] || method;
-  };
-
-  // Get maand label
-  const getMonthLabel = (monthKey: string): string => {
-    const [year, month] = monthKey.split('-');
-    const date = new Date(parseInt(year), parseInt(month) - 1);
-    return new Intl.DateTimeFormat('nl-NL', { month: 'long', year: 'numeric' }).format(date);
+    return classes[color] || classes.yellow;
   };
 
   // Download CSV
   const handleDownload = () => {
-    // Filter reserveringen die transacties hebben in de gefilterde lijst
-    const reservationIds = new Set(filteredTransactions.map(t => t.reservationId));
-    const relevantReservations = reservations.filter(r => reservationIds.has(r.id));
+    let csvContent = 'Klant,Email,Event Datum,Totaalprijs,Totaal Betaald,Totaal Gerestitueerd,Netto Inkomsten,Betalingen,Restituties,Status\n';
     
-    const csv = exportTransactionsToCSV(
-      relevantReservations,
-      activeTab === 'payments' ? 'payment' : activeTab === 'refunds' ? 'refund' : undefined
-    );
+    filteredSummaries.forEach(s => {
+      const r = s.reservation;
+      const row = [
+        r.companyName || r.contactPerson,
+        r.email,
+        formatDate(r.eventDate),
+        r.totalPrice,
+        s.totalPaid,
+        s.totalRefunded,
+        s.netRevenue,
+        s.paymentCount,
+        s.refundCount,
+        s.statusLabel
+      ].join(',');
+      csvContent += row + '\n';
+    });
     
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `transacties_${selectedMonth !== 'all' ? selectedMonth : 'all'}_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `financieel_overzicht_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -173,14 +202,14 @@ export function PaymentsManager({ reservations }: PaymentsManagerProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">💰 Betalingen & Restituties</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">💰 Financieel Grootboek</h1>
           <p className="text-neutral-400">
-            Overzicht van alle financiële transacties voor handmatige verwerking
+            Overzicht van alle reserveringen met complete betalings- en restitutiehistorie
           </p>
         </div>
         <button
           onClick={handleDownload}
-          disabled={filteredTransactions.length === 0}
+          disabled={filteredSummaries.length === 0}
           className="flex items-center gap-2 px-4 py-2 bg-gold-500 hover:bg-gold-600 text-black font-bold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Download className="w-4 h-4" />
@@ -190,54 +219,54 @@ export function PaymentsManager({ reservations }: PaymentsManagerProps) {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-neutral-800/50 rounded-xl p-4 border border-neutral-700/50">
-          <div className="flex items-center gap-2 text-neutral-400 text-sm mb-2">
-            <TrendingUp className="w-4 h-4" />
-            <span>Totaal Ontvangen</span>
+        <div className="bg-gradient-to-br from-green-900/30 to-green-800/20 rounded-xl p-4 border border-green-500/30">
+          <div className="flex items-center gap-2 text-green-400 text-sm mb-2">
+            <ArrowDownCircle className="w-4 h-4" />
+            <span>Totaal Betaald</span>
           </div>
-          <p className="text-2xl font-bold text-green-400">
-            {formatCurrency(stats.totalPayments)}
+          <p className="text-2xl font-bold text-white">
+            {formatCurrency(overallStats.totalPaid)}
           </p>
-          <p className="text-xs text-neutral-500 mt-1">
-            {stats.paymentCount} {stats.paymentCount === 1 ? 'betaling' : 'betalingen'}
+          <p className="text-xs text-green-400/70 mt-1">
+            {overallStats.totalPayments} betaling(en)
           </p>
         </div>
 
-        <div className="bg-neutral-800/50 rounded-xl p-4 border border-neutral-700/50">
-          <div className="flex items-center gap-2 text-neutral-400 text-sm mb-2">
-            <TrendingDown className="w-4 h-4" />
-            <span>Totaal Gerestitueerd</span>
+        <div className="bg-gradient-to-br from-purple-900/30 to-purple-800/20 rounded-xl p-4 border border-purple-500/30">
+          <div className="flex items-center gap-2 text-purple-400 text-sm mb-2">
+            <ArrowUpCircle className="w-4 h-4" />
+            <span>Gerestitueerd</span>
           </div>
-          <p className="text-2xl font-bold text-red-400">
-            {formatCurrency(stats.totalRefunds)}
+          <p className="text-2xl font-bold text-white">
+            {formatCurrency(overallStats.totalRefunded)}
           </p>
-          <p className="text-xs text-neutral-500 mt-1">
-            {stats.refundCount} {stats.refundCount === 1 ? 'restitutie' : 'restituties'}
+          <p className="text-xs text-purple-400/70 mt-1">
+            {overallStats.totalRefunds} restitutie(s)
           </p>
         </div>
 
-        <div className="bg-neutral-800/50 rounded-xl p-4 border border-neutral-700/50">
-          <div className="flex items-center gap-2 text-neutral-400 text-sm mb-2">
+        <div className="bg-gradient-to-br from-gold-900/30 to-gold-800/20 rounded-xl p-4 border border-gold-500/30">
+          <div className="flex items-center gap-2 text-gold-400 text-sm mb-2">
             <DollarSign className="w-4 h-4" />
-            <span>Netto Bedrag</span>
+            <span>Netto Inkomsten</span>
           </div>
           <p className="text-2xl font-bold text-white">
-            {formatCurrency(stats.netAmount)}
+            {formatCurrency(overallStats.netRevenue)}
           </p>
-          <p className="text-xs text-neutral-500 mt-1">
-            Ontvangen - Gerestitueerd
+          <p className="text-xs text-gold-400/70 mt-1">
+            Betaald - Gerestitueerd
           </p>
         </div>
 
-        <div className="bg-neutral-800/50 rounded-xl p-4 border border-neutral-700/50">
-          <div className="flex items-center gap-2 text-neutral-400 text-sm mb-2">
+        <div className="bg-gradient-to-br from-blue-900/30 to-blue-800/20 rounded-xl p-4 border border-blue-500/30">
+          <div className="flex items-center gap-2 text-blue-400 text-sm mb-2">
             <FileText className="w-4 h-4" />
-            <span>Aantal Transacties</span>
+            <span>Reserveringen</span>
           </div>
           <p className="text-2xl font-bold text-white">
-            {filteredTransactions.length}
+            {overallStats.reservationCount}
           </p>
-          <p className="text-xs text-neutral-500 mt-1">
+          <p className="text-xs text-blue-400/70 mt-1">
             In huidige filter
           </p>
         </div>
@@ -245,80 +274,66 @@ export function PaymentsManager({ reservations }: PaymentsManagerProps) {
 
       {/* Filters */}
       <div className="bg-neutral-800/50 rounded-xl p-4 border border-neutral-700/50">
-        <div className="flex flex-wrap gap-4">
-          {/* Tabs */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => setActiveTab('all')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === 'all'
-                  ? 'bg-gold-500 text-black'
-                  : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
-              }`}
-            >
-              Alle ({allTransactions.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('payments')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === 'payments'
-                  ? 'bg-green-600 text-white'
-                  : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
-              }`}
-            >
-              Betalingen ({allTransactions.filter(t => t.type === 'payment').length})
-            </button>
-            <button
-              onClick={() => setActiveTab('refunds')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === 'refunds'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
-              }`}
-            >
-              Restituties ({allTransactions.filter(t => t.type === 'refund').length})
-            </button>
-          </div>
-
-          {/* Month Filter */}
-          <div className="flex items-center gap-2 flex-1">
-            <Calendar className="w-5 h-5 text-neutral-400" />
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="flex-1 max-w-xs px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent"
-            >
-              <option value="all">Alle maanden</option>
-              {availableMonths.map(month => (
-                <option key={month} value={month}>
-                  {getMonthLabel(month)}
-                </option>
-              ))}
-            </select>
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Filter Tabs */}
+          <div className="flex items-center gap-2">
+            <FilterIcon className="w-5 h-5 text-neutral-400" />
+            <div className="flex gap-2">
+              <button
+                onClick={() => setFilterType('all')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  filterType === 'all'
+                    ? 'bg-gold-500 text-black'
+                    : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                }`}
+              >
+                Alle ({financialSummaries.length})
+              </button>
+              <button
+                onClick={() => setFilterType('has-refunds')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  filterType === 'has-refunds'
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                }`}
+              >
+                Met Restituties ({financialSummaries.filter(s => s.refundCount > 0).length})
+              </button>
+              <button
+                onClick={() => setFilterType('fully-refunded')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  filterType === 'fully-refunded'
+                    ? 'bg-red-600 text-white'
+                    : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                }`}
+              >
+                Volledig Terugbetaald ({financialSummaries.filter(s => isFullyRefunded(s.reservation)).length})
+              </button>
+            </div>
           </div>
 
           {/* Search */}
-          <div className="flex items-center gap-2 flex-1">
+          <div className="flex items-center gap-2 flex-1 min-w-[300px]">
             <Search className="w-5 h-5 text-neutral-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Zoek op klant, reservering, reden..."
-              className="flex-1 max-w-md px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white placeholder:text-neutral-500 focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+              placeholder="Zoek op klant, payment/refund referentie..."
+              className="flex-1 px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white placeholder:text-neutral-500 focus:ring-2 focus:ring-gold-500 focus:border-transparent"
             />
           </div>
         </div>
       </div>
 
-      {/* Transactions Table */}
+      {/* Reservations Grootboek Table */}
       <div className="bg-neutral-800/50 rounded-xl border border-neutral-700/50 overflow-hidden">
-        {filteredTransactions.length === 0 ? (
+        {filteredSummaries.length === 0 ? (
           <div className="p-12 text-center">
             <AlertCircle className="w-12 h-12 text-neutral-600 mx-auto mb-3" />
-            <p className="text-neutral-400 font-medium">Geen transacties gevonden</p>
+            <p className="text-neutral-400 font-medium">Geen reserveringen gevonden</p>
             <p className="text-neutral-500 text-sm mt-1">
-              Pas je filters aan of voeg transacties toe via de reserveringen
+              Pas je filters aan of voeg betalingen toe via reserveringen
             </p>
           </div>
         ) : (
@@ -327,87 +342,151 @@ export function PaymentsManager({ reservations }: PaymentsManagerProps) {
               <thead className="bg-neutral-900/50 border-b border-neutral-700">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-bold text-neutral-400 uppercase tracking-wider">
-                    Datum
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-neutral-400 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-neutral-400 uppercase tracking-wider">
                     Klant
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-neutral-400 uppercase tracking-wider">
-                    Reservering
+                    Event Datum
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-neutral-400 uppercase tracking-wider">
-                    Methode
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-neutral-400 uppercase tracking-wider">
-                    Reden / Notitie
+                    Status
                   </th>
                   <th className="px-4 py-3 text-right text-xs font-bold text-neutral-400 uppercase tracking-wider">
-                    Bedrag
+                    Totaalprijs
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-bold text-neutral-400 uppercase tracking-wider">
+                    Betaald
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-bold text-neutral-400 uppercase tracking-wider">
+                    Gerestitueerd
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-bold text-neutral-400 uppercase tracking-wider">
+                    Netto
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-bold text-neutral-400 uppercase tracking-wider">
+                    Transacties
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-bold text-neutral-400 uppercase tracking-wider">
+                    Acties
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-700/50">
-                {filteredTransactions.map((transaction) => (
-                  <tr
-                    key={transaction.id}
-                    className="hover:bg-neutral-700/30 transition-colors"
-                  >
-                    <td className="px-4 py-3 text-sm text-neutral-300">
-                      {formatDate(transaction.date)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                        transaction.type === 'payment'
-                          ? 'bg-green-500/20 text-green-400'
-                          : 'bg-red-500/20 text-red-400'
-                      }`}>
-                        {transaction.type === 'payment' ? (
-                          <><TrendingUp className="w-3 h-3" /> Betaling</>
-                        ) : (
-                          <><TrendingDown className="w-3 h-3" /> Restitutie</>
+                {filteredSummaries.map((summary) => {
+                  const { reservation } = summary;
+                  return (
+                    <tr
+                      key={reservation.id}
+                      className="hover:bg-neutral-700/30 transition-colors"
+                    >
+                      <td className="px-4 py-3">
+                        <div className="text-sm text-white font-medium">
+                          {reservation.companyName || reservation.contactPerson}
+                        </div>
+                        <div className="text-xs text-neutral-400">
+                          {reservation.email}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-neutral-300">
+                        {formatDate(reservation.eventDate)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold border ${
+                          getStatusColorClass(summary.statusColor)
+                        }`}>
+                          {summary.statusLabel}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm text-white font-medium">
+                        {formatCurrency(reservation.totalPrice)}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="text-sm text-green-400 font-semibold">
+                          {formatCurrency(summary.totalPaid)}
+                        </div>
+                        {summary.paymentCount > 0 && (
+                          <div className="text-xs text-green-400/60">
+                            {summary.paymentCount} betaling(en)
+                          </div>
                         )}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-white font-medium">
-                      {transaction.customerName}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-neutral-400 font-mono">
-                      #{transaction.reservationId.slice(-8).toUpperCase()}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-neutral-300">
-                      {getPaymentMethodLabel(transaction.method)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-neutral-300 max-w-xs truncate">
-                      {transaction.notes || <span className="italic text-neutral-500">Geen notitie</span>}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className={`text-lg font-bold ${
-                        transaction.type === 'payment' ? 'text-green-400' : 'text-red-400'
-                      }`}>
-                        {transaction.type === 'payment' ? '+' : ''}
-                        {formatCurrency(transaction.amount)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {summary.totalRefunded > 0 ? (
+                          <>
+                            <div className="text-sm text-purple-400 font-semibold">
+                              {formatCurrency(summary.totalRefunded)}
+                            </div>
+                            <div className="text-xs text-purple-400/60">
+                              {summary.refundCount} restitutie(s)
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-sm text-neutral-500">−</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="text-sm text-gold-400 font-bold">
+                          {formatCurrency(summary.netRevenue)}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          {summary.paymentCount > 0 && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/20 rounded text-xs text-green-400">
+                              <ArrowDownCircle className="w-3 h-3" />
+                              {summary.paymentCount}
+                            </span>
+                          )}
+                          {summary.refundCount > 0 && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-500/20 rounded text-xs text-purple-400">
+                              <ArrowUpCircle className="w-3 h-3" />
+                              {summary.refundCount}
+                            </span>
+                          )}
+                          {summary.paymentCount === 0 && summary.refundCount === 0 && (
+                            <span className="text-xs text-neutral-500">Geen</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => onSelectReservation?.(reservation)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gold-600 hover:bg-gold-700 text-black rounded-lg text-sm font-medium transition-colors"
+                        >
+                          <Eye className="w-4 h-4" />
+                          Details
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      {/* Help Text for Refunds */}
-      {activeTab === 'refunds' && filteredTransactions.length > 0 && (
-        <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-blue-200">
-            <p className="font-medium mb-1">💡 Tip voor handmatige uitbetalingen:</p>
+      {/* Help Text */}
+      {filterType === 'has-refunds' && filteredSummaries.length > 0 && (
+        <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-purple-200">
+            <p className="font-medium mb-1">💡 Reserveringen met restituties</p>
             <p>
-              Gebruik de "Exporteer CSV" knop om een lijst te downloaden voor je administratie.
-              De reden voor elke restitutie staat gedetailleerd vermeld.
+              Deze reserveringen hebben één of meer restituties geregistreerd. 
+              Klik op "Details" om de volledige financiële tijdlijn te bekijken.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {filterType === 'fully-refunded' && filteredSummaries.length > 0 && (
+        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-red-200">
+            <p className="font-medium mb-1">💡 Volledig terugbetaalde reserveringen</p>
+            <p>
+              Deze reserveringen zijn volledig gerestitueerd (totaal gerestitueerd ≥ totaal betaald). 
+              Netto inkomsten zijn €0 of minder.
             </p>
           </div>
         </div>
