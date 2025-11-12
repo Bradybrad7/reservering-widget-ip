@@ -11,7 +11,7 @@
  * - success: green-500/600, warning: warning-500/600, error: error-500/600
  */
 
-import React from 'react';
+
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 
 // ============================================================

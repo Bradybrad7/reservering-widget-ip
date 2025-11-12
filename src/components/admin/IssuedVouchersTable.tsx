@@ -8,7 +8,7 @@
  * - Details view
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Check, XCircle, Eye } from 'lucide-react';
 import type { IssuedVoucher } from '../../types';
 import { storageService } from '../../services/storageService';

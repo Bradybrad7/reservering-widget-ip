@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { Sun, AlertCircle, TrendingUp, Calendar, Users, Sparkles } from 'lucide-react';
 import { useReservationsStore } from '../../../store/reservationsStore';
 import { useEventsStore } from '../../../store/eventsStore';

@@ -5,7 +5,7 @@
  * Used in the purchase flow to select which voucher to buy
  */
 
-import React from 'react';
+
 import type { VoucherTemplate } from '../../types';
 
 interface VoucherTemplateCardProps {

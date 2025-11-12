@@ -20,7 +20,7 @@
  * - Event selection met auto-datum
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   Search, 
   Calendar,

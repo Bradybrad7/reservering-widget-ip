@@ -8,7 +8,7 @@
  * - Bulk delete (met bevestiging)
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Plus,
   Download,

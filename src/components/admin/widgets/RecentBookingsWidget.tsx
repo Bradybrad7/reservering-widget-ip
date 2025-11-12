@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { Users, Star, Sparkles, ArrowRight, TrendingUp } from 'lucide-react';
 import { useReservationsStore } from '../../../store/reservationsStore';
 import { useCustomersStore } from '../../../store/customersStore';

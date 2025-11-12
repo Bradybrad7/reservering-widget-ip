@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, memo, useMemo, useState } from 'react';
+import { useEffect, useCallback, memo, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Event } from '../types';
 import { useReservationStore } from '../store/reservationStore';

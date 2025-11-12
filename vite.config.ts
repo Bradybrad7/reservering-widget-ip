@@ -37,11 +37,50 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       emptyOutDir: true,
+      sourcemap: false, // Disable sourcemaps for production
+      chunkSizeWarningLimit: 1000, // Increase limit to 1000kb
       rollupOptions: {
         input: {
           main: resolve(__dirname, 'index.html'),
           admin: resolve(__dirname, 'admin.html'),
-        }
+        },
+        output: {
+          // Manual chunk splitting for better caching
+          manualChunks: (id) => {
+            if (id.includes('node_modules')) {
+              // React & Core
+              if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+                return 'vendor-react';
+              }
+              // Firebase
+              if (id.includes('firebase')) {
+                return 'vendor-firebase';
+              }
+              // UI Libraries
+              if (id.includes('lucide-react') || id.includes('recharts')) {
+                return 'vendor-ui';
+              }
+              // Export libraries
+              if (id.includes('jspdf') || id.includes('xlsx')) {
+                return 'vendor-export';
+              }
+              // Forms
+              if (id.includes('react-hook-form') || id.includes('hookform') || id.includes('zod')) {
+                return 'vendor-forms';
+              }
+              // Date utilities
+              if (id.includes('date-fns')) {
+                return 'vendor-date';
+              }
+              // State management
+              if (id.includes('zustand')) {
+                return 'vendor-state';
+              }
+              // Other vendors
+              return 'vendor-other';
+            }
+          },
+        },
       },
       // Note: Minify is enabled by default in production
     },

@@ -5,7 +5,7 @@
  * Beheert welke event types + arrangements zichtbaar zijn op voucher pagina
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Save, Gift, Eye, EyeOff, AlertCircle, RefreshCw } from 'lucide-react';
 import { useConfigStore } from '../../store/configStore';
 import { formatCurrency } from '../../utils';

@@ -7,7 +7,7 @@
  * 3. On success, redirect to ReservationWidget with voucher pre-filled
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useVoucherStore } from '../../store/voucherStore';
 import { useReservationStore } from '../../store/reservationStore';
 import { voucherService } from '../../services/voucherService';

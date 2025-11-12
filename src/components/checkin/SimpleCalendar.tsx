@@ -3,7 +3,7 @@
  * Tablet-vriendelijke kalender voor host check-in
  */
 
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '../../utils';
 

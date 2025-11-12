@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Mail, CheckCircle, XCircle, Clock, RefreshCw, Eye, AlertCircle } from 'lucide-react';
 import type { EmailLog } from '../../types';
 import { format } from 'date-fns';

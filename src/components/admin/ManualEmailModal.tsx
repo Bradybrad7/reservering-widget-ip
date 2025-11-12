@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Mail, Send, X, Eye, AlertTriangle, CheckCircle } from 'lucide-react';
 import type { Reservation, Event } from '../../types';
 import { emailService } from '../../services/emailService';

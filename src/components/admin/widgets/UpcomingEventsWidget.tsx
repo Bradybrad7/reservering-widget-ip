@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { Calendar, Users, ArrowRight, AlertCircle } from 'lucide-react';
 import { useEventsStore } from '../../../store/eventsStore';
 import { useAdminStore } from '../../../store/adminStore';

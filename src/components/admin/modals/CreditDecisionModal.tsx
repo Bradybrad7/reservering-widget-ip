@@ -7,7 +7,7 @@
  * October 31, 2025
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, AlertCircle, TrendingDown } from 'lucide-react';
 import type { PaymentMethod, PaymentTransaction } from '../../../types';
 import { generateTransactionId, formatCurrency } from '../../../services/paymentHelpers';

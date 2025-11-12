@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { Flame, Users, Calendar, TrendingUp, ArrowRight } from 'lucide-react';
 import { useWaitlistStore } from '../../../store/waitlistStore';
 import { useEventsStore } from '../../../store/eventsStore';

@@ -5,7 +5,7 @@
  * Ze ontvangen een e-mail zodra de admin goedkeurt.
  */
 
-import React from 'react';
+
 import { CheckCircle, Mail, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 

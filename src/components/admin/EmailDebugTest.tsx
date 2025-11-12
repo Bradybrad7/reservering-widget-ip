@@ -1,5 +1,5 @@
 // Email Debug Component - Test binnen Vite context
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 const EmailDebugTest: React.FC = () => {
   const [log, setLog] = useState<string[]>(['Email debug component geladen...']);

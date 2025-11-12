@@ -8,7 +8,7 @@
  * - Reset naar default prijzen
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { DollarSign, RefreshCw, Save, AlertCircle } from 'lucide-react';
 import { useEventsStore } from '../../store/eventsStore';
 import { formatCurrency, cn } from '../../utils';

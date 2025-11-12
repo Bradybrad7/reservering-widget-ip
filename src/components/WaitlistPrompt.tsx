@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { AlertCircle, Mail, Users, Calendar, Phone, User } from 'lucide-react';
 import { useReservationStore } from '../store/reservationStore';
 import { useWaitlistStore } from '../store/waitlistStore';

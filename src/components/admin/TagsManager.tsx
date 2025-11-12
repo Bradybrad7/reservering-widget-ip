@@ -8,7 +8,7 @@
  * - Live preview
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Save, X, Tag as TagIcon, Palette, Eye } from 'lucide-react';
 import { TagConfigService } from '../../services/tagConfigService';
 import type { ReservationTagConfig, ReservationTag } from '../../types';

@@ -1,4 +1,5 @@
 // Dashboard Personalization UI
+
 import React from 'react';
 import { Settings, Save, RotateCcw, Eye, EyeOff, GripVertical } from 'lucide-react';
 import { useDashboardLayoutStore, type DashboardWidget } from '../../store/dashboardLayoutStore';

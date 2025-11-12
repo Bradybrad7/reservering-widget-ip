@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Search, Download, Save, Star, Trash2, ChevronDown } from 'lucide-react';
 import { cn } from '../../utils';
 import type { Reservation } from '../../types';

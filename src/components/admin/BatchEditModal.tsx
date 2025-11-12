@@ -4,7 +4,7 @@
  * Hiermee kun je snel properties van meerdere events tegelijk aanpassen
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, Save, Clock, Users, Eye, EyeOff } from 'lucide-react';
 import type { AdminEvent } from '../../types';
 

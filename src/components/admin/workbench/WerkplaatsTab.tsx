@@ -13,7 +13,7 @@
  * - Direct inline editing zonder modals
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   Filter,

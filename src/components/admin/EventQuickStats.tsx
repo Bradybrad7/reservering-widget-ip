@@ -5,7 +5,7 @@
  * Gebruikt in tooltips en hover states
  */
 
-import React from 'react';
+
 import { Users, AlertCircle } from 'lucide-react';
 import type { EventStats } from '../../utils/eventHelpers';
 

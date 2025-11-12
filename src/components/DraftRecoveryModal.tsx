@@ -1,4 +1,4 @@
-import React from 'react';
+
 import Modal from './ui/Modal';
 import { CalendarIcon, Users } from 'lucide-react';
 import type { CustomerFormData, Event } from '../types';

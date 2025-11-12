@@ -1,4 +1,4 @@
-import React, { memo, useState } from 'react';
+import { memo, useState } from 'react';
 import { ArrowRight, ArrowLeft, ChevronUp, X } from 'lucide-react';
 import { useReservationStore } from '../store/reservationStore';
 import { formatCurrency } from '../utils';

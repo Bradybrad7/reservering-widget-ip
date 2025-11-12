@@ -9,7 +9,7 @@
  * Geïnspireerd door Slack's Command Palette, VS Code Command Palette, Raycast
  */
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Search,
   Calendar,

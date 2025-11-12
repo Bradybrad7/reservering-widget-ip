@@ -6,7 +6,7 @@
  * snelle inzichten en actie-gerichte informatie.
  */
 
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   TrendingUp,
   Users,

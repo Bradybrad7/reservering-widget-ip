@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Calendar,
@@ -191,27 +191,34 @@ export const AdminLayoutNew: React.FC<AdminLayoutNewProps> = ({ children }) => {
     else if (group.id === 'waitlist') badgeCount = notificationBadges.waitlist;
     else if (group.id === 'archive') badgeCount = notificationBadges.archive;
 
+    // Tooltip voor collapsed sidebar
+    const tooltipText = sidebarCollapsed ? group.label + (badgeCount > 0 ? ` (${badgeCount})` : '') : '';
+
     return (
       <button
         key={group.id}
         onClick={() => handleNavigate(group.section, '', group.label)}
+        title={tooltipText}
         className={cn(
-          'w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all rounded-lg',
+          'w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all rounded-lg group relative',
           isActive
-            ? 'bg-gold-500 text-white shadow-md'
-            : 'text-neutral-300 hover:bg-neutral-700/50 hover:text-gold-400'
+            ? 'bg-gradient-to-r from-gold-500 to-gold-600 text-white shadow-lg shadow-gold-500/20'
+            : 'text-neutral-300 hover:bg-neutral-700/70 hover:text-gold-400 hover:scale-105'
         )}
       >
-        {Icon && <Icon className="w-5 h-5 flex-shrink-0" />}
+        {Icon && <Icon className={cn(
+          "w-5 h-5 flex-shrink-0 transition-transform",
+          isActive && "scale-110"
+        )} />}
         {!sidebarCollapsed && (
           <>
-            <span className="truncate flex-1">{group.label}</span>
+            <span className="truncate flex-1 text-left">{group.label}</span>
             {badgeCount > 0 && (
               <span className={cn(
-                'px-2 py-0.5 text-xs font-bold rounded-full flex-shrink-0',
+                'px-2 py-0.5 text-xs font-bold rounded-full flex-shrink-0 animate-pulse',
                 isActive 
                   ? 'bg-white text-gold-600' 
-                  : 'bg-gold-500 text-black'
+                  : 'bg-gold-500 text-black shadow-lg shadow-gold-500/50'
               )}>
                 {badgeCount}
               </span>
@@ -348,7 +355,7 @@ export const AdminLayoutNew: React.FC<AdminLayoutNewProps> = ({ children }) => {
             {breadcrumbs.length > 1 && (
               <nav className="flex items-center gap-2 mt-3 text-sm text-neutral-400">
                 {breadcrumbs.map((crumb, index) => (
-                  <React.Fragment key={index}>
+                  <div key={index} className="flex items-center gap-2">
                     {index > 0 && <ChevronRight className="w-4 h-4" />}
                     <button
                       onClick={() => setActiveSection(crumb.section)}
@@ -359,7 +366,7 @@ export const AdminLayoutNew: React.FC<AdminLayoutNewProps> = ({ children }) => {
                     >
                       {crumb.label}
                     </button>
-                  </React.Fragment>
+                  </div>
                 ))}
               </nav>
             )}

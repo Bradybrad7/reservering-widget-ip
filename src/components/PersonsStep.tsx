@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Users, AlertCircle, Check } from 'lucide-react';
 import { useReservationStore } from '../store/reservationStore';
 import Button from './ui/Button';

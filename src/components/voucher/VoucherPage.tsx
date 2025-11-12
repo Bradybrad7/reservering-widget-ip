@@ -10,7 +10,7 @@
  * - ?mode=redeem - directly show redeem form
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { VoucherPurchaseForm } from './VoucherPurchaseForm';
 import { VoucherRedeemFlow } from './VoucherRedeemFlow';
 

@@ -8,7 +8,7 @@
  * - Syntax highlighting voor variables
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Eye, Code, Type, Zap, Info } from 'lucide-react';
 import { cn } from '../../utils';
 

@@ -7,7 +7,7 @@
  * November 12, 2025
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, UserPlus, Users, Mail, Phone, Building2 } from 'lucide-react';
 import type { Event, Reservation } from '../../../types';
 import { apiService } from '../../../services/apiService';

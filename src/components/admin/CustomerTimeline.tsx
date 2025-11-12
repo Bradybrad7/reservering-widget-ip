@@ -11,7 +11,7 @@
  * Visuele chronologische lijn met icons en kleuren per event type
  */
 
-import React from 'react';
+
 import {
   Calendar,
   Check,

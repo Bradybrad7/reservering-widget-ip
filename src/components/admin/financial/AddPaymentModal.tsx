@@ -10,7 +10,7 @@
  * - Suggestie: Standaard bedrag = openstaand saldo
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { X, DollarSign, Calendar, CreditCard, FileText, AlertCircle, CheckCircle } from 'lucide-react';
 import type { Reservation, Payment, PaymentMethod } from '../../../types';
 import { formatCurrency, cn } from '../../../utils';

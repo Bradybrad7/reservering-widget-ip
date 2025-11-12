@@ -7,7 +7,7 @@
  * - Animations
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { voucherService } from '../../services/voucherService';
 
 interface VoucherCodeDisplayProps {

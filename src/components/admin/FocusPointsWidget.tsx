@@ -7,7 +7,7 @@
  * - 📈 Wachtlijst Groeit: Events met meeste nieuwe wachtlijst entries (Top 5)
  */
 
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { Flame, AlertTriangle, TrendingUp, ArrowRight } from 'lucide-react';
 import type { AdminEvent, Reservation, WaitlistEntry } from '../../types';
 import { cn } from '../../utils';

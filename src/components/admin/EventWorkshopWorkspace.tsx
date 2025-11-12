@@ -9,7 +9,7 @@
  * Dit combineert visuele en lijst-weergave in één scherm.
  */
 
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { ChevronDown, ChevronUp, Calendar } from 'lucide-react';
 import type { AdminEvent, Reservation, WaitlistEntry } from '../../types';
 import { EventNavigator } from './EventNavigator';

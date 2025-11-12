@@ -10,7 +10,7 @@
  * - Responsieve weergave (grid op desktop, lijst op mobiel)
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, List, Archive } from 'lucide-react';
 import type { AdminEvent, Reservation, WaitlistEntry, EventTypesConfig } from '../../types';
 import { getEventComputedData } from '../../utils/eventHelpers';

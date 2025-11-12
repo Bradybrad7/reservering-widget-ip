@@ -7,7 +7,7 @@
  * November 12, 2025
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { X, Users, Hash, MessageSquare, CheckCircle, AlertTriangle } from 'lucide-react';
 import type { Reservation } from '../../../types';
 import { cn } from '../../../utils';

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Users,
   Mail,
@@ -149,36 +149,68 @@ export const CustomerManagerEnhanced: React.FC = () => {
 
   if (isLoadingCustomers && customers.length === 0) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-white">Laden...</div>
+      <div className="flex items-center justify-center h-full bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-800">
+        <div className="text-center">
+          <div className="relative">
+            <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-neutral-700 border-t-gold-500 mb-6"></div>
+            <div className="absolute inset-0 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 animate-ping rounded-full h-16 w-16 border-2 border-gold-500/30"></div>
+          </div>
+          <p className="text-lg font-semibold text-neutral-300 mb-2">Klanten laden...</p>
+          <p className="text-sm text-neutral-500">Even geduld, we halen alles op</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full">
+    <div className="flex flex-col h-full bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-800">
       {selectedCustomer ? (
         // Customer Detail View
-        <div className="space-y-6">
-          {/* Header with Back Button */}
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => selectCustomer(null)}
-              className="p-2 bg-neutral-700 text-white rounded-lg hover:bg-neutral-600 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div className="flex-1">
-              <h2 className="text-2xl font-bold text-white">{selectedCustomer.companyName}</h2>
-              <p className="text-neutral-400">{selectedCustomer.contactPerson}</p>
-            </div>
-            <div className={cn('text-2xl', getCustomerLevel(selectedCustomer.totalSpent).color)}>
-              {getCustomerLevel(selectedCustomer.totalSpent).icon} {getCustomerLevel(selectedCustomer.totalSpent).level}
+        <div className="flex flex-col h-full">
+          {/* Enhanced Header with Back Button */}
+          <div className="bg-neutral-800/80 backdrop-blur-sm border-b border-neutral-700 shadow-xl">
+            <div className="px-8 py-6">
+              <div className="flex items-center gap-5">
+                {/* Back button met moderne styling */}
+                <button
+                  onClick={() => selectCustomer(null)}
+                  className="p-3 bg-gradient-to-br from-neutral-700 to-neutral-800 text-white rounded-xl hover:from-neutral-600 hover:to-neutral-700 transition-all duration-200 shadow-lg hover:scale-105 group"
+                  title="Terug naar overzicht"
+                >
+                  <ArrowLeft className="w-6 h-6 group-hover:-translate-x-1 transition-transform duration-200" />
+                </button>
+
+                {/* Customer info met level badge */}
+                <div className="flex-1">
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-3xl font-bold bg-gradient-to-r from-white via-blue-200 to-blue-400 bg-clip-text text-transparent">
+                      {selectedCustomer.companyName}
+                    </h2>
+                    {/* Customer Level Badge */}
+                    <div className={cn(
+                      'px-4 py-2 rounded-xl font-bold text-sm shadow-lg flex items-center gap-2',
+                      getCustomerLevel(selectedCustomer.totalSpent).level === 'Gold' && 'bg-gradient-to-br from-gold-500 to-gold-600 text-white shadow-gold-500/30',
+                      getCustomerLevel(selectedCustomer.totalSpent).level === 'Silver' && 'bg-gradient-to-br from-neutral-400 to-neutral-500 text-white shadow-neutral-400/30',
+                      getCustomerLevel(selectedCustomer.totalSpent).level === 'Bronze' && 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-orange-500/30'
+                    )}>
+                      <span className="text-lg">{getCustomerLevel(selectedCustomer.totalSpent).icon}</span>
+                      <span>{getCustomerLevel(selectedCustomer.totalSpent).level}</span>
+                    </div>
+                  </div>
+                  <p className="text-neutral-400 mt-2 flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    {selectedCustomer.contactPerson} • {selectedCustomer.email}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Customer Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Scrollable Content Area */}
+          <div className="flex-1 overflow-auto px-8 py-6">
+            <div className="max-w-7xl mx-auto space-y-6">
+              {/* Customer Stats Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-gradient-to-br from-gold-500/20 to-gold-600/10 border border-gold-500/30 rounded-lg p-4">
               <div className="flex items-center gap-3 mb-2">
                 <DollarSign className="w-8 h-8 text-gold-400" />
@@ -475,88 +507,146 @@ export const CustomerManagerEnhanced: React.FC = () => {
               )}
             </div>
           </div>
+          </div>
+        </div>
         </div>
       ) : (
         // Customer List View
-        <div className="space-y-6">
-          {/* Header */}
-          <div>
-            <h2 className="text-2xl font-bold text-white">Klanten Overzicht</h2>
-            <p className="text-neutral-400 mt-1">
-              {filteredCustomers.length} van {customers.length} klanten
-            </p>
-          </div>
+        <div className="flex flex-col h-full">
+          {/* Enhanced Header */}
+          <div className="bg-neutral-800/80 backdrop-blur-sm border-b border-neutral-700 shadow-xl">
+            <div className="px-8 py-6">
+              <div className="flex items-center justify-between">
+                {/* Linker sectie: Titel */}
+                <div className="flex items-center gap-5">
+                  <div className="relative p-4 bg-gradient-to-br from-emerald-500 via-teal-600 to-cyan-600 rounded-2xl shadow-2xl">
+                    <Users className="w-8 h-8 text-white relative z-10" />
+                    <div className="absolute inset-0 bg-emerald-400 rounded-2xl blur-lg opacity-50 animate-pulse"></div>
+                  </div>
+                  
+                  <div>
+                    <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-emerald-200 to-teal-400 bg-clip-text text-transparent">
+                      Klanten Overzicht
+                    </h1>
+                    <p className="text-neutral-400 mt-1.5 flex items-center gap-2">
+                      <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                      {filteredCustomers.length} van {customers.length} klanten
+                    </p>
+                  </div>
+                </div>
 
-          {/* Search & Sort */}
-          <div className="bg-neutral-800/50 rounded-lg p-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-500" />
-                <input
-                  type="text"
-                  placeholder="Zoek klanten..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white placeholder-neutral-500 focus:ring-2 focus:ring-gold-500 focus:border-transparent"
-                />
+                {/* Rechter sectie: Stats */}
+                <div className="hidden lg:flex items-center gap-4">
+                  <div className="px-5 py-3 bg-gradient-to-br from-neutral-800 to-neutral-900 rounded-xl border border-neutral-700 shadow-lg">
+                    <div className="text-2xl font-bold text-emerald-400">
+                      {customers.length}
+                    </div>
+                    <div className="text-xs text-neutral-400 uppercase tracking-wider">
+                      Totaal Klanten
+                    </div>
+                  </div>
+                </div>
               </div>
+            </div>
 
-              {/* Sort */}
-              <div>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent"
-                >
-                  <option value="lastBooking">Laatste Boeking</option>
-                  <option value="name">Naam (A-Z)</option>
-                  <option value="bookings">Meeste Boekingen</option>
-                  <option value="spent">Hoogste Omzet</option>
-                </select>
+            {/* Search & Sort Bar */}
+            <div className="px-8 pb-6">
+              <div className="bg-neutral-800/50 backdrop-blur-sm rounded-xl p-4 border border-neutral-700 shadow-lg">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Enhanced Search */}
+                  <div className="relative group">
+                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-500 group-focus-within:text-gold-400 transition-colors" />
+                    <input
+                      type="text"
+                      placeholder="Zoek op naam, bedrijf of email..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-12 pr-4 py-3 bg-neutral-700/70 border border-neutral-600 rounded-xl text-white placeholder-neutral-500 focus:ring-2 focus:ring-gold-500 focus:border-gold-500 focus:bg-neutral-700 transition-all"
+                    />
+                    {searchTerm && (
+                      <button
+                        onClick={() => setSearchTerm('')}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-neutral-600 rounded-lg transition-colors"
+                      >
+                        <X className="w-4 h-4 text-neutral-400" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Enhanced Sort */}
+                  <div className="relative">
+                    <ArrowUpDown className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-500" />
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as any)}
+                      className="w-full pl-12 pr-4 py-3 bg-neutral-700/70 border border-neutral-600 rounded-xl text-white focus:ring-2 focus:ring-gold-500 focus:border-gold-500 focus:bg-neutral-700 transition-all appearance-none cursor-pointer"
+                    >
+                      <option value="lastBooking">Laatste Boeking</option>
+                      <option value="name">Naam (A-Z)</option>
+                      <option value="bookings">Meeste Boekingen</option>
+                      <option value="spent">Hoogste Omzet</option>
+                    </select>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Customer List */}
-          <div className="grid gap-4">
-            {filteredCustomers.length === 0 ? (
-              <div className="bg-neutral-800/50 rounded-lg p-12 text-center">
-                <Users className="w-16 h-16 text-neutral-600 mx-auto mb-4" />
-                <p className="text-neutral-400 text-lg">Geen klanten gevonden</p>
-              </div>
-            ) : (
-              filteredCustomers.map((customer) => {
-                const level = getCustomerLevel(customer.totalSpent);
-                
-                return (
-                  <div
-                    key={customer.email}
-                    onClick={() => handleSelectCustomer(customer)}
-                    className="bg-neutral-800/50 rounded-lg p-6 border-2 border-transparent hover:border-gold-500/30 transition-all cursor-pointer"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-xl font-semibold text-white">
-                            {customer.companyName}
-                          </h3>
-                          <span className={cn('text-lg', level.color)}>
-                            {level.icon}
-                          </span>
-                          {customer.tags.map(tag => {
-                            const tagId = typeof tag === 'string' ? tag : 
-                              (typeof tag === 'object' && tag && 'id' in tag ? (tag as any).id : String(tag));
-                            return (
-                              <span
-                                key={tagId}
-                                className="px-2 py-0.5 bg-gold-500/20 text-gold-400 rounded-full text-xs"
-                              >
-                                {tagId}
-                              </span>
-                            );
-                          })}
-                        </div>
+          {/* Customer List - Scrollable Content Area */}
+          <div className="flex-1 overflow-auto px-8 py-6">
+            <div className="grid gap-4 max-w-7xl mx-auto">
+              {filteredCustomers.length === 0 ? (
+                <div className="bg-neutral-800/50 backdrop-blur-sm rounded-2xl p-16 text-center border border-neutral-700 shadow-xl">
+                  <Users className="w-20 h-20 text-neutral-600 mx-auto mb-6" />
+                  <p className="text-neutral-300 text-xl font-semibold mb-2">Geen klanten gevonden</p>
+                  <p className="text-neutral-500">Pas je zoekfilters aan of voeg nieuwe klanten toe</p>
+                </div>
+              ) : (
+                filteredCustomers.map((customer) => {
+                  const level = getCustomerLevel(customer.totalSpent);
+                  
+                  return (
+                    <div
+                      key={customer.email}
+                      onClick={() => handleSelectCustomer(customer)}
+                      className="group relative bg-gradient-to-br from-neutral-800/80 to-neutral-800/50 backdrop-blur-sm rounded-xl p-6 border-2 border-neutral-700 hover:border-gold-500/50 transition-all duration-200 cursor-pointer hover:scale-[1.02] hover:shadow-2xl hover:shadow-gold-500/10"
+                    >
+                      {/* Hover glow effect */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-gold-500/0 to-gold-500/0 group-hover:from-gold-500/5 group-hover:to-transparent rounded-xl transition-all duration-200"></div>
+                      
+                      <div className="relative flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3">
+                            {/* Company name */}
+                            <h3 className="text-xl font-bold text-white group-hover:text-gold-400 transition-colors">
+                              {customer.companyName}
+                            </h3>
+                            
+                            {/* Level badge */}
+                            <span className={cn(
+                              'px-3 py-1 rounded-lg font-bold text-sm shadow-lg flex items-center gap-1.5',
+                              level.level === 'Gold' && 'bg-gradient-to-br from-gold-500 to-gold-600 text-white',
+                              level.level === 'Silver' && 'bg-gradient-to-br from-neutral-400 to-neutral-500 text-white',
+                              level.level === 'Bronze' && 'bg-gradient-to-br from-orange-500 to-orange-600 text-white'
+                            )}>
+                              <span>{level.icon}</span>
+                              <span>{level.level}</span>
+                            </span>
+                            
+                            {/* Tags */}
+                            {customer.tags.map(tag => {
+                              const tagId = typeof tag === 'string' ? tag : 
+                                (typeof tag === 'object' && tag && 'id' in tag ? (tag as any).id : String(tag));
+                              return (
+                                <span
+                                  key={tagId}
+                                  className="px-3 py-1 bg-gradient-to-br from-gold-500/20 to-gold-600/10 text-gold-400 rounded-lg text-xs font-semibold border border-gold-500/30"
+                                >
+                                  {tagId}
+                                </span>
+                              );
+                            })}
+                          </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-neutral-300">
                           <div className="flex items-center gap-2">
@@ -590,6 +680,7 @@ export const CustomerManagerEnhanced: React.FC = () => {
               })
             )}
           </div>
+        </div>
         </div>
       )}
     </div>

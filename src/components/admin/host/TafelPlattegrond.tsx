@@ -7,7 +7,7 @@
  * November 12, 2025
  */
 
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { Users, AlertTriangle } from 'lucide-react';
 import type { Reservation } from '../../../types';
 import { cn } from '../../../utils';

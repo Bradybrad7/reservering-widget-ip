@@ -9,7 +9,7 @@
  * Dit elimineert cognitieve overload: je ziet alleen wat relevant is voor ÉÉN maand.
  */
 
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Search, Filter as FilterIcon } from 'lucide-react';
 import type { AdminEvent, Reservation, WaitlistEntry } from '../../types';
 import { cn } from '../../utils';

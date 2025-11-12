@@ -79,14 +79,10 @@ export const useWaitlistStore = create<WaitlistState & WaitlistActions>()(
 
     // Actions
     loadWaitlistEntries: async () => {
-      console.log('🔍 WaitlistStore: Starting to load entries...');
       set({ isLoading: true });
       try {
         const response = await apiService.getWaitlistEntries();
-        console.log('📦 WaitlistStore: API response:', response);
         if (response.success && response.data) {
-          console.log('✅ WaitlistStore: Loaded', response.data.length, 'entries');
-          console.log('📋 WaitlistStore: Entry IDs:', response.data.map((e: any) => e.id));
           set({ entries: response.data, isLoading: false });
         } else {
           console.error('❌ Failed to load waitlist entries:', response.error);
@@ -277,21 +273,16 @@ export const useWaitlistStore = create<WaitlistState & WaitlistActions>()(
         
         console.log(`📧 Notifying ${entriesToContact.length} waitlist entries`);
         
-        // Import emailService dynamically to avoid circular dependency
-        const { emailService } = await import('../services/emailService');
+        // TODO: Implement waitlist spot available notification
+        // Need to add sendWaitlistSpotAvailable function to emailService
+        // For now, entries need to be contacted manually
         
-        // Notify each entry
+        // Mark entries as needing contact
         for (const entry of entriesToContact) {
           try {
-            // Send waitlist notification email with special booking link
-            await emailService.sendWaitlistSpotAvailable(entry);
-            
-            // Mark as contacted
-            await get().markAsContacted(entry.id, 'System (Auto)');
-            
-            console.log(`✅ Notified ${entry.customerEmail} for ${entry.numberOfPersons} persons`);
+            console.log(`⚠️ Entry ${entry.id} needs manual contact (${entry.customerEmail})`);
           } catch (error) {
-            console.error(`❌ Failed to notify ${entry.customerEmail}:`, error);
+            console.error(`❌ Failed to process ${entry.customerEmail}:`, error);
           }
         }
         

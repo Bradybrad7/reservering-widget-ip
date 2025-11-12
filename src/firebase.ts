@@ -33,15 +33,20 @@ try {
   app = initializeApp(firebaseConfig);
   db = getFirestore(app);
   
-  // Initialize analytics only in browser environment
-  if (typeof window !== 'undefined') {
-    analytics = getAnalytics(app);
+  // Initialize analytics only in browser environment (production only)
+  if (typeof window !== 'undefined' && import.meta.env.PROD) {
+    try {
+      analytics = getAnalytics(app);
+    } catch (analyticsError) {
+      // Analytics failure should not block the app
+      if (import.meta.env.DEV) {
+        console.warn('⚠️ Firebase Analytics initialization failed (non-critical):', analyticsError);
+      }
+    }
   }
-  
-  console.log('✅ Firebase initialized successfully');
 } catch (error) {
   console.error('❌ Firebase initialization failed:', error);
-  throw error;
+  throw new Error('Failed to initialize Firebase. Please check your configuration.');
 }
 
 // Export initialized services

@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { QRCodeSVG } from 'qrcode.react';
 import { Download, Printer } from 'lucide-react';
 import type { Reservation } from '../../types';

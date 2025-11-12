@@ -5,7 +5,7 @@
  * Displays confirmation and voucher code
  */
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { IssuedVoucher } from '../../types';
 import { VoucherCodeDisplay } from './VoucherCodeDisplay';
 import { storageService } from '../../services/storageService';

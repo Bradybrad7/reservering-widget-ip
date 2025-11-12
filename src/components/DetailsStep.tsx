@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { MapPin, CreditCard, UtensilsCrossed, AlertCircle, PartyPopper } from 'lucide-react';
 import { useReservationStore } from '../store/reservationStore';
 import { cn } from '../utils';

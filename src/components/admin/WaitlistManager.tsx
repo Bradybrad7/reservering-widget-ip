@@ -1,5 +1,5 @@
 // WaitlistManager Component - Admin sectie voor wachtlijstbeheer
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { Users, Mail, Phone, Calendar, Clock, Check, X, Trash2, MessageSquare } from 'lucide-react';
 import { useWaitlistStore } from '../../store/waitlistStore';
 import { useEventsStore } from '../../store/eventsStore';

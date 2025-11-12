@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { format, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths } from 'date-fns';
 import { nl } from 'date-fns/locale';
 import { useReservationsStore } from '../../store/reservationsStore';

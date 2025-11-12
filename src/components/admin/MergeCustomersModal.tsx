@@ -8,7 +8,7 @@
  * - Confirm + merge action
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, AlertTriangle, Users, ArrowRight, Check } from 'lucide-react';
 import { cn } from '../../utils';
 

@@ -14,7 +14,7 @@
  * 3. ⚙️ Tools & Bulk: Rustige pagina voor bulk acties en export
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BarChart3, Wrench, Settings } from 'lucide-react';
 import { useEventsStore } from '../../store/eventsStore';
 import { useReservationsStore } from '../../store/reservationsStore';
@@ -136,45 +136,106 @@ export const EventWorkshop: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-neutral-900">
+    <div className="flex flex-col h-full bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-800">
       {/* Header met Tabs */}
-      <div className="bg-neutral-800/50 border-b border-neutral-700">
-        <div className="px-6 pt-6 pb-0">
-          <div className="mb-4">
-            <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-              🎭 Event Werkplaats
-            </h1>
-            <p className="text-neutral-400 mt-1">
-              Centraal beheer voor al je evenementen
-            </p>
+      <div className="bg-neutral-800/80 backdrop-blur-sm border-b border-neutral-700 shadow-xl">
+        <div className="px-8 pt-7 pb-0">
+          {/* Header sectie */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between">
+              {/* Titel met decoratief icoon */}
+              <div className="flex items-center gap-5">
+                <div className="relative p-4 bg-gradient-to-br from-gold-500 via-gold-400 to-yellow-500 rounded-2xl shadow-2xl">
+                  <span className="text-3xl">🎭</span>
+                  <div className="absolute inset-0 bg-gold-400 rounded-2xl blur-lg opacity-50 animate-pulse"></div>
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-gold-200 to-gold-400 bg-clip-text text-transparent">
+                    Event Werkplaats
+                  </h1>
+                  <p className="text-neutral-400 mt-1.5 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                    Centraal beheer voor al je evenementen
+                  </p>
+                </div>
+              </div>
+
+              {/* Stats summary */}
+              <div className="hidden lg:flex items-center gap-4">
+                <div className="px-5 py-3 bg-gradient-to-br from-neutral-800 to-neutral-900 rounded-xl border border-neutral-700 shadow-lg">
+                  <div className="text-2xl font-bold text-gold-400">
+                    {events.length}
+                  </div>
+                  <div className="text-xs text-neutral-400 uppercase tracking-wider">
+                    Events
+                  </div>
+                </div>
+                <div className="px-5 py-3 bg-gradient-to-br from-neutral-800 to-neutral-900 rounded-xl border border-neutral-700 shadow-lg">
+                  <div className="text-2xl font-bold text-emerald-400">
+                    {events.filter(e => e.isActive).length}
+                  </div>
+                  <div className="text-xs text-neutral-400 uppercase tracking-wider">
+                    Actief
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Tab Navigation */}
-          <div className="flex gap-1">
-            {TABS.map(tab => {
+          {/* Tab Navigation - Met keyboard shortcuts */}
+          <div className="flex gap-1 -mb-px">
+            {TABS.map((tab, index) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
+              const keyboardShortcut = `Alt+${index + 1}`;
 
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    'flex items-center gap-3 px-6 py-3 rounded-t-xl font-semibold transition-all relative',
+                    'group relative flex items-center gap-3 px-7 py-4 rounded-t-xl font-semibold transition-all duration-200',
                     isActive
-                      ? 'bg-neutral-900 text-white border-t-2 border-x-2 border-gold-500'
-                      : 'bg-neutral-800/50 text-neutral-400 hover:text-white hover:bg-neutral-800'
+                      ? 'bg-gradient-to-b from-neutral-900 to-neutral-900/95 text-white border-t-2 border-x-2 border-gold-500 shadow-2xl shadow-gold-500/20'
+                      : 'bg-neutral-800/50 text-neutral-400 hover:text-white hover:bg-neutral-800/80 hover:border-t-2 hover:border-x-2 hover:border-neutral-600'
                   )}
+                  title={`${tab.description}\nSneltoets: ${keyboardShortcut}`}
                 >
-                  <Icon className="w-5 h-5" />
+                  {/* Icon met scale animatie */}
+                  <Icon className={cn(
+                    'w-5 h-5 transition-all duration-200',
+                    isActive ? 'text-gold-400 scale-110' : 'group-hover:scale-110 group-hover:text-gold-400'
+                  )} />
+                  
+                  {/* Label en description */}
                   <div className="text-left">
-                    <div className="font-semibold">{tab.label}</div>
+                    <div className={cn(
+                      "font-bold text-sm",
+                      isActive && "bg-gradient-to-r from-white to-gold-200 bg-clip-text text-transparent"
+                    )}>
+                      {tab.label}
+                    </div>
                     {isActive && (
-                      <div className="text-xs text-neutral-400 font-normal">
+                      <div className="text-xs text-neutral-500 font-normal mt-0.5">
                         {tab.description}
                       </div>
                     )}
                   </div>
+
+                  {/* Active indicator glow */}
+                  {isActive && (
+                    <div>
+                      <div className="absolute inset-0 bg-gradient-to-b from-gold-500/10 via-transparent to-transparent rounded-t-xl -z-10"></div>
+                      <div className="absolute -bottom-0.5 left-0 right-0 h-0.5 bg-gradient-to-r from-gold-400 via-gold-500 to-gold-400 shadow-lg shadow-gold-500/50"></div>
+                    </div>
+                  )}
+
+                  {/* Keyboard shortcut hint */}
+                  {!isActive && (
+                    <span className="ml-auto opacity-0 group-hover:opacity-100 text-xs text-neutral-500 transition-opacity duration-200 font-mono">
+                      Alt+{index + 1}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -183,12 +244,16 @@ export const EventWorkshop: React.FC = () => {
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-auto bg-neutral-900">
+      <div className="flex-1 overflow-auto bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-800">
         {isLoading && activeTab === 'overview' ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gold-500 mx-auto mb-4"></div>
-              <p className="text-neutral-400">Data laden...</p>
+              <div className="relative">
+                <div className="animate-spin rounded-full h-16 w-16 border-4 border-neutral-700 border-t-gold-500 mx-auto mb-6"></div>
+                <div className="absolute inset-0 animate-ping rounded-full h-16 w-16 border-2 border-gold-500/30 mx-auto"></div>
+              </div>
+              <p className="text-lg font-semibold text-neutral-300 mb-2">Event data laden...</p>
+              <p className="text-sm text-neutral-500">Even geduld, we halen alles op</p>
             </div>
           </div>
         ) : (

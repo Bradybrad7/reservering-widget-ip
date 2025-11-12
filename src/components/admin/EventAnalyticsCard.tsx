@@ -4,7 +4,7 @@
  * Toont gedetailleerde statistieken en trends voor een specifiek evenement
  */
 
-import React from 'react';
+
 import { TrendingUp, TrendingDown, Users, Clock, AlertCircle, CheckCircle, Minus } from 'lucide-react';
 import type { EventStats } from '../../utils/eventHelpers';
 import type { AdminEvent } from '../../types';

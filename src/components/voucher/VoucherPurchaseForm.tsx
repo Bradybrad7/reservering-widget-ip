@@ -8,7 +8,7 @@
  * Step 4: Confirmation → Payment
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useVoucherStore } from '../../store/voucherStore';
 import { VoucherTemplateCard } from './VoucherTemplateCard';
 

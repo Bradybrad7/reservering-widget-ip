@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { X, AlertTriangle, CheckCircle, TrendingUp, Users } from 'lucide-react';
 import { useEventCapacity } from '../../hooks/useEventCapacity';
 import { formatDate, cn } from '../../utils';

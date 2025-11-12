@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Phone, User, Mail, Building2, Users, Calendar, DollarSign, AlertCircle, Check, Search, CheckCircle, AlertTriangle, Tag } from 'lucide-react';
 import { useEventsStore } from '../../store/eventsStore';
 import { useReservationsStore } from '../../store/reservationsStore';

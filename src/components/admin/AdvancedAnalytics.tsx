@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   TrendingUp,
   Calendar,
@@ -175,27 +175,45 @@ const AdvancedAnalytics: React.FC = () => {
   const maxGuests = Math.max(...Object.values(analytics.guestsByMonth), 1);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-emerald-500/10 rounded-lg">
-            <TrendingUp className="w-6 h-6 text-emerald-400" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-semibold text-slate-100">Geavanceerde Analytics</h1>
-            <p className="text-slate-400 text-sm">Diepgaande inzichten in bedrijfsprestaties</p>
+    <div className="flex flex-col h-full bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800">
+      {/* Enhanced Header */}
+      <div className="bg-slate-800/80 backdrop-blur-sm border-b border-slate-700 shadow-xl">
+        <div className="px-8 py-6">
+          <div className="flex items-center justify-between">
+            {/* Linker sectie: Titel */}
+            <div className="flex items-center gap-5">
+              {/* Decoratief icoon */}
+              <div className="relative p-4 bg-gradient-to-br from-emerald-500 via-teal-600 to-green-600 rounded-2xl shadow-2xl">
+                <TrendingUp className="w-8 h-8 text-white relative z-10" />
+                <div className="absolute inset-0 bg-emerald-400 rounded-2xl blur-lg opacity-50 animate-pulse"></div>
+              </div>
+              
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-emerald-200 to-teal-400 bg-clip-text text-transparent">
+                  Geavanceerde Analytics
+                </h1>
+                <p className="text-slate-400 mt-1.5 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                  Diepgaande inzichten in bedrijfsprestaties
+                </p>
+              </div>
+            </div>
+
+            {/* Export button */}
+            <button
+              onClick={handleExportCSV}
+              className="px-8 py-4 bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-600 hover:via-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl transition-all duration-200 shadow-2xl shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:scale-105 flex items-center gap-3"
+            >
+              <Download className="w-6 h-6" />
+              <span>Export CSV</span>
+            </button>
           </div>
         </div>
-
-        <button
-          onClick={handleExportCSV}
-          className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2"
-        >
-          <Download className="w-5 h-5" />
-          Export CSV
-        </button>
       </div>
+
+      {/* Content Area */}
+      <div className="flex-1 overflow-auto px-8 py-6">
+        <div className="max-w-7xl mx-auto space-y-6">
 
       {/* Filters */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
@@ -432,6 +450,8 @@ const AdvancedAnalytics: React.FC = () => {
             })}
           </div>
         </div>
+      </div>
+      </div>
       </div>
     </div>
   );

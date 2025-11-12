@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { CheckCircle, XCircle, Mail, Download, Calendar, Tag, Clock } from 'lucide-react';
 import type { Reservation } from '../../types';
 

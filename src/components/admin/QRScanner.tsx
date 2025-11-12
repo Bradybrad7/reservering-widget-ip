@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { QrCode, Search, X, CheckCircle, AlertCircle, Camera } from 'lucide-react';
 import { useReservationsStore } from '../../store/reservationsStore';
 import { useEventsStore } from '../../store/eventsStore';

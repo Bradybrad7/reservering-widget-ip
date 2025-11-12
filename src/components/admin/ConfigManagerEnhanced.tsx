@@ -31,7 +31,7 @@ interface ConfigManagerEnhancedProps {
 type ConfigSection = 'general' | 'booking' | 'pricing' | 'wizard' | 'texts' | 'mailing' | 'promotions' | 'reminders' | 'vouchers' | 'data' | 'capacity' | 'health' | 'audit' | 'system' | 'tags';
 
 export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ activeSection: initialSection }) => {
-  const [activeTab, setActiveTab] = React.useState<ConfigSection>(initialSection as ConfigSection || 'general');
+  const [activeTab, setActiveTab] = useState<ConfigSection>(initialSection as ConfigSection || 'general');
   
   const {
     config,
@@ -716,39 +716,58 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-white">
-            {currentSection === 'pricing' && 'Prijzen'}
-            {currentSection === 'booking' && 'Boekingsregels'}
-            {currentSection === 'wizard' && 'Wizard Configuratie'}
-            {currentSection === 'texts' && 'Teksten Aanpassen'}
-            {currentSection === 'tags' && 'Reservering Tags'}
-            {currentSection === 'mailing' && 'E-mail Templates'}
-            {currentSection === 'general' && 'Algemene Instellingen'}
-            {currentSection === 'system' && 'Systeem & Tools'}
-          </h2>
-          <p className="text-neutral-400 mt-1">
-            {currentSection === 'pricing' && 'Configureer prijzen voor arrangementen en extra opties'}
-            {currentSection === 'booking' && 'Stel regels in voor het boekingsproces'}
-            {currentSection === 'wizard' && 'Bepaal welke stappen zichtbaar zijn'}
-            {currentSection === 'texts' && 'Pas alle teksten in de widget aan'}
-            {currentSection === 'tags' && 'Beheer tags voor het categoriseren van reserveringen'}
-            {currentSection === 'mailing' && 'Bewerk e-mail templates voor klanten en administratie'}
-            {currentSection === 'general' && 'Basis instellingen voor je organisatie'}
-            {currentSection === 'system' && 'Systeem beheer en diagnostische tools'}
-          </p>
-        </div>
+    <div className="flex flex-col h-full bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-800">
+      {/* Enhanced Header */}
+      <div className="bg-neutral-800/80 backdrop-blur-sm border-b border-neutral-700 shadow-xl">
+        <div className="px-8 py-6">
+          <div className="flex items-center justify-between">
+            {/* Linker sectie: Titel */}
+            <div className="flex items-center gap-5">
+              {/* Decoratief icoon */}
+              <div className="relative p-4 bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-600 rounded-2xl shadow-2xl">
+                <Settings className="w-8 h-8 text-white relative z-10" />
+                <div className="absolute inset-0 bg-indigo-400 rounded-2xl blur-lg opacity-50 animate-pulse"></div>
+              </div>
+              
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-indigo-200 to-purple-400 bg-clip-text text-transparent">
+                  {currentSection === 'pricing' && 'Prijzen'}
+                  {currentSection === 'booking' && 'Boekingsregels'}
+                  {currentSection === 'wizard' && 'Wizard Configuratie'}
+                  {currentSection === 'texts' && 'Teksten Aanpassen'}
+                  {currentSection === 'tags' && 'Reservering Tags'}
+                  {currentSection === 'mailing' && 'E-mail Templates'}
+                  {currentSection === 'general' && 'Algemene Instellingen'}
+                  {currentSection === 'system' && 'Systeem & Tools'}
+                </h1>
+                <p className="text-neutral-400 mt-1.5 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                  {currentSection === 'pricing' && 'Configureer prijzen voor arrangementen en extra opties'}
+                  {currentSection === 'booking' && 'Stel regels in voor het boekingsproces'}
+                  {currentSection === 'wizard' && 'Bepaal welke stappen zichtbaar zijn'}
+                  {currentSection === 'texts' && 'Pas alle teksten in de widget aan'}
+                  {currentSection === 'tags' && 'Beheer tags voor het categoriseren van reserveringen'}
+                  {currentSection === 'mailing' && 'Bewerk e-mail templates voor klanten en administratie'}
+                  {currentSection === 'general' && 'Basis instellingen voor je organisatie'}
+                  {currentSection === 'system' && 'Systeem beheer en diagnostische tools'}
+                </p>
+              </div>
+            </div>
 
-        {showSuccess && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-green-500/20 border-2 border-green-500 text-green-400 rounded-lg">
-            <CheckCircle className="w-5 h-5" />
-            <span className="font-medium">Opgeslagen!</span>
+            {/* Success notification */}
+            {showSuccess && (
+              <div className="flex items-center gap-3 px-6 py-3 bg-gradient-to-br from-green-500/20 to-emerald-500/10 border-2 border-green-500 text-green-400 rounded-xl shadow-lg shadow-green-500/20 animate-in fade-in duration-200">
+                <CheckCircle className="w-6 h-6" />
+                <span className="font-bold">Opgeslagen!</span>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
+
+      {/* Content Area */}
+      <div className="flex-1 overflow-auto px-8 py-6">
+        <div className="max-w-7xl mx-auto space-y-6">
 
       {/* Tab Navigation */}
       <div className="bg-neutral-800/50 rounded-lg p-2 flex gap-2 flex-wrap">
@@ -809,6 +828,8 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
           <Save className="w-5 h-5" />
           {isSubmitting ? 'Opslaan...' : 'Wijzigingen Opslaan'}
         </button>
+      </div>
+        </div>
       </div>
     </div>
   );

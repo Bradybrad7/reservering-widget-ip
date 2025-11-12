@@ -24,7 +24,7 @@
 // VOORBEELD 1: Basis Sortable Table met @tanstack/react-table
 // ============================================================
 
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   useReactTable,
   getCoreRowModel,

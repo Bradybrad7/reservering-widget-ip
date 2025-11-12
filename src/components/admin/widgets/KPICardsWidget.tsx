@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { DollarSign, CheckCircle, Calendar, Star, TrendingUp, TrendingDown } from 'lucide-react';
 import { useAdminStore } from '../../../store/adminStore';
 import { formatCurrency, cn } from '../../../utils';

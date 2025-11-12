@@ -13,7 +13,7 @@
  * November 12, 2025
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   QrCode,
   Search,

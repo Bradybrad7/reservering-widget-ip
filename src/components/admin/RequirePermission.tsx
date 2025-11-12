@@ -4,7 +4,7 @@
  * Conditional rendering gebaseerd op permissions
  */
 
-import React from 'react';
+
 import { useAdminPermissions, type Permission } from '../../hooks/useAdminPermissions';
 
 interface RequirePermissionProps {

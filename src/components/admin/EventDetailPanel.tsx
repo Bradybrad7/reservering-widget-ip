@@ -8,7 +8,7 @@
  * - Bewerken: Event eigenschappen aanpassen (met inline editing)
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import type { AdminEvent, Reservation, WaitlistEntry, MerchandiseItem } from '../../types';
 import type { EventStats } from './EventCommandCenter';
 import { useReservationsStore } from '../../store/reservationsStore';

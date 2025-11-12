@@ -1,4 +1,4 @@
-import React, { useEffect, lazy, Suspense, useState } from 'react';
+import { useEffect, lazy, Suspense, useState } from 'react';
 import type { ReservationWidgetProps } from '../types';
 import { useReservationStore } from '../store/reservationStore';
 import { ToastProvider, useToast, useFormErrorHandler } from './Toast';

@@ -5,7 +5,7 @@
  * Prijzen worden beheerd via Configuratie → Prijzen.
  */
 
-import React from 'react';
+
 import { BookOpen, DollarSign } from 'lucide-react';
 
 export const ArrangementsManagerNew: React.FC = () => {

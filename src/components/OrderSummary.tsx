@@ -1,4 +1,4 @@
-import React, { memo, useState, useEffect, useRef } from 'react';
+import { memo, useState, useEffect, useRef } from 'react';
 import { Calculator, Calendar as CalendarIcon, Users, CreditCard, Clock, Tag, X } from 'lucide-react';
 // Types imported through store
 import { useReservationStore } from '../store/reservationStore';

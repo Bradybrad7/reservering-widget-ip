@@ -10,7 +10,7 @@
  * - ⚡ Snelle acties (bulk add, export, etc.)
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { 
   Calendar as CalendarIcon, 
   List, 
@@ -337,6 +337,7 @@ export const EventCommandCenterRevamped: React.FC = () => {
           {/* View mode toggle */}
           <div className="flex items-center bg-neutral-700 rounded-lg p-1">
             <button
+              key="calendar-view"
               onClick={() => setViewMode('calendar')}
               className={cn(
                 'flex items-center gap-2 px-3 py-1.5 rounded-md transition-all',
@@ -349,6 +350,7 @@ export const EventCommandCenterRevamped: React.FC = () => {
               <CalendarIcon className="w-4 h-4" />
             </button>
             <button
+              key="week-month-view"
               onClick={() => setViewMode('week-month')}
               className={cn(
                 'flex items-center gap-2 px-3 py-1.5 rounded-md transition-all',
@@ -361,6 +363,7 @@ export const EventCommandCenterRevamped: React.FC = () => {
               <Clock className="w-4 h-4" />
             </button>
             <button
+              key="list-view"
               onClick={() => setViewMode('list')}
               className={cn(
                 'flex items-center gap-2 px-3 py-1.5 rounded-md transition-all',
@@ -373,6 +376,7 @@ export const EventCommandCenterRevamped: React.FC = () => {
               <List className="w-4 h-4" />
             </button>
             <button
+              key="grid-view"
               onClick={() => setViewMode('grid')}
               className={cn(
                 'flex items-center gap-2 px-3 py-1.5 rounded-md transition-all',

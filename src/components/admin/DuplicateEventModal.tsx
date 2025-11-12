@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
 import { Calendar, Clock, Users, Copy, AlertCircle } from 'lucide-react';
 import type { AdminEvent } from '../../types';
@@ -38,7 +38,7 @@ export const DuplicateEventModal: React.FC<DuplicateEventModalProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   // Reset form when modal opens/closes
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen && event) {
       // Pre-fill with date 7 days from original
       const originalDate = new Date(event.date);

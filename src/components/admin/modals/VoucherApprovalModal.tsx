@@ -8,7 +8,7 @@
  * - Add rejection reason
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, Check, XCircle, Mail, AlertCircle, Gift } from 'lucide-react';
 import type { IssuedVoucher } from '../../../types';
 import { formatCurrency, formatDate } from '../../../utils';

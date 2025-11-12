@@ -9,7 +9,7 @@
  * - Real-time stats
  */
 
-import React, { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { 
   Calendar, 
   CheckCircle, 

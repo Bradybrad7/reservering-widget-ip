@@ -8,7 +8,7 @@
  * - FocusPoints: Widget met urgente items (verlopen opties, pending requests, late payments)
  */
 
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   Users,
   Clock,

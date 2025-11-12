@@ -10,7 +10,7 @@
  * - Waarschuwing: Restitutie is een permanente actie
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { X, AlertTriangle, Calendar, CreditCard, FileText, CheckCircle, Ban } from 'lucide-react';
 import type { Reservation, Refund, PaymentMethod, RefundReason } from '../../../types';
 import { formatCurrency, cn } from '../../../utils';

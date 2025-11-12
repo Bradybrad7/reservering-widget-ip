@@ -7,7 +7,7 @@
  * October 31, 2025
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   DollarSign,
   TrendingUp,

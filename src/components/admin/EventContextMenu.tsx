@@ -9,7 +9,7 @@
  * - Verwijder Event
  */
 
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   ListChecks,
   Copy,

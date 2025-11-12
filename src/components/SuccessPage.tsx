@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { CheckCircle, Calendar as CalendarIcon, Download, ArrowLeft } from 'lucide-react';
 import { useReservationStore } from '../store/reservationStore';
 import { 

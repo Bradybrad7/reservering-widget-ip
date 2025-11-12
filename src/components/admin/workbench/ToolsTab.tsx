@@ -9,7 +9,7 @@
  * - Export: CSV export & PDF overzichten
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Plus,
   Upload,

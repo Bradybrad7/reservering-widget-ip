@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { useReservationsStore } from '../../store/reservationsStore';
 import { useEventsStore } from '../../store/eventsStore';
 import { addDays, format, isSameDay } from 'date-fns';

@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { AlertCircle } from 'lucide-react';
 
 // TODO: Email reminders feature not yet implemented

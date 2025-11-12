@@ -8,7 +8,7 @@
  * - Optimized voor master lists (events, reservations)
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Check, X, Edit2 } from 'lucide-react';
 import { cn } from '../../utils';
 

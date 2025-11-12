@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Sparkles, X, TrendingUp, Gift, ShoppingBag } from 'lucide-react';
 import { useReservationStore } from '../../store/reservationStore';
 import { formatCurrency, cn } from '../../utils';

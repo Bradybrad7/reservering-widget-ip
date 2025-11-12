@@ -1,5 +1,5 @@
 // Context Menu / Quick Actions Component
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   MoreVertical,
   Mail,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Package, Wine, PartyPopper, Check, Info } from 'lucide-react';
 import type { Arrangement } from '../types';
 import { useReservationStore } from '../store/reservationStore';

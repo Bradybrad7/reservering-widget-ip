@@ -10,7 +10,7 @@
  * Dit geeft context en overzicht terwijl de admin door de navigator browset.
  */
 
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { Calendar as CalendarIcon, TrendingUp, Users, CheckCircle, Euro } from 'lucide-react';
 import type { AdminEvent, Reservation, WaitlistEntry } from '../../types';
 import { cn, formatCurrency } from '../../utils';

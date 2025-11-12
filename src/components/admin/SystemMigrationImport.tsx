@@ -12,7 +12,7 @@
  * Gebruik BulkReservationImport voor: Reguliere bulk imports binnen één event
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Upload,
   Download,

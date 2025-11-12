@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   UserCheck, 
   Search, 
@@ -52,7 +52,7 @@ const CheckInManager: React.FC = () => {
   const [checkInNote, setCheckInNote] = useState<{ [key: string]: string }>({});
   const [showQRScanner, setShowQRScanner] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     loadEvents();
     loadReservations();
   }, [loadEvents, loadReservations]);
@@ -181,41 +181,76 @@ const CheckInManager: React.FC = () => {
 
   if (isLoadingEvents || isLoadingReservations) {
     return (
-      <div className="flex items-center justify-center h-96">
+      <div className="flex items-center justify-center h-full bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto mb-4"></div>
-          <p className="text-slate-400">Laden...</p>
+          <div className="relative">
+            <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-slate-700 border-t-amber-500 mb-6"></div>
+            <div className="absolute inset-0 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 animate-ping rounded-full h-16 w-16 border-2 border-amber-500/30"></div>
+          </div>
+          <p className="text-lg font-semibold text-slate-300 mb-2">Check-in data laden...</p>
+          <p className="text-sm text-slate-500">Even geduld, we halen alles op</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-amber-500/10 rounded-lg">
-            <UserCheck className="w-6 h-6 text-amber-400" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-semibold text-slate-100">Check-in Systeem</h1>
-            <p className="text-slate-400 text-sm">Registreer aanwezige gasten voor de show</p>
+    <div className="flex flex-col h-full bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800">
+      {/* Enhanced Header */}
+      <div className="bg-slate-800/80 backdrop-blur-sm border-b border-slate-700 shadow-xl">
+        <div className="px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-5">
+              {/* Decoratief icoon */}
+              <div className="relative p-4 bg-gradient-to-br from-amber-500 via-orange-600 to-yellow-600 rounded-2xl shadow-2xl">
+                <UserCheck className="w-8 h-8 text-white relative z-10" />
+                <div className="absolute inset-0 bg-amber-400 rounded-2xl blur-lg opacity-50 animate-pulse"></div>
+              </div>
+              
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-amber-200 to-amber-400 bg-clip-text text-transparent">
+                  Check-in Systeem
+                </h1>
+                <p className="text-slate-400 mt-1.5 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                  Registreer aanwezige gasten voor de show
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Stats */}
+            {selectedEventId && (
+              <div className="hidden lg:flex items-center gap-4">
+                <div className="px-5 py-3 bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl border border-slate-700 shadow-lg">
+                  <div className="text-2xl font-bold text-emerald-400">
+                    {stats.checkedIn}
+                  </div>
+                  <div className="text-xs text-slate-400 uppercase tracking-wider">
+                    Aanwezig
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
+      {/* Content Area */}
+      <div className="flex-1 overflow-auto px-8 py-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+
       {/* Event Selection & QR Scanner Button */}
-      <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-6">
-        <div className="flex items-end gap-4">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-slate-300 mb-3">
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6 shadow-xl">
+        <div className="flex flex-col md:flex-row items-start md:items-end gap-4">
+          <div className="flex-1 w-full">
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-300 mb-3">
+              <CalendarIcon className="w-4 h-4 text-amber-400" />
               Selecteer Event
             </label>
             <select
               value={selectedEventId}
               onChange={(e) => setSelectedEventId(e.target.value)}
-              className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-3 text-slate-100 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all text-lg"
+              className="w-full bg-slate-900/70 border-2 border-slate-700 hover:border-amber-500/50 rounded-xl px-4 py-4 text-slate-100 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all text-lg font-medium shadow-lg"
             >
               <option value="">-- Kies een event --</option>
               {upcomingEvents.map(event => (
@@ -233,10 +268,10 @@ const CheckInManager: React.FC = () => {
           
           <button
             onClick={() => setShowQRScanner(true)}
-            className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-medium rounded-lg transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
+            className="w-full md:w-auto px-8 py-4 bg-gradient-to-br from-amber-500 via-amber-600 to-orange-600 hover:from-amber-600 hover:via-amber-700 hover:to-orange-700 text-white font-bold rounded-xl transition-all duration-200 shadow-2xl shadow-amber-500/30 hover:shadow-amber-500/50 hover:scale-105 flex items-center justify-center gap-3"
           >
-            <QrCode className="w-5 h-5" />
-            Scan QR Code
+            <QrCode className="w-6 h-6" />
+            <span>Scan QR Code</span>
           </button>
         </div>
       </div>
@@ -503,6 +538,8 @@ const CheckInManager: React.FC = () => {
           onClose={() => setShowQRScanner(false)}
         />
       )}
+        </div>
+      </div>
     </div>
   );
 };

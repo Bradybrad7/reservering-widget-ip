@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Send, Mail, CheckCircle, XCircle } from 'lucide-react';
 import { useToast } from '../Toast';
 

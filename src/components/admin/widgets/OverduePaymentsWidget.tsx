@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { CreditCard, AlertCircle, ArrowRight, Mail } from 'lucide-react';
 import { useReservationsStore } from '../../../store/reservationsStore';
 import { useAdminStore } from '../../../store/adminStore';

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Mail, AlertTriangle, Check, X, Power, PowerOff } from 'lucide-react';
 import { useConfigStore } from '../../../store/configStore';
 import type { EmailSettings } from '../../../types';

@@ -1,5 +1,5 @@
 // Bulk Capacity Override Component
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, Users, AlertTriangle, Check, X, Save, RotateCcw } from 'lucide-react';
 import { useEventsStore } from '../../store/eventsStore';
 import { cn, formatDate, formatShortDate } from '../../utils';

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Clock, DollarSign, AlertTriangle, CheckCircle, Play, RefreshCw, Calendar, Mail } from 'lucide-react';
 import { optionExpiryService } from '../../services/optionExpiryService';
 import { paymentReminderService } from '../../services/paymentReminderService';

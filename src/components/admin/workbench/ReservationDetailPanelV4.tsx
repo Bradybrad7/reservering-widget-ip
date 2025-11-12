@@ -11,7 +11,7 @@
  * INLINE EDITING: Direct klikken om te wijzigen (via InlineEdit component)
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   User,
   CreditCard,

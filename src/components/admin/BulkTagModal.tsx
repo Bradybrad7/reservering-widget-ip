@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import Modal from '../ui/Modal';
 import { Tag, Check } from 'lucide-react';
 import { TagConfigService } from '../../services/tagConfigService';

@@ -5,7 +5,7 @@
  * GEEN complexe byDayType meer!
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Save, DollarSign, AlertCircle } from 'lucide-react';
 import { useConfigStore } from '../../store/configStore';
 import { updateEventTypePricing, getAllEventTypesWithPricing } from '../../services/priceService';

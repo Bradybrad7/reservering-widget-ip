@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { useAdminStore } from '../../store/adminStore';
 import { useReservationsStore } from '../../store/reservationsStore';
@@ -51,8 +51,12 @@ export const DashboardModern: React.FC = () => {
 
   if (isLoadingStats) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <RefreshCw className="w-8 h-8 text-gold-400 animate-spin" />
+      <div className="flex flex-col items-center justify-center h-64 space-y-4">
+        <RefreshCw className="w-12 h-12 text-gold-400 animate-spin" />
+        <div className="text-center">
+          <p className="text-neutral-300 font-medium">Dashboard laden...</p>
+          <p className="text-sm text-neutral-500 mt-1">Even geduld</p>
+        </div>
       </div>
     );
   }

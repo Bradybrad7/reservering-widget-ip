@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { AlertCircle, Clock, ArrowRight } from 'lucide-react';
 import { useReservationsStore } from '../../../store/reservationsStore';
 import { useAdminStore } from '../../../store/adminStore';

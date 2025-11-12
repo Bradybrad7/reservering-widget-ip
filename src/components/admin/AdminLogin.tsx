@@ -3,7 +3,7 @@
  * Firebase Authentication with admin claim checking
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Lock, Mail, AlertCircle, Loader } from 'lucide-react';
 

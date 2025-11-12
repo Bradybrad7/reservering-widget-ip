@@ -8,7 +8,7 @@
  * - Confirms and pays
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Gift, Package, Store, CreditCard, Check, Utensils, Theater } from 'lucide-react';
 import { useVoucherStore } from '../../store/voucherStore';
 import { useConfigStore } from '../../store/configStore';

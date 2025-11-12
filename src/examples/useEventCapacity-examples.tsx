@@ -5,7 +5,7 @@
  * in verschillende scenario's binnen ReservationsManager en EventManager.
  */
 
-import React from 'react';
+
 import { useEventCapacity } from '../hooks/useEventCapacity';
 import { formatDate } from '../utils';
 

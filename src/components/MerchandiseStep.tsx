@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { ShoppingBag, ArrowRight, ArrowLeft } from 'lucide-react';
 import { useConfigStore } from '../store/configStore';
 import { useReservationStore } from '../store/reservationStore';

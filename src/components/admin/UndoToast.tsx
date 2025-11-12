@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Undo2, Redo2, X } from 'lucide-react';
 import { useUndoStore, getActionDescription, type UndoableAction } from '../../store/undoStore';
 import { useEventsStore } from '../../store/eventsStore';

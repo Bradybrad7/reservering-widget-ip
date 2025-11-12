@@ -7,7 +7,7 @@
  * - Clean, compact design
  */
 
-import React from 'react';
+
 import { Globe } from 'lucide-react';
 import { cn } from '../../utils';
 import type { Language, LanguageStats } from '../../hooks/useLanguageFilter';
