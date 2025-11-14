@@ -1,17 +1,33 @@
-
+import React, { useMemo, useCallback } from 'react';
 import { CalendarPlus, Clock, FileDown, Users, Star } from 'lucide-react';
 import { useAdminStore } from '../../../store/adminStore';
 import { useReservationsStore } from '../../../store/reservationsStore';
 import { cn } from '../../../utils';
 import type { AdminSection } from '../../../types';
 
-export const QuickActionsWidget: React.FC = () => {
+export const QuickActionsWidget: React.FC = React.memo(() => {
   const { setActiveSection } = useAdminStore();
   const { reservations, bulkExport } = useReservationsStore();
 
-  const pendingCount = reservations.filter(r => r.status === 'pending').length;
+  const pendingCount = useMemo(() => 
+    reservations.filter(r => r.status === 'pending').length,
+    [reservations]
+  );
 
-  const quickActions = [
+  const handleExportData = useCallback(async () => {
+    const allIds = reservations.map(r => r.id);
+    const blob = await bulkExport(allIds);
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reserveringen-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  }, [reservations, bulkExport]);
+
+  const quickActions = useMemo(() => [
     {
       id: 'new-event' as AdminSection,
       label: 'Nieuw Event Aanmaken',
@@ -32,18 +48,7 @@ export const QuickActionsWidget: React.FC = () => {
       label: 'Export Data',
       icon: FileDown,
       color: 'blue',
-      action: async () => {
-        const allIds = reservations.map(r => r.id);
-        const blob = await bulkExport(allIds);
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `reserveringen-${new Date().toISOString().split('T')[0]}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-      }
+      action: handleExportData
     },
     {
       id: 'customers' as AdminSection,
@@ -52,7 +57,7 @@ export const QuickActionsWidget: React.FC = () => {
       color: 'purple',
       action: () => setActiveSection('customers')
     }
-  ];
+  ], [pendingCount, handleExportData, setActiveSection]);
 
   const colorClasses = {
     gold: 'bg-gold-500 hover:bg-gold-600',
@@ -93,4 +98,4 @@ export const QuickActionsWidget: React.FC = () => {
       </div>
     </div>
   );
-};
+});

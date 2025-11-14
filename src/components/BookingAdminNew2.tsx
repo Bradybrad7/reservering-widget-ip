@@ -10,7 +10,7 @@ import { ConfigManagerEnhanced } from './admin/ConfigManagerEnhanced';
 import { useAdminStore } from '../store/adminStore';
 
 // ✨ OPERATIONS CONTROL CENTER (Nov 2025)
-import { OperationsControlCenter } from './admin/OperationsControlCenter';
+import { OperationsControlCenter } from './admin/OperationsControlCenterRevamped';
 
 // ✨ Nieuwe features
 import AdvancedAnalytics from './admin/AdvancedAnalytics';

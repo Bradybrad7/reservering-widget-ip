@@ -8,9 +8,8 @@
  * - Bewerken: Event eigenschappen aanpassen (met inline editing)
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { AdminEvent, Reservation, WaitlistEntry, MerchandiseItem } from '../../types';
-import type { EventStats } from './EventCommandCenter';
 import { useReservationsStore } from '../../store/reservationsStore';
 import { useWaitlistStore } from '../../store/waitlistStore';
 import { useEventsStore } from '../../store/eventsStore';
@@ -22,6 +21,25 @@ import { ReservationDetailModal } from './modals/ReservationDetailModal';
 import { Edit, Eye, RefreshCw, List } from 'lucide-react';
 import { cn } from '../../utils';
 import { useToast } from '../Toast';
+import { CrossTabQuickActions, createEventQuickActions } from './CrossTabQuickActions';
+
+// Event Stats type - returned by getEventComputedData
+export interface EventStats {
+  totalBookings: number;
+  confirmedCount: number;
+  pendingCount: number;
+  cancelledCount: number;
+  checkedInCount: number;
+  totalConfirmedPersons: number;
+  totalPendingPersons: number;
+  waitlistCount: number;
+  waitlistPersonCount: number;
+  capacityPercentage: number;
+  status: {
+    text: string;
+    color: string;
+  };
+}
 
 interface EventDetailPanelProps {
   event: AdminEvent;
@@ -39,6 +57,14 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
   stats,
 }) => {
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
+  const contentRef = useRef<HTMLDivElement>(null);
+  
+  // Auto-scroll naar top wanneer event verandert
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [event.id]);
 
   // Store acties
   const { updateReservationStatus } = useReservationsStore();
@@ -50,76 +76,95 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
   const { setActiveTab: setOperationsTab, setEventContext } = useOperationsStore();
 
   return (
-    <div className="flex flex-col h-full bg-gray-900 text-white">
-      {/* Header */}
-      <div className="p-6 border-b border-gray-700">
-        <h3 className="text-2xl font-bold text-white">
-          {new Date(event.date).toLocaleDateString('nl-NL', { 
-            weekday: 'long', 
-            day: 'numeric', 
-            month: 'long',
-            year: 'numeric'
-          })}
-        </h3>
-        <p className="text-gray-400 mt-1">{event.type} • {event.startsAt} - {event.endsAt}</p>
+    <div className="flex flex-col h-full bg-white dark:bg-slate-900">
+      {/* Sticky Header - Blijft altijd zichtbaar */}
+      <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 dark:from-blue-950/30 dark:via-purple-950/30 dark:to-pink-950/30 backdrop-blur-xl border-b-2 border-slate-200 dark:border-slate-700 shadow-lg">
+        <div className="p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex-1">
+              <h3 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+                📅 {new Date(event.date).toLocaleDateString('nl-NL', { 
+                  weekday: 'long', 
+                  day: 'numeric', 
+                  month: 'long',
+                  year: 'numeric'
+                })}
+              </h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 font-medium mt-1">
+                {event.type} • {event.startsAt} - {event.endsAt}
+              </p>
+            </div>
+            
+            {/* Status badge */}
+            <div className={cn(
+              "px-3 py-1.5 rounded-lg text-xs font-bold border-2",
+              event.isActive 
+                ? "bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 text-green-700 dark:text-green-400 border-green-300 dark:border-green-600"
+                : "bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 text-slate-700 dark:text-slate-400 border-slate-300 dark:border-slate-600"
+            )}>
+              {event.isActive ? '✓ ACTIEF' : '✕ INACTIEF'}
+            </div>
+          </div>
         
-        {/* Quick stats */}
-        <div className="grid grid-cols-4 gap-4 mt-4">
-          <div className="bg-gray-800 rounded-lg p-3">
-            <div className="text-xs text-gray-400">Capaciteit</div>
-            <div className="text-lg font-bold mt-1">{stats.totalConfirmedPersons} / {event.capacity}</div>
+          {/* Compact Quick stats - 4 kolommen */}
+          <div className="grid grid-cols-4 gap-2">
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-2.5 border border-blue-200 dark:border-blue-800">
+              <div className="text-[10px] text-blue-700 dark:text-blue-400 font-bold">CAPACITEIT</div>
+              <div className="text-lg font-black text-blue-900 dark:text-blue-100 mt-0.5">
+                {stats.totalConfirmedPersons}<span className="text-sm text-slate-500 dark:text-slate-400 font-normal">/{event.capacity}</span>
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg p-2.5 border border-green-200 dark:border-green-800">
+              <div className="text-[10px] text-green-700 dark:text-green-400 font-bold">BEVESTIGD</div>
+              <div className="text-lg font-black text-green-600 dark:text-green-400 mt-0.5">{stats.confirmedCount}</div>
+            </div>
+            <div className="bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 rounded-lg p-2.5 border border-amber-200 dark:border-amber-800">
+              <div className="text-[10px] text-amber-700 dark:text-amber-400 font-bold">PENDING</div>
+              <div className="text-lg font-black text-amber-600 dark:text-amber-400 mt-0.5">{stats.pendingCount}</div>
+            </div>
+            <div className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-lg p-2.5 border border-orange-200 dark:border-orange-800">
+              <div className="text-[10px] text-orange-700 dark:text-orange-400 font-bold">WACHTLIJST</div>
+              <div className="text-lg font-black text-orange-600 dark:text-orange-400 mt-0.5">{stats.waitlistCount}</div>
+            </div>
           </div>
-          <div className="bg-gray-800 rounded-lg p-3">
-            <div className="text-xs text-gray-400">Bevestigd</div>
-            <div className="text-lg font-bold mt-1 text-green-400">{stats.confirmedCount}</div>
-          </div>
-          <div className="bg-gray-800 rounded-lg p-3">
-            <div className="text-xs text-gray-400">Pending</div>
-            <div className="text-lg font-bold mt-1 text-yellow-400">{stats.pendingCount}</div>
-          </div>
-          <div className="bg-gray-800 rounded-lg p-3">
-            <div className="text-xs text-gray-400">Wachtlijst</div>
-            <div className="text-lg font-bold mt-1 text-orange-400">{stats.waitlistCount}</div>
-          </div>
-        </div>
 
-        {/* ✨ INTELLIGENTE CROSS-NAVIGATION: Spring naar Reserveringen met context behouden */}
-        <div className="grid grid-cols-2 gap-3 mt-4">
-          <button
-            onClick={() => {
-              // Set event context en wissel naar Reserveringen tab
-              const eventDate = new Date(event.date).toLocaleDateString('nl-NL', { 
-                day: 'numeric', 
-                month: 'short' 
-              });
-              setEventContext(event.id, `${event.type} ${eventDate}`);
-              setOperationsTab('reservations');
-            }}
-            className="px-4 py-3 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-400 hover:text-blue-300 transition-all flex items-center justify-center gap-2 group"
-          >
-            <List className="w-5 h-5 group-hover:scale-110 transition-transform" />
-            <span className="font-medium">Reserveringen ({reservations.length})</span>
-          </button>
-          
-          <button
-            onClick={() => {
-              const eventDate = new Date(event.date).toLocaleDateString('nl-NL', { 
-                day: 'numeric', 
-                month: 'short' 
-              });
-              setEventContext(event.id, `${event.type} ${eventDate}`);
-              setOperationsTab('waitlist');
-            }}
-            className="px-4 py-3 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 rounded-lg text-orange-400 hover:text-orange-300 transition-all flex items-center justify-center gap-2 group"
-          >
-            <List className="w-5 h-5 group-hover:scale-110 transition-transform" />
-            <span className="font-medium">Wachtlijst ({waitlistEntries.length})</span>
-          </button>
+          {/* Modern Quick Action Buttons */}
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            <button
+              onClick={() => {
+                const eventDate = new Date(event.date).toLocaleDateString('nl-NL', { 
+                  day: 'numeric', 
+                  month: 'short' 
+                });
+                setEventContext(event.id, `${event.type} ${eventDate}`);
+                setOperationsTab('reservations');
+              }}
+              className="px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/30 dark:hover:to-indigo-900/30 border-2 border-blue-200 dark:border-blue-700 rounded-lg text-blue-700 dark:text-blue-400 transition-all flex items-center justify-center gap-2 group font-bold text-xs"
+            >
+              <List className="w-4 h-4 group-hover:scale-110 transition-transform" />
+              <span>Reserveringen ({reservations.length})</span>
+            </button>
+            
+            <button
+              onClick={() => {
+                const eventDate = new Date(event.date).toLocaleDateString('nl-NL', { 
+                  day: 'numeric', 
+                  month: 'short' 
+                });
+                setEventContext(event.id, `${event.type} ${eventDate}`);
+                setOperationsTab('waitlist');
+              }}
+              className="px-3 py-2 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 hover:from-orange-100 hover:to-amber-100 dark:hover:from-orange-900/30 dark:hover:to-amber-900/30 border-2 border-orange-200 dark:border-orange-700 rounded-lg text-orange-700 dark:text-orange-400 transition-all flex items-center justify-center gap-2 group font-bold text-xs"
+            >
+              <List className="w-4 h-4 group-hover:scale-110 transition-transform" />
+              <span>Wachtlijst ({waitlistEntries.length})</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Tab Knoppen */}
-      <div className="flex border-b border-gray-700 px-6">
+      {/* Modern Tab Buttons - Also sticky */}
+      <div className="sticky top-[180px] z-10 flex border-b-2 border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm shadow-sm">
         <TabButton 
           name="dashboard" 
           label="Dashboard" 
@@ -146,8 +191,8 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
         />
       </div>
 
-      {/* Tab Inhoud */}
-      <div className="flex-1 overflow-y-auto p-6">
+      {/* Scrollable Tab Content with ref */}
+      <div ref={contentRef} className="flex-1 overflow-y-auto p-6 bg-slate-50 dark:bg-slate-950/50">
         {activeTab === 'dashboard' && (
           <DashboardTab event={event} stats={stats} updateEvent={updateEvent} />
         )}
@@ -177,7 +222,7 @@ export const EventDetailPanel: React.FC<EventDetailPanelProps> = ({
 };
 
 // ============================================================================
-// TAB BUTTON COMPONENT
+// TAB BUTTON COMPONENT - Modern
 // ============================================================================
 
 interface TabButtonProps {
@@ -189,14 +234,18 @@ interface TabButtonProps {
 
 const TabButton: React.FC<TabButtonProps> = ({ name, label, activeTab, onClick }) => (
   <button
-    className={`px-6 py-3 font-semibold transition-colors ${
+    className={cn(
+      'relative px-6 py-3 font-bold text-sm transition-all',
       activeTab === name 
-        ? 'text-blue-400 border-b-2 border-blue-400' 
-        : 'text-gray-400 hover:text-white'
-    }`}
+        ? 'text-blue-600 dark:text-blue-400' 
+        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+    )}
     onClick={() => onClick(name)}
   >
     {label}
+    {activeTab === name && (
+      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600"></div>
+    )}
   </button>
 );
 
@@ -211,6 +260,8 @@ interface DashboardTabProps {
 }
 
 const DashboardTab: React.FC<DashboardTabProps> = ({ event, stats, updateEvent }) => {
+  const { setEventContext } = useOperationsStore();
+  
   const handleToggleActive = async () => {
     await updateEvent(event.id, { isActive: !event.isActive });
   };
@@ -219,8 +270,19 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ event, stats, updateEvent }
     await updateEvent(event.id, { waitlistActive: !event.waitlistActive });
   };
 
+  // Generate quick actions voor cross-tab navigation
+  const quickActions = createEventQuickActions(event.id, setEventContext);
+
   return (
     <div className="space-y-6">
+      {/* Cross-Tab Quick Actions */}
+      <div>
+        <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+          🚀 Snelle Navigatie
+        </h4>
+        <CrossTabQuickActions actions={quickActions} />
+      </div>
+      
       <div>
         <h4 className="text-lg font-semibold mb-4">Event Status & Acties</h4>
         

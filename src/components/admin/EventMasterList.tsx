@@ -169,20 +169,20 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
     };
   }, [events, allReservations, allWaitlistEntries]);
 
-  // Helper voor status badge kleur
+  // Helper voor status badge kleur - Modern gradients
   const getStatusBadgeClass = (color: string) => {
-    const baseClasses = 'px-2 py-0.5 rounded-full text-xs font-semibold';
+    const baseClasses = 'px-2 py-1 rounded-lg text-[10px] font-bold border-2';
     switch (color) {
       case 'green':
-        return `${baseClasses} bg-green-500/20 text-green-400 border border-green-500/30`;
+        return `${baseClasses} bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 text-green-700 dark:text-green-400 border-green-300 dark:border-green-600`;
       case 'red':
-        return `${baseClasses} bg-red-500/20 text-red-400 border border-red-500/30`;
+        return `${baseClasses} bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/30 dark:to-rose-900/30 text-red-700 dark:text-red-400 border-red-300 dark:border-red-600`;
       case 'orange':
-        return `${baseClasses} bg-orange-500/20 text-orange-400 border border-orange-500/30`;
+        return `${baseClasses} bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/30 dark:to-amber-900/30 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-600`;
       case 'gray':
-        return `${baseClasses} bg-gray-500/20 text-gray-400 border border-gray-500/30`;
+        return `${baseClasses} bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 text-slate-700 dark:text-slate-400 border-slate-300 dark:border-slate-600`;
       default:
-        return `${baseClasses} bg-blue-500/20 text-blue-400 border border-blue-500/30`;
+        return `${baseClasses} bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-600`;
     }
   };
 
@@ -377,94 +377,88 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-800 border-r border-gray-700">
-      {/* 🆕 Quick Stats Dashboard */}
-      {showStats && viewMode === 'list' && (
-        <div className="p-4 bg-gradient-to-r from-blue-900/30 to-purple-900/30 border-b border-gray-700">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-              <TrendingUp className="w-4 h-4" />
-              Overzicht
-            </h3>
-            <button
-              onClick={() => setShowStats(false)}
-              className="text-gray-400 hover:text-white text-xs"
-            >
-              Verberg
-            </button>
+    <div className="flex flex-col h-full bg-white dark:bg-slate-900">
+      {/* Modern Header with Gradient */}
+      <div className="flex-shrink-0 p-4 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-blue-50/50 via-purple-50/50 to-pink-50/50 dark:from-blue-950/20 dark:via-purple-950/20 dark:to-pink-950/20">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+              <List className="w-4 h-4 text-white" />
+            </div>
+            Evenementen
+          </h3>
+          <div className="text-sm font-bold text-slate-600 dark:text-slate-400">
+            {filteredAndSortedEvents.length} items
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-gray-900/50 rounded-lg p-3 border border-gray-700">
-              <div className="flex items-center gap-2 text-gray-400 text-xs mb-1">
+        </div>
+        
+        {/* Quick Stats - Modern Compact Cards */}
+        {showStats && (
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-2.5 border border-blue-200/50 dark:border-blue-800/50">
+              <div className="flex items-center gap-1.5 text-blue-700 dark:text-blue-400 text-[10px] font-bold mb-1">
                 <Calendar className="w-3 h-3" />
-                Events
+                EVENTS
               </div>
-              <div className="text-white font-bold text-lg">
-                {overallStats.activeEvents} <span className="text-gray-500 text-sm font-normal">/ {overallStats.totalEvents}</span>
+              <div className="text-slate-900 dark:text-white font-bold text-lg">
+                {overallStats.activeEvents} <span className="text-slate-500 dark:text-slate-400 text-sm font-normal">/ {overallStats.totalEvents}</span>
               </div>
             </div>
-            <div className="bg-gray-900/50 rounded-lg p-3 border border-gray-700">
-              <div className="flex items-center gap-2 text-gray-400 text-xs mb-1">
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg p-2.5 border border-purple-200/50 dark:border-purple-800/50">
+              <div className="flex items-center gap-1.5 text-purple-700 dark:text-purple-400 text-[10px] font-bold mb-1">
                 <Users className="w-3 h-3" />
-                Boekingen
+                BOEKINGEN
               </div>
-              <div className="text-white font-bold text-lg">
-                {overallStats.confirmedBookings} <span className="text-gray-500 text-sm font-normal">/ {overallStats.totalBookings}</span>
+              <div className="text-slate-900 dark:text-white font-bold text-lg">
+                {overallStats.confirmedBookings} <span className="text-slate-500 dark:text-slate-400 text-sm font-normal">/ {overallStats.totalBookings}</span>
               </div>
             </div>
-            <div className="bg-gray-900/50 rounded-lg p-3 border border-gray-700">
-              <div className="flex items-center gap-2 text-gray-400 text-xs mb-1">
+            <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-lg p-2.5 border border-orange-200/50 dark:border-orange-800/50">
+              <div className="flex items-center gap-1.5 text-orange-700 dark:text-orange-400 text-[10px] font-bold mb-1">
                 <Clock className="w-3 h-3" />
-                Wachtlijst
+                WACHTLIJST
               </div>
-              <div className="text-orange-400 font-bold text-lg">
+              <div className="text-orange-600 dark:text-orange-400 font-bold text-lg">
                 {overallStats.totalWaitlist}
               </div>
             </div>
-            <div className="bg-gray-900/50 rounded-lg p-3 border border-gray-700">
-              <div className="flex items-center gap-2 text-gray-400 text-xs mb-1">
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg p-2.5 border border-green-200/50 dark:border-green-800/50">
+              <div className="flex items-center gap-1.5 text-green-700 dark:text-green-400 text-[10px] font-bold mb-1">
                 <TrendingUp className="w-3 h-3" />
-                Omzet
+                OMZET
               </div>
-              <div className="text-green-400 font-bold text-lg">
+              <div className="text-green-600 dark:text-green-400 font-bold text-lg">
                 €{overallStats.totalRevenue.toLocaleString('nl-NL')}
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Render List View */}
-      {(
-        <>
-      {/* Toolbar met filters */}
-      <div className="p-4 border-b border-gray-700 space-y-3">
-        {/* Header Row */}
+      {/* Modern Toolbar with Filters */}
+      <div className="p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 space-y-3">
+        {/* Action Buttons Row */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl font-bold text-white">Evenementen</h2>
-            
-            {/* 🆕 Show Stats Button (when hidden) */}
+          <div className="flex items-center gap-2">
             {!showStats && (
               <button
                 onClick={() => setShowStats(true)}
-                className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded flex items-center gap-1 transition-colors"
+                className="px-2 py-1 text-xs bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-lg flex items-center gap-1 transition-colors"
               >
                 <TrendingUp className="w-3 h-3" />
-                Toon stats
+                Stats
               </button>
             )}
             
-            {/* 🆕 Bulk Selection Toggle */}
             <button
               onClick={() => {
                 setShowBulkActions(!showBulkActions);
                 if (showBulkActions) clearSelection();
               }}
-              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1 ${
+              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all flex items-center gap-1.5 ${
                 showBulkActions 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30' 
+                  : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
               }`}
             >
               {showBulkActions ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
@@ -473,21 +467,9 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
           </div>
           
           <div className="flex items-center gap-2">
-            {/* 🆕 View Mode Toggle */}
-            <div className="flex bg-gray-700 rounded-lg p-1">
-              <button
-                className="px-2 py-1 rounded transition-colors bg-blue-600 text-white"
-                title="Lijstweergave"
-                disabled
-              >
-                <List className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* 🆕 Export Button */}
             <button
               onClick={exportToCSV}
-              className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1"
+              className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5"
               title="Exporteer naar CSV"
             >
               <Download className="w-4 h-4" />
@@ -496,7 +478,7 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
             {onBulkAdd && (
               <button
                 onClick={onBulkAdd}
-                className="px-3 py-1.5 bg-gold-600 hover:bg-gold-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1"
+                className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5 shadow-lg shadow-amber-500/30"
                 title="Bulk evenementen toevoegen"
               >
                 <Plus className="w-4 h-4" />
@@ -506,7 +488,7 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
             {onCreateEvent && (
               <button
                 onClick={onCreateEvent}
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-medium rounded-lg transition-colors shadow-lg shadow-blue-500/30"
               >
                 + Nieuw
               </button>
@@ -514,17 +496,17 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
           </div>
         </div>
 
-        {/* 🆕 Bulk Actions Bar */}
+        {/* Bulk Actions Bar */}
         {showBulkActions && selectedEvents.size > 0 && (
-          <div className="bg-blue-900/30 border border-blue-500/50 rounded-lg p-3">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 border border-blue-200 dark:border-blue-500/50 rounded-lg p-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-white">
+                <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
                   {selectedEvents.size} {selectedEvents.size === 1 ? 'evenement' : 'evenementen'} geselecteerd
                 </span>
                 <button
                   onClick={clearSelection}
-                  className="text-xs text-gray-400 hover:text-white transition-colors"
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors font-medium"
                 >
                   Deselecteer alles
                 </button>
@@ -533,7 +515,7 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleBulkCancel}
-                  className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1"
+                  className="px-3 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5 shadow-lg shadow-orange-500/30"
                 >
                   <XCircle className="w-4 h-4" />
                   Annuleer
@@ -541,7 +523,7 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
                 
                 <button
                   onClick={handleBulkDelete}
-                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1 border-2 border-red-400"
+                  className="px-3 py-1.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5 shadow-lg shadow-red-500/30 border border-red-400 dark:border-red-500"
                 >
                   <Trash2 className="w-4 h-4" />
                   Verwijder Permanent
@@ -551,26 +533,26 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
           </div>
         )}
 
-        {/* Zoekbalk */}
+        {/* Modern Search Bar */}
         <div className="relative">
           <input
             type="text"
             placeholder="Zoek evenement..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-3 py-2 pl-9 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 pl-10 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-sm focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 transition-all"
           />
-          <svg className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="absolute left-3 top-3 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </div>
 
-        {/* Filters */}
+        {/* Modern Filters */}
         <div className="flex gap-2">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="flex-1 px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 px-3 py-2 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white text-sm focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium"
           >
             <option value="all">Alle statussen</option>
             <option value="open">Open</option>
@@ -582,7 +564,7 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value as any)}
-            className="flex-1 px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 px-3 py-2 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white text-sm focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium"
           >
             <option value="all">Alle types</option>
             <option value="mystery-dinner">Mystery Dinner</option>
@@ -592,55 +574,54 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
           </select>
         </div>
 
-        {/* 🆕 Sort Controls */}
-        <div className="flex gap-2">
-          <div className="flex-1 flex items-center gap-2 bg-gray-700 border border-gray-600 rounded px-2 py-1.5">
-            <ArrowUpDown className="w-3 h-3 text-gray-400" />
-            <span className="text-xs text-gray-400">Sorteren:</span>
+        {/* Modern Sort Controls */}
+        <div className="flex gap-2 items-center">
+          <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
+            <ArrowUpDown className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+            <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Sorteren:</span>
           </div>
           <button
             onClick={() => toggleSort('date')}
-            className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+            className={`px-3 py-2 text-xs font-bold rounded-lg transition-all ${
               sortBy === 'date'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30'
+                : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
             }`}
           >
             Datum {sortBy === 'date' && (sortOrder === 'asc' ? '↑' : '↓')}
           </button>
           <button
             onClick={() => toggleSort('capacity')}
-            className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+            className={`px-3 py-2 text-xs font-bold rounded-lg transition-all ${
               sortBy === 'capacity'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30'
+                : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
             }`}
           >
             Bezetting {sortBy === 'capacity' && (sortOrder === 'asc' ? '↑' : '↓')}
           </button>
           <button
             onClick={() => toggleSort('bookings')}
-            className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+            className={`px-3 py-2 text-xs font-bold rounded-lg transition-all ${
               sortBy === 'bookings'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30'
+                : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
             }`}
           >
             Boekingen {sortBy === 'bookings' && (sortOrder === 'asc' ? '↑' : '↓')}
           </button>
         </div>
 
-        {/* Resultaat teller */}
+        {/* Result Counter & Select All */}
         <div className="flex items-center justify-between text-xs">
-          <div className="text-gray-400">
+          <div className="text-slate-600 dark:text-slate-400 font-medium">
             {filteredAndSortedEvents.length} {filteredAndSortedEvents.length === 1 ? 'evenement' : 'evenementen'}
           </div>
           
-          {/* 🆕 Select All Checkbox */}
           {showBulkActions && filteredAndSortedEvents.length > 0 && (
             <button
               onClick={toggleSelectAll}
-              className="flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors"
+              className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors font-medium"
             >
               {selectedEvents.size === filteredAndSortedEvents.length ? (
                 <CheckSquare className="w-4 h-4" />
@@ -653,187 +634,192 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
         </div>
       </div>
 
-      {/* De Lijst */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Modern Event List */}
+      <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950/50">
         {filteredAndSortedEvents.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-gray-500 p-8 text-center">
+          <div className="flex items-center justify-center h-full text-slate-500 dark:text-slate-400 p-8 text-center">
             <div>
-              <svg className="w-12 h-12 mx-auto mb-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-              </svg>
-              <p className="text-sm font-medium">Geen evenementen gevonden</p>
-              <p className="text-xs text-gray-600 mt-1">Pas je filters aan of maak een nieuw event</p>
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center">
+                <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                </svg>
+              </div>
+              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Geen evenementen gevonden</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Pas je filters aan of maak een nieuw event</p>
             </div>
           </div>
         ) : (
-          filteredAndSortedEvents.map(event => {
-            const stats = getEventComputedData(event, allReservations, allWaitlistEntries);
-            const isSelected = event.id === selectedEventId;
-            const isChecked = selectedEvents.has(event.id);
+          <div className="space-y-2 p-3">
+            {filteredAndSortedEvents.map(event => {
+              const stats = getEventComputedData(event, allReservations, allWaitlistEntries);
+              const isSelected = event.id === selectedEventId;
+              const isChecked = selectedEvents.has(event.id);
 
-            return (
-              <div
-                key={event.id}
-                className={`group p-4 border-b border-gray-700 transition-colors ${
-                  isSelected 
-                    ? 'bg-blue-900/50 border-l-4 border-l-blue-500' 
-                    : 'hover:bg-gray-700/50'
-                } ${isChecked ? 'bg-blue-900/30' : ''}`}
-                onContextMenu={(e) => handleContextMenu(e, event)}
-              >
-                <div className="flex items-start gap-3">
-                  {/* 🆕 Checkbox (alleen zichtbaar in bulk mode) */}
-                  {showBulkActions && (
-                    <div
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleEventSelection(event.id);
-                      }}
-                      className="flex-shrink-0 mt-1 cursor-pointer"
-                    >
-                      {isChecked ? (
-                        <CheckSquare className="w-5 h-5 text-blue-400" />
-                      ) : (
-                        <Square className="w-5 h-5 text-gray-500 hover:text-gray-400" />
-                      )}
-                    </div>
-                  )}
-
-                  {/* Event content - clickable voor detail view */}
-                  <div 
-                    className="flex-1 cursor-pointer"
-                    onClick={() => !showBulkActions && onSelectEvent(event.id)}
-                  >
-                {/* Header: Datum + Status */}
-                <div className="flex justify-between items-center mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-white">
-                      {new Date(event.date).toLocaleDateString('nl-NL', { 
-                        weekday: 'short',
-                        day: '2-digit', 
-                        month: 'short', 
-                        year: 'numeric' 
-                      })}
-                    </span>
-                    {/* 🆕 Event Type Badge with dynamic color */}
-                    <span 
-                      className="px-2 py-0.5 rounded-full text-xs font-medium border"
-                      style={getEventTypeBadgeStyle(event.type)}
-                    >
-                      {getEventTypeName(event.type, eventTypesConfig || undefined)}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {/* 🆕 Quick Actions - Only visible when not in bulk mode */}
-                    {!showBulkActions && (
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            duplicateEvent(event);
-                          }}
-                          className="p-1 hover:bg-gray-600 rounded transition-colors"
-                          title="Dupliceer evenement"
-                        >
-                          <Copy className="w-3 h-3 text-gray-400 hover:text-white" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            window.open(`/preview.html?event=${event.id}`, '_blank');
-                          }}
-                          className="p-1 hover:bg-gray-600 rounded transition-colors"
-                          title="Preview evenement"
-                        >
-                          <Eye className="w-3 h-3 text-gray-400 hover:text-white" />
-                        </button>
+              return (
+                <div
+                  key={event.id}
+                  className={`group rounded-xl border-2 transition-all duration-200 ${
+                    isSelected 
+                      ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-400 dark:border-blue-500 shadow-lg shadow-blue-500/20' 
+                      : isChecked
+                        ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-700'
+                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md'
+                  }`}
+                  onContextMenu={(e) => handleContextMenu(e, event)}
+                >
+                  <div className="flex items-start gap-3 p-3">
+                    {/* Checkbox */}
+                    {showBulkActions && (
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleEventSelection(event.id);
+                        }}
+                        className="flex-shrink-0 mt-1 cursor-pointer"
+                      >
+                        {isChecked ? (
+                          <CheckSquare className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        ) : (
+                          <Square className="w-5 h-5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300" />
+                        )}
                       </div>
                     )}
-                    <span className={getStatusBadgeClass(stats.status.color)}>
-                      {stats.status.text}
-                    </span>
-                  </div>
-                </div>
 
-                {/* Event info */}
-                <p className="text-sm text-gray-300 mb-3">
-                  {event.startsAt} - {event.endsAt}
-                </p>
-                
-                {/* Capaciteit Bar */}
-                <div className="w-full bg-gray-600 rounded-full h-2 mb-2 overflow-hidden">
-                  <div 
-                    className={`h-2 rounded-full transition-all ${
-                      stats.capacityPercentage >= 100 
-                        ? 'bg-red-500' 
-                        : stats.capacityPercentage >= 80 
-                          ? 'bg-orange-500' 
-                          : 'bg-blue-500'
-                    }`}
-                    style={{ width: `${Math.min(stats.capacityPercentage, 100)}%` }}
-                  />
-                </div>
+                    {/* Event Content */}
+                    <div 
+                      className="flex-1 cursor-pointer"
+                      onClick={() => !showBulkActions && onSelectEvent(event.id)}
+                    >
+                      {/* Header Row */}
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-slate-900 dark:text-white text-sm">
+                            {new Date(event.date).toLocaleDateString('nl-NL', { 
+                              weekday: 'short',
+                              day: '2-digit', 
+                              month: 'short', 
+                              year: 'numeric' 
+                            })}
+                          </span>
+                          <span 
+                            className="px-2 py-0.5 rounded-full text-[10px] font-bold border"
+                            style={getEventTypeBadgeStyle(event.type)}
+                          >
+                            {getEventTypeName(event.type, eventTypesConfig || undefined)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {!showBulkActions && (
+                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  duplicateEvent(event);
+                                }}
+                                className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                                title="Dupliceer"
+                              >
+                                <Copy className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(`/preview.html?event=${event.id}`, '_blank');
+                                }}
+                                className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                                title="Preview"
+                              >
+                                <Eye className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                              </button>
+                            </div>
+                          )}
+                          <span className={getStatusBadgeClass(stats.status.color)}>
+                            {stats.status.text}
+                          </span>
+                        </div>
+                      </div>
 
-                {/* Capaciteit tekst */}
-                <div className="flex items-center justify-between text-xs mb-3">
-                  <div className="text-gray-400">
-                    Capaciteit: <span className="font-semibold text-white">{stats.totalConfirmedPersons}</span> / {event.capacity}
-                    {stats.capacityPercentage > 0 && (
-                      <span className="ml-1">({Math.round(stats.capacityPercentage)}%)</span>
-                    )}
-                  </div>
-                  {/* 🆕 Capacity Warning Indicator */}
-                  {stats.capacityPercentage >= 90 && stats.capacityPercentage < 100 && (
-                    <div className="flex items-center gap-1 text-orange-400">
-                      <AlertCircle className="w-3 h-3" />
-                      <span className="text-xs font-medium">Bijna vol</span>
-                    </div>
-                  )}
-                  {stats.capacityPercentage >= 100 && (
-                    <div className="flex items-center gap-1 text-red-400">
-                      <AlertCircle className="w-3 h-3" />
-                      <span className="text-xs font-medium">Volledig</span>
-                    </div>
-                  )}
-                </div>
+                      {/* Time */}
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-2.5 font-medium">
+                        {event.startsAt} - {event.endsAt}
+                      </p>
+                      
+                      {/* Modern Progress Bar */}
+                      <div className="relative w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 mb-2 overflow-hidden">
+                        <div 
+                          className={`h-2 rounded-full transition-all duration-500 ${
+                            stats.capacityPercentage >= 100 
+                              ? 'bg-gradient-to-r from-red-500 to-rose-500' 
+                              : stats.capacityPercentage >= 80 
+                                ? 'bg-gradient-to-r from-orange-500 to-amber-500' 
+                                : 'bg-gradient-to-r from-blue-500 to-indigo-500'
+                          }`}
+                          style={{ width: `${Math.min(stats.capacityPercentage, 100)}%` }}
+                        />
+                      </div>
 
-                {/* Stats grid */}
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="bg-gray-900/50 rounded px-2 py-1.5">
-                    <div className="text-gray-400">Boekingen</div>
-                    <div className="font-semibold text-white mt-0.5">
-                      <span className="text-green-400">{stats.confirmedCount}</span>
-                      {stats.pendingCount > 0 && (
-                        <span className="text-yellow-400"> +{stats.pendingCount}</span>
-                      )}
-                      {stats.checkedInCount > 0 && (
-                        <span className="text-blue-400"> ✓{stats.checkedInCount}</span>
-                      )}
-                    </div>
-                  </div>
+                      {/* Capacity Info */}
+                      <div className="flex items-center justify-between text-xs mb-2.5">
+                        <div className="text-slate-600 dark:text-slate-400 font-medium">
+                          <span className="font-bold text-slate-900 dark:text-white">{stats.totalConfirmedPersons}</span> / {event.capacity} personen
+                          {stats.capacityPercentage > 0 && (
+                            <span className="ml-1 text-slate-500">({Math.round(stats.capacityPercentage)}%)</span>
+                          )}
+                        </div>
+                        {stats.capacityPercentage >= 90 && stats.capacityPercentage < 100 && (
+                          <div className="flex items-center gap-1 text-orange-600 dark:text-orange-400">
+                            <AlertCircle className="w-3 h-3" />
+                            <span className="text-[10px] font-bold">BIJNA VOL</span>
+                          </div>
+                        )}
+                        {stats.capacityPercentage >= 100 && (
+                          <div className="flex items-center gap-1 text-red-600 dark:text-red-400">
+                            <AlertCircle className="w-3 h-3" />
+                            <span className="text-[10px] font-bold">VOLLEDIG</span>
+                          </div>
+                        )}
+                      </div>
 
-                  <div className={`rounded px-2 py-1.5 ${
-                    stats.waitlistCount > 0 ? 'bg-orange-500/10' : 'bg-gray-900/50'
-                  }`}>
-                    <div className="text-gray-400">Wachtlijst</div>
-                    <div className={`font-semibold mt-0.5 ${
-                      stats.waitlistCount > 0 ? 'text-orange-400' : 'text-white'
-                    }`}>
-                      {stats.waitlistPersonCount} pers. ({stats.waitlistCount})
+                      {/* Stats Grid */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg px-2.5 py-2 border border-green-200 dark:border-green-800">
+                          <div className="text-[10px] text-green-700 dark:text-green-400 font-bold mb-0.5">BOEKINGEN</div>
+                          <div className="font-bold text-sm">
+                            <span className="text-green-600 dark:text-green-400">{stats.confirmedCount}</span>
+                            {stats.pendingCount > 0 && (
+                              <span className="text-amber-600 dark:text-amber-400 ml-1">+{stats.pendingCount}</span>
+                            )}
+                            {stats.checkedInCount > 0 && (
+                              <span className="text-blue-600 dark:text-blue-400 ml-1">✓{stats.checkedInCount}</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className={`rounded-lg px-2.5 py-2 border ${
+                          stats.waitlistCount > 0 
+                            ? 'bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border-orange-200 dark:border-orange-800' 
+                            : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                        }`}>
+                          <div className={`text-[10px] font-bold mb-0.5 ${
+                            stats.waitlistCount > 0 ? 'text-orange-700 dark:text-orange-400' : 'text-slate-600 dark:text-slate-400'
+                          }`}>WACHTLIJST</div>
+                          <div className={`font-bold text-sm ${
+                            stats.waitlistCount > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-slate-700 dark:text-slate-300'
+                          }`}>
+                            {stats.waitlistPersonCount} <span className="text-xs font-normal opacity-70">({stats.waitlistCount})</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })
+              );
+            })}
+          </div>
         )}
       </div>
-        </>
-      )}
 
-      {/* ✨ NEW: Duplicate Event Modal */}
+      {/* Duplicate Event Modal */}
       <DuplicateEventModal
         isOpen={duplicateModalOpen}
         onClose={() => {
@@ -844,7 +830,7 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
         onSuccess={handleDuplicateSuccess}
       />
 
-      {/* ✨ NEW: Context Menu */}
+      {/* Context Menu */}
       {contextMenu && (
         <EventContextMenu
           position={contextMenu.position}

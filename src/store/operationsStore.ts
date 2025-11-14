@@ -219,14 +219,13 @@ export const useOperationsStore = create<OperationsState & OperationsActions>()(
 
 /**
  * Hook om snel te checken of een specifiek context type actief is
+ * OPTIMIZED: Gebruikt selectors om onnodige re-renders te voorkomen
  */
 export const useActiveContext = () => {
-  const { 
-    selectedEventContext, 
-    selectedCustomerContext, 
-    selectedReservationContext,
-    contextInfo 
-  } = useOperationsStore();
+  const selectedEventContext = useOperationsStore(state => state.selectedEventContext);
+  const selectedCustomerContext = useOperationsStore(state => state.selectedCustomerContext);
+  const selectedReservationContext = useOperationsStore(state => state.selectedReservationContext);
+  const contextInfo = useOperationsStore(state => state.contextInfo);
   
   return {
     hasEventContext: !!selectedEventContext,
@@ -242,13 +241,12 @@ export const useActiveContext = () => {
 
 /**
  * Hook voor tab-specific filters (gebruikt in individuele components)
+ * OPTIMIZED: Gebruikt selectors voor granulaire updates
  */
 export const useOperationFilters = () => {
-  const { 
-    selectedEventContext, 
-    selectedCustomerContext, 
-    selectedReservationContext 
-  } = useOperationsStore();
+  const selectedEventContext = useOperationsStore(state => state.selectedEventContext);
+  const selectedCustomerContext = useOperationsStore(state => state.selectedCustomerContext);
+  const selectedReservationContext = useOperationsStore(state => state.selectedReservationContext);
   
   return {
     eventId: selectedEventContext,
@@ -264,3 +262,30 @@ export const useOperationFilters = () => {
     }
   };
 };
+
+// ============================================================================
+// PERFORMANCE OPTIMIZED SELECTORS
+// ============================================================================
+
+/**
+ * Selector voor alleen activeTab - voorkomt re-render bij context changes
+ */
+export const useActiveTab = () => useOperationsStore(state => state.activeTab);
+
+/**
+ * Selector voor alleen setActiveTab action
+ */
+export const useSetActiveTab = () => useOperationsStore(state => state.setActiveTab);
+
+/**
+ * Selector voor context actions (zonder state)
+ */
+export const useContextActions = () => useOperationsStore(state => ({
+  setEventContext: state.setEventContext,
+  setCustomerContext: state.setCustomerContext,
+  setReservationContext: state.setReservationContext,
+  clearAllContext: state.clearAllContext,
+  clearEventContext: state.clearEventContext,
+  clearCustomerContext: state.clearCustomerContext,
+  clearReservationContext: state.clearReservationContext
+}));

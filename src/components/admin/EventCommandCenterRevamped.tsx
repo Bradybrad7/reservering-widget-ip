@@ -37,6 +37,7 @@ import { EventDetailPanel } from './EventDetailPanel';
 import { EventCalendarView } from './EventCalendarView';
 import { EventWeekMonthView } from './EventWeekMonthView';
 import { BulkEventModal } from './BulkEventModal';
+import { GlobalQuickStats } from './GlobalQuickStats';
 import { getEventComputedData } from '../../utils/eventHelpers';
 
 type ViewMode = 'list' | 'calendar' | 'grid' | 'week-month';
@@ -192,120 +193,146 @@ export const EventCommandCenterRevamped: React.FC = () => {
   }, [eventTypesConfig]);
 
   return (
-    <div className="flex flex-col h-full space-y-4">
-      {/* Header met statistieken en acties */}
-      <div className="bg-neutral-800/50 rounded-xl p-6 space-y-6">
+    <div className="flex flex-col h-full bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      {/* Global Quick Stats */}
+      <GlobalQuickStats />
+      
+      <div className="flex-1 overflow-auto p-6 space-y-6">
+        {/* Modern Header */}
+        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-xl p-6 space-y-6">
         {/* Titel en acties */}
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-              🎭 Evenementen Beheer
-            </h2>
-            <p className="text-neutral-400 mt-1">
-              Overzicht en beheer van alle evenementen
-            </p>
+          <div className="flex items-center gap-4">
+            {/* Animated icon */}
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-xl blur-md opacity-75 group-hover:opacity-100 transition-opacity"></div>
+              <div className="relative p-3 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-xl shadow-lg">
+                <CalendarIcon className="w-7 h-7 text-white" strokeWidth={2.5} />
+              </div>
+            </div>
+            
+            <div>
+              <h2 className="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+                Evenementen Beheer
+              </h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5 font-medium">
+                Overzicht en beheer van alle evenementen
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
               onClick={handleExport}
-              className="flex items-center gap-2 px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl transition-all hover:shadow-lg font-bold text-sm border-2 border-slate-200 dark:border-slate-700"
             >
               <Download className="w-4 h-4" />
-              <span className="hidden md:inline">Exporteren</span>
+              <span className="hidden md:inline">Export</span>
             </button>
             
             <button
               onClick={() => setShowBulkModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-gold-500 hover:bg-gold-600 text-white rounded-lg font-medium transition-colors shadow-md"
+              className="relative group flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-blue-500 via-blue-600 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl font-bold text-sm transition-all shadow-lg hover:shadow-xl hover:scale-105"
             >
+              <div className="absolute inset-0 bg-blue-400 rounded-xl blur-xl opacity-50 group-hover:opacity-75 -z-10"></div>
               <Plus className="w-4 h-4" />
-              <span className="hidden md:inline">Bulk Toevoegen</span>
+              <span className="hidden md:inline">Nieuw Event</span>
             </button>
           </div>
         </div>
 
-        {/* Quick stats */}
+        {/* Modern Quick Stats Cards */}
         {!isLoading && (
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-            <div className="bg-neutral-900/50 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-neutral-400 text-sm mb-1">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {/* Total Events */}
+            <div className="group relative bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-4 border-2 border-blue-200/50 dark:border-blue-700/50 hover:border-blue-400 dark:hover:border-blue-500 transition-all hover:shadow-lg hover:scale-105">
+              <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 text-xs font-bold mb-2">
                 <CalendarIcon className="w-4 h-4" />
-                Events
+                EVENTS
               </div>
-              <div className="text-2xl font-bold text-white">
+              <div className="text-3xl font-black text-blue-900 dark:text-blue-100">
                 {quickStats.totalEvents}
               </div>
-              <div className="text-xs text-green-400 mt-1">
+              <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 mt-2 font-bold">
+                <CheckCircle className="w-3 h-3" />
                 {quickStats.activeEvents} actief
               </div>
             </div>
 
-            <div className="bg-neutral-900/50 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-neutral-400 text-sm mb-1">
+            {/* Capacity */}
+            <div className="group relative bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-4 border-2 border-purple-200/50 dark:border-purple-700/50 hover:border-purple-400 dark:hover:border-purple-500 transition-all hover:shadow-lg hover:scale-105">
+              <div className="flex items-center gap-2 text-purple-700 dark:text-purple-400 text-xs font-bold mb-2">
                 <Users className="w-4 h-4" />
-                Capaciteit
+                CAPACITEIT
               </div>
-              <div className="text-2xl font-bold text-white">
+              <div className="text-3xl font-black text-purple-900 dark:text-purple-100">
                 {quickStats.totalCapacity}
               </div>
-              <div className="text-xs text-neutral-400 mt-1">
+              <div className="text-xs text-purple-600 dark:text-purple-400 mt-2 font-medium">
                 totale plaatsen
               </div>
             </div>
 
-            <div className="bg-neutral-900/50 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-neutral-400 text-sm mb-1">
+            {/* Bookings */}
+            <div className="group relative bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-4 border-2 border-green-200/50 dark:border-green-700/50 hover:border-green-400 dark:hover:border-green-500 transition-all hover:shadow-lg hover:scale-105">
+              <div className="flex items-center gap-2 text-green-700 dark:text-green-400 text-xs font-bold mb-2">
                 <CheckCircle className="w-4 h-4" />
-                Reserveringen
+                BOEKINGEN
               </div>
-              <div className="text-2xl font-bold text-white">
+              <div className="text-3xl font-black text-green-900 dark:text-green-100">
                 {quickStats.totalBookings}
               </div>
-              <div className="text-xs text-neutral-400 mt-1">
+              <div className="text-xs text-green-600 dark:text-green-400 mt-2 font-medium">
                 bevestigd
               </div>
             </div>
 
-            <div className="bg-neutral-900/50 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-neutral-400 text-sm mb-1">
+            {/* Occupancy */}
+            <div className="group relative bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-xl p-4 border-2 border-orange-200/50 dark:border-orange-700/50 hover:border-orange-400 dark:hover:border-orange-500 transition-all hover:shadow-lg hover:scale-105">
+              <div className="flex items-center gap-2 text-orange-700 dark:text-orange-400 text-xs font-bold mb-2">
                 <TrendingUp className="w-4 h-4" />
-                Bezetting
+                BEZETTING
               </div>
-              <div className="text-2xl font-bold text-white">
+              <div className="text-3xl font-black text-orange-900 dark:text-orange-100">
                 {quickStats.averageOccupancy.toFixed(0)}%
               </div>
-              <div className="text-xs text-neutral-400 mt-1">
-                gemiddeld
+              <div className="w-full bg-orange-200 dark:bg-orange-900/50 rounded-full h-2 overflow-hidden mt-2">
+                <div 
+                  className="h-full bg-gradient-to-r from-orange-500 to-orange-600 transition-all duration-500"
+                  style={{ width: `${quickStats.averageOccupancy}%` }}
+                />
               </div>
             </div>
 
-            <div className="bg-neutral-900/50 rounded-lg p-4 col-span-2">
-              <div className="flex items-center gap-2 text-neutral-400 text-sm mb-1">
-                💰 Omzet
+            {/* Revenue */}
+            <div className="group relative bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 rounded-xl p-4 border-2 border-amber-200/50 dark:border-amber-700/50 hover:border-amber-400 dark:hover:border-amber-500 transition-all hover:shadow-lg hover:scale-105 col-span-2">
+              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-xs font-bold mb-2">
+                💰 OMZET
               </div>
-              <div className="text-2xl font-bold text-white">
-                €{quickStats.totalRevenue.toFixed(2)}
+              <div className="text-3xl font-black text-amber-900 dark:text-amber-100">
+                €{quickStats.totalRevenue.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
-              <div className="text-xs text-neutral-400 mt-1">
+              <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 mt-2 font-bold">
+                <TrendingUp className="w-3 h-3" />
                 totale omzet
               </div>
             </div>
           </div>
         )}
 
-        {/* Filters en zoeken */}
+        {/* Modern Filters & Search */}
         <div className="flex flex-col md:flex-row gap-3">
-          {/* Zoekbalk */}
-          <div className="flex-1">
+          {/* Zoekbalk met gradient border */}
+          <div className="flex-1 relative group">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-xl opacity-0 group-focus-within:opacity-100 blur transition-opacity"></div>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
               <input
                 type="text"
                 placeholder="Zoek op datum, show, type..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white placeholder-neutral-400 focus:outline-none focus:border-gold-500 transition-colors"
+                className="relative w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all font-medium"
               />
             </div>
           </div>
@@ -314,7 +341,7 @@ export const EventCommandCenterRevamped: React.FC = () => {
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value as EventType | 'all')}
-            className="px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:border-gold-500 transition-colors"
+            className="px-4 py-3 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 focus:border-purple-500 rounded-xl text-slate-900 dark:text-white focus:outline-none transition-all font-bold text-sm hover:border-purple-400 cursor-pointer"
           >
             {eventTypes.map(type => (
               <option key={type.value} value={type.value}>
@@ -327,92 +354,113 @@ export const EventCommandCenterRevamped: React.FC = () => {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')}
-            className="px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:border-gold-500 transition-colors"
+            className="px-4 py-3 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 focus:border-green-500 rounded-xl text-slate-900 dark:text-white focus:outline-none transition-all font-bold text-sm hover:border-green-400 cursor-pointer"
           >
             <option value="all">Alle statussen</option>
-            <option value="active">Actief</option>
-            <option value="inactive">Inactief</option>
+            <option value="active">✅ Actief</option>
+            <option value="inactive">⏸️ Inactief</option>
           </select>
 
-          {/* View mode toggle */}
-          <div className="flex items-center bg-neutral-700 rounded-lg p-1">
+          {/* View mode toggle with modern styling */}
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border-2 border-slate-200 dark:border-slate-700">
             <button
-              key="calendar-view"
               onClick={() => setViewMode('calendar')}
               className={cn(
-                'flex items-center gap-2 px-3 py-1.5 rounded-md transition-all',
+                'relative flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-all font-bold text-sm',
                 viewMode === 'calendar'
-                  ? 'bg-gold-500 text-white shadow-md'
-                  : 'text-neutral-300 hover:bg-neutral-600'
+                  ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg scale-105'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
               )}
               title="Kalender weergave"
             >
-              <CalendarIcon className="w-4 h-4" />
+              {viewMode === 'calendar' && (
+                <div className="absolute inset-0 bg-blue-400 rounded-lg blur-lg opacity-50 -z-10"></div>
+              )}
+              <CalendarIcon className="w-4 h-4" strokeWidth={2.5} />
+              <span className="hidden xl:inline">Kalender</span>
             </button>
+            
             <button
-              key="week-month-view"
               onClick={() => setViewMode('week-month')}
               className={cn(
-                'flex items-center gap-2 px-3 py-1.5 rounded-md transition-all',
+                'relative flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-all font-bold text-sm',
                 viewMode === 'week-month'
-                  ? 'bg-gold-500 text-white shadow-md'
-                  : 'text-neutral-300 hover:bg-neutral-600'
+                  ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg scale-105'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
               )}
               title="Week/Maand overzicht"
             >
-              <Clock className="w-4 h-4" />
+              {viewMode === 'week-month' && (
+                <div className="absolute inset-0 bg-blue-400 rounded-lg blur-lg opacity-50 -z-10"></div>
+              )}
+              <Clock className="w-4 h-4" strokeWidth={2.5} />
+              <span className="hidden xl:inline">Week</span>
             </button>
+            
             <button
-              key="list-view"
               onClick={() => setViewMode('list')}
               className={cn(
-                'flex items-center gap-2 px-3 py-1.5 rounded-md transition-all',
+                'relative flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-all font-bold text-sm',
                 viewMode === 'list'
-                  ? 'bg-gold-500 text-white shadow-md'
-                  : 'text-neutral-300 hover:bg-neutral-600'
+                  ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg scale-105'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
               )}
               title="Lijst weergave"
             >
-              <List className="w-4 h-4" />
+              {viewMode === 'list' && (
+                <div className="absolute inset-0 bg-blue-400 rounded-lg blur-lg opacity-50 -z-10"></div>
+              )}
+              <List className="w-4 h-4" strokeWidth={2.5} />
+              <span className="hidden xl:inline">Lijst</span>
             </button>
+            
             <button
-              key="grid-view"
               onClick={() => setViewMode('grid')}
               className={cn(
-                'flex items-center gap-2 px-3 py-1.5 rounded-md transition-all',
+                'relative flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-all font-bold text-sm',
                 viewMode === 'grid'
-                  ? 'bg-gold-500 text-white shadow-md'
-                  : 'text-neutral-300 hover:bg-neutral-600'
+                  ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg scale-105'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
               )}
               title="Grid weergave"
             >
-              <LayoutGrid className="w-4 h-4" />
+              {viewMode === 'grid' && (
+                <div className="absolute inset-0 bg-blue-400 rounded-lg blur-lg opacity-50 -z-10"></div>
+              )}
+              <LayoutGrid className="w-4 h-4" strokeWidth={2.5} />
+              <span className="hidden xl:inline">Grid</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Content gebied */}
+      {/* Content gebied met moderne styling */}
       <div className="flex-1 overflow-hidden">
         {isLoading ? (
-          <div className="flex items-center justify-center h-full bg-neutral-800/30 rounded-xl">
+          <div className="flex items-center justify-center h-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-xl">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gold-500 mx-auto mb-4"></div>
-              <p className="text-neutral-400">Data laden...</p>
+              <div className="relative">
+                <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 dark:border-blue-900 border-t-blue-600 dark:border-t-blue-400 mx-auto mb-4"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <CalendarIcon className="w-6 h-6 text-blue-600 dark:text-blue-400 animate-pulse" />
+                </div>
+              </div>
+              <p className="text-slate-600 dark:text-slate-400 font-bold">Events laden...</p>
+              <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">Even geduld</p>
             </div>
           </div>
         ) : (
           <>
             {/* Kalender View */}
             {viewMode === 'calendar' && (
-              <div className="h-full bg-neutral-800/50 rounded-xl overflow-hidden">
+              <div className="h-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-xl overflow-hidden">
                 <EventCalendarView
                   events={filteredEvents}
                   allReservations={reservations}
                   allWaitlistEntries={waitlistEntries}
                   onSelectEvent={(eventId) => {
                     setSelectedEventId(eventId);
-                    setViewMode('list'); // Switch naar detail view
+                    setViewMode('list');
                   }}
                   selectedEventId={selectedEventId}
                 />
@@ -421,17 +469,17 @@ export const EventCommandCenterRevamped: React.FC = () => {
 
             {/* Week/Month View */}
             {viewMode === 'week-month' && (
-              <div className="h-full overflow-y-auto p-4">
+              <div className="h-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-xl overflow-y-auto p-6">
                 <EventWeekMonthView
                   events={filteredEvents}
                   reservations={reservations}
                   onEventClick={(event) => {
                     setSelectedEventId(event.id);
-                    setViewMode('list'); // Switch naar detail view
+                    setViewMode('list');
                   }}
                   onEditEvent={(event) => {
                     setSelectedEventId(event.id);
-                    setViewMode('list'); // Switch naar detail view
+                    setViewMode('list');
                   }}
                 />
               </div>
@@ -441,7 +489,7 @@ export const EventCommandCenterRevamped: React.FC = () => {
             {viewMode === 'list' && (
               <div className="flex h-full gap-4">
                 {/* Master List */}
-                <div className="w-1/3 bg-neutral-800/50 rounded-xl overflow-hidden">
+                <div className="w-1/3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-xl overflow-hidden">
                   <EventMasterList
                     events={filteredEvents}
                     allReservations={reservations}
@@ -453,7 +501,7 @@ export const EventCommandCenterRevamped: React.FC = () => {
                 </div>
 
                 {/* Detail Panel */}
-                <div className="w-2/3 bg-neutral-800/50 rounded-xl overflow-hidden">
+                <div className="w-2/3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-xl overflow-hidden">
                   {selectedEventData ? (
                     <EventDetailPanel
                       event={selectedEventData.event}
@@ -462,12 +510,19 @@ export const EventCommandCenterRevamped: React.FC = () => {
                       stats={selectedEventData.stats}
                     />
                   ) : (
-                    <div className="flex items-center justify-center h-full text-neutral-500">
-                      <div className="text-center">
-                        <CalendarIcon className="w-16 h-16 mx-auto mb-4 text-neutral-600" />
-                        <p className="text-lg font-medium">Selecteer een evenement</p>
-                        <p className="text-sm text-neutral-600 mt-2">
-                          Klik op een evenement om details te bekijken
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center p-8">
+                        <div className="relative group mb-6">
+                          <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-full blur-2xl opacity-20 group-hover:opacity-30 transition-opacity"></div>
+                          <div className="relative p-6 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20 rounded-full">
+                            <CalendarIcon className="w-16 h-16 text-blue-600 dark:text-blue-400" strokeWidth={1.5} />
+                          </div>
+                        </div>
+                        <p className="text-xl font-black text-slate-900 dark:text-white mb-2">
+                          Selecteer een evenement
+                        </p>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                          Klik op een evenement in de lijst om details te bekijken
                         </p>
                       </div>
                     </div>
@@ -478,7 +533,7 @@ export const EventCommandCenterRevamped: React.FC = () => {
 
             {/* Grid View */}
             {viewMode === 'grid' && (
-              <div className="h-full bg-neutral-800/50 rounded-xl overflow-auto p-6">
+              <div className="h-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-xl overflow-auto p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {filteredEvents.map(event => {
                     const stats = getEventComputedData(event, reservations, waitlistEntries);
@@ -497,86 +552,109 @@ export const EventCommandCenterRevamped: React.FC = () => {
                           setEventContext(event.id, `${event.type} ${eventDate}`);
                         }}
                         className={cn(
-                          'bg-neutral-900/50 rounded-lg p-4 text-left transition-all hover:bg-neutral-900 border-2',
+                          'group relative bg-white dark:bg-slate-800 rounded-xl p-5 text-left transition-all hover:shadow-2xl border-2 overflow-hidden',
                           selectedEventId === event.id
-                            ? 'border-gold-500'
-                            : 'border-transparent hover:border-neutral-600'
+                            ? 'border-blue-500 shadow-xl scale-105'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500'
                         )}
                       >
-                        {/* Datum */}
-                        <div className="text-2xl font-bold text-white mb-1">
-                          {new Date(event.date).getDate()}
-                        </div>
-                        <div className="text-xs text-neutral-400 mb-3">
-                          {new Date(event.date).toLocaleDateString('nl-NL', { 
-                            month: 'short', 
-                            year: 'numeric' 
-                          })}
+                        {/* Gradient overlay on hover */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                        
+                        {/* Active indicator */}
+                        {selectedEventId === event.id && (
+                          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
+                        )}
+                        
+                        {/* Datum Badge */}
+                        <div className="relative flex items-baseline gap-2 mb-4">
+                          <div className="text-4xl font-black text-slate-900 dark:text-white">
+                            {new Date(event.date).getDate()}
+                          </div>
+                          <div className="flex flex-col">
+                            <div className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase">
+                              {new Date(event.date).toLocaleDateString('nl-NL', { month: 'short' })}
+                            </div>
+                            <div className="text-xs text-slate-500 dark:text-slate-500">
+                              {new Date(event.date).getFullYear()}
+                            </div>
+                          </div>
                         </div>
 
-                        {/* Type badge */}
-                        <div className="flex items-center gap-2 mb-3">
+                        {/* Type & Status badges */}
+                        <div className="relative flex items-center gap-2 mb-4 flex-wrap">
                           <span className={cn(
-                            'px-2 py-0.5 rounded text-xs font-medium',
+                            'px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wide',
                             event.isActive
-                              ? 'bg-green-500/20 text-green-400'
-                              : 'bg-gray-500/20 text-gray-400'
+                              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
                           )}>
                             {event.type}
                           </span>
                           <span className={cn(
-                            'px-2 py-0.5 rounded text-xs font-medium',
-                            stats.status.color === 'green' && 'bg-green-500/20 text-green-400',
-                            stats.status.color === 'orange' && 'bg-orange-500/20 text-orange-400',
-                            stats.status.color === 'red' && 'bg-red-500/20 text-red-400',
-                            stats.status.color === 'gray' && 'bg-gray-500/20 text-gray-400'
+                            'px-3 py-1 rounded-lg text-xs font-black',
+                            stats.status.color === 'green' && 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800',
+                            stats.status.color === 'orange' && 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800',
+                            stats.status.color === 'red' && 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800',
+                            stats.status.color === 'gray' && 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
                           )}>
                             {stats.status.text}
                           </span>
                         </div>
 
                         {/* Stats */}
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between text-neutral-400">
-                            <span>Bezetting:</span>
-                            <span className="text-white font-medium">
+                        <div className="relative space-y-3 text-sm mb-4">
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-600 dark:text-slate-400 font-medium">Bezetting</span>
+                            <span className="text-slate-900 dark:text-white font-black">
                               {stats.totalConfirmedPersons} / {event.capacity}
                             </span>
                           </div>
                           
-                          <div className="w-full bg-neutral-700 rounded-full h-2 overflow-hidden">
-                            <div 
-                              className={cn(
-                                'h-full transition-all',
-                                stats.capacityPercentage >= 100 ? 'bg-red-500' :
-                                stats.capacityPercentage >= 80 ? 'bg-orange-500' :
-                                'bg-green-500'
-                              )}
-                              style={{ width: `${Math.min(stats.capacityPercentage, 100)}%` }}
-                            />
+                          <div className="relative">
+                            <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-3 overflow-hidden">
+                              <div 
+                                className={cn(
+                                  'h-full transition-all duration-500 rounded-full',
+                                  stats.capacityPercentage >= 100 ? 'bg-gradient-to-r from-red-500 to-red-600' :
+                                  stats.capacityPercentage >= 80 ? 'bg-gradient-to-r from-orange-500 to-orange-600' :
+                                  'bg-gradient-to-r from-green-500 to-green-600'
+                                )}
+                                style={{ width: `${Math.min(stats.capacityPercentage, 100)}%` }}
+                              />
+                            </div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <span className="text-[10px] font-black text-slate-700 dark:text-slate-300 drop-shadow">
+                                {stats.capacityPercentage.toFixed(0)}%
+                              </span>
+                            </div>
                           </div>
 
                           {stats.waitlistCount > 0 && (
-                            <div className="flex justify-between text-orange-400">
-                              <span>Wachtlijst:</span>
-                              <span className="font-medium">
-                                {stats.waitlistCount} ({stats.waitlistPersonCount}p)
+                            <div className="flex justify-between items-center px-3 py-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                              <span className="text-orange-700 dark:text-orange-400 font-bold text-xs">Wachtlijst</span>
+                              <span className="text-orange-900 dark:text-orange-300 font-black">
+                                {stats.waitlistCount} <span className="text-xs">({stats.waitlistPersonCount}p)</span>
                               </span>
                             </div>
                           )}
 
-                          <div className="flex justify-between text-neutral-400">
-                            <span>Bevestigd:</span>
-                            <span className="text-white font-medium">
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-600 dark:text-slate-400 font-medium">Bevestigd</span>
+                            <span className="text-green-600 dark:text-green-400 font-black">
                               {stats.confirmedCount}
                             </span>
                           </div>
                         </div>
 
                         {/* Tijd */}
-                        <div className="mt-3 pt-3 border-t border-neutral-700 flex items-center gap-2 text-xs text-neutral-400">
-                          <Clock className="w-3 h-3" />
-                          {event.startsAt} - {event.endsAt}
+                        <div className="relative pt-3 border-t border-slate-200 dark:border-slate-700 flex items-center gap-2">
+                          <div className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                            <Clock className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+                          </div>
+                          <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                            {event.startsAt} - {event.endsAt}
+                          </span>
                         </div>
                       </button>
                     );
@@ -584,12 +662,28 @@ export const EventCommandCenterRevamped: React.FC = () => {
                 </div>
 
                 {filteredEvents.length === 0 && (
-                  <div className="text-center py-12">
-                    <Filter className="w-12 h-12 mx-auto mb-4 text-neutral-600" />
-                    <p className="text-neutral-400">Geen evenementen gevonden</p>
-                    <p className="text-sm text-neutral-500 mt-2">
-                      Pas je filters aan of voeg nieuwe evenementen toe
-                    </p>
+                  <div className="flex items-center justify-center py-20">
+                    <div className="text-center">
+                      <div className="relative group mb-6">
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-full blur-3xl opacity-10 group-hover:opacity-20 transition-opacity"></div>
+                        <div className="relative p-8 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 rounded-full">
+                          <Filter className="w-20 h-20 text-slate-400 dark:text-slate-600" strokeWidth={1.5} />
+                        </div>
+                      </div>
+                      <p className="text-xl font-black text-slate-900 dark:text-white mb-2">
+                        Geen evenementen gevonden
+                      </p>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+                        Pas je filters aan of voeg nieuwe evenementen toe
+                      </p>
+                      <button
+                        onClick={() => setShowBulkModal(true)}
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-br from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all hover:scale-105"
+                      >
+                        <Plus className="w-5 h-5" />
+                        Voeg Events Toe
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -598,14 +692,15 @@ export const EventCommandCenterRevamped: React.FC = () => {
         )}
       </div>
 
-      {/* Bulk Event Modal */}
-      {showBulkModal && (
-        <BulkEventModal
-          isOpen={showBulkModal}
-          onClose={() => setShowBulkModal(false)}
-          onSuccess={handleBulkSuccess}
-        />
-      )}
+        {/* Bulk Event Modal */}
+        {showBulkModal && (
+          <BulkEventModal
+            isOpen={showBulkModal}
+            onClose={() => setShowBulkModal(false)}
+            onSuccess={handleBulkSuccess}
+          />
+        )}
+      </div>
     </div>
   );
 };

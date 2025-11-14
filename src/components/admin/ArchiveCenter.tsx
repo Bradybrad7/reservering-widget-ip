@@ -243,11 +243,19 @@ export const ArchiveCenter: React.FC<ArchiveCenterProps> = ({ onSelectArchive })
 
   if (isLoading) {
     return (
-      <div className="p-6 flex items-center justify-center h-full">
-        <div className="text-center">
-          <Archive className="w-12 h-12 text-neutral-400 mx-auto mb-3 animate-pulse" />
-          <p className="text-neutral-400">Archief laden...</p>
-        </div>
+      <div className="p-6 space-y-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="p-4 bg-neutral-800 rounded-xl border border-neutral-700">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-neutral-700 rounded-lg animate-pulse" />
+              <div className="flex-1 space-y-2">
+                <div className="h-5 w-1/3 bg-neutral-700 rounded animate-pulse" />
+                <div className="h-4 w-2/3 bg-neutral-700 rounded animate-pulse" />
+              </div>
+              <div className="w-20 h-8 bg-neutral-700 rounded-lg animate-pulse" />
+            </div>
+          </div>
+        ))}
       </div>
     );
   }

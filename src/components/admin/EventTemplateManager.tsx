@@ -10,6 +10,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { useEventsStore } from '../../store/eventsStore';
+import { EmptyState } from '../common/EmptyState';
 import { cn } from '../../utils';
 import type { EventTemplate, EventType, Arrangement } from '../../types';
 
@@ -112,7 +113,22 @@ export const EventTemplateManager: React.FC = () => {
   };
 
   if (isLoadingTemplates) {
-    return <div className="text-white">Laden...</div>;
+    return (
+      <div className="space-y-4">
+        <div className="h-8 w-48 bg-slate-700 rounded animate-pulse" />
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="p-6 bg-slate-800 rounded-xl border border-slate-700">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 bg-slate-700 rounded-lg animate-pulse" />
+              <div className="flex-1 space-y-2">
+                <div className="h-5 w-1/3 bg-slate-700 rounded animate-pulse" />
+                <div className="h-4 w-1/2 bg-slate-700 rounded animate-pulse" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   }
 
   return (
@@ -138,16 +154,17 @@ export const EventTemplateManager: React.FC = () => {
       {/* Templates Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {eventTemplates.length === 0 ? (
-          <div className="col-span-full bg-neutral-800/50 rounded-lg p-12 text-center">
-            <FileText className="w-16 h-16 text-neutral-600 mx-auto mb-4" />
-            <p className="text-neutral-400 text-lg mb-4">Geen templates gevonden</p>
-            <button
-              onClick={handleCreate}
-              className="px-4 py-2 bg-gold-500 text-white rounded-lg hover:bg-gold-600 transition-colors inline-flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Maak je eerste template
-            </button>
+          <div className="col-span-full">
+            <EmptyState
+              icon={FileText}
+              title="Geen templates gevonden"
+              description="Maak je eerste event template om snel events aan te maken met vooraf ingestelde instellingen."
+              action={{
+                label: "Maak template",
+                onClick: handleCreate
+              }}
+              illustration="empty"
+            />
           </div>
         ) : (
           eventTemplates.map((template) => (

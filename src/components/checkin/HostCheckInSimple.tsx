@@ -42,6 +42,9 @@ import { useReservationsStore } from '../../store/reservationsStore';
 import type { AdminEvent, Reservation } from '../../types';
 import { formatDate, formatCurrency, cn } from '../../utils';
 import { QRScanner } from '../admin/QRScanner';
+import { IconContainer } from '../ui/IconContainer';
+import Button from '../ui/Button';
+import { SHADOWS, BORDERS } from '../../utils/designTokens';
 
 export const HostCheckInSimple: React.FC = () => {
   const { events, loadEvents } = useEventsStore();
@@ -188,32 +191,34 @@ export const HostCheckInSimple: React.FC = () => {
   // STEP 1: Select Date
   if (!selectedDate || todaysEvents.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-900 p-8">
+      <div className="min-h-screen bg-dark-900 p-8">
         <div className="max-w-md mx-auto text-center pt-20">
-          <div className="bg-gray-800 rounded-full p-8 inline-block mb-8">
-            <Calendar className="w-24 h-24 text-blue-400" />
+          <div className="bg-dark-800/50 rounded-full p-8 inline-block mb-8 shadow-xl border border-white/5">
+            <Calendar className="w-24 h-24 text-gold-400" />
           </div>
           <h1 className="text-4xl font-bold text-white mb-4">Check-in Systeem</h1>
-          <p className="text-xl text-gray-400 mb-8">
+          <p className="text-xl text-dark-300 mb-8">
             Geen evenementen gepland voor {formatDate(selectedDate)}
           </p>
           
-          <div className="bg-gray-800 rounded-2xl p-8 mb-6">
-            <label className="text-lg text-gray-400 mb-4 block">Kies een datum:</label>
+          <div className="bg-dark-800/50 rounded-2xl p-8 mb-6 shadow-xl border border-white/5">
+            <label className="text-lg text-dark-300 mb-4 block">Kies een datum:</label>
             <input
               type="date"
               value={selectedDate.toISOString().split('T')[0]}
               onChange={(e) => setSelectedDate(new Date(e.target.value + 'T00:00:00'))}
-              className="w-full px-6 py-4 bg-gray-700 border-2 border-gray-600 rounded-xl text-white text-xl text-center focus:outline-none focus:border-blue-500"
+              className="w-full px-6 py-4 bg-dark-700 border-2 border-white/10 rounded-xl text-white text-xl text-center focus:outline-none focus:border-gold-500 shadow-inner"
             />
           </div>
 
-          <button
+          <Button
             onClick={() => setSelectedDate(new Date())}
-            className="w-full px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-xl font-bold rounded-xl transition-colors"
+            variant="primary"
+            size="lg"
+            className="w-full"
           >
             Vandaag
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -222,34 +227,34 @@ export const HostCheckInSimple: React.FC = () => {
   // STEP 2: Select Event
   if (!selectedEvent) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+      <div className="min-h-screen bg-gradient-to-br from-dark-900 via-dark-800 to-dark-900">
         <div className="p-4 md:p-8">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gold-500/20 rounded-full mb-4">
-              <Calendar className="w-10 h-10 text-gold-400" />
+            <div className="flex justify-center mb-4">
+              <IconContainer icon={Calendar} size="xl" variant="gold" />
             </div>
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">Check-in Portal</h1>
-            <p className="text-xl text-gray-400">Selecteer een event om te starten</p>
+            <p className="text-xl text-dark-300">Selecteer een event om te starten</p>
           </div>
 
           {/* Date Selector */}
           <div className="max-w-md mx-auto mb-8">
-            <label className="block text-lg text-gray-300 mb-3 font-medium">Datum:</label>
+            <label className="block text-lg text-white/90 mb-3 font-medium">Datum:</label>
             <input
               type="date"
               value={selectedDate.toISOString().split('T')[0]}
               onChange={(e) => setSelectedDate(new Date(e.target.value + 'T00:00:00'))}
-              className="w-full px-6 py-4 bg-gray-800 border-2 border-gray-700 rounded-2xl text-white text-lg focus:outline-none focus:border-gold-500 transition-colors"
+              className="w-full px-6 py-4 bg-dark-800/50 border-2 border-white/10 rounded-2xl text-white text-lg focus:outline-none focus:border-gold-500 transition-all shadow-xl"
             />
           </div>
 
           {/* Events List */}
           {todaysEvents.length === 0 ? (
-            <div className="max-w-md mx-auto bg-gray-800/50 rounded-2xl p-12 text-center">
-              <Calendar className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+            <div className="max-w-md mx-auto bg-dark-800/50 rounded-2xl p-12 text-center shadow-xl border border-white/5">
+              <Calendar className="w-16 h-16 text-dark-500 mx-auto mb-4" />
               <h3 className="text-2xl font-bold text-white mb-2">Geen Events</h3>
-              <p className="text-gray-400">
+              <p className="text-dark-300">
                 Geen actieve events gepland voor {formatDate(selectedDate)}
               </p>
             </div>
@@ -266,12 +271,12 @@ export const HostCheckInSimple: React.FC = () => {
                   <button
                     key={event.id}
                     onClick={() => setSelectedEvent(event)}
-                    className="w-full bg-gray-800 hover:bg-gray-750 rounded-2xl p-6 md:p-8 transition-all group border-2 border-gray-700 hover:border-gold-500 hover:shadow-2xl"
+                    className="w-full bg-dark-800/50 hover:bg-dark-800 rounded-2xl p-6 md:p-8 transition-all group border-2 border-white/10 hover:border-gold-500 shadow-xl hover:shadow-gold-glow hover:scale-[1.01]"
                   >
                     <div className="flex items-center justify-between mb-6">
                       <div className="text-left flex-1">
                         <h3 className="text-2xl md:text-3xl font-bold text-white mb-2">{event.type}</h3>
-                        <div className="flex items-center gap-4 text-gray-400">
+                        <div className="flex items-center gap-4 text-dark-300">
                           <span className="flex items-center gap-2 text-lg">
                             <Clock className="w-5 h-5" />
                             {event.startsAt} - {event.endsAt}
@@ -286,15 +291,15 @@ export const HostCheckInSimple: React.FC = () => {
 
                     {/* Stats */}
                     <div className="grid grid-cols-3 gap-4">
-                      <div className="bg-gray-900/70 rounded-xl p-4 text-center">
+                      <div className="bg-dark-900/70 rounded-xl p-4 text-center shadow-inner border border-white/5">
                         <div className="text-3xl md:text-4xl font-bold text-white">{total}</div>
-                        <div className="text-sm text-gray-400 mt-1">Reserveringen</div>
+                        <div className="text-sm text-dark-400 mt-1">Reserveringen</div>
                       </div>
-                      <div className="bg-green-500/10 border-2 border-green-500/30 rounded-xl p-4 text-center">
+                      <div className="bg-green-500/10 border-2 border-green-500/30 rounded-xl p-4 text-center shadow-lg shadow-green-500/20">
                         <div className="text-3xl md:text-4xl font-bold text-green-400">{checkedIn}</div>
                         <div className="text-sm text-green-400 mt-1">Ingecheckt</div>
                       </div>
-                      <div className="bg-orange-500/10 border-2 border-orange-500/30 rounded-xl p-4 text-center">
+                      <div className="bg-orange-500/10 border-2 border-orange-500/30 rounded-xl p-4 text-center shadow-lg shadow-orange-500/20">
                         <div className="text-3xl md:text-4xl font-bold text-orange-400">{total - checkedIn}</div>
                         <div className="text-sm text-orange-400 mt-1">Verwacht</div>
                       </div>
@@ -311,32 +316,33 @@ export const HostCheckInSimple: React.FC = () => {
 
   // STEP 3: Check-in Interface (THE MAIN VIEW)
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-dark-900 via-dark-800 to-dark-900 flex flex-col">
       {/* Fixed Header with Search */}
-      <div className="bg-gray-900/95 backdrop-blur-sm border-b-2 border-gray-700 sticky top-0 z-20 shadow-2xl">
+      <div className="bg-dark-900/95 backdrop-blur-sm border-b-2 border-white/10 sticky top-0 z-20 shadow-2xl">
         <div className="px-4 md:px-8 py-4">
           {/* Top Row: Back, Title, QR Scanner */}
           <div className="flex items-center justify-between mb-4">
-            <button
+            <Button
               onClick={() => {
                 setSelectedEvent(null);
                 setSearchTerm('');
                 setShowOnlyPending(true);
               }}
-              className="px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-medium transition-colors flex items-center gap-2"
+              variant="secondary"
+              className="flex items-center gap-2"
             >
               <ArrowLeft className="w-5 h-5" />
               <span className="hidden md:inline">Terug</span>
-            </button>
+            </Button>
             
             <div className="text-center flex-1 mx-4">
               <h1 className="text-xl md:text-3xl font-bold text-white">{selectedEvent.type}</h1>
-              <p className="text-sm md:text-base text-gray-400">{formatDate(selectedDate)} • {selectedEvent.startsAt}</p>
+              <p className="text-sm md:text-base text-dark-300">{formatDate(selectedDate)} • {selectedEvent.startsAt}</p>
             </div>
 
             <button
               onClick={() => setShowQRScanner(true)}
-              className="px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl font-bold transition-all shadow-lg flex items-center gap-2"
+              className="px-4 py-3 bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-white rounded-xl font-bold transition-all shadow-gold-glow hover:scale-105 flex items-center gap-2"
             >
               <QrCode className="w-5 h-5" />
               <span className="hidden md:inline">Scan</span>
@@ -345,41 +351,41 @@ export const HostCheckInSimple: React.FC = () => {
 
           {/* Stats Row */}
           <div className="grid grid-cols-4 gap-2 md:gap-4 mb-4">
-            <div className="bg-gray-800/70 rounded-xl p-3 text-center">
+            <div className="bg-dark-800/70 rounded-xl p-3 text-center shadow-lg border border-white/5">
               <div className="text-xl md:text-3xl font-bold text-white">{stats.total}</div>
-              <div className="text-xs text-gray-400">Totaal</div>
+              <div className="text-xs text-dark-400">Totaal</div>
             </div>
-            <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 text-center">
+            <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 text-center shadow-lg shadow-green-500/20">
               <div className="text-xl md:text-3xl font-bold text-green-400">{stats.checkedIn}</div>
               <div className="text-xs text-green-400">Ingecheckt</div>
             </div>
-            <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-3 text-center">
+            <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-3 text-center shadow-lg shadow-orange-500/20">
               <div className="text-xl md:text-3xl font-bold text-orange-400">{stats.pending}</div>
               <div className="text-xs text-orange-400">Verwacht</div>
             </div>
-            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 text-center">
-              <div className="text-xl md:text-3xl font-bold text-blue-400">{stats.totalGuests}</div>
-              <div className="text-xs text-blue-400">Gasten</div>
+            <div className="bg-gold-500/10 border border-gold-500/30 rounded-xl p-3 text-center shadow-lg shadow-gold-500/20">
+              <div className="text-xl md:text-3xl font-bold text-gold-400">{stats.totalGuests}</div>
+              <div className="text-xs text-gold-400">Gasten</div>
             </div>
           </div>
 
           {/* Search Bar - PROMINENT! */}
           <div className="relative mb-3">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-6 h-6 text-gray-400" />
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-6 h-6 text-dark-400" />
             <input
               type="text"
               placeholder="Zoek op naam, email, telefoon..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-14 pr-4 py-4 bg-gray-800 border-2 border-gray-700 rounded-xl text-white text-lg placeholder-gray-500 focus:outline-none focus:border-gold-500 transition-colors"
+              className="w-full pl-14 pr-4 py-4 bg-dark-800/50 border-2 border-white/10 rounded-xl text-white text-lg placeholder-dark-500 focus:outline-none focus:border-gold-500 transition-all shadow-xl"
               autoFocus
             />
             {searchTerm && (
               <button
                 onClick={() => setSearchTerm('')}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 p-2 hover:bg-dark-700 rounded-lg transition-colors"
               >
-                <X className="w-5 h-5 text-gray-400" />
+                <X className="w-5 h-5 text-dark-400" />
               </button>
             )}
           </div>
@@ -389,17 +395,17 @@ export const HostCheckInSimple: React.FC = () => {
             <button
               onClick={() => setShowOnlyPending(!showOnlyPending)}
               className={cn(
-                'flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all',
+                'flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all shadow-lg',
                 showOnlyPending
-                  ? 'bg-gold-500 text-white'
-                  : 'bg-gray-800 text-gray-400 hover:text-white'
+                  ? 'bg-gold-500 text-white shadow-gold-glow'
+                  : 'bg-dark-800/70 text-dark-300 hover:text-white border border-white/10'
               )}
             >
               <Filter className="w-4 h-4" />
               {showOnlyPending ? 'Alleen verwacht' : 'Toon alles'}
             </button>
             
-            <div className="text-sm text-gray-400">
+            <div className="text-sm text-dark-300">
               {eventReservations.length} {eventReservations.length === 1 ? 'reservering' : 'reserveringen'}
             </div>
           </div>
@@ -410,8 +416,8 @@ export const HostCheckInSimple: React.FC = () => {
       <div className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="max-w-6xl mx-auto space-y-3">
           {eventReservations.length === 0 ? (
-            <div className="bg-gray-800/50 rounded-2xl p-12 text-center">
-              <Search className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+            <div className="bg-dark-800/50 rounded-2xl p-12 text-center shadow-xl border border-white/5">
+              <Search className="w-16 h-16 text-dark-500 mx-auto mb-4" />
               <h3 className="text-2xl font-bold text-white mb-2">Geen reserveringen</h3>
               <p className="text-gray-400">
                 {searchTerm 

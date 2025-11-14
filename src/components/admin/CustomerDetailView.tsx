@@ -11,13 +11,14 @@ import {
   User,
   Clock,
   AlertCircle,
-  Edit2,
-  Save,
-  X
+  Edit2
 } from 'lucide-react';
 import { useCustomersStore } from '../../store/customersStore';
 import { formatCurrency, formatDate, cn } from '../../utils';
 import { CustomerTimeline } from './CustomerTimeline';
+import { TagsEditModal } from './modals/TagsEditModal';
+import { NotesEditModal } from './modals/NotesEditModal';
+import { Badge } from '../ui/Badge';
 
 interface CustomerDetailViewProps {
   customerEmail: string;
@@ -38,28 +39,17 @@ interface CustomerDetailViewProps {
 const CustomerDetailView: React.FC<CustomerDetailViewProps> = ({ customerEmail, onBack }) => {
   const {
     selectedCustomer,
-    loadCustomer
+    loadCustomer,
+    updateCustomerNotes,
+    updateCustomerTags
   } = useCustomersStore();
 
-  const [isEditingNotes, setIsEditingNotes] = useState(false);
-  const [notes, setNotes] = useState('');
-  const [isEditingTags, setIsEditingTags] = useState(false);
-  const [tagInput, setTagInput] = useState('');
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-
-  // Predefined tag options
-  const commonTags = ['VIP', 'Zakelijk', 'Pers', 'Repeat Customer', 'Allergie', 'Feestganger', 'Corporate Event'];
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [showTagsModal, setShowTagsModal] = useState(false);
 
   useEffect(() => {
     loadCustomer(customerEmail);
   }, [customerEmail, loadCustomer]);
-
-  useEffect(() => {
-    if (selectedCustomer) {
-      setNotes(selectedCustomer.notes || '');
-      setSelectedTags(selectedCustomer.tags || []);
-    }
-  }, [selectedCustomer]);
 
   if (!selectedCustomer) {
     return (
@@ -72,33 +62,12 @@ const CustomerDetailView: React.FC<CustomerDetailViewProps> = ({ customerEmail, 
     );
   }
 
-  const handleSaveNotes = async () => {
-    // TODO: Implement updateCustomerNotes in customersStore
-    // await updateCustomerNotes(customerEmail, notes);
-    setIsEditingNotes(false);
+  const handleSaveNotes = async (notes: string) => {
+    await updateCustomerNotes(customerEmail, notes);
   };
 
-  const handleSaveTags = async () => {
-    // TODO: Implement updateCustomerTags in customersStore
-    // await updateCustomerTags(customerEmail, selectedTags);
-    setIsEditingTags(false);
-  };
-
-  const handleAddTag = (tag: string) => {
-    if (!selectedTags.includes(tag)) {
-      setSelectedTags([...selectedTags, tag]);
-    }
-  };
-
-  const handleRemoveTag = (tag: string) => {
-    setSelectedTags(selectedTags.filter(t => t !== tag));
-  };
-
-  const handleAddCustomTag = () => {
-    if (tagInput.trim() && !selectedTags.includes(tagInput.trim())) {
-      setSelectedTags([...selectedTags, tagInput.trim()]);
-      setTagInput('');
-    }
+  const handleSaveTags = async (tags: string[]) => {
+    await updateCustomerTags(customerEmail, tags);
   };
 
   // Calculate additional statistics
@@ -212,121 +181,30 @@ const CustomerDetailView: React.FC<CustomerDetailViewProps> = ({ customerEmail, 
             <Tag className="w-5 h-5 text-amber-400" />
             Tags
           </h2>
-          {!isEditingTags ? (
-            <button
-              onClick={() => setIsEditingTags(true)}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-all flex items-center gap-2 text-sm"
-            >
-              <Edit2 className="w-4 h-4" />
-              Bewerken
-            </button>
-          ) : (
-            <div className="flex gap-2">
-              <button
-                onClick={handleSaveTags}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all flex items-center gap-2 text-sm"
-              >
-                <Save className="w-4 h-4" />
-                Opslaan
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedTags(selectedCustomer.tags || []);
-                  setIsEditingTags(false);
-                }}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-all flex items-center gap-2 text-sm"
-              >
-                <X className="w-4 h-4" />
-                Annuleren
-              </button>
-            </div>
-          )}
+          <button
+            onClick={() => setShowTagsModal(true)}
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-all flex items-center gap-2 text-sm"
+          >
+            <Edit2 className="w-4 h-4" />
+            Bewerken
+          </button>
         </div>
 
-        {isEditingTags ? (
-          <div className="space-y-4">
-            {/* Common tags */}
-            <div>
-              <label className="block text-sm text-slate-400 mb-2">Veelgebruikte tags:</label>
-              <div className="flex flex-wrap gap-2">
-                {commonTags.map(tag => (
-                  <button
-                    key={tag}
-                    onClick={() => handleAddTag(tag)}
-                    disabled={selectedTags.includes(tag)}
-                    className={cn(
-                      'px-3 py-1.5 rounded-lg text-sm font-medium transition-all',
-                      selectedTags.includes(tag)
-                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 cursor-default'
-                        : 'bg-slate-700 text-slate-300 border border-slate-600 hover:bg-slate-600 hover:border-amber-500/50'
-                    )}
-                  >
-                    {tag}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Custom tag input */}
-            <div>
-              <label className="block text-sm text-slate-400 mb-2">Nieuwe tag toevoegen:</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleAddCustomTag()}
-                  placeholder="Typ een tag..."
-                  className="flex-1 px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500"
-                />
-                <button
-                  onClick={handleAddCustomTag}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition-all"
-                >
-                  Toevoegen
-                </button>
-              </div>
-            </div>
-
-            {/* Selected tags */}
-            {selectedTags.length > 0 && (
-              <div>
-                <label className="block text-sm text-slate-400 mb-2">Actieve tags:</label>
-                <div className="flex flex-wrap gap-2">
-                  {selectedTags.map(tag => (
-                    <span
-                      key={tag}
-                      className="px-3 py-1.5 bg-amber-500/20 text-amber-300 rounded-lg text-sm font-medium border border-amber-500/40 flex items-center gap-2"
-                    >
-                      {tag}
-                      <button
-                        onClick={() => handleRemoveTag(tag)}
-                        className="hover:text-amber-100 transition-colors"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {selectedTags.length > 0 ? (
-              selectedTags.map(tag => (
-                <span
-                  key={tag}
-                  className="px-3 py-1.5 bg-amber-500/20 text-amber-300 rounded-lg text-sm font-medium border border-amber-500/40"
-                >
-                  {tag}
-                </span>
-              ))
-            ) : (
-              <p className="text-slate-400 text-sm italic">Geen tags toegevoegd</p>
-            )}
-          </div>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {selectedCustomer.tags && selectedCustomer.tags.length > 0 ? (
+            selectedCustomer.tags.map(tag => (
+              <Badge
+                key={tag}
+                variant="neutral"
+                size="md"
+              >
+                {tag}
+              </Badge>
+            ))
+          ) : (
+            <p className="text-slate-400 text-sm italic">Geen tags toegevoegd</p>
+          )}
+        </div>
       </div>
 
       {/* Dietary Requirements Section */}
@@ -341,24 +219,24 @@ const CustomerDetailView: React.FC<CustomerDetailViewProps> = ({ customerEmail, 
               <div key={idx} className="p-4 bg-slate-900/50 border border-slate-700 rounded-lg">
                 <div className="flex flex-wrap gap-2">
                   {req?.vegetarian && (
-                    <span className="px-2 py-1 bg-emerald-500/20 text-emerald-300 rounded text-xs border border-emerald-500/30">
+                    <Badge variant="success" size="sm">
                       🥗 Vegetarisch
-                    </span>
+                    </Badge>
                   )}
                   {req?.vegan && (
-                    <span className="px-2 py-1 bg-green-500/20 text-green-300 rounded text-xs border border-green-500/30">
+                    <Badge variant="success" size="sm">
                       🌱 Vegan
-                    </span>
+                    </Badge>
                   )}
                   {req?.glutenFree && (
-                    <span className="px-2 py-1 bg-amber-500/20 text-amber-300 rounded text-xs border border-amber-500/30">
+                    <Badge variant="warning" size="sm">
                       🌾 Glutenvrij
-                    </span>
+                    </Badge>
                   )}
                   {req?.lactoseFree && (
-                    <span className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-xs border border-blue-500/30">
+                    <Badge variant="info" size="sm">
                       🥛 Lactosevrij
-                    </span>
+                    </Badge>
                   )}
                 </div>
                 {req?.other && (
@@ -379,54 +257,22 @@ const CustomerDetailView: React.FC<CustomerDetailViewProps> = ({ customerEmail, 
             <StickyNote className="w-5 h-5 text-amber-400" />
             Admin Notities
           </h2>
-          {!isEditingNotes ? (
-            <button
-              onClick={() => setIsEditingNotes(true)}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-all flex items-center gap-2 text-sm"
-            >
-              <Edit2 className="w-4 h-4" />
-              Bewerken
-            </button>
-          ) : (
-            <div className="flex gap-2">
-              <button
-                onClick={handleSaveNotes}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all flex items-center gap-2 text-sm"
-              >
-                <Save className="w-4 h-4" />
-                Opslaan
-              </button>
-              <button
-                onClick={() => {
-                  setNotes(selectedCustomer.notes || '');
-                  setIsEditingNotes(false);
-                }}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-all flex items-center gap-2 text-sm"
-              >
-                <X className="w-4 h-4" />
-                Annuleren
-              </button>
-            </div>
-          )}
+          <button
+            onClick={() => setShowNotesModal(true)}
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-all flex items-center gap-2 text-sm"
+          >
+            <Edit2 className="w-4 h-4" />
+            Bewerken
+          </button>
         </div>
 
-        {isEditingNotes ? (
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Voeg notities toe over deze klant..."
-            rows={6}
-            className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 resize-none"
-          />
-        ) : (
-          <div className="p-4 bg-slate-900/50 border border-slate-700 rounded-lg min-h-[100px]">
-            {notes ? (
-              <p className="text-slate-300 whitespace-pre-wrap">{notes}</p>
-            ) : (
-              <p className="text-slate-400 italic">Geen notities toegevoegd</p>
-            )}
-          </div>
-        )}
+        <div className="p-4 bg-slate-900/50 border border-slate-700 rounded-lg min-h-[100px]">
+          {selectedCustomer.notes ? (
+            <p className="text-slate-300 whitespace-pre-wrap">{selectedCustomer.notes}</p>
+          ) : (
+            <p className="text-slate-400 italic">Geen notities toegevoegd</p>
+          )}
+        </div>
       </div>
 
       {/* 🆕 Customer Timeline - Vervang oude boekingsgeschiedenis */}
@@ -437,6 +283,22 @@ const CustomerDetailView: React.FC<CustomerDetailViewProps> = ({ customerEmail, 
           emails={[]} // Could be extended with email log data
         />
       </div>
+
+      {/* ✨ Modals */}
+      <TagsEditModal
+        isOpen={showTagsModal}
+        onClose={() => setShowTagsModal(false)}
+        currentTags={selectedCustomer.tags || []}
+        onSave={handleSaveTags}
+      />
+
+      <NotesEditModal
+        isOpen={showNotesModal}
+        onClose={() => setShowNotesModal(false)}
+        currentNotes={selectedCustomer.notes || ''}
+        onSave={handleSaveNotes}
+        customerName={customerEmail}
+      />
     </div>
   );
 };

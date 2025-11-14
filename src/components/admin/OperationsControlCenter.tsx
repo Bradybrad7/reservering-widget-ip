@@ -1,30 +1,30 @@
 /**
- * ✨ OPERATIONS CONTROL CENTER - COMPLETE REVAMP (November 2025)
+ * ✨ OPERATIONS CONTROL CENTER - MODAL SYSTEM (November 2025)
  * 
  * 🎯 MISSION CONTROL voor alle dagelijkse operaties
  * 
- * Het zenuwcentrum van het admin panel met een moderne, overzichtelijke interface:
+ * Het zenuwcentrum van het admin panel met een moderne, modal-gebaseerde interface:
  * 
  * 🎨 VISUAL DESIGN:
- * - Dashboard-stijl met quick stats bovenaan
- * - Glassmorphism effects voor moderne look
- * - Gradient accents en smooth animations
- * - Perfect responsive voor mobile & desktop
+ * - Dashboard met grote actie-knoppen
+ * - Modals voor elke sectie (Events, Reserveringen, Customers, etc.)
+ * - Glassmorphism effects en smooth animations
+ * - Cross-functionality tussen modals
  * 
  * ⚡ FEATURES:
  * - Real-time statistieken dashboard
- * - Smart context filtering met visuele feedback
+ * - Modal vensters voor volledige sectie views
  * - Keyboard shortcuts voor power users
  * - Quick actions voor veelgebruikte taken
  * - Notification center met prioriteiten
  * 
  * ⌨️ SHORTCUTS:
- * - Alt+1-5: Switch tussen tabs
- * - Esc: Clear active filter
- * - Ctrl+K: Quick search (toekomstig)
+ * - Alt+1-5: Open sectie modals
+ * - Esc: Sluit active modal
+ * - Ctrl+K: Quick search
  */
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, Suspense, lazy } from 'react';
 import { 
   Calendar, 
   ListChecks, 
@@ -40,28 +40,203 @@ import {
   TrendingUp,
   Activity,
   Clock,
-  Sparkles
+  Sparkles,
+  Search,
+  Bell,
+  Loader2,
+  ChevronRight
 } from 'lucide-react';
 import { cn } from '../../utils';
 import { useOperationsStore, useActiveContext } from '../../store/operationsStore';
 import { useAdminStore } from '../../store/adminStore';
 import { useReservationsStore } from '../../store/reservationsStore';
 
-// Import tab components
-import { EventCommandCenterRevamped } from './EventCommandCenterRevamped';
-import { ReservationsWorkbench } from './ReservationsWorkbench';
-import { WaitlistManager } from './WaitlistManager';
-import { CustomerManagerEnhanced } from './CustomerManagerEnhanced';
-import { PaymentsManager } from './PaymentsManager';
+// Lazy load tab components for better initial load performance
+const EventCommandCenterRevamped = lazy(() => import('./EventCommandCenterRevamped').then(m => ({ default: m.EventCommandCenterRevamped })));
+const ReservationsCommandCenterRevamped = lazy(() => import('./ReservationsCommandCenterRevamped').then(m => ({ default: m.ReservationsCommandCenterRevamped })));
+const WaitlistManager = lazy(() => import('./WaitlistManager').then(m => ({ default: m.WaitlistManager })));
+const CustomersCommandCenter = lazy(() => import('./CustomersCommandCenter').then(m => ({ default: m.CustomersCommandCenter })));
+const PaymentsCommandCenter = lazy(() => import('./PaymentsCommandCenter').then(m => ({ default: m.PaymentsCommandCenter })));
+
+// Keep these loaded immediately as they're lightweight
+import { CommandPaletteEnhanced } from './CommandPaletteEnhanced';
+import { SmartNotificationCenter } from './SmartNotificationCenter';
+import { SectionModal } from '../ui/SectionModal';
 
 // ============================================================================
-// WRAPPER COMPONENTS (voor components die props nodig hebben)
+// ERROR BOUNDARY for robust component loading
 // ============================================================================
 
-const PaymentsManagerWrapper: React.FC = () => {
-  const { reservations } = useReservationsStore();
-  return <PaymentsManager reservations={reservations} />;
-};
+// ============================================================================
+// QUICK STAT CARD - Memoized component for performance
+// ============================================================================
+
+interface QuickStatProps {
+  id: string;
+  label: string;
+  value: number;
+  icon: React.ElementType;
+  color: 'red' | 'orange' | 'yellow';
+  trend: 'up' | 'neutral';
+}
+
+const QuickStatCard = React.memo<QuickStatProps>(({ label, value, icon: StatIcon, color, trend }) => {
+  const colorMap = {
+    red: {
+      bg: 'from-red-500 via-red-600 to-red-700',
+      text: 'text-red-600 dark:text-red-400',
+      ring: 'ring-red-500/20',
+      glow: 'bg-red-500/20'
+    },
+    orange: {
+      bg: 'from-orange-500 via-orange-600 to-orange-700',
+      text: 'text-orange-600 dark:text-orange-400',
+      ring: 'ring-orange-500/20',
+      glow: 'bg-orange-500/20'
+    },
+    yellow: {
+      bg: 'from-yellow-500 via-yellow-600 to-yellow-700',
+      text: 'text-yellow-600 dark:text-yellow-400',
+      ring: 'ring-yellow-500/20',
+      glow: 'bg-yellow-500/20'
+    }
+  } as const;
+  const colorClasses = colorMap[color];
+
+  return (
+    <div
+      className={cn(
+        'group relative overflow-hidden bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl border-2 border-slate-200 dark:border-slate-700 p-4 hover:shadow-xl transition-all duration-300 ring-4',
+        colorClasses.ring
+      )}
+    >
+      {/* Glow effect */}
+      <div className={cn(
+        'absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-xl',
+        colorClasses.glow
+      )}></div>
+      
+      <div className="relative">
+        {/* Icon */}
+        <div className="flex items-center justify-between mb-3">
+          <div className={cn('p-2 rounded-lg bg-gradient-to-br', colorClasses.bg)}>
+            <StatIcon className="w-5 h-5 text-white" strokeWidth={2.5} />
+          </div>
+          {trend === 'up' && (
+            <TrendingUp className={cn('w-4 h-4', colorClasses.text)} />
+          )}
+        </div>
+
+        {/* Value */}
+        <div className={cn('text-3xl font-black mb-1', colorClasses.text)}>
+          {value}
+        </div>
+
+        {/* Label */}
+        <div className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+          {label}
+        </div>
+      </div>
+
+      {/* Animated border on hover */}
+      <div className={cn(
+        'absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl bg-gradient-to-r pointer-events-none',
+        colorClasses.bg
+      )} style={{ padding: '2px', WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)', WebkitMaskComposite: 'xor', maskComposite: 'exclude' }}></div>
+    </div>
+  );
+});
+
+QuickStatCard.displayName = 'QuickStatCard';
+
+// ============================================================================
+// LOADING FALLBACK - Beautiful loading state
+// ============================================================================
+
+const TabLoadingFallback: React.FC<{ tabName: string }> = ({ tabName }) => (
+  <div className="flex flex-col items-center justify-center h-full bg-gradient-to-br from-slate-50 via-blue-50/20 to-purple-50/20 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    <div className="text-center">
+      {/* Animated loader */}
+      <div className="relative mb-6">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full blur-2xl opacity-50 animate-pulse"></div>
+        <div className="relative p-6 bg-white dark:bg-slate-800 rounded-full shadow-2xl">
+          <Loader2 className="w-12 h-12 text-blue-600 dark:text-blue-400 animate-spin" strokeWidth={2.5} />
+        </div>
+      </div>
+      
+      {/* Text */}
+      <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">
+        {tabName} laden...
+      </h3>
+      <p className="text-sm text-slate-600 dark:text-slate-400">
+        Een moment geduld
+      </p>
+      
+      {/* Progress dots */}
+      <div className="flex items-center justify-center gap-2 mt-4">
+        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+        <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+        <div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+      </div>
+    </div>
+  </div>
+);
+
+class TabErrorBoundary extends React.Component<
+  { children: React.ReactNode; tabName: string },
+  { hasError: boolean; error?: Error }
+> {
+  constructor(props: { children: React.ReactNode; tabName: string }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error(`Error in ${this.props.tabName} tab:`, error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex items-center justify-center h-full p-8">
+          <div className="max-w-md text-center">
+            <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-2xl border-2 border-red-200 dark:border-red-800 mb-4">
+              <AlertCircle className="w-12 h-12 text-red-600 dark:text-red-400 mx-auto mb-3" />
+              <h3 className="text-lg font-bold text-red-900 dark:text-red-100 mb-2">
+                Oeps! Er ging iets mis
+              </h3>
+              <p className="text-sm text-red-700 dark:text-red-300 mb-4">
+                De {this.props.tabName} tab kon niet worden geladen.
+              </p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-colors"
+              >
+                Herlaad pagina
+              </button>
+            </div>
+            {this.state.error && (
+              <details className="text-left">
+                <summary className="text-xs font-bold text-slate-600 dark:text-slate-400 cursor-pointer mb-2">
+                  Technische details
+                </summary>
+                <pre className="text-xs bg-slate-100 dark:bg-slate-800 p-3 rounded-lg overflow-auto">
+                  {this.state.error.message}
+                </pre>
+              </details>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 // ============================================================================
 // TAB CONFIGURATION
@@ -108,32 +283,55 @@ const TABS = [
 // ============================================================================
 
 export const OperationsControlCenter: React.FC = () => {
-  const { activeTab, setActiveTab, clearAllContext } = useOperationsStore();
+  // OPTIMIZED: Use specific selectors to prevent unnecessary re-renders
+  const activeTab = useOperationsStore(state => state.activeTab);
+  const setActiveTab = useOperationsStore(state => state.setActiveTab);
+  const clearAllContext = useOperationsStore(state => state.clearAllContext);
   const { hasAnyContext, contextInfo } = useActiveContext();
-  const { notificationBadges } = useAdminStore();
+  const notificationBadges = useAdminStore(state => state.notificationBadges);
   
   // State voor feedback
   const [showFilterClearedToast, setShowFilterClearedToast] = useState(false);
+  const [showTabSwitchToast, setShowTabSwitchToast] = useState<string | null>(null);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [showNotificationCenter, setShowNotificationCenter] = useState(false);
+  
+  // ✨ MODAL STATE - Nieuwe sectie modals
+  const [openModal, setOpenModal] = useState<'events' | 'reservations' | 'waitlist' | 'customers' | 'payments' | null>(null);
 
   // ========================================================================
   // KEYBOARD SHORTCUTS
   // ========================================================================
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Alt+1-5 voor tab navigatie
+      // Ctrl+K / Cmd+K voor Command Palette
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowCommandPalette(true);
+        return;
+      }
+
+      // Alt+1-5 voor modal shortcuts
       if (e.altKey && !e.ctrlKey && !e.shiftKey) {
         const num = parseInt(e.key);
         if (num >= 1 && num <= 5) {
           e.preventDefault();
           const tabIndex = num - 1;
-          setActiveTab(TABS[tabIndex].id);
+          const tab = TABS[tabIndex];
+          setOpenModal(tab.id);
+          // Toast feedback
+          setShowTabSwitchToast(`${tab.label} geopend`);
+          setTimeout(() => setShowTabSwitchToast(null), 1500);
           return;
         }
       }
 
-      // Escape voor clear context
+      // Escape voor clear context of sluit modal
       if (e.key === 'Escape' && !e.ctrlKey && !e.shiftKey && !e.altKey) {
-        if (hasAnyContext) {
+        if (openModal) {
+          e.preventDefault();
+          setOpenModal(null);
+        } else if (hasAnyContext) {
           e.preventDefault();
           handleClearContext();
         }
@@ -142,7 +340,7 @@ export const OperationsControlCenter: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [hasAnyContext, setActiveTab]);
+  }, [hasAnyContext, openModal, setActiveTab, clearAllContext]);
 
   // ========================================================================
   // HANDLERS
@@ -155,8 +353,10 @@ export const OperationsControlCenter: React.FC = () => {
   }, [clearAllContext]);
 
   const handleTabClick = useCallback((tabId: typeof TABS[number]['id']) => {
+    // Don't switch if already on that tab
+    if (tabId === activeTab) return;
     setActiveTab(tabId);
-  }, [setActiveTab]);
+  }, [setActiveTab, activeTab]);
 
   // ========================================================================
   // COMPUTED VALUES & STATISTICS
@@ -166,7 +366,7 @@ export const OperationsControlCenter: React.FC = () => {
                       (notificationBadges.payments || 0) + 
                       (notificationBadges.waitlist || 0);
 
-  // Quick stats voor dashboard
+  // Quick stats voor dashboard - Memoized for performance
   const quickStats = useMemo(() => {
     const stats = [
       {
@@ -174,8 +374,8 @@ export const OperationsControlCenter: React.FC = () => {
         label: 'Acties vereist',
         value: totalActions,
         icon: AlertCircle,
-        color: 'red',
-        trend: totalActions > 0 ? 'up' : 'neutral',
+        color: 'red' as const,
+        trend: totalActions > 0 ? 'up' as const : 'neutral' as const,
         visible: totalActions > 0
       },
       {
@@ -183,8 +383,8 @@ export const OperationsControlCenter: React.FC = () => {
         label: 'Reserveringen',
         value: notificationBadges.reservations || 0,
         icon: ListChecks,
-        color: 'orange',
-        trend: 'neutral',
+        color: 'orange' as const,
+        trend: 'neutral' as const,
         visible: (notificationBadges.reservations || 0) > 0
       },
       {
@@ -192,8 +392,8 @@ export const OperationsControlCenter: React.FC = () => {
         label: 'Openstaand',
         value: notificationBadges.payments || 0,
         icon: DollarSign,
-        color: 'red',
-        trend: 'neutral',
+        color: 'red' as const,
+        trend: 'neutral' as const,
         visible: (notificationBadges.payments || 0) > 0
       },
       {
@@ -201,8 +401,8 @@ export const OperationsControlCenter: React.FC = () => {
         label: 'Wachtlijst',
         value: notificationBadges.waitlist || 0,
         icon: Clock,
-        color: 'yellow',
-        trend: 'neutral',
+        color: 'yellow' as const,
+        trend: 'neutral' as const,
         visible: (notificationBadges.waitlist || 0) > 0
       }
     ];
@@ -211,6 +411,22 @@ export const OperationsControlCenter: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/20 to-purple-50/20 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      {/* ====================================================================== */}
+      {/* COMMAND PALETTE */}
+      {/* ====================================================================== */}
+      <CommandPaletteEnhanced 
+        isOpen={showCommandPalette} 
+        onClose={() => setShowCommandPalette(false)} 
+      />
+      
+      {/* ====================================================================== */}
+      {/* NOTIFICATION CENTER */}
+      {/* ====================================================================== */}
+      <SmartNotificationCenter 
+        isOpen={showNotificationCenter} 
+        onClose={() => setShowNotificationCenter(false)} 
+      />
+      
       {/* ====================================================================== */}
       {/* TOAST NOTIFICATIONS - Improved styling */}
       {/* ====================================================================== */}
@@ -223,6 +439,20 @@ export const OperationsControlCenter: React.FC = () => {
             <div>
               <div className="text-sm font-bold text-slate-900 dark:text-white">Filter verwijderd</div>
               <div className="text-xs text-slate-600 dark:text-slate-400">Alle items worden nu getoond</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab Switch Toast */}
+      {showTabSwitchToast && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-2 fade-in duration-200">
+          <div className="flex items-center gap-3 px-5 py-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl shadow-2xl backdrop-blur-sm">
+            <div className="flex-shrink-0 p-1.5 bg-white/20 rounded-lg">
+              <Zap className="w-5 h-5 text-white" strokeWidth={2.5} />
+            </div>
+            <div className="text-sm font-bold text-white">
+              {showTabSwitchToast}
             </div>
           </div>
         </div>
@@ -267,8 +497,39 @@ export const OperationsControlCenter: React.FC = () => {
               </div>
             </div>
 
-            {/* Status indicator */}
+            {/* Status indicator & Command Palette hint */}
             <div className="flex items-center gap-3">
+              {/* Command Palette Button */}
+              <button
+                onClick={() => setShowCommandPalette(true)}
+                className="group flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl transition-all duration-200 hover:shadow-lg"
+                title="Open Command Palette (Ctrl+K)"
+              >
+                <Search className="w-4 h-4 text-slate-600 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400" />
+                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Quick Search</span>
+                <kbd className="hidden sm:flex items-center gap-0.5 px-2 py-1 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-xs font-mono text-slate-600 dark:text-slate-400">
+                  <span>⌘</span>
+                  <span>K</span>
+                </kbd>
+              </button>
+              
+              {/* Notification Bell */}
+              <button
+                onClick={() => setShowNotificationCenter(true)}
+                className="relative group flex items-center justify-center w-10 h-10 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-orange-400 dark:hover:border-orange-500 rounded-xl transition-all duration-200 hover:shadow-lg"
+                title="Notificaties"
+              >
+                <Bell className="w-5 h-5 text-slate-600 dark:text-slate-400 group-hover:text-orange-600 dark:group-hover:text-orange-400" />
+                {totalActions > 0 && (
+                  <div className="absolute -top-1 -right-1 flex items-center justify-center">
+                    <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-gradient-to-br from-red-500 to-red-600 text-white text-xs font-black rounded-full shadow-lg animate-pulse">
+                      {totalActions}
+                    </span>
+                    <span className="absolute inset-0 bg-red-400 rounded-full blur-md opacity-50 animate-pulse"></span>
+                  </div>
+                )}
+              </button>
+              
               <div className="flex items-center gap-2 px-4 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl">
                 <Activity className="w-4 h-4 text-green-600 dark:text-green-400 animate-pulse" />
                 <span className="text-sm font-bold text-green-700 dark:text-green-300">System Online</span>
@@ -279,74 +540,9 @@ export const OperationsControlCenter: React.FC = () => {
           {/* Quick Stats Dashboard */}
           {quickStats.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-              {quickStats.map((stat) => {
-                const StatIcon = stat.icon;
-                const colorMap = {
-                  red: {
-                    bg: 'from-red-500 via-red-600 to-red-700',
-                    text: 'text-red-600 dark:text-red-400',
-                    ring: 'ring-red-500/20',
-                    glow: 'bg-red-500/20'
-                  },
-                  orange: {
-                    bg: 'from-orange-500 via-orange-600 to-orange-700',
-                    text: 'text-orange-600 dark:text-orange-400',
-                    ring: 'ring-orange-500/20',
-                    glow: 'bg-orange-500/20'
-                  },
-                  yellow: {
-                    bg: 'from-yellow-500 via-yellow-600 to-yellow-700',
-                    text: 'text-yellow-600 dark:text-yellow-400',
-                    ring: 'ring-yellow-500/20',
-                    glow: 'bg-yellow-500/20'
-                  }
-                } as const;
-                const colorClasses = colorMap[stat.color as keyof typeof colorMap];
-
-                return (
-                  <div
-                    key={stat.id}
-                    className={cn(
-                      'group relative overflow-hidden bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl border-2 border-slate-200 dark:border-slate-700 p-4 hover:shadow-xl transition-all duration-300 ring-4',
-                      colorClasses.ring
-                    )}
-                  >
-                    {/* Glow effect */}
-                    <div className={cn(
-                      'absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-xl',
-                      colorClasses.glow
-                    )}></div>
-                    
-                    <div className="relative">
-                      {/* Icon */}
-                      <div className="flex items-center justify-between mb-3">
-                        <div className={cn('p-2 rounded-lg bg-gradient-to-br', colorClasses.bg)}>
-                          <StatIcon className="w-5 h-5 text-white" strokeWidth={2.5} />
-                        </div>
-                        {stat.trend === 'up' && (
-                          <TrendingUp className={cn('w-4 h-4', colorClasses.text)} />
-                        )}
-                      </div>
-
-                      {/* Value */}
-                      <div className={cn('text-3xl font-black mb-1', colorClasses.text)}>
-                        {stat.value}
-                      </div>
-
-                      {/* Label */}
-                      <div className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                        {stat.label}
-                      </div>
-                    </div>
-
-                    {/* Animated border on hover */}
-                    <div className={cn(
-                      'absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl bg-gradient-to-r pointer-events-none',
-                      colorClasses.bg
-                    )} style={{ padding: '2px', WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)', WebkitMaskComposite: 'xor', maskComposite: 'exclude' }}></div>
-                  </div>
-                );
-              })}
+              {quickStats.map((stat) => (
+                <QuickStatCard key={stat.id} {...stat} />
+              ))}
             </div>
           )}
         </div>
@@ -418,78 +614,67 @@ export const OperationsControlCenter: React.FC = () => {
             </div>
           </div>
         )}
+      </div>
 
-        {/* ====================================================================== */}
-        {/* TAB NAVIGATION - Modern Pills Design */}
-        {/* ====================================================================== */}
-        <div className="px-4 sm:px-6 lg:px-8 pb-4">
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
-            {TABS.map((tab, index) => {
+      {/* ====================================================================== */}
+      {/* DASHBOARD MET GROTE ACTIE KNOPPEN */}
+      {/* ====================================================================== */}
+      <div className="flex-1 overflow-y-auto p-6 lg:p-8">
+        <div className="max-w-7xl mx-auto space-y-8">
+          {/* Hero sectie */}
+          <div className="text-center space-y-3">
+            <h2 className="text-3xl lg:text-4xl font-black text-slate-900 dark:text-white">
+              Welkom bij Operations Control
+            </h2>
+            <p className="text-lg text-slate-600 dark:text-slate-400">
+              Kies een sectie om te beheren
+            </p>
+          </div>
+
+          {/* Actie knoppen grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+            {TABS.map((tab) => {
               const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
               const badge = tab.badgeKey ? notificationBadges[tab.badgeKey] : 0;
               const hasBadge = badge && badge > 0;
 
               return (
                 <button
                   key={tab.id}
-                  onClick={() => handleTabClick(tab.id)}
-                  className={cn(
-                    'group relative flex items-center gap-2.5 px-5 py-3 rounded-xl font-bold text-sm transition-all duration-200 whitespace-nowrap',
-                    isActive
-                      ? 'bg-gradient-to-br from-blue-500 via-blue-600 to-purple-600 text-white shadow-xl scale-105'
-                      : 'bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm text-slate-700 dark:text-slate-300 border-2 border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-lg hover:scale-105'
-                  )}
-                  title={`${tab.description} (Alt+${index + 1})`}
-                  aria-current={isActive ? 'page' : undefined}
+                  onClick={() => setOpenModal(tab.id)}
+                  className="group relative bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-gold-500 dark:hover:border-gold-400 rounded-2xl p-6 lg:p-8 transition-all duration-300 hover:shadow-2xl hover:shadow-gold-500/20 hover:scale-105 text-left"
                 >
-                  {/* Glow effect for active tab */}
-                  {isActive && (
-                    <div className="absolute inset-0 bg-blue-400 rounded-xl blur-xl opacity-50 -z-10"></div>
-                  )}
-
-                  {/* Icon */}
-                  <div className={cn(
-                    'flex-shrink-0 transition-all duration-200',
-                    isActive ? 'scale-110' : 'group-hover:scale-110'
-                  )}>
-                    <Icon className="w-5 h-5" strokeWidth={2.5} />
-                  </div>
+                  {/* Glow effect */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-gold-500/0 via-gold-500/0 to-gold-500/0 group-hover:from-gold-500/10 group-hover:via-gold-500/5 group-hover:to-gold-500/10 rounded-2xl transition-all duration-300"></div>
                   
-                  {/* Label */}
-                  <span className="font-black">{tab.label}</span>
-                  
-                  {/* Badge */}
-                  {hasBadge && (
-                    <div className="relative">
-                      <span className={cn(
-                        'flex items-center justify-center min-w-[22px] h-5 px-1.5 text-xs font-black rounded-md shadow-lg',
-                        isActive
-                          ? 'bg-white text-blue-600'
-                          : 'bg-gradient-to-br from-red-500 to-red-600 text-white animate-pulse'
-                      )}>
-                        {badge}
-                      </span>
-                      {/* Pulse ring for inactive tabs */}
-                      {!isActive && (
-                        <span className="absolute inset-0 bg-red-400 rounded-md blur-md opacity-50 animate-pulse"></span>
+                  <div className="relative space-y-4">
+                    {/* Icon & Badge */}
+                    <div className="flex items-start justify-between">
+                      <div className="p-3 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 group-hover:from-gold-500 group-hover:to-gold-600 rounded-xl transition-all duration-300">
+                        <Icon className="w-8 h-8 text-slate-700 dark:text-slate-300 group-hover:text-white transition-colors" strokeWidth={2.5} />
+                      </div>
+                      {hasBadge && (
+                        <span className="px-3 py-1.5 bg-red-500 text-white text-sm font-bold rounded-full animate-pulse shadow-lg">
+                          {badge}
+                        </span>
                       )}
                     </div>
-                  )}
 
-                  {/* Keyboard hint */}
-                  <div className={cn(
-                    'hidden xl:flex items-center ml-1 transition-opacity duration-200',
-                    isActive ? 'opacity-80' : 'opacity-0 group-hover:opacity-80'
-                  )}>
-                    <kbd className={cn(
-                      'px-1.5 py-0.5 text-[10px] font-mono font-bold rounded',
-                      isActive
-                        ? 'bg-white/20 text-white'
-                        : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                    )}>
-                      {index + 1}
-                    </kbd>
+                    {/* Title */}
+                    <div>
+                      <h3 className="text-2xl font-black text-slate-900 dark:text-white group-hover:text-gold-600 dark:group-hover:text-gold-400 transition-colors">
+                        {tab.label}
+                      </h3>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                        {tab.description}
+                      </p>
+                    </div>
+
+                    {/* Arrow indicator */}
+                    <div className="flex items-center text-sm font-bold text-slate-400 group-hover:text-gold-600 dark:group-hover:text-gold-400 transition-colors">
+                      <span>Openen</span>
+                      <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                    </div>
                   </div>
                 </button>
               );
@@ -499,47 +684,81 @@ export const OperationsControlCenter: React.FC = () => {
       </div>
 
       {/* ====================================================================== */}
-      {/* KEYBOARD SHORTCUTS INFO - Modern & Helpful */}
+      {/* SECTION MODALS */}
       {/* ====================================================================== */}
-      {!hasAnyContext && (
-        <div className="px-4 sm:px-6 lg:px-8 py-3 bg-gradient-to-r from-blue-50/50 via-purple-50/30 to-pink-50/50 dark:from-blue-950/30 dark:via-purple-950/20 dark:to-pink-950/30 backdrop-blur-sm border-b border-slate-200/50 dark:border-slate-700/50">
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs">
-            <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-              <div className="p-1 bg-blue-100 dark:bg-blue-900/50 rounded">
-                <Info className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <span className="font-bold">Sneltoetsen</span>
-            </div>
-            
-            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-              <div className="flex items-center gap-1">
-                <kbd className="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded text-[10px] font-mono font-bold shadow-sm">Alt</kbd>
-                <span className="font-bold">+</span>
-                <kbd className="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded text-[10px] font-mono font-bold shadow-sm">1-5</kbd>
-              </div>
-              <span className="font-medium">Switch tabs</span>
-            </div>
-            
-            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-              <kbd className="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded text-[10px] font-mono font-bold shadow-sm">Esc</kbd>
-              <span className="font-medium">Clear filter</span>
-            </div>
-          </div>
-        </div>
-      )}
+      
+      {/* Events Modal */}
+      <SectionModal
+        isOpen={openModal === 'events'}
+        onClose={() => setOpenModal(null)}
+        title="Evenementen"
+        icon={Calendar}
+      >
+        <Suspense fallback={<TabLoadingFallback tabName="Evenementen" />}>
+          <TabErrorBoundary tabName="Evenementen">
+            <EventCommandCenterRevamped />
+          </TabErrorBoundary>
+        </Suspense>
+      </SectionModal>
 
-      {/* ====================================================================== */}
-      {/* CONTENT AREA - Clean & Spacious */}
-      {/* ====================================================================== */}
-      <div className="flex-1 overflow-hidden">
-        <div className="h-full animate-in fade-in zoom-in-95 duration-300">
-          {activeTab === 'events' && <EventCommandCenterRevamped />}
-          {activeTab === 'reservations' && <ReservationsWorkbench />}
-          {activeTab === 'waitlist' && <WaitlistManager />}
-          {activeTab === 'customers' && <CustomerManagerEnhanced />}
-          {activeTab === 'payments' && <PaymentsManagerWrapper />}
-        </div>
-      </div>
+      {/* Reservations Modal */}
+      <SectionModal
+        isOpen={openModal === 'reservations'}
+        onClose={() => setOpenModal(null)}
+        title="Reserveringen"
+        icon={ListChecks}
+        badge={notificationBadges.reservations}
+      >
+        <Suspense fallback={<TabLoadingFallback tabName="Reserveringen" />}>
+          <TabErrorBoundary tabName="Reserveringen">
+            <ReservationsCommandCenterRevamped />
+          </TabErrorBoundary>
+        </Suspense>
+      </SectionModal>
+
+      {/* Waitlist Modal */}
+      <SectionModal
+        isOpen={openModal === 'waitlist'}
+        onClose={() => setOpenModal(null)}
+        title="Wachtlijst"
+        icon={List}
+        badge={notificationBadges.waitlist}
+      >
+        <Suspense fallback={<TabLoadingFallback tabName="Wachtlijst" />}>
+          <TabErrorBoundary tabName="Wachtlijst">
+            <WaitlistManager />
+          </TabErrorBoundary>
+        </Suspense>
+      </SectionModal>
+
+      {/* Customers Modal */}
+      <SectionModal
+        isOpen={openModal === 'customers'}
+        onClose={() => setOpenModal(null)}
+        title="Klanten"
+        icon={Users}
+      >
+        <Suspense fallback={<TabLoadingFallback tabName="Klanten" />}>
+          <TabErrorBoundary tabName="Klanten">
+            <CustomersCommandCenter />
+          </TabErrorBoundary>
+        </Suspense>
+      </SectionModal>
+
+      {/* Payments Modal */}
+      <SectionModal
+        isOpen={openModal === 'payments'}
+        onClose={() => setOpenModal(null)}
+        title="Betalingen"
+        icon={DollarSign}
+        badge={notificationBadges.payments}
+      >
+        <Suspense fallback={<TabLoadingFallback tabName="Betalingen" />}>
+          <TabErrorBoundary tabName="Betalingen">
+            <PaymentsCommandCenter />
+          </TabErrorBoundary>
+        </Suspense>
+      </SectionModal>
     </div>
   );
 };

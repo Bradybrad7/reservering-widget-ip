@@ -66,10 +66,14 @@ interface ReservationsActions {
   // Tags
   updateReservationTags: (reservationId: string, tags: string[]) => Promise<boolean>;
   
-  // ✨ NEW: Payment Management (October 2025)
+  // ✨ Payment Management (October 2025) - DEPRECATED: Use Grootboek methods below
   updatePaymentStatus: (reservationId: string, paymentStatus: PaymentStatus, notes?: string) => Promise<boolean>;
   markAsPaid: (reservationId: string, paymentMethod: string, invoiceNumber?: string) => Promise<boolean>;
   sendInvoiceEmail: (reservationId: string) => Promise<boolean>;
+  
+  // 💰 GROOTBOEK SYSTEM (November 2025) - New financial management
+  addPaymentToReservation: (reservationId: string, payment: Omit<import('../types').Payment, 'id'>) => Promise<boolean>;
+  addRefundToReservation: (reservationId: string, refund: Omit<import('../types').Refund, 'id'>) => Promise<boolean>;
   
   // Bulk Operations
   bulkUpdateStatus: (reservationIds: string[], status: Reservation['status']) => Promise<boolean>;
@@ -255,7 +259,7 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
       if (updates.status || updates.paymentStatus) {
         const validation = validateReservationUpdate(
           original.status,
-          original.paymentStatus,
+          original.paymentStatus || 'not_applicable',
           updates.status,
           updates.paymentStatus
         );
@@ -404,26 +408,23 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
         eventId: reservation.eventId
       });
       
-      // 🔍 DEBUG: First do a DIRECT Firestore check
-      console.log('🔍 [STORE] Running direct Firestore debug check...');
+      // Verify document exists before confirming
+      storeLogger.debug('Verifying reservation exists before confirmation');
       const { reservationsService } = await import('../services/firestoreService');
       const debugResult = await reservationsService.debugCheckExists(reservationId);
-      console.log('🔍 [STORE] Debug check result:', debugResult);
       
       if (!debugResult.exists) {
-        console.error('❌ [STORE] CRITICAL: Document does NOT exist in Firestore!');
-        console.error('⚠️ [STORE] The reservation was not found in the database.');
-        console.error('📋 [STORE] Reloading to fetch fresh data...');
+        storeLogger.error('Reservation not found in database', { reservationId });
         
-        // Don't try to recover - just reload to get fresh data
+        // Reload to get fresh data
         alert('⚠️ Reservering niet gevonden in database!\n\nDe pagina wordt herladen om de data te vernieuwen.');
         await get().loadReservations();
         return false;
       }
       
-      console.log('✅ [STORE] Document exists in Firestore, proceeding with update...');
+      storeLogger.debug('Reservation exists, proceeding with confirmation');
       const result = await get().updateReservationStatus(reservationId, 'confirmed');
-      console.log('🔵 [STORE] confirmReservation result:', result);
+      storeLogger.info('Reservation confirmed', { reservationId, result });
       
       // Force een directe state update als fallback
       if (result) {
@@ -624,13 +625,8 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
     updatePaymentStatus: async (reservationId: string, paymentStatus: PaymentStatus, notes?: string) => {
       const updates: Partial<Reservation> = { paymentStatus };
       
-      if (notes) {
-        updates.paymentNotes = notes;
-      }
-      
-      if (paymentStatus === 'paid') {
-        updates.paymentReceivedAt = new Date();
-      }
+      // Note: paymentNotes and paymentReceivedAt are deprecated fields
+      // Use communication log instead
       
       const success = await get().updateReservation(reservationId, updates);
       
@@ -647,14 +643,14 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
 
     markAsPaid: async (reservationId: string, paymentMethod: string, invoiceNumber?: string) => {
       const updates: Partial<Reservation> = {
-        paymentStatus: 'paid',
-        paymentMethod,
-        paymentReceivedAt: new Date()
+        paymentStatus: 'paid'
       };
       
       if (invoiceNumber) {
         updates.invoiceNumber = invoiceNumber;
       }
+      
+      // Note: paymentMethod is deprecated, use payments array with addPaymentToReservation instead
       
       const success = await get().updateReservation(reservationId, updates);
       
@@ -881,6 +877,88 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
 
         return true;
       });
+    },
+
+    // 💰 GROOTBOEK SYSTEM - Add payment to reservation
+    addPaymentToReservation: async (reservationId: string, payment: Omit<import('../types').Payment, 'id'>) => {
+      const reservation = get().reservations.find(r => r.id === reservationId);
+      if (!reservation) {
+        console.error('Reservation not found:', reservationId);
+        return false;
+      }
+
+      try {
+        // Generate payment ID
+        const paymentId = `pay_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Create full payment object
+        const fullPayment: import('../types').Payment = {
+          ...payment,
+          id: paymentId
+        };
+
+        // Update reservation with new payment
+        const updatedPayments = [...(reservation.payments || []), fullPayment];
+        
+        const success = await get().updateReservation(reservationId, {
+          payments: updatedPayments
+        });
+
+        if (success) {
+          // Add to communication log
+          await communicationLogService.addNote(
+            reservationId,
+            `💰 Betaling ontvangen: €${payment.amount.toFixed(2)} via ${payment.method}${payment.reference ? ` (Ref: ${payment.reference})` : ''}`,
+            payment.processedBy || 'Admin'
+          );
+        }
+
+        return success;
+      } catch (error) {
+        console.error('Error adding payment:', error);
+        return false;
+      }
+    },
+
+    // 💰 GROOTBOEK SYSTEM - Add refund to reservation
+    addRefundToReservation: async (reservationId: string, refund: Omit<import('../types').Refund, 'id'>) => {
+      const reservation = get().reservations.find(r => r.id === reservationId);
+      if (!reservation) {
+        console.error('Reservation not found:', reservationId);
+        return false;
+      }
+
+      try {
+        // Generate refund ID
+        const refundId = `ref_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Create full refund object
+        const fullRefund: import('../types').Refund = {
+          ...refund,
+          id: refundId
+        };
+
+        // Update reservation with new refund
+        const updatedRefunds = [...(reservation.refunds || []), fullRefund];
+        
+        const success = await get().updateReservation(reservationId, {
+          refunds: updatedRefunds
+        });
+
+        if (success) {
+          // Add to communication log
+          await communicationLogService.addNote(
+            reservationId,
+            `🔄 Restitutie verwerkt: €${refund.amount.toFixed(2)} (Reden: ${refund.reason})${refund.note ? ` - ${refund.note}` : ''}`,
+            refund.processedBy || 'Admin'
+          );
+        }
+
+        return success;
+      } catch (error) {
+        console.error('Error adding refund:', error);
+        return false;
+      }
     }
   }))
 );

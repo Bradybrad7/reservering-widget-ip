@@ -16,6 +16,7 @@ import { useEventsStore } from '../../store/eventsStore';
 import { useReservationsStore } from '../../store/reservationsStore';
 import type { Reservation } from '../../types';
 import { QRScanner } from './QRScanner';
+import { Badge } from '../ui/Badge';
 
 /**
  * Check-in Module
@@ -442,12 +443,13 @@ const CheckInManager: React.FC = () => {
                             <div className="flex flex-wrap gap-2 mb-3">
                               <AlertCircle className="w-4 h-4 text-orange-400 mt-0.5" />
                               {dietaryBadges.map((badge, idx) => (
-                                <span 
+                                <Badge 
                                   key={idx}
-                                  className="px-2 py-1 bg-orange-500/20 text-orange-300 rounded text-xs font-medium border border-orange-500/30"
+                                  variant="warning"
+                                  size="sm"
                                 >
                                   {badge}
-                                </span>
+                                </Badge>
                               ))}
                             </div>
                           )}

@@ -1,9 +1,9 @@
-
+import React from 'react';
 import { DollarSign, CheckCircle, Calendar, Star, TrendingUp, TrendingDown } from 'lucide-react';
 import { useAdminStore } from '../../../store/adminStore';
 import { formatCurrency, cn } from '../../../utils';
 
-export const KPICardsWidget: React.FC = () => {
+export const KPICardsWidget: React.FC = React.memo(() => {
   const { stats } = useAdminStore();
 
   const thisMonthRevenue = stats?.recentActivity?.revenueThisMonth || 0;
@@ -80,4 +80,4 @@ export const KPICardsWidget: React.FC = () => {
       </div>
     </div>
   );
-};
+});

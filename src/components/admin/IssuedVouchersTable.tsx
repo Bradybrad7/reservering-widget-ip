@@ -176,8 +176,21 @@ export const IssuedVouchersTable: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold-400"></div>
+      <div className="space-y-3 p-4">
+        {/* Table header skeleton */}
+        <div className="flex gap-4 pb-3 border-b border-slate-700">
+          {['Code', 'Status', 'Waarde', 'Vervaldatum', 'Acties'].map((_, i) => (
+            <div key={i} className="h-4 flex-1 bg-slate-700 rounded animate-pulse" />
+          ))}
+        </div>
+        {/* Table rows skeleton */}
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex gap-4 py-3">
+            {Array.from({ length: 5 }).map((_, j) => (
+              <div key={j} className="h-4 flex-1 bg-slate-700 rounded animate-pulse" />
+            ))}
+          </div>
+        ))}
       </div>
     );
   }

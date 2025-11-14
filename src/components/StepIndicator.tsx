@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { Calendar, Users, Package, ShoppingBag, FileText, CheckCircle } from 'lucide-react';
 import { cn } from '../utils';
 import type { StepKey } from '../types';

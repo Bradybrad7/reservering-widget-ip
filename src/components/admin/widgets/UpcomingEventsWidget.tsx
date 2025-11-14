@@ -1,10 +1,10 @@
-import { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Calendar, Users, ArrowRight, AlertCircle } from 'lucide-react';
 import { useEventsStore } from '../../../store/eventsStore';
 import { useAdminStore } from '../../../store/adminStore';
 import { formatDate, cn } from '../../../utils';
 
-export const UpcomingEventsWidget: React.FC = () => {
+export const UpcomingEventsWidget: React.FC = React.memo(() => {
   const { events } = useEventsStore();
   const { setActiveSection } = useAdminStore();
 
@@ -120,4 +120,4 @@ export const UpcomingEventsWidget: React.FC = () => {
       </div>
     </div>
   );
-};
+});

@@ -1,13 +1,24 @@
 /**
  * Payments Manager - Grootboek View
  * 
+ * ⚠️ DEPRECATED: This component is kept for backward compatibility only.
+ * Please use PaymentsCommandCenter instead for the full-featured payment management system.
+ * 
+ * PaymentsCommandCenter includes:
+ * - Register payments and refunds
+ * - Separate invoice tracking (merchandise vs reservation)
+ * - Payment detail modal with timeline
+ * - Advanced filtering and search
+ * - Real-time stats dashboard
+ * 
  * Volledig herzien voor het nieuwe Financiële Grootboek Systeem
  * - Afgeleide status in plaats van paymentStatus
  * - Payments + Refunds tracking per reservering
  * - Filter op restituties
  * - Zoek op payment/refund references
  * 
- * November 12, 2025
+ * November 12, 2025 (Original)
+ * November 13, 2025 (Deprecated in favor of PaymentsCommandCenter)
  */
 
 import { useState, useMemo } from 'react';

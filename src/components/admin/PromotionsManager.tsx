@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useConfigStore } from '../../store/configStore';
 import type { PromotionCode, EventType, Arrangement } from '../../types';
+import { Badge } from '../ui/Badge';
 
 export const PromotionsManager: React.FC = () => {
   const {
@@ -240,21 +241,21 @@ export const PromotionsManager: React.FC = () => {
                       </td>
                       <td className="px-4 py-3">
                         {expired ? (
-                          <span className="px-2 py-1 bg-orange-500/20 text-orange-400 text-xs font-medium rounded">
+                          <Badge variant="warning" size="sm">
                             Verlopen
-                          </span>
+                          </Badge>
                         ) : maxed ? (
-                          <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs font-medium rounded">
+                          <Badge variant="error" size="sm">
                             Vol
-                          </span>
+                          </Badge>
                         ) : active ? (
-                          <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs font-medium rounded">
+                          <Badge variant="success" size="sm">
                             Actief
-                          </span>
+                          </Badge>
                         ) : (
-                          <span className="px-2 py-1 bg-neutral-600/20 text-neutral-400 text-xs font-medium rounded">
+                          <Badge variant="neutral" size="sm">
                             Inactief
-                          </span>
+                          </Badge>
                         )}
                       </td>
                       <td className="px-4 py-3">

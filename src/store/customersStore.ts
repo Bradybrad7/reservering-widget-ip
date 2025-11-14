@@ -21,6 +21,8 @@ interface CustomersActions {
   loadCustomer: (email: string) => Promise<void>;
   selectCustomer: (customer: CustomerProfile | null) => void;
   updateCustomer: (email: string, updates: Partial<CustomerProfile>) => Promise<boolean>;
+  updateCustomerNotes: (email: string, notes: string) => Promise<boolean>;
+  updateCustomerTags: (email: string, tags: string[]) => Promise<boolean>;
   getCustomerReservations: (email: string) => Promise<Reservation[]>;
   getCustomerStats: (email: string) => Promise<{
     totalBookings: number;
@@ -118,6 +120,14 @@ export const useCustomersStore = create<CustomersState & CustomersActions>()(
           : state.selectedCustomer
       }));
       return true;
+    },
+
+    updateCustomerNotes: async (email: string, notes: string) => {
+      return await get().updateCustomer(email, { notes });
+    },
+
+    updateCustomerTags: async (email: string, tags: string[]) => {
+      return await get().updateCustomer(email, { tags });
     },
 
     getCustomerReservations: async (email: string) => {

@@ -23,6 +23,7 @@ import {
 import type { Reservation, Event } from '../../../types';
 import { isOptionExpired, isOptionExpiringSoon } from '../../../utils/optionHelpers';
 import { formatCurrency, formatDate, cn } from '../../../utils';
+import { IconContainer } from '../../ui/IconContainer';
 
 interface DashboardTabProps {
   reservations: Reservation[];
@@ -318,7 +319,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 // ============================
 
 interface StatCardProps {
-  icon: React.ComponentType<{ className?: string }>;
+  icon: typeof Users; // LucideIcon type
   label: string;
   value: string | number;
   sublabel?: string;
@@ -336,34 +337,48 @@ const StatCard: React.FC<StatCardProps> = ({
   onClick,
   clickable = false
 }) => {
-  const colorClasses = {
-    neutral: 'text-neutral-400',
-    yellow: 'text-yellow-400',
-    green: 'text-green-400',
+  const colorMap = {
+    neutral: 'default' as const,
+    yellow: 'amber' as const,
+    green: 'emerald' as const,
+    purple: 'purple' as const,
+    orange: 'amber' as const
+  };
+
+  const textColorClasses = {
+    neutral: 'text-gold-400',
+    yellow: 'text-amber-400',
+    green: 'text-emerald-400',
     purple: 'text-purple-400',
-    orange: 'text-orange-400'
+    orange: 'text-amber-400'
   };
 
   return (
     <div
       className={cn(
-        'bg-neutral-900/50 rounded-lg p-4 transition-all',
-        clickable && 'cursor-pointer hover:bg-neutral-800/70 hover:scale-105'
+        'bg-dark-800/50 rounded-lg p-4 transition-all border border-dark-700/50',
+        clickable && 'cursor-pointer hover:bg-dark-700/50 hover:scale-[1.02] hover:border-gold-500/30'
       )}
       onClick={clickable ? onClick : undefined}
     >
-      <div className={cn('flex items-center gap-2 text-sm mb-1', colorClasses[color])}>
-        <Icon className="w-4 h-4" />
-        {label}
-        {clickable && <span className="text-xs opacity-50">→</span>}
+      <div className="flex items-center justify-between mb-3">
+        <IconContainer 
+          icon={Icon} 
+          size="sm" 
+          color={colorMap[color]}
+        />
+        <div className={cn('text-xs font-medium', textColorClasses[color])}>
+          {label}
+          {clickable && <span className="ml-1 opacity-50">→</span>}
+        </div>
       </div>
-      <div className="text-2xl font-bold text-white">
+      <div className="text-2xl font-bold text-slate-100">
         {value}
       </div>
       {sublabel && (
         <div className={cn(
           'text-xs mt-1',
-          sublabel.includes('⚠️') ? 'text-orange-400' : 'text-neutral-400'
+          sublabel.includes('⚠️') ? 'text-orange-400' : 'text-slate-400'
         )}>
           {sublabel}
         </div>

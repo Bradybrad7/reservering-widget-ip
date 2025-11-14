@@ -283,7 +283,7 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
     }
   };
 
-  const updateFormField = (field: keyof CustomerFormData, value: any) => {
+  const updateFormField = (field: keyof CustomerFormData, value: string | number | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 

@@ -20,7 +20,8 @@ import {
   CheckCircle,
   XCircle,
   Tag,
-  Trash2
+  Trash2,
+  Layers
 } from 'lucide-react';
 import type { Reservation, Event, MerchandiseItem, ReservationTag } from '../../../types';
 import { useReservationsStore } from '../../../store/reservationsStore';
@@ -28,6 +29,9 @@ import { apiService } from '../../../services/apiService';
 import { useToast } from '../../Toast';
 import { formatDate, cn } from '../../../utils';
 import { BulkTagModal } from '../BulkTagModal';
+import { SavedViewsManager } from '../SavedViewsManager';
+import { BulkOperationsWorkspace } from '../BulkOperationsWorkspace';
+import { useSavedViewsStore } from '../../../store/savedViewsStore';
 
 // Sub-components (we'll create these)
 import { ReservationRichListItem } from './ReservationRichListItem';
@@ -81,6 +85,12 @@ export const WerkplaatsTab: React.FC<WerkplaatsTabProps> = ({
 
   // Modals
   const [showBulkTagModal, setShowBulkTagModal] = useState(false);
+  const [showSavedViewsManager, setShowSavedViewsManager] = useState(false);
+  const [showBulkOperations, setShowBulkOperations] = useState(false);
+  
+  // Saved Views
+  const { activeViewId, getViewById } = useSavedViewsStore();
+  const activeView = activeViewId ? getViewById(activeViewId) : null;
 
   // Apply preset filter when it changes (from Dashboard navigation, CustomerManager, or EventWorkshop)
   useEffect(() => {
@@ -267,6 +277,35 @@ export const WerkplaatsTab: React.FC<WerkplaatsTabProps> = ({
         {/* Filters (Sticky boven) */}
         <div className="flex-shrink-0 p-4 space-y-3 border-b border-neutral-700 bg-neutral-800/50">
           
+          {/* Toolbar with Saved Views & Bulk */}
+          <div className="flex items-center gap-2 mb-2">
+            <button
+              onClick={() => setShowSavedViewsManager(true)}
+              className={cn(
+                "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold transition-all",
+                activeView
+                  ? "bg-blue-500/20 text-blue-400 border border-blue-500"
+                  : "bg-neutral-700 text-neutral-300 hover:bg-neutral-600"
+              )}
+              title="Saved Views (Ctrl+Shift+V)"
+            >
+              <Layers className="w-4 h-4" />
+              <span className="hidden sm:inline">
+                {activeView?.name || 'Views'}
+              </span>
+            </button>
+            
+            {selectedReservations.size > 0 && (
+              <button
+                onClick={() => setShowBulkOperations(true)}
+                className="flex items-center gap-2 px-3 py-2 bg-purple-500/20 text-purple-400 border border-purple-500 rounded-lg text-sm font-bold hover:bg-purple-500/30 transition-all"
+              >
+                <CheckCircle className="w-4 h-4" />
+                <span>Bulk ({selectedReservations.size})</span>
+              </button>
+            )}
+          </div>
+          
           {/* Zoekbalk */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
@@ -426,6 +465,67 @@ export const WerkplaatsTab: React.FC<WerkplaatsTabProps> = ({
           onClose={() => setShowBulkTagModal(false)}
           onApplyTags={handleBulkApplyTags}
           selectedCount={selectedReservations.size}
+        />
+      )}
+      
+      {/* Saved Views Manager */}
+      {showSavedViewsManager && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border-2 border-slate-200 dark:border-slate-700 max-w-4xl w-full max-h-[80vh] overflow-hidden">
+            <SavedViewsManager 
+              onSelectView={(viewId) => {
+                // TODO: Apply selected view filters
+                setShowSavedViewsManager(false);
+              }}
+              activeViewId={activeViewId}
+            />
+          </div>
+        </div>
+      )}
+      
+      {/* Bulk Operations */}
+      {showBulkOperations && (
+        <BulkOperationsWorkspace
+          onClose={() => setShowBulkOperations(false)}
+          selectedReservations={Array.from(selectedReservations)
+            .map(id => reservations.find(r => r.id === id))
+            .filter((r): r is Reservation => r !== undefined)}
+          onBulkAction={async (action, reservationIds, options) => {
+            // Handle bulk actions
+            switch (action) {
+              case 'confirm':
+                await Promise.all(reservationIds.map(id => confirmReservation(id)));
+                toast.success(`${reservationIds.length} reserveringen bevestigd`);
+                break;
+              case 'reject':
+                await Promise.all(reservationIds.map(id => rejectReservation(id)));
+                toast.success(`${reservationIds.length} reserveringen afgewezen`);
+                break;
+              case 'cancel':
+                await Promise.all(reservationIds.map(id => deleteReservation(id)));
+                toast.success(`${reservationIds.length} reserveringen geannuleerd`);
+                break;
+              case 'send_email':
+                // TODO: Implement bulk email
+                toast.info('Bulk email verzenden komt binnenkort');
+                break;
+              case 'add_tag':
+                if (options?.tag) {
+                  // TODO: Implement bulk tag
+                  toast.info('Bulk tag toevoegen komt binnenkort');
+                }
+                break;
+              case 'export':
+                // TODO: Implement export
+                toast.info('Export komt binnenkort');
+                break;
+            }
+            
+            // Clear selection and refresh
+            setSelectedReservations(new Set());
+            onRefresh();
+            setShowBulkOperations(false);
+          }}
         />
       )}
     </div>

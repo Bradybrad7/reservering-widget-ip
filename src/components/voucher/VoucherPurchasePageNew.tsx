@@ -18,6 +18,7 @@ import { useConfigStore } from '../../store/configStore';
 import { formatCurrency } from '../../utils';
 import type { Arrangement } from '../../types';
 import { storageService } from '../../services/storageService';
+import Button from '../ui/Button';
 
 type DeliveryMethod = 'pickup' | 'shipping';
 
@@ -405,7 +406,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
         <h2 className="text-3xl font-bold text-white mb-3">
           Kies uw Theaterbon
         </h2>
-        <p className="text-slate-400 mb-6">
+        <p className="text-dark-300 mb-6">
           Selecteer welk type theaterbon u wilt kopen
         </p>
       </div>
@@ -413,17 +414,17 @@ export const VoucherPurchasePageNew: React.FC = () => {
       {/* Arrangement Explanation */}
       <div className="grid md:grid-cols-2 gap-6 mb-8">
         {/* Standaard Uitleg */}
-        <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
+        <div className="bg-dark-800/50 border border-white/10 rounded-xl p-6 shadow-xl hover:shadow-gold-glow/30 hover:border-gold-500/30 transition-all">
           <div className="flex items-center gap-3 mb-4">
             <Theater className="w-8 h-8 text-gold-400" />
             <h3 className="text-xl font-bold text-white">Standaard</h3>
           </div>
-          <p className="text-slate-300 text-sm mb-3">
+          <p className="text-dark-200 text-sm mb-3">
             Show met eten buffet en standaard dranken
           </p>
           <ul className="space-y-2">
             {ARRANGEMENT_INFO.BWF.features.map((feature, idx) => (
-              <li key={idx} className="flex items-start gap-2 text-sm text-slate-300">
+              <li key={idx} className="flex items-start gap-2 text-sm text-dark-200">
                 <Check className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
                 <span>{feature}</span>
               </li>
@@ -432,17 +433,17 @@ export const VoucherPurchasePageNew: React.FC = () => {
         </div>
 
         {/* Premium Uitleg */}
-        <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
+        <div className="bg-dark-800/50 border border-white/10 rounded-xl p-6 shadow-xl hover:shadow-gold-glow/30 hover:border-gold-500/30 transition-all">
           <div className="flex items-center gap-3 mb-4">
             <Utensils className="w-8 h-8 text-gold-400" />
             <h3 className="text-xl font-bold text-white">Premium</h3>
           </div>
-          <p className="text-slate-300 text-sm mb-3">
+          <p className="text-dark-200 text-sm mb-3">
             Alles van standaard plus mixdranken en speciale bieren
           </p>
           <ul className="space-y-2">
             {ARRANGEMENT_INFO.BWFM.features.map((feature, idx) => (
-              <li key={idx} className="flex items-start gap-2 text-sm text-slate-300">
+              <li key={idx} className="flex items-start gap-2 text-sm text-dark-200">
                 <Check className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
                 <span>{feature}</span>
               </li>
@@ -454,7 +455,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
       {/* Arrangement Selection Buttons */}
       {arrangements.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-slate-400">Geen arrangementen beschikbaar voor theaterbonnen</p>
+          <p className="text-dark-300">Geen arrangementen beschikbaar voor theaterbonnen</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -466,10 +467,10 @@ export const VoucherPurchasePageNew: React.FC = () => {
               <button
                 key={optionId}
                 onClick={() => selectArrangement(arrangement)}
-                className={`w-full p-4 rounded-lg border-2 transition-all text-left flex items-center justify-between ${
+                className={`w-full p-4 rounded-lg border-2 transition-all text-left flex items-center justify-between shadow-lg ${
                   isSelected
-                    ? 'border-gold-400 bg-gold-400/10 shadow-gold-glow'
-                    : 'border-slate-700 hover:border-gold-400/50 bg-slate-800/50'
+                    ? 'border-gold-400 bg-gold-400/10 shadow-gold-glow scale-[1.02]'
+                    : 'border-white/10 hover:border-gold-400/50 bg-dark-800/50 hover:shadow-gold-glow/50'
                 }`}
               >
                 <div className="flex items-center gap-4">
@@ -482,7 +483,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
                     <h3 className="font-bold text-white">
                       {arrangement.name}
                     </h3>
-                    <p className="text-sm text-slate-400">
+                    <p className="text-sm text-dark-300">
                       {arrangement.description}
                     </p>
                   </div>
@@ -506,19 +507,23 @@ export const VoucherPurchasePageNew: React.FC = () => {
       )}
 
       <div className="flex gap-4">
-        <button
+        <Button
           onClick={handleBack}
-          className="flex-1 px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+          variant="secondary"
+          size="lg"
+          className="flex-1"
         >
           Annuleren
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={handleNext}
           disabled={!formData.selectedArrangement}
-          className="flex-1 px-6 py-3 bg-gold-gradient text-slate-900 font-semibold rounded-lg hover:shadow-gold-glow transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          variant="primary"
+          size="lg"
+          className="flex-1"
         >
           Volgende
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -535,21 +540,21 @@ export const VoucherPurchasePageNew: React.FC = () => {
           <h2 className="text-3xl font-bold text-white mb-3">
             Hoeveel Theaterbonnen?
           </h2>
-          <p className="text-slate-400">
+          <p className="text-dark-300">
             Selecteer het aantal theaterbonnen dat u wilt kopen
           </p>
         </div>
 
         {/* Selected arrangement summary */}
         {selectedArr && (
-          <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
+          <div className="bg-dark-800/50 border border-white/10 rounded-xl p-6 shadow-xl">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <p className="text-sm text-slate-400">Geselecteerd arrangement:</p>
+                <p className="text-sm text-dark-300">Geselecteerd arrangement:</p>
                 <h3 className="text-xl font-bold text-white">{selectedArr.name}</h3>
               </div>
               <div className="text-right">
-                <p className="text-sm text-slate-400">Prijs per stuk</p>
+                <p className="text-sm text-dark-300">Prijs per stuk</p>
                 <p className="text-2xl font-bold text-gold-400">
                   {formatCurrency(selectedArr.price)}
                 </p>
@@ -567,7 +572,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
           <div className="flex items-center justify-center gap-6 mb-8">
             <button
               onClick={() => updateField('quantity', Math.max(1, formData.quantity - 1))}
-              className="w-16 h-16 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold text-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-110"
+              className="w-16 h-16 bg-dark-700 hover:bg-dark-600 text-white rounded-xl font-bold text-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-110 shadow-lg"
               disabled={formData.quantity <= 1}
             >
               −
@@ -583,13 +588,13 @@ export const VoucherPurchasePageNew: React.FC = () => {
                   const value = parseInt(e.target.value) || 1;
                   updateField('quantity', Math.max(1, Math.min(50, value)));
                 }}
-                className="w-32 px-6 py-4 bg-slate-900 border-4 border-gold-400 rounded-xl text-center text-white text-3xl font-bold focus:border-gold-300 focus:ring-4 focus:ring-gold-400/20 transition-all"
+                className="w-32 px-6 py-4 bg-dark-900 border-4 border-gold-400 rounded-xl text-center text-white text-3xl font-bold focus:border-gold-300 focus:ring-4 focus:ring-gold-400/20 transition-all shadow-inner"
               />
             </div>
             
             <button
               onClick={() => updateField('quantity', Math.min(50, formData.quantity + 1))}
-              className="w-16 h-16 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold text-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-110"
+              className="w-16 h-16 bg-dark-700 hover:bg-dark-600 text-white rounded-xl font-bold text-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-110 shadow-lg"
               disabled={formData.quantity >= 50}
             >
               +
@@ -598,7 +603,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
 
           {/* Total Price Display */}
           <div className="bg-gold-400/10 border border-gold-400/30 rounded-xl p-6 text-center">
-            <p className="text-slate-400 text-sm mb-2">Totaal Bedrag</p>
+            <p className="text-dark-300 text-sm mb-2">Totaal Bedrag</p>
             <p className="text-5xl font-bold text-gold-400">
               {formatCurrency(formData.arrangementPrice * formData.quantity)}
             </p>
@@ -607,24 +612,28 @@ export const VoucherPurchasePageNew: React.FC = () => {
             </p>
           </div>
 
-          <p className="text-center text-sm text-slate-400 mt-4">
+          <p className="text-center text-sm text-dark-300 mt-4">
             Je kunt maximaal 50 theaterbonnen per bestelling kopen
           </p>
         </div>
 
         <div className="flex gap-4">
-          <button
+          <Button
             onClick={handleBack}
-            className="flex-1 px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+            variant="secondary"
+            size="lg"
+            className="flex-1"
           >
             Terug
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleNext}
-            className="flex-1 px-6 py-3 bg-gold-gradient text-slate-900 font-semibold rounded-lg hover:shadow-gold-glow transition-all"
+            variant="primary"
+            size="lg"
+            className="flex-1"
           >
             Volgende
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -637,7 +646,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
         <h2 className="text-3xl font-bold text-white mb-3">
           Kies Bezorgmethode
         </h2>
-        <p className="text-slate-400">
+        <p className="text-dark-300">
           Hoe wilt u de theaterbon ontvangen?
         </p>
       </div>
@@ -649,14 +658,14 @@ export const VoucherPurchasePageNew: React.FC = () => {
           className={`p-6 rounded-xl border-2 transition-all text-left ${
             formData.deliveryMethod === 'pickup'
               ? 'border-gold-400 bg-gold-400/10 shadow-gold-glow'
-              : 'border-slate-700 hover:border-gold-400/50 bg-slate-800/50'
+              : 'border-white/10 hover:border-gold-400/50 bg-dark-800/50'
           }`}
         >
           <Store className="w-12 h-12 text-gold-400 mb-4" />
           <h3 className="text-xl font-bold text-white mb-2">
             Ophalen bij Theater
           </h3>
-          <p className="text-slate-400 mb-4">
+          <p className="text-dark-300 mb-4">
             Haal de fysieke theaterbon gratis op bij het theater
           </p>
           <div className="flex items-center gap-2 text-green-400 font-semibold">
@@ -670,18 +679,18 @@ export const VoucherPurchasePageNew: React.FC = () => {
           className={`p-6 rounded-xl border-2 transition-all text-left ${
             formData.deliveryMethod === 'shipping'
               ? 'border-gold-400 bg-gold-400/10 shadow-gold-glow'
-              : 'border-slate-700 hover:border-gold-400/50 bg-slate-800/50'
+              : 'border-white/10 hover:border-gold-400/50 bg-dark-800/50'
           }`}
         >
           <Package className="w-12 h-12 text-gold-400 mb-4" />
           <h3 className="text-xl font-bold text-white mb-2">
             Verzending per Post
           </h3>
-          <p className="text-slate-400 mb-4">
+          <p className="text-dark-300 mb-4">
             Ontvang de fysieke theaterbon thuis per post
           </p>
           <div className="flex items-center gap-2">
-            <span className="text-slate-300">Verzendkosten:</span>
+            <span className="text-dark-200">Verzendkosten:</span>
             <span className="text-xl font-bold text-gold-400">
               {formatCurrency(config?.voucherShippingCost ?? SHIPPING_COST)}
             </span>
@@ -690,18 +699,22 @@ export const VoucherPurchasePageNew: React.FC = () => {
       </div>
 
       <div className="flex gap-4">
-        <button
+        <Button
           onClick={handleBack}
-          className="flex-1 px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+          variant="secondary"
+          size="lg"
+          className="flex-1"
         >
           Terug
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={handleNext}
-          className="flex-1 px-6 py-3 bg-gold-gradient text-slate-900 font-semibold rounded-lg hover:shadow-gold-glow transition-all"
+          variant="primary"
+          size="lg"
+          className="flex-1"
         >
           Volgende
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -713,13 +726,13 @@ export const VoucherPurchasePageNew: React.FC = () => {
         <h2 className="text-3xl font-bold text-white mb-3">
           Vul Uw Gegevens In
         </h2>
-        <p className="text-slate-400">
+        <p className="text-dark-300">
           We hebben deze gegevens nodig om de theaterbon te verwerken
         </p>
       </div>
 
       {/* Is Gift checkbox */}
-      <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
+      <div className="bg-dark-800/50 rounded-lg p-6 border border-white/10">
         <label className="flex items-center gap-3 cursor-pointer">
           <input
             type="checkbox"
@@ -741,14 +754,14 @@ export const VoucherPurchasePageNew: React.FC = () => {
         </h3>
         
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-dark-200 mb-2">
             Volledige Naam *
           </label>
           <input
             type="text"
             value={formData.buyerName}
             onChange={e => updateField('buyerName', e.target.value)}
-            className="w-full bg-slate-800 border-2 border-slate-700 rounded-lg px-4 py-3 text-white focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
+            className="w-full bg-dark-800 border-2 border-white/10 rounded-lg px-4 py-3 text-white focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
             placeholder="Jan Janssen"
           />
           {errors.buyerName && (
@@ -757,14 +770,14 @@ export const VoucherPurchasePageNew: React.FC = () => {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-dark-200 mb-2">
             Email *
           </label>
           <input
             type="email"
             value={formData.buyerEmail}
             onChange={e => updateField('buyerEmail', e.target.value)}
-            className="w-full bg-slate-800 border-2 border-slate-700 rounded-lg px-4 py-3 text-white focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
+            className="w-full bg-dark-800 border-2 border-white/10 rounded-lg px-4 py-3 text-white focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
             placeholder="jan@voorbeeld.nl"
           />
           {errors.buyerEmail && (
@@ -773,14 +786,14 @@ export const VoucherPurchasePageNew: React.FC = () => {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-dark-200 mb-2">
             Telefoonnummer *
           </label>
           <input
             type="tel"
             value={formData.buyerPhone}
             onChange={e => updateField('buyerPhone', e.target.value)}
-            className="w-full bg-slate-800 border-2 border-slate-700 rounded-lg px-4 py-3 text-white focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
+            className="w-full bg-dark-800 border-2 border-white/10 rounded-lg px-4 py-3 text-white focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
             placeholder="06 12345678"
           />
           {errors.buyerPhone && (
@@ -791,20 +804,20 @@ export const VoucherPurchasePageNew: React.FC = () => {
 
       {/* Recipient Information (if gift) */}
       {formData.isGift && (
-        <div className="space-y-4 pt-6 border-t border-slate-700">
+        <div className="space-y-4 pt-6 border-t border-white/10">
           <h3 className="text-xl font-semibold text-white">
             Ontvanger Gegevens
           </h3>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-dark-200 mb-2">
               Naam Ontvanger *
             </label>
             <input
               type="text"
               value={formData.recipientName}
               onChange={e => updateField('recipientName', e.target.value)}
-              className="w-full bg-slate-800 border-2 border-slate-700 rounded-lg px-4 py-3 text-white focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
+              className="w-full bg-dark-800 border-2 border-white/10 rounded-lg px-4 py-3 text-white focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
               placeholder="Marie Jansen"
             />
             {errors.recipientName && (
@@ -813,14 +826,14 @@ export const VoucherPurchasePageNew: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-dark-200 mb-2">
               Email Ontvanger *
             </label>
             <input
               type="email"
               value={formData.recipientEmail}
               onChange={e => updateField('recipientEmail', e.target.value)}
-              className="w-full bg-slate-800 border-2 border-slate-700 rounded-lg px-4 py-3 text-white focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
+              className="w-full bg-dark-800 border-2 border-white/10 rounded-lg px-4 py-3 text-white focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
               placeholder="marie@voorbeeld.nl"
             />
             {errors.recipientEmail && (
@@ -829,14 +842,14 @@ export const VoucherPurchasePageNew: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-dark-200 mb-2">
               Persoonlijk Bericht (optioneel)
             </label>
             <textarea
               value={formData.personalMessage}
               onChange={e => updateField('personalMessage', e.target.value)}
               rows={3}
-              className="w-full bg-slate-800 border-2 border-slate-700 rounded-lg px-4 py-3 text-white focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20 resize-none"
+              className="w-full bg-dark-800 border-2 border-white/10 rounded-lg px-4 py-3 text-white focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20 resize-none"
               placeholder="Veel plezier met deze voucher!"
               maxLength={200}
             />
@@ -849,20 +862,20 @@ export const VoucherPurchasePageNew: React.FC = () => {
 
       {/* Shipping Address (if shipping) */}
       {formData.deliveryMethod === 'shipping' && (
-        <div className="space-y-4 pt-6 border-t border-slate-700">
+        <div className="space-y-4 pt-6 border-t border-white/10">
           <h3 className="text-xl font-semibold text-white">
             Verzendadres
           </h3>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-dark-200 mb-2">
               Straat + Huisnummer *
             </label>
             <input
               type="text"
               value={formData.shippingAddress}
               onChange={e => updateField('shippingAddress', e.target.value)}
-              className="w-full bg-slate-800 border-2 border-slate-700 rounded-lg px-4 py-3 text-white focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
+              className="w-full bg-dark-800 border-2 border-white/10 rounded-lg px-4 py-3 text-white focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
               placeholder="Voorbeeldstraat 123"
             />
             {errors.shippingAddress && (
@@ -872,14 +885,14 @@ export const VoucherPurchasePageNew: React.FC = () => {
 
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-dark-200 mb-2">
                 Postcode *
               </label>
               <input
                 type="text"
                 value={formData.shippingPostalCode}
                 onChange={e => updateField('shippingPostalCode', e.target.value)}
-                className="w-full bg-slate-800 border-2 border-slate-700 rounded-lg px-4 py-3 text-white focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
+                className="w-full bg-dark-800 border-2 border-white/10 rounded-lg px-4 py-3 text-white focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
                 placeholder="1234 AB"
               />
               {errors.shippingPostalCode && (
@@ -888,14 +901,14 @@ export const VoucherPurchasePageNew: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-dark-200 mb-2">
                 Plaats *
               </label>
               <input
                 type="text"
                 value={formData.shippingCity}
                 onChange={e => updateField('shippingCity', e.target.value)}
-                className="w-full bg-slate-800 border-2 border-slate-700 rounded-lg px-4 py-3 text-white focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
+                className="w-full bg-dark-800 border-2 border-white/10 rounded-lg px-4 py-3 text-white focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
                 placeholder="Amsterdam"
               />
               {errors.shippingCity && (
@@ -907,18 +920,22 @@ export const VoucherPurchasePageNew: React.FC = () => {
       )}
 
       <div className="flex gap-4">
-        <button
+        <Button
           onClick={handleBack}
-          className="flex-1 px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+          variant="secondary"
+          size="lg"
+          className="flex-1"
         >
           Terug
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={handleNext}
-          className="flex-1 px-6 py-3 bg-gold-gradient text-slate-900 font-semibold rounded-lg hover:shadow-gold-glow transition-all"
+          variant="primary"
+          size="lg"
+          className="flex-1"
         >
           Controleren
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -933,37 +950,37 @@ export const VoucherPurchasePageNew: React.FC = () => {
           <h2 className="text-3xl font-bold text-white mb-3">
             Controleer Uw Bestelling
           </h2>
-          <p className="text-slate-400">
+          <p className="text-dark-300">
             Controleer de gegevens voordat u doorgaat naar betaling
           </p>
         </div>
 
         {/* Order Summary */}
-        <div className="bg-slate-800/50 rounded-xl border border-slate-700 divide-y divide-slate-700">
+        <div className="bg-dark-800/50 rounded-xl border border-white/10 divide-y divide-white/10">
           {/* Voucher Amount */}
           <div className="p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Theaterbon(nen)</h3>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-slate-300">Type:</span>
+                <span className="text-dark-200">Type:</span>
                 <span className="text-white font-medium">
                   {selectedArr?.name || 'Niet gevonden'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-300">Prijs per stuk:</span>
+                <span className="text-dark-200">Prijs per stuk:</span>
                 <span className="text-white font-medium">
                   {formatCurrency(formData.arrangementPrice)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-300">Aantal:</span>
+                <span className="text-dark-200">Aantal:</span>
                 <span className="text-white font-medium">
                   {formData.quantity}x
                 </span>
               </div>
-              <div className="flex items-center justify-between pt-2 border-t border-slate-700">
-                <span className="text-slate-300">Subtotaal theaterbonnen:</span>
+              <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                <span className="text-dark-200">Subtotaal theaterbonnen:</span>
                 <span className="text-xl font-bold text-gold-400">
                   {formatCurrency(formData.arrangementPrice * formData.quantity)}
                 </span>
@@ -976,7 +993,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
             <h3 className="text-lg font-semibold text-white mb-4">Bezorging</h3>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-slate-300">Methode:</span>
+                <span className="text-dark-200">Methode:</span>
                 <span className="text-white font-medium">
                   {formData.deliveryMethod === 'pickup' ? (
                     <>
@@ -992,7 +1009,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-300">Kosten:</span>
+                <span className="text-dark-200">Kosten:</span>
                 <span className="text-white font-medium">
                   {formData.deliveryMethod === 'pickup' ? 'Gratis' : formatCurrency(config?.voucherShippingCost ?? SHIPPING_COST)}
                 </span>
@@ -1006,9 +1023,9 @@ export const VoucherPurchasePageNew: React.FC = () => {
               {formData.isGift ? 'Koper' : 'Ontvanger'}
             </h3>
             <div className="space-y-2 text-sm">
-              <p className="text-slate-300">{formData.buyerName}</p>
-              <p className="text-slate-400">{formData.buyerEmail}</p>
-              <p className="text-slate-400">{formData.buyerPhone}</p>
+              <p className="text-dark-200">{formData.buyerName}</p>
+              <p className="text-dark-300">{formData.buyerEmail}</p>
+              <p className="text-dark-300">{formData.buyerPhone}</p>
             </div>
           </div>
 
@@ -1017,11 +1034,11 @@ export const VoucherPurchasePageNew: React.FC = () => {
             <div className="p-6">
               <h3 className="text-lg font-semibold text-white mb-4">Ontvanger</h3>
               <div className="space-y-2 text-sm">
-                <p className="text-slate-300">{formData.recipientName}</p>
-                <p className="text-slate-400">{formData.recipientEmail}</p>
+                <p className="text-dark-200">{formData.recipientName}</p>
+                <p className="text-dark-300">{formData.recipientEmail}</p>
                 {formData.personalMessage && (
-                  <div className="mt-3 p-3 bg-slate-900/50 rounded-lg">
-                    <p className="text-slate-400 italic">"{formData.personalMessage}"</p>
+                  <div className="mt-3 p-3 bg-dark-900/50 rounded-lg">
+                    <p className="text-dark-300 italic">"{formData.personalMessage}"</p>
                   </div>
                 )}
               </div>
@@ -1032,7 +1049,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
           {formData.deliveryMethod === 'shipping' && (
             <div className="p-6">
               <h3 className="text-lg font-semibold text-white mb-4">Verzendadres</h3>
-              <div className="space-y-1 text-sm text-slate-300">
+              <div className="space-y-1 text-sm text-dark-200">
                 <p>{formData.shippingAddress}</p>
                 <p>
                   {formData.shippingPostalCode} {formData.shippingCity}
@@ -1054,17 +1071,21 @@ export const VoucherPurchasePageNew: React.FC = () => {
         </div>
 
         <div className="flex gap-4">
-          <button
+          <Button
             onClick={handleBack}
             disabled={isSubmitting}
-            className="flex-1 px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors disabled:opacity-50"
+            variant="secondary"
+            size="lg"
+            className="flex-1"
           >
             Terug
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="flex-1 px-6 py-4 bg-gold-gradient text-slate-900 font-semibold rounded-lg hover:shadow-gold-glow transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            variant="primary"
+            size="lg"
+            className="flex-1"
           >
             {isSubmitting ? (
               <>
@@ -1077,14 +1098,14 @@ export const VoucherPurchasePageNew: React.FC = () => {
                 Doorgaan naar Betaling
               </>
             )}
-          </button>
+          </Button>
         </div>
       </div>
     );
   };
 
   return (
-    <div className="min-h-screen bg-black py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-dark-900 via-black to-dark-900 py-12 px-4">
       <div className="max-w-3xl mx-auto">
         {/* Progress Indicator */}
         <div className="mb-8">
@@ -1112,7 +1133,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
                         ? 'bg-gold-400 text-slate-900'
                         : isCompleted
                         ? 'bg-green-500 text-white'
-                        : 'bg-slate-700 text-slate-400'
+                        : 'bg-dark-700 text-dark-300'
                     }`}
                   >
                     {idx + 1}
@@ -1128,7 +1149,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
               );
             })}
           </div>
-          <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+          <div className="h-2 bg-dark-800 rounded-full overflow-hidden">
             <div
               className="h-full bg-gold-gradient transition-all duration-300"
               style={{
@@ -1141,7 +1162,7 @@ export const VoucherPurchasePageNew: React.FC = () => {
         </div>
 
         {/* Step Content */}
-        <div className="bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-800 p-8">
+        <div className="bg-dark-900/50 backdrop-blur-sm rounded-2xl border border-slate-800 p-8">
           {step === 'arrangement' && renderArrangementStep()}
           {step === 'quantity' && renderQuantityStep()}
           {step === 'delivery' && renderDeliveryStep()}
@@ -1152,3 +1173,4 @@ export const VoucherPurchasePageNew: React.FC = () => {
     </div>
   );
 };
+

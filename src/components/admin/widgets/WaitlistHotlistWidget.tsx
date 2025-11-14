@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Flame, Users, Calendar, TrendingUp, ArrowRight } from 'lucide-react';
 import { useWaitlistStore } from '../../../store/waitlistStore';
 import { useEventsStore } from '../../../store/eventsStore';
@@ -11,7 +11,7 @@ import { formatDate, cn } from '../../../utils';
  * Identificeert kansen door events met de meeste wachtlijst vraag te tonen.
  * Niet een "probleem" maar een "opportunity" indicator.
  */
-export const WaitlistHotlistWidget: React.FC = () => {
+export const WaitlistHotlistWidget: React.FC = React.memo(() => {
   const { entries } = useWaitlistStore();
   const { events } = useEventsStore();
   const { setActiveSection } = useAdminStore();
@@ -222,4 +222,4 @@ export const WaitlistHotlistWidget: React.FC = () => {
       </div>
     </div>
   );
-};
+});

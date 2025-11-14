@@ -13,6 +13,8 @@ import { read, utils, writeFile } from 'xlsx';
 import { apiService } from '../../services/apiService';
 import { formatDate, cn } from '../../utils';
 import type { Event, Reservation } from '../../types';
+import { IconContainer } from '../ui/IconContainer';
+import { Badge } from '../ui/Badge';
 
 interface ImportRow {
   rowNumber: number;
@@ -669,9 +671,7 @@ export const BulkReservationImport: React.FC<BulkReservationImportProps> = ({
               {/* Download Template */}
               <div className="bg-blue-500/10 border-2 border-blue-500/30 rounded-xl p-6">
                 <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <FileSpreadsheet className="w-6 h-6 text-blue-400" />
-                  </div>
+                  <IconContainer icon={FileSpreadsheet} size="lg" color="blue" />
                   <div className="flex-1">
                     <h4 className="text-lg font-bold text-white mb-2">Stap 1: Download Template</h4>
                     <p className="text-neutral-300 text-sm mb-4">
@@ -691,9 +691,7 @@ export const BulkReservationImport: React.FC<BulkReservationImportProps> = ({
               {/* Upload File */}
               <div className="bg-neutral-800/50 border-2 border-neutral-700/50 rounded-xl p-6">
                 <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <Upload className="w-6 h-6 text-green-400" />
-                  </div>
+                  <IconContainer icon={Upload} size="lg" color="emerald" />
                   <div className="flex-1">
                     <h4 className="text-lg font-bold text-white mb-2">Stap 2: Upload Ingevuld Bestand</h4>
                     <p className="text-neutral-300 text-sm mb-4">
@@ -799,9 +797,9 @@ export const BulkReservationImport: React.FC<BulkReservationImportProps> = ({
                           <td className="px-4 py-3 text-sm text-neutral-300">{row.data.email}</td>
                           <td className="px-4 py-3 text-sm text-white">{row.data.numberOfPersons}</td>
                           <td className="px-4 py-3 text-sm">
-                            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs font-semibold">
+                            <Badge variant="info" size="sm">
                               {row.data.arrangement}
-                            </span>
+                            </Badge>
                           </td>
                           <td className="px-4 py-3 text-xs">
                             {row.validation.errors.length > 0 && (

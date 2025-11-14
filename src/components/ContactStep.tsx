@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { User, Mail, Phone, Building } from 'lucide-react';
+import { User, Mail, Phone, Building, AlertCircle } from 'lucide-react';
 import { useReservationStore } from '../store/reservationStore';
 import { cn } from '../utils';
 import {
@@ -9,6 +9,7 @@ import {
 } from '../utils/validation';
 import { capitalizeName, capitalizeCompanyName } from '../utils/nameUtils';
 import Button from './ui/Button';
+import { IconContainer } from './ui/IconContainer';
 
 /**
  * ContactStep Component
@@ -107,14 +108,14 @@ export const ContactStep: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="text-center">
-        <div className="w-16 h-16 bg-gold-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-          <User className="w-8 h-8 text-gold-400" />
+        <div className="flex justify-center mb-4">
+          <IconContainer icon={User} size="xl" variant="gold" />
         </div>
-        <h2 className="text-2xl font-bold text-white mb-2">
+        <h2 className="text-3xl font-bold text-white mb-3">
           Uw Contactgegevens
         </h2>
-        <p className="text-neutral-400">
-          Vul hieronder uw gegevens in zodat we contact met u kunnen opnemen
+        <p className="text-dark-200 text-lg">
+          Nog maar een paar stappen! Vul uw gegevens in zodat we uw reservering kunnen bevestigen.
         </p>
       </div>
 
@@ -122,8 +123,8 @@ export const ContactStep: React.FC = () => {
       <div className="space-y-4">
         {/* Aanhef */}
         <div>
-          <label htmlFor="salutation" className="block text-sm font-medium text-neutral-300 mb-2">
-            Aanhef *
+          <label htmlFor="salutation" className="block text-sm font-semibold text-white mb-2">
+            Aanhef <span className="text-red-400">*</span>
           </label>
           <select
             id="salutation"
@@ -131,19 +132,26 @@ export const ContactStep: React.FC = () => {
             value={formData.salutation || ''}
             onChange={(e) => handleFieldChange('salutation', e.target.value)}
             className={cn(
-              'w-full px-4 py-3 bg-neutral-800 border rounded-lg text-white transition-colors',
+              'w-full px-4 py-3 bg-dark-800/50 border-2 rounded-xl text-white transition-all duration-200 shadow-inner',
+              'focus:outline-none focus:ring-2 focus:ring-gold-400/50',
               formErrors.salutation
                 ? 'border-red-500 focus:border-red-400'
-                : 'border-neutral-700 focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20'
+                : 'border-white/10 focus:border-gold-500'
             )}
             required
+            aria-required="true"
+            aria-invalid={!!formErrors.salutation}
+            aria-describedby={formErrors.salutation ? "salutation-error" : undefined}
           >
-            <option value="">Selecteer aanhef</option>
-            <option value="Dhr">Dhr</option>
-            <option value="Mevr">Mevr</option>
+            <option value="">-- Selecteer --</option>
+            <option value="Dhr">Dhr (De heer)</option>
+            <option value="Mevr">Mevr (Mevrouw)</option>
           </select>
           {formErrors.salutation && (
-            <p className="mt-1 text-sm text-red-400">{formErrors.salutation}</p>
+            <p id="salutation-error" className="mt-2 text-sm text-red-400 flex items-center gap-1">
+              <AlertCircle className="w-4 h-4" />
+              {formErrors.salutation}
+            </p>
           )}
         </div>
 
@@ -151,11 +159,11 @@ export const ContactStep: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Voornaam */}
           <div>
-            <label htmlFor="firstName" className="block text-sm font-medium text-neutral-300 mb-2">
-              Voornaam *
+            <label htmlFor="firstName" className="block text-sm font-semibold text-white mb-2">
+              Voornaam <span className="text-red-400">*</span>
             </label>
             <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" />
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400" />
               <input
                 type="text"
                 id="firstName"
@@ -163,27 +171,33 @@ export const ContactStep: React.FC = () => {
                 value={formData.firstName || ''}
                 onChange={(e) => handleFieldChange('firstName', e.target.value)}
                 className={cn(
-                  'w-full pl-11 pr-4 py-3 bg-neutral-800 border rounded-lg text-white placeholder-neutral-500 transition-colors',
+                  'w-full pl-11 pr-4 py-3 bg-dark-800/50 border-2 rounded-xl text-white placeholder-dark-500 transition-all duration-200 shadow-inner',
+                  'focus:outline-none focus:ring-2 focus:ring-gold-400/50',
                   formErrors.firstName
                     ? 'border-red-500 focus:border-red-400'
-                    : 'border-neutral-700 focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20'
+                    : 'border-white/10 focus:border-gold-500'
                 )}
                 placeholder="Jan"
                 required
+                aria-required="true"
+                aria-invalid={!!formErrors.firstName}
               />
             </div>
             {formErrors.firstName && (
-              <p className="mt-1 text-sm text-red-400">{formErrors.firstName}</p>
+              <p className="mt-2 text-sm text-red-400 flex items-center gap-1">
+                <AlertCircle className="w-4 h-4" />
+                {formErrors.firstName}
+              </p>
             )}
           </div>
 
           {/* Achternaam */}
           <div>
-            <label htmlFor="lastName" className="block text-sm font-medium text-neutral-300 mb-2">
-              Achternaam *
+            <label htmlFor="lastName" className="block text-sm font-semibold text-white mb-2">
+              Achternaam <span className="text-red-400">*</span>
             </label>
             <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" />
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400" />
               <input
                 type="text"
                 id="lastName"
@@ -191,35 +205,41 @@ export const ContactStep: React.FC = () => {
                 value={formData.lastName || ''}
                 onChange={(e) => handleFieldChange('lastName', e.target.value)}
                 className={cn(
-                  'w-full pl-11 pr-4 py-3 bg-neutral-800 border rounded-lg text-white placeholder-neutral-500 transition-colors',
+                  'w-full pl-11 pr-4 py-3 bg-dark-800/50 border-2 rounded-xl text-white placeholder-dark-500 transition-all duration-200 shadow-inner',
+                  'focus:outline-none focus:ring-2 focus:ring-gold-400/50',
                   formErrors.lastName
                     ? 'border-red-500 focus:border-red-400'
-                    : 'border-neutral-700 focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20'
+                    : 'border-white/10 focus:border-gold-500'
                 )}
                 placeholder="de Vries"
                 required
+                aria-required="true"
+                aria-invalid={!!formErrors.lastName}
               />
             </div>
             {formErrors.lastName && (
-              <p className="mt-1 text-sm text-red-400">{formErrors.lastName}</p>
+              <p className="mt-2 text-sm text-red-400 flex items-center gap-1">
+                <AlertCircle className="w-4 h-4" />
+                {formErrors.lastName}
+              </p>
             )}
           </div>
         </div>
 
         {/* Bedrijf (optioneel) */}
         <div>
-          <label htmlFor="companyName" className="block text-sm font-medium text-neutral-300 mb-2">
-            Bedrijf <span className="text-neutral-500 font-normal">(optioneel)</span>
+          <label htmlFor="companyName" className="block text-sm font-semibold text-white mb-2">
+            Bedrijf <span className="text-dark-400 font-normal text-xs">(optioneel)</span>
           </label>
           <div className="relative">
-            <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" />
+            <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400" />
             <input
               type="text"
               id="companyName"
               name="companyName"
               value={formData.companyName || ''}
               onChange={(e) => handleFieldChange('companyName', e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20 transition-colors"
+              className="w-full pl-11 pr-4 py-3 bg-dark-800/50 border-2 border-white/10 rounded-xl text-white placeholder-dark-500 focus:border-gold-500 focus:ring-2 focus:ring-gold-400/50 focus:outline-none transition-all duration-200 shadow-inner"
               placeholder="Bedrijfsnaam B.V."
             />
           </div>
@@ -227,11 +247,11 @@ export const ContactStep: React.FC = () => {
 
         {/* E-mail */}
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-neutral-300 mb-2">
-            E-mailadres *
+          <label htmlFor="email" className="block text-sm font-semibold text-white mb-2">
+            E-mailadres <span className="text-red-400">*</span>
           </label>
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" />
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400" />
             <input
               type="email"
               id="email"
@@ -239,17 +259,24 @@ export const ContactStep: React.FC = () => {
               value={formData.email || ''}
               onChange={(e) => handleFieldChange('email', e.target.value)}
               className={cn(
-                'w-full pl-11 pr-4 py-3 bg-neutral-800 border rounded-lg text-white placeholder-neutral-500 transition-colors',
+                'w-full pl-11 pr-4 py-3 bg-dark-800/50 border-2 rounded-xl text-white placeholder-dark-500 transition-all duration-200 shadow-inner',
+                'focus:outline-none focus:ring-2 focus:ring-gold-400/50',
                 formErrors.email
                   ? 'border-red-500 focus:border-red-400'
-                  : 'border-neutral-700 focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20'
+                  : 'border-white/10 focus:border-gold-500'
               )}
               placeholder="jan@bedrijf.nl"
               required
+              aria-required="true"
+              aria-invalid={!!formErrors.email}
+              autoComplete="email"
             />
           </div>
           {formErrors.email && (
-            <p className="mt-1 text-sm text-red-400">{formErrors.email}</p>
+            <p className="mt-2 text-sm text-red-400 flex items-center gap-1">
+              <AlertCircle className="w-4 h-4" />
+              {formErrors.email}
+            </p>
           )}
         </div>
 
@@ -302,9 +329,9 @@ export const ContactStep: React.FC = () => {
 
         {/* Custom Land Input (als "Andere" geselecteerd) */}
         {formData.phoneCountryCode === 'other' && (
-          <div>
-            <label htmlFor="customCountryCode" className="block text-sm font-medium text-neutral-300 mb-2">
-              Landcode *
+          <div className="animate-fade-in">
+            <label htmlFor="customCountryCode" className="block text-sm font-semibold text-white mb-2">
+              Landcode <span className="text-red-400">*</span>
             </label>
             <input
               type="text"
@@ -313,10 +340,7 @@ export const ContactStep: React.FC = () => {
               placeholder="+49"
               value={formData.customCountryCode || ''}
               onChange={(e) => handleFieldChange('customCountryCode', e.target.value)}
-              className={cn(
-                'w-full px-4 py-3 bg-neutral-800 border rounded-lg text-white placeholder-neutral-500 transition-colors',
-                'border-neutral-700 focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20'
-              )}
+              className="w-full px-4 py-3 bg-dark-800/50 border-2 border-white/10 rounded-xl text-white placeholder-dark-500 focus:border-gold-500 focus:ring-2 focus:ring-gold-400/50 focus:outline-none transition-all duration-200 shadow-inner"
               required
             />
           </div>
@@ -325,9 +349,10 @@ export const ContactStep: React.FC = () => {
       </div>
 
       {/* Info Box */}
-      <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-        <p className="text-sm text-blue-300">
-          💡 <strong>Tip:</strong> Controleer uw gegevens goed - we gebruiken deze om uw reservering te bevestigen.
+      <div className="bg-blue-500/20 border border-blue-400/30 rounded-xl p-4 shadow-lg">
+        <p className="text-sm text-blue-200 flex items-center gap-2">
+          <span className="text-lg">💡</span>
+          <span><strong>Tip:</strong> Controleer uw gegevens goed - we gebruiken deze om uw reservering te bevestigen.</span>
         </p>
       </div>
 

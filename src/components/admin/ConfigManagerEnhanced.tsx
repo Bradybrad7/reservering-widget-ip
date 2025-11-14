@@ -16,7 +16,6 @@ import {
   Tag
 } from 'lucide-react';
 import { EmailTestComponent } from './EmailTestComponent';
-import EmailDebugTest from './EmailDebugTest';
 import MailingConfig from './MailingConfig';
 import { TagsManager } from './TagsManager';
 import { useConfigStore } from '../../store/configStore';
@@ -485,14 +484,6 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
           description="Test of email verzending correct werkt"
         >
           <EmailTestComponent />
-        </CollapsibleGroup>
-        
-        <CollapsibleGroup
-          id="email-debug"
-          title="🧪 Email Debug & Environment Test"
-          description="Advanced debugging voor email problemen - test environment variables en email service"
-        >
-          <EmailDebugTest />
         </CollapsibleGroup>
       </div>
     );

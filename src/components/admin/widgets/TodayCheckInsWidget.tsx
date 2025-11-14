@@ -1,24 +1,31 @@
-
+import React, { useMemo } from 'react';
 import { UserCheck, Calendar, ArrowRight, Users } from 'lucide-react';
 import { useReservationsStore } from '../../../store/reservationsStore';
 import { useAdminStore } from '../../../store/adminStore';
 import { formatDate } from '../../../utils';
 
-export const TodayCheckInsWidget: React.FC = () => {
+export const TodayCheckInsWidget: React.FC = React.memo(() => {
   const { reservations } = useReservationsStore();
   const { setActiveSection } = useAdminStore();
 
-  const todayCheckIns = reservations.filter(r => {
+  const todayCheckIns = useMemo(() => reservations.filter(r => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const eventDate = new Date(r.eventDate);
     eventDate.setHours(0, 0, 0, 0);
     return eventDate.getTime() === today.getTime() && 
            (r.status === 'confirmed' || r.status === 'checked-in');
-  });
+  }), [reservations]);
 
-  const totalPersons = todayCheckIns.reduce((sum, r) => sum + r.numberOfPersons, 0);
-  const checkedInCount = todayCheckIns.filter(r => r.status === 'checked-in').length;
+  const totalPersons = useMemo(() => 
+    todayCheckIns.reduce((sum, r) => sum + r.numberOfPersons, 0),
+    [todayCheckIns]
+  );
+  
+  const checkedInCount = useMemo(() => 
+    todayCheckIns.filter(r => r.status === 'checked-in').length,
+    [todayCheckIns]
+  );
 
   if (todayCheckIns.length === 0) {
     return (
@@ -103,4 +110,4 @@ export const TodayCheckInsWidget: React.FC = () => {
       )}
     </div>
   );
-};
+});

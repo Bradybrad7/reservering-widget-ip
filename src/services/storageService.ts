@@ -24,8 +24,9 @@ import type {
 import { firestoreService } from './firestoreService';
 import type { Unsubscribe } from 'firebase/firestore';
 import { defaultConfig, defaultPricing, defaultAddOns, defaultBookingRules } from '../config/defaults';
+import { logInfo, logDebug, logError } from '../utils/logger';
 
-console.log('� Using Firestore for data storage');
+logInfo('Service', 'Using Firestore for data storage');
 
 /**
  * Storage Service (Firestore-backed)
@@ -41,13 +42,13 @@ class StorageService {
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
-    console.log('🔥 Initializing Firestore...');
+    logInfo('Service', 'Initializing Firestore...');
     
     // Check if default data needs to be initialized
     await this.ensureDefaultData();
     
     this.initialized = true;
-    console.log('✅ Firestore initialized');
+    logInfo('Service', 'Firestore initialized');
   }
 
   /**
@@ -58,21 +59,21 @@ class StorageService {
       // Check if config exists
       const config = await firestoreService.config.getConfig();
       if (!config) {
-        console.log('📝 Initializing default configuration...');
+        logDebug('Service', 'Initializing default configuration');
         await firestoreService.config.saveConfig(defaultConfig);
       }
 
       // Check if pricing exists
       const pricing = await firestoreService.config.getPricing();
       if (!pricing) {
-        console.log('💰 Initializing default pricing...');
+        logDebug('Service', 'Initializing default pricing');
         await firestoreService.config.savePricing(defaultPricing);
       }
 
       // Check if add-ons exist
       const addOns = await firestoreService.config.getAddOns();
       if (!addOns) {
-        console.log('🎁 Initializing default add-ons...');
+        logDebug('Service', 'Initializing default add-ons');
         await firestoreService.config.saveAddOns(defaultAddOns);
       }
 

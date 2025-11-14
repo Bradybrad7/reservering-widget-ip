@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Users, Star, Sparkles, ArrowRight, TrendingUp } from 'lucide-react';
 import { useReservationsStore } from '../../../store/reservationsStore';
 import { useCustomersStore } from '../../../store/customersStore';
@@ -11,7 +11,7 @@ import { formatCurrency, formatDate, cn } from '../../../utils';
  * Shows recent bookings with VIP and new customer highlighting.
  * Adds crucial CRM layer to help admins react appropriately.
  */
-export const RecentBookingsWidget: React.FC = () => {
+export const RecentBookingsWidget: React.FC = React.memo(() => {
   const { reservations } = useReservationsStore();
   const { customers } = useCustomersStore();
   const { setActiveSection } = useAdminStore();
@@ -235,4 +235,4 @@ export const RecentBookingsWidget: React.FC = () => {
       )}
     </div>
   );
-};
+});

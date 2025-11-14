@@ -7,6 +7,7 @@ import {
   formatPostalCode
 } from '../utils/validation';
 import Button from './ui/Button';
+import { IconContainer } from './ui/IconContainer';
 
 /**
  * DetailsStep Component
@@ -119,8 +120,8 @@ export const DetailsStep: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="text-center">
-        <div className="w-16 h-16 bg-gold-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-          <MapPin className="w-8 h-8 text-gold-400" />
+        <div className="flex justify-center mb-4">
+          <IconContainer icon={MapPin} size="xl" variant="gold" />
         </div>
         <h2 className="text-2xl font-bold text-white mb-2">
           Aanvullende Gegevens
