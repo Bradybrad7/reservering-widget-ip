@@ -81,12 +81,14 @@ export default {
       backdropBlur: { xs: '2px', },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-out', 'slide-in': 'slideIn 0.4s ease-out',
+        'slide-up': 'slideUp 0.3s ease-out',
         'scale-in': 'scaleIn 0.3s ease-out', 'pulse-gold': 'pulseGold 2s ease-in-out infinite',
         'shimmer': 'shimmer 2s linear infinite', 'glow': 'glow 2s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: { from: { opacity: '0', transform: 'translateY(10px)' }, to: { opacity: '1', transform: 'translateY(0)' }, },
         slideIn: { from: { opacity: '0', transform: 'translateX(-20px)' }, to: { opacity: '1', transform: 'translateX(0)' }, },
+        slideUp: { from: { opacity: '0', transform: 'translateY(100%)' }, to: { opacity: '1', transform: 'translateY(0)' }, },
         scaleIn: { from: { opacity: '0', transform: 'scale(0.95)' }, to: { opacity: '1', transform: 'scale(1)' }, },
         pulseGold: { '0%, 100%': { boxShadow: '0 0 0 0 rgba(255, 184, 77, 0.4)' }, '50%': { boxShadow: '0 0 0 8px rgba(255, 184, 77, 0)' }, },
         shimmer: { '0%': { backgroundPosition: '-1000px 0' }, '100%': { backgroundPosition: '1000px 0' }, },

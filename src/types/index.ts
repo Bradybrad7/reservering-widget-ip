@@ -26,20 +26,11 @@ export type ReservationStatus =
 // ✨ Uitgebreid Reservation Tags systeem met configuratie
 export type ReservationTag = 
   | 'GENODIGDE'     // Gratis boeking (€0) - gasten van het theater
-  | 'PERS'          // Pers/media uitnodigingen
-  | 'VIP'           // VIP gasten
-  | 'CREW'          // Crew/medewerkers
-  | 'SPONSOR'       // Sponsors
-  | 'HERHALING'     // Terugkerende klant
-  | 'ZAKELIJK'      // Zakelijke klant
-  | 'FAMILIE'       // Familie/vrienden van theater
-  | 'STUDENT'       // Studenten korting
-  | 'SENIOR'        // Senioren
-  | 'GROEP'         // Groepsboeking
-  | 'LAST_MINUTE'   // Last minute boeking
-  | 'COMPLIMENT'    // Complimentary ticket
-  | 'REVIEW'        // Reviewer/critique
-  | 'CAST'          // Cast member gast
+  | 'OPTIE'         // Optie/reservering (nog niet definitief)
+  | 'MPL'           // Mooie Plaatsen - premium seating
+  | 'MERCHANDISE'   // Merchandise bestelling
+  | 'DIEET'         // Speciale dieetwensen
+  | 'VIERING'       // Iets te vieren (verjaardag, jubileum, etc.)
   | string;         // Custom tags toegestaan
 
 // ✨ Tag configuratie voor kleuren en metadata
@@ -853,8 +844,10 @@ export interface EmailReminderConfig {
 // Sub-pages implemented as tabs within main components
 export type AdminSection = 
   | 'dashboard'      // Home overview
-  | 'operations'     // 🆕 OPERATIONS CONTROL CENTER - Unified hub for events, reservations, waitlist, customers, payments
-  | 'events'         // All event management (tabs: overview, calendar, templates, shows, types) - DEPRECATED: use 'operations'
+  | 'operations'     // 🆕 OPERATIONS CONTROL CENTER - Unified hub for reservations, waitlist, customers, payments
+  | 'agenda'         // 🆕 AGENDA BEHEER - Complete event & calendar management (all event functionality)
+  | 'calendar'       // 🆕 CALENDAR MANAGER - Kalender sync met boekingspagina + bulk toevoegen + wachtlijst beheer
+  | 'events'         // All event management (tabs: overview, calendar, templates, shows, types) - DEPRECATED: use 'agenda' or 'calendar'
   | 'reservations'   // All reservations with filter tabs (all, pending, confirmed, cancelled) - DEPRECATED: use 'operations'
   | 'waitlist'       // Waitlist management (separate workflow) - DEPRECATED: use 'operations'
   | 'payments'       // Payment overview & deadline management - DEPRECATED: use 'operations'

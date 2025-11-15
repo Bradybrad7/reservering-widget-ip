@@ -5,7 +5,6 @@ import {
   Phone,
   Calendar,
   DollarSign,
-  X,
   CheckCircle,
   XCircle,
   AlertCircle,
@@ -24,6 +23,7 @@ import {
   ExternalLink,
   QrCode
 } from 'lucide-react';
+import { SlideOutPanel } from '../SlideOutPanel';
 import type { Reservation, Event, MerchandiseItem } from '../../../types';
 import { formatCurrency, formatDate, cn } from '../../../utils';
 import { StatusBadge } from '../../ui/StatusBadge';
@@ -148,55 +148,42 @@ export const ReservationDetailModal: React.FC<{
   };
 
   return (
-    <div 
-      className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto animate-fadeIn"
-      onClick={onClose}
+    <SlideOutPanel
+      isOpen={true}
+      onClose={onClose}
+      title={`Reservering #${reservation.id.slice(-8).toUpperCase()}`}
+      size="large"
     >
-      <div 
-        className="bg-gradient-to-br from-neutral-900 to-neutral-800 rounded-2xl shadow-2xl border border-neutral-700/50 max-w-5xl w-full my-8 animate-slideUp"
-        onClick={(e) => e.stopPropagation()}
-      >
+      {/* Status badges and processing indicator */}
+      <div className="flex items-center gap-3 flex-wrap mb-6">
+        {isProcessing && (
+          <span className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm font-medium animate-pulse">
+            <RefreshCw className="w-4 h-4 animate-spin" />
+            Verwerken...
+          </span>
+        )}
+        <StatusBadge type="booking" status={reservation.status} size="md" showIcon={true} />
         
-        {/* === HEADER === */}
-        <div className="flex justify-between items-start p-6 pb-4 border-b border-neutral-700/50 bg-gradient-to-r from-neutral-900 to-neutral-800/50">
-          <div>
-            <h3 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
-              Reservering #{reservation.id.slice(-8).toUpperCase()}
-              {isProcessing && (
-                <span className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm font-medium animate-pulse">
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  Verwerken...
-                </span>
-              )}
-            </h3>
-            <div className="flex items-center gap-3 flex-wrap">
-              <StatusBadge type="booking" status={reservation.status} size="md" showIcon={true} />
-              
-              {reservation.paymentStatus && (
-                <StatusBadge type="payment" status={reservation.paymentStatus as any} size="md" showIcon={true} />
-              )}
-              
-              {reservation.status === 'option' && reservation.optionExpiresAt && (
-                <span className={cn(
-                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border-2',
-                  isOptionExpired(reservation)
-                    ? 'bg-red-500/20 text-red-300 border-red-500/50'
-                    : isOptionExpiringSoon(reservation)
-                    ? 'bg-orange-500/20 text-orange-300 border-orange-500/50'
-                    : 'bg-blue-500/20 text-blue-300 border-blue-500/50'
-                )}>
-                  {getOptionStatusLabel(reservation)}
-                </span>
-              )}
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-neutral-700/50 rounded-xl transition-all hover:rotate-90 duration-300">
-            <X className="w-6 h-6 text-neutral-400" />
-          </button>
-        </div>
+        {reservation.paymentStatus && (
+          <StatusBadge type="payment" status={reservation.paymentStatus as any} size="md" showIcon={true} />
+        )}
+        
+        {reservation.status === 'option' && reservation.optionExpiresAt && (
+          <span className={cn(
+            'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border-2',
+            isOptionExpired(reservation)
+              ? 'bg-red-500/20 text-red-300 border-red-500/50'
+              : isOptionExpiringSoon(reservation)
+              ? 'bg-orange-500/20 text-orange-300 border-orange-500/50'
+              : 'bg-blue-500/20 text-blue-300 border-blue-500/50'
+          )}>
+            {getOptionStatusLabel(reservation)}
+          </span>
+        )}
+      </div>
 
-        {/* === MAIN CONTENT (2-KOLOMS LAYOUT) === */}
-        <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Main content grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* === LINKERKOLOM (BOEKING DETAILS) === */}
           <div className="lg:col-span-2 space-y-6">
@@ -267,12 +254,13 @@ export const ReservationDetailModal: React.FC<{
                   <InfoRij label="Betaalstatus">
                     <StatusBadge type="payment" status={reservation.paymentStatus as any} size="sm" showIcon={true} />
                   </InfoRij>
-                  <InfoRij label="Betaalmethode">
+                  {/* Deprecated: paymentMethod and paymentReceivedAt are no longer used */}
+                  {/* <InfoRij label="Betaalmethode">
                     {reservation.paymentMethod}
                   </InfoRij>
                   <InfoRij label="Betaald op">
                     {reservation.paymentReceivedAt ? new Date(reservation.paymentReceivedAt).toLocaleString('nl-NL') : 'N.v.t.'}
-                  </InfoRij>
+                  </InfoRij> */}
                 </div>
               </div>
             </InfoBlok>
@@ -641,7 +629,6 @@ export const ReservationDetailModal: React.FC<{
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </SlideOutPanel>
   );
 };

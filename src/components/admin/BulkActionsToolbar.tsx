@@ -98,38 +98,39 @@ export const BulkActionsToolbar: React.FC<BulkActionsToolbarProps> = ({
 
   return (
     <>
-      {/* Floating Toolbar */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
-        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border-2 border-slate-200 dark:border-slate-700 p-4 backdrop-blur-xl">
-          <div className="flex items-center gap-4">
-            {/* Selection Info */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleSelectToggle}
-                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                title={allSelected ? 'Deselecteer alles' : 'Selecteer alles'}
-              >
-                {allSelected ? (
-                  <CheckSquare className="w-5 h-5 text-blue-600 dark:text-blue-400" strokeWidth={2.5} />
-                ) : someSelected ? (
-                  <Square className="w-5 h-5 text-blue-600 dark:text-blue-400 fill-blue-600/20" strokeWidth={2.5} />
-                ) : (
-                  <Square className="w-5 h-5 text-slate-400" strokeWidth={2.5} />
-                )}
-              </button>
-              
-              <div className="flex flex-col">
-                <span className="text-sm font-black text-slate-900 dark:text-white">
-                  {selectedCount} geselecteerd
-                </span>
-                <span className="text-xs text-slate-600 dark:text-slate-400">
-                  van {totalCount} items
-                </span>
+      {/* V3 Bottom Floating Toolbar */}
+      <div className="fixed left-0 right-0 bottom-0 z-50 animate-slide-up">
+        <div className="mx-auto max-w-7xl px-6 pb-6">
+          <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-t-2xl shadow-2xl border-t-2 border-amber-500/30 p-4 backdrop-blur-xl">
+            <div className="flex items-center gap-4">
+              {/* Selection Info */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleSelectToggle}
+                  className="p-2 hover:bg-amber-500/10 rounded-lg transition-colors"
+                  title={allSelected ? 'Deselecteer alles' : 'Selecteer alles'}
+                >
+                  {allSelected ? (
+                    <CheckSquare className="w-5 h-5 text-amber-500" strokeWidth={2.5} />
+                  ) : someSelected ? (
+                    <Square className="w-5 h-5 text-amber-500 fill-amber-500/20" strokeWidth={2.5} />
+                  ) : (
+                    <Square className="w-5 h-5 text-slate-500" strokeWidth={2.5} />
+                  )}
+                </button>
+                
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-amber-400">
+                    {selectedCount} geselecteerd
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    van {totalCount} items
+                  </span>
+                </div>
               </div>
-            </div>
 
-            {/* Divider */}
-            <div className="h-10 w-px bg-slate-200 dark:bg-slate-700" />
+              {/* Divider */}
+              <div className="h-8 w-px bg-amber-500/20" />
 
             {/* Action Buttons */}
             <div className="flex items-center gap-2">
@@ -158,40 +159,41 @@ export const BulkActionsToolbar: React.FC<BulkActionsToolbarProps> = ({
             {/* Close Button */}
             <button
               onClick={onDeselectAll}
-              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+              className="p-2 hover:bg-amber-500/10 rounded-lg transition-colors group"
               title="Sluiten"
             >
-              <X className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+              <X className="w-5 h-5 text-slate-400 group-hover:text-amber-400" />
             </button>
+            </div>
           </div>
 
-          {/* Processing Indicator */}
-          {isProcessing && (
-            <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
-              <div className="flex items-center gap-3">
-                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                <span className="text-sm text-slate-600 dark:text-slate-400">
-                  Bezig met verwerken...
-                </span>
+            {/* Processing Indicator */}
+            {isProcessing && (
+              <div className="mt-3 pt-3 border-t border-amber-500/20">
+                <div className="flex items-center gap-3">
+                  <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-sm text-amber-400 font-medium">
+                    Bezig met verwerken...
+                  </span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
       </div>
 
       {/* Confirmation Dialog */}
       {showConfirmDialog && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border-2 border-slate-200 dark:border-slate-700 p-6 max-w-md w-full animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-2 border-amber-500/30 rounded-2xl shadow-2xl p-6 max-w-md w-full animate-in zoom-in-95 duration-200">
             <div className="flex items-start gap-4 mb-6">
-              <div className="p-3 bg-amber-100 dark:bg-amber-900/30 rounded-xl">
-                <AlertCircle className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={2.5} />
+              <div className="p-3 bg-gradient-to-br from-amber-500/20 to-amber-600/20 border border-amber-500/30 rounded-xl">
+                <AlertCircle className="w-6 h-6 text-amber-500" strokeWidth={2.5} />
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2">
+                <h3 className="text-lg font-bold text-amber-400 mb-2">
                   Bevestig Actie
                 </h3>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
+                <p className="text-sm text-slate-300">
                   {showConfirmDialog.confirmationMessage || 
                     `Weet je zeker dat je "${showConfirmDialog.label}" wilt uitvoeren voor ${selectedCount} items?`}
                 </p>
@@ -201,7 +203,7 @@ export const BulkActionsToolbar: React.FC<BulkActionsToolbarProps> = ({
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowConfirmDialog(null)}
-                className="flex-1 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-sm transition-all"
+                className="flex-1 px-4 py-2.5 bg-slate-700/50 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl font-bold text-sm transition-all border border-slate-600"
               >
                 Annuleren
               </button>
@@ -209,7 +211,7 @@ export const BulkActionsToolbar: React.FC<BulkActionsToolbarProps> = ({
                 onClick={() => executeAction(showConfirmDialog.id)}
                 disabled={isProcessing}
                 className={cn(
-                  'flex-1 px-4 py-2.5 rounded-xl font-bold text-sm transition-all disabled:opacity-50',
+                  'flex-1 px-4 py-2.5 rounded-xl font-bold text-sm transition-all disabled:opacity-50 shadow-lg hover:scale-105 active:scale-95',
                   showConfirmDialog.color
                 )}
               >
@@ -232,7 +234,7 @@ export const reservationBulkActions: BulkAction[] = [
     id: 'confirm',
     label: 'Bevestigen',
     icon: CheckCircle,
-    color: 'bg-green-600 hover:bg-green-700 text-white',
+    color: 'bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white',
     requiresConfirmation: true,
     confirmationMessage: 'Bevestig de geselecteerde reserveringen? Klanten ontvangen een bevestigingsmail.'
   },
@@ -240,7 +242,7 @@ export const reservationBulkActions: BulkAction[] = [
     id: 'cancel',
     label: 'Annuleren',
     icon: XCircle,
-    color: 'bg-red-600 hover:bg-red-700 text-white',
+    color: 'bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white',
     requiresConfirmation: true,
     confirmationMessage: 'Annuleer de geselecteerde reserveringen? Deze actie kan niet ongedaan worden gemaakt.'
   },
@@ -248,35 +250,35 @@ export const reservationBulkActions: BulkAction[] = [
     id: 'check-in',
     label: 'Inchecken',
     icon: UserCheck,
-    color: 'bg-blue-600 hover:bg-blue-700 text-white',
+    color: 'bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-slate-900',
     requiresConfirmation: false
   },
   {
     id: 'send-email',
     label: 'Email Sturen',
     icon: Mail,
-    color: 'bg-purple-600 hover:bg-purple-700 text-white',
+    color: 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white',
     requiresConfirmation: false
   },
   {
     id: 'export',
     label: 'Exporteren',
     icon: Download,
-    color: 'bg-slate-600 hover:bg-slate-700 text-white',
+    color: 'bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white',
     requiresConfirmation: false
   },
   {
     id: 'archive',
     label: 'Archiveren',
     icon: Archive,
-    color: 'bg-amber-600 hover:bg-amber-700 text-white',
+    color: 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900',
     requiresConfirmation: true
   },
   {
     id: 'delete',
     label: 'Verwijderen',
     icon: Trash2,
-    color: 'bg-red-600 hover:bg-red-700 text-white',
+    color: 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white',
     requiresConfirmation: true,
     confirmationMessage: 'Verwijder de geselecteerde reserveringen permanent? Deze actie kan NIET ongedaan worden gemaakt!'
   }
@@ -287,28 +289,28 @@ export const waitlistBulkActions: BulkAction[] = [
     id: 'contact',
     label: 'Contacteren',
     icon: Send,
-    color: 'bg-blue-600 hover:bg-blue-700 text-white',
+    color: 'bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-slate-900',
     requiresConfirmation: false
   },
   {
     id: 'cancel',
     label: 'Annuleren',
     icon: XCircle,
-    color: 'bg-red-600 hover:bg-red-700 text-white',
+    color: 'bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white',
     requiresConfirmation: true
   },
   {
     id: 'export',
     label: 'Exporteren',
     icon: Download,
-    color: 'bg-slate-600 hover:bg-slate-700 text-white',
+    color: 'bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white',
     requiresConfirmation: false
   },
   {
     id: 'delete',
     label: 'Verwijderen',
     icon: Trash2,
-    color: 'bg-red-600 hover:bg-red-700 text-white',
+    color: 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white',
     requiresConfirmation: true
   }
 ];
@@ -318,28 +320,28 @@ export const eventBulkActions: BulkAction[] = [
     id: 'activate',
     label: 'Activeren',
     icon: CheckCircle,
-    color: 'bg-green-600 hover:bg-green-700 text-white',
+    color: 'bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white',
     requiresConfirmation: false
   },
   {
     id: 'deactivate',
     label: 'Deactiveren',
     icon: XCircle,
-    color: 'bg-amber-600 hover:bg-amber-700 text-white',
+    color: 'bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-slate-900',
     requiresConfirmation: true
   },
   {
     id: 'export',
     label: 'Exporteren',
     icon: Download,
-    color: 'bg-slate-600 hover:bg-slate-700 text-white',
+    color: 'bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white',
     requiresConfirmation: false
   },
   {
     id: 'delete',
     label: 'Verwijderen',
     icon: Trash2,
-    color: 'bg-red-600 hover:bg-red-700 text-white',
+    color: 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white',
     requiresConfirmation: true,
     confirmationMessage: 'Verwijder de geselecteerde events? Alle gerelateerde reserveringen worden ook verwijderd!'
   }

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import {
-  X,
   Save,
   Users,
   Package,
@@ -17,6 +16,7 @@ import {
   Calendar,
   FileText as Invoice,
   Send,
+  X,
   XCircle,
   ShoppingBag,
   Clock,
@@ -25,6 +25,7 @@ import {
   RefreshCw,
   Info
 } from 'lucide-react';
+import { SlideOutPanel } from './SlideOutPanel';
 import type { Reservation, MerchandiseItem, Event, Arrangement, PaymentStatus, PaymentTransaction } from '../../types';
 import { formatCurrency, formatDate, cn } from '../../utils';
 import { nl } from '../../config/defaults';
@@ -130,10 +131,10 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
     // ✨ NEW: Payment fields (October 2025)
     paymentStatus: reservation.paymentStatus || ('pending' as PaymentStatus),
     invoiceNumber: reservation.invoiceNumber || '',
-    paymentMethod: reservation.paymentMethod || '',
-    paymentReceivedAt: reservation.paymentReceivedAt || undefined,
+    // paymentMethod: reservation.paymentMethod || '',  // DEPRECATED: Use payments[] array
+    // paymentReceivedAt: reservation.paymentReceivedAt || undefined,  // DEPRECATED: Use payments[] array
     paymentDueDate: reservation.paymentDueDate || undefined,
-    paymentNotes: reservation.paymentNotes || '',
+    // paymentNotes: reservation.paymentNotes || '',  // DEPRECATED: Use payments[] array
     
     // 🏷️ NEW: Tags & Notes (November 2025)
     tags: reservation.tags || [],
@@ -534,27 +535,13 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
     : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 p-4 overflow-y-auto">
-      <div className="bg-neutral-800/95 backdrop-blur-sm rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="bg-gold-500 p-6 border-b-4 border-gold-600 flex items-center justify-between sticky top-0 z-10">
-          <div>
-            <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-              <Users className="w-7 h-7" />
-              Reservering Bewerken
-            </h2>
-            <p className="text-white/90 mt-1">ID: {reservation.id} • {event && formatDate(event.date)}</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-          >
-            <X className="w-6 h-6 text-white" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-6 space-y-6">
+    <SlideOutPanel
+      isOpen={true}
+      onClose={onClose}
+      title={`Reservering Bewerken - ${reservation.id}`}
+      size="large"
+    >
+      <div className="space-y-6">
           {/* Capacity Warning */}
           {capacityWarning && (
             <div className="bg-orange-500/20 border-2 border-orange-500 rounded-lg p-4 flex items-start gap-3">
@@ -2013,10 +2000,10 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
               </div>
             </div>
           )}
-        </div>
+      </div>
 
-        {/* Footer */}
-        <div className="bg-neutral-900 p-6 border-t-2 border-gold-500/30 flex justify-between gap-4 sticky bottom-0">
+      {/* Footer */}
+      <div className="bg-neutral-900 p-6 border-t-2 border-gold-500/30 flex justify-between gap-4 sticky bottom-0">
           <div className="flex gap-3">
             {reservation.status !== 'cancelled' && reservation.status !== 'rejected' && (
               <button
@@ -2056,92 +2043,91 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
               )}
             </button>
           </div>
-        </div>
+      </div>
 
-        {/* Cancel Dialog */}
-        {showCancelDialog && (
-          <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-50">
-            <div className="bg-neutral-800 rounded-xl p-6 max-w-md w-full mx-4 border-2 border-red-500/50">
-              <div className="flex items-center gap-3 mb-4">
-                <AlertTriangle className="w-6 h-6 text-red-400" />
-                <h3 className="text-xl font-bold text-white">Reservering Annuleren</h3>
-              </div>
-              
-              <p className="text-neutral-300 mb-4">
-                Weet je zeker dat je deze reservering wilt annuleren? Dit kan niet ongedaan worden gemaakt.
-              </p>
-              
-              <p className="text-sm text-neutral-400 mb-4">
-                💡 De capaciteit wordt automatisch hersteld en eventuele wachtlijst entries worden genotificeerd.
-              </p>
-              
-              <div className="mb-6">
-                <label className="block text-sm text-neutral-300 mb-2">
-                  Annuleringsreden *
-                </label>
-                <textarea
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
-                  placeholder="Bijv: Gast heeft afgezegd, Dubbele boeking, Evenement geannuleerd..."
-                  className="w-full px-4 py-3 bg-neutral-900 border border-neutral-600 rounded-lg text-white placeholder:text-neutral-500 focus:border-red-500 focus:outline-none transition-colors"
-                  rows={3}
-                />
-              </div>
-              
-              <div className="flex gap-3 justify-end">
-                <button
-                  onClick={() => {
-                    setShowCancelDialog(false);
-                    setCancelReason('');
-                  }}
-                  className="px-4 py-2 bg-neutral-700 text-white rounded-lg hover:bg-neutral-600 transition-colors"
-                >
-                  Terug
-                </button>
-                <button
-                  onClick={handleCancel}
-                  disabled={!cancelReason.trim()}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <XCircle className="w-4 h-4" />
-                  Bevestig Annulering
-                </button>
-              </div>
+      {/* Cancel Dialog */}
+      {showCancelDialog && (
+        <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-neutral-800 rounded-xl p-6 max-w-md w-full mx-4 border-2 border-red-500/50">
+            <div className="flex items-center gap-3 mb-4">
+              <AlertTriangle className="w-6 h-6 text-red-400" />
+              <h3 className="text-xl font-bold text-white">Reservering Annuleren</h3>
+            </div>
+            
+            <p className="text-neutral-300 mb-4">
+              Weet je zeker dat je deze reservering wilt annuleren? Dit kan niet ongedaan worden gemaakt.
+            </p>
+            
+            <p className="text-sm text-neutral-400 mb-4">
+              💡 De capaciteit wordt automatisch hersteld en eventuele wachtlijst entries worden genotificeerd.
+            </p>
+            
+            <div className="mb-6">
+              <label className="block text-sm text-neutral-300 mb-2">
+                Annuleringsreden *
+              </label>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Bijv: Gast heeft afgezegd, Dubbele boeking, Evenement geannuleerd..."
+                className="w-full px-4 py-3 bg-neutral-900 border border-neutral-600 rounded-lg text-white placeholder:text-neutral-500 focus:border-red-500 focus:outline-none transition-colors"
+                rows={3}
+              />
+            </div>
+            
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowCancelDialog(false);
+                  setCancelReason('');
+                }}
+                className="px-4 py-2 bg-neutral-700 text-white rounded-lg hover:bg-neutral-600 transition-colors"
+              >
+                Terug
+              </button>
+              <button
+                onClick={handleCancel}
+                disabled={!cancelReason.trim()}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <XCircle className="w-4 h-4" />
+                Bevestig Annulering
+              </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* 💰 Credit Decision Modal (October 31, 2025) */}
-        {showCreditDecision && creditInfo && (
-          <CreditDecisionModal
-            isOpen={showCreditDecision}
-            onClose={() => {
-              setShowCreditDecision(false);
-              setPendingSaveData(null);
-              setCreditInfo(null);
-            }}
-            onRefund={handleRefund}
-            onKeepCredit={handleKeepCredit}
-            creditAmount={creditInfo.amount}
-            oldPrice={creditInfo.oldPrice}
-            newPrice={creditInfo.newPrice}
-            changeDescription={creditInfo.description}
-          />
-        )}
+      {/* 💰 Credit Decision Modal (October 31, 2025) */}
+      {showCreditDecision && creditInfo && (
+        <CreditDecisionModal
+          isOpen={showCreditDecision}
+          onClose={() => {
+            setShowCreditDecision(false);
+            setPendingSaveData(null);
+            setCreditInfo(null);
+          }}
+          onRefund={handleRefund}
+          onKeepCredit={handleKeepCredit}
+          creditAmount={creditInfo.amount}
+          oldPrice={creditInfo.oldPrice}
+          newPrice={creditInfo.newPrice}
+          changeDescription={creditInfo.description}
+        />
+      )}
 
-        {/* 📅 Event Selector Modal */}
-        {showEventSelector && (
-          <EventSelectorModal
-            events={allEvents}
-            onSelect={(event) => {
-              setSelectedEventId(event.id);
-              setShowEventSelector(false);
-            }}
-            onClose={() => setShowEventSelector(false)}
-          />
-        )}
-      </div>
-    </div>
+      {/* 📅 Event Selector Modal */}
+      {showEventSelector && (
+        <EventSelectorModal
+          events={allEvents}
+          onSelect={(event) => {
+            setSelectedEventId(event.id);
+            setShowEventSelector(false);
+          }}
+          onClose={() => setShowEventSelector(false)}
+        />
+      )}
+    </SlideOutPanel>
   );
 };
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Calendar,
+  CalendarDays,
   Users,
   Package,
   Settings,
@@ -62,38 +63,52 @@ const navigationGroups: NavigationGroup[] = [
     section: 'operations' as AdminSection
   },
   {
+    id: 'agenda',
+    label: 'Agenda Beheer',
+    icon: 'Calendar',
+    order: 3,
+    section: 'agenda' as AdminSection
+  },
+  {
+    id: 'calendar',
+    label: 'Kalender Manager',
+    icon: 'CalendarDays',
+    order: 4,
+    section: 'calendar' as AdminSection
+  },
+  {
     id: 'archive',
     label: 'Archief',
     icon: 'Archive',
-    order: 3,
+    order: 5,
     section: 'archive' as AdminSection
   },
   {
     id: 'checkin',
     label: 'Check-in',
     icon: 'UserCheck',
-    order: 4,
+    order: 5,
     section: 'checkin' as AdminSection
   },
   {
     id: 'products',
     label: 'Producten & Prijzen',
     icon: 'Package',
-    order: 5,
+    order: 6,
     section: 'products' as AdminSection
   },
   {
     id: 'reports',
     label: 'Rapportages',
     icon: 'TrendingUp',
-    order: 6,
+    order: 7,
     section: 'reports' as AdminSection
   },
   {
     id: 'config',
     label: 'Configuratie',
     icon: 'Settings',
-    order: 7,
+    order: 8,
     section: 'config' as AdminSection
   }
 ];
@@ -109,6 +124,7 @@ const iconMap: Record<string, React.ElementType> = {
   Tag,
   FileText,
   CalendarRange,
+  CalendarDays,
   ListChecks,
   CheckCircle,
   Clock,

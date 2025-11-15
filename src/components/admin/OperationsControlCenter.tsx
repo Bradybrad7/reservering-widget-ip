@@ -1,26 +1,27 @@
 /**
- * ✨ OPERATIONS CONTROL CENTER - MODAL SYSTEM (November 2025)
+ * ✨ OPERATIONS CONTROL CENTER - SLIDE-OUT PANEL SYSTEM (Week 2 - November 2025)
  * 
  * 🎯 MISSION CONTROL voor alle dagelijkse operaties
  * 
- * Het zenuwcentrum van het admin panel met een moderne, modal-gebaseerde interface:
+ * Het zenuwcentrum van het admin panel met moderne slide-out panels die context altijd zichtbaar houden:
  * 
  * 🎨 VISUAL DESIGN:
  * - Dashboard met grote actie-knoppen
- * - Modals voor elke sectie (Events, Reserveringen, Customers, etc.)
- * - Glassmorphism effects en smooth animations
- * - Cross-functionality tussen modals
+ * - SlideOutPanels voor elke sectie (Events, Reserveringen, Customers, etc.)
+ * - Context blijft altijd zichtbaar (40% panel, 60% dashboard)
+ * - Smooth slide animations met backdrop dimming
  * 
  * ⚡ FEATURES:
  * - Real-time statistieken dashboard
- * - Modal vensters voor volledige sectie views
+ * - Slide-out panels voor volledige sectie views
+ * - Context-aware workflow - zie altijd waar je bent
  * - Keyboard shortcuts voor power users
  * - Quick actions voor veelgebruikte taken
  * - Notification center met prioriteiten
  * 
  * ⌨️ SHORTCUTS:
- * - Alt+1-5: Open sectie modals
- * - Esc: Sluit active modal
+ * - Alt+1-5: Open sectie panels
+ * - Esc: Sluit active panel
  * - Ctrl+K: Quick search
  */
 
@@ -61,7 +62,7 @@ const PaymentsCommandCenter = lazy(() => import('./PaymentsCommandCenter').then(
 // Keep these loaded immediately as they're lightweight
 import { CommandPaletteEnhanced } from './CommandPaletteEnhanced';
 import { SmartNotificationCenter } from './SmartNotificationCenter';
-import { SectionModal } from '../ui/SectionModal';
+import { SlideOutPanel } from './SlideOutPanel';
 
 // ============================================================================
 // ERROR BOUNDARY for robust component loading
@@ -296,7 +297,7 @@ export const OperationsControlCenter: React.FC = () => {
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showNotificationCenter, setShowNotificationCenter] = useState(false);
   
-  // ✨ MODAL STATE - Nieuwe sectie modals
+  // ✨ PANEL STATE - SlideOutPanels voor context-aware workflow
   const [openModal, setOpenModal] = useState<'events' | 'reservations' | 'waitlist' | 'customers' | 'payments' | null>(null);
 
   // ========================================================================
@@ -311,7 +312,7 @@ export const OperationsControlCenter: React.FC = () => {
         return;
       }
 
-      // Alt+1-5 voor modal shortcuts
+      // Alt+1-5 voor panel shortcuts
       if (e.altKey && !e.ctrlKey && !e.shiftKey) {
         const num = parseInt(e.key);
         if (num >= 1 && num <= 5) {
@@ -320,13 +321,13 @@ export const OperationsControlCenter: React.FC = () => {
           const tab = TABS[tabIndex];
           setOpenModal(tab.id);
           // Toast feedback
-          setShowTabSwitchToast(`${tab.label} geopend`);
+          setShowTabSwitchToast(`${tab.label} panel geopend`);
           setTimeout(() => setShowTabSwitchToast(null), 1500);
           return;
         }
       }
 
-      // Escape voor clear context of sluit modal
+      // Escape voor clear context of sluit panel
       if (e.key === 'Escape' && !e.ctrlKey && !e.shiftKey && !e.altKey) {
         if (openModal) {
           e.preventDefault();
@@ -684,81 +685,78 @@ export const OperationsControlCenter: React.FC = () => {
       </div>
 
       {/* ====================================================================== */}
-      {/* SECTION MODALS */}
+      {/* SLIDE-OUT PANELS - Context blijft altijd zichtbaar */}
       {/* ====================================================================== */}
       
-      {/* Events Modal */}
-      <SectionModal
+      {/* Events Panel */}
+      <SlideOutPanel
         isOpen={openModal === 'events'}
         onClose={() => setOpenModal(null)}
         title="Evenementen"
-        icon={Calendar}
+        size="large"
       >
         <Suspense fallback={<TabLoadingFallback tabName="Evenementen" />}>
           <TabErrorBoundary tabName="Evenementen">
             <EventCommandCenterRevamped />
           </TabErrorBoundary>
         </Suspense>
-      </SectionModal>
+      </SlideOutPanel>
 
-      {/* Reservations Modal */}
-      <SectionModal
+      {/* Reservations Panel */}
+      <SlideOutPanel
         isOpen={openModal === 'reservations'}
         onClose={() => setOpenModal(null)}
         title="Reserveringen"
-        icon={ListChecks}
-        badge={notificationBadges.reservations}
+        size="large"
       >
         <Suspense fallback={<TabLoadingFallback tabName="Reserveringen" />}>
           <TabErrorBoundary tabName="Reserveringen">
             <ReservationsCommandCenterRevamped />
           </TabErrorBoundary>
         </Suspense>
-      </SectionModal>
+      </SlideOutPanel>
 
-      {/* Waitlist Modal */}
-      <SectionModal
+      {/* Waitlist Panel */}
+      <SlideOutPanel
         isOpen={openModal === 'waitlist'}
         onClose={() => setOpenModal(null)}
         title="Wachtlijst"
-        icon={List}
-        badge={notificationBadges.waitlist}
+        size="large"
       >
         <Suspense fallback={<TabLoadingFallback tabName="Wachtlijst" />}>
           <TabErrorBoundary tabName="Wachtlijst">
             <WaitlistManager />
           </TabErrorBoundary>
         </Suspense>
-      </SectionModal>
+      </SlideOutPanel>
 
-      {/* Customers Modal */}
-      <SectionModal
+      {/* Customers Panel */}
+      <SlideOutPanel
         isOpen={openModal === 'customers'}
         onClose={() => setOpenModal(null)}
         title="Klanten"
-        icon={Users}
+        size="large"
       >
         <Suspense fallback={<TabLoadingFallback tabName="Klanten" />}>
           <TabErrorBoundary tabName="Klanten">
             <CustomersCommandCenter />
           </TabErrorBoundary>
         </Suspense>
-      </SectionModal>
+      </SlideOutPanel>
 
-      {/* Payments Modal */}
-      <SectionModal
+      {/* Payments Panel */}
+      <SlideOutPanel
         isOpen={openModal === 'payments'}
         onClose={() => setOpenModal(null)}
         title="Betalingen"
-        icon={DollarSign}
-        badge={notificationBadges.payments}
+        size="large"
       >
         <Suspense fallback={<TabLoadingFallback tabName="Betalingen" />}>
           <TabErrorBoundary tabName="Betalingen">
             <PaymentsCommandCenter />
           </TabErrorBoundary>
         </Suspense>
-      </SectionModal>
+      </SlideOutPanel>
     </div>
   );
 };

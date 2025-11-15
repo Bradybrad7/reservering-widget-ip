@@ -219,50 +219,107 @@ export const ReservationsCommandCenterRevamped: React.FC = () => {
     alert('Import functionaliteit: Gebruik het Bulk Import icoon in de toolbar of ga naar Config > Data Management');
   };
 
-  // Bulk actions handler
+  // ✨ Bulk actions handler with full implementation
   const handleBulkAction = async (actionId: string) => {
     if (selectedCount === 0) return;
     
-    switch (actionId) {
-      case 'confirm':
-        // Confirm all selected reservations
-        const confirmMessage = `Weet je zeker dat je ${selectedCount} reservering(en) wilt bevestigen?`;
-        if (confirm(confirmMessage)) {
-          // Implementation would go through reservationsStore
-          alert(`Functionaliteit komt binnenkort: Bevestig ${selectedCount} reserveringen`);
-        }
-        break;
-      case 'cancel':
-        // Cancel all selected reservations
-        alert(`Annuleer ${selectedCount} reserveringen`);
-        break;
-      case 'check-in':
-        // Check in all selected reservations
-        alert(`Check-in ${selectedCount} reserveringen`);
-        break;
-      case 'send-email':
-        // Open email modal for selected reservations
-        alert(`Stuur email naar ${selectedCount} reserveringen`);
-        break;
-      case 'export':
-        // Export selected reservations
-        const dataStr = JSON.stringify(selectedItems, null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        const url = URL.createObjectURL(dataBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `reservations-export-${new Date().toISOString()}.json`;
-        link.click();
-        URL.revokeObjectURL(url);
-        break;
-      case 'archive':
-        // Archive selected reservations
-        alert(`Archiveer ${selectedCount} reserveringen`);
-        break;
-      case 'delete':
-        // Delete selected reservations
-        alert(`Verwijder ${selectedCount} reserveringen`);
-        break;
+    const selectedIds = selectedItems.map(r => r.id);
+    
+    try {
+      switch (actionId) {
+        case 'confirm':
+          // Confirm all selected reservations
+          let confirmedCount = 0;
+          for (const id of selectedIds) {
+            const success = await confirmReservation(id);
+            if (success) confirmedCount++;
+          }
+          alert(`✅ ${confirmedCount} van ${selectedIds.length} reserveringen bevestigd`);
+          break;
+          
+        case 'cancel':
+          // Cancel all selected reservations
+          let cancelledCount = 0;
+          for (const id of selectedIds) {
+            const success = await cancelReservation(id, 'Bulk annulering');
+            if (success) cancelledCount++;
+          }
+          alert(`✅ ${cancelledCount} van ${selectedIds.length} reserveringen geannuleerd`);
+          break;
+          
+        case 'check-in':
+          // Check in all selected reservations
+          let checkedInCount = 0;
+          for (const id of selectedIds) {
+            const success = await updateReservationStatus(id, 'checked-in');
+            if (success) checkedInCount++;
+          }
+          alert(`✅ ${checkedInCount} van ${selectedIds.length} reserveringen ingecheckt`);
+          break;
+          
+        case 'send-email':
+          // Open email modal for selected reservations
+          alert(`📧 Email functionaliteit komt binnenkort voor ${selectedCount} reserveringen`);
+          break;
+          
+        case 'export':
+          // Export selected reservations to CSV
+          const csvData = selectedItems.map(res => ({
+            'Booking ID': res.bookingId || res.id,
+            'Naam': res.name,
+            'Email': res.email,
+            'Telefoon': res.phone || '',
+            'Aantal Personen': res.numberOfPeople,
+            'Status': res.status,
+            'Datum': res.eventId ? events.find(e => e.id === res.eventId)?.date : '',
+            'Arrangement': res.selectedArrangement || '',
+            'Totaalprijs': res.totalPrice ? `€${res.totalPrice.toFixed(2)}` : '',
+            'Aangemaakt': new Date(res.createdAt).toLocaleDateString('nl-NL')
+          }));
+          
+          const headers = Object.keys(csvData[0] || {});
+          const csvContent = [
+            headers.join(','),
+            ...csvData.map(row => headers.map(h => `"${row[h as keyof typeof row]}"`).join(','))
+          ].join('\\n');
+          
+          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `reservations_export_${new Date().toISOString().split('T')[0]}.csv`;
+          link.click();
+          URL.revokeObjectURL(url);
+          
+          alert(`✅ ${selectedCount} reserveringen geëxporteerd naar CSV`);
+          break;
+          
+        case 'archive':
+          // Archive selected reservations (mark as archived)
+          let archivedCount = 0;
+          for (const id of selectedIds) {
+            const success = await updateReservation(id, { status: 'archived' as any });
+            if (success) archivedCount++;
+          }
+          alert(`✅ ${archivedCount} van ${selectedIds.length} reserveringen gearchiveerd`);
+          break;
+          
+        case 'delete':
+          // Delete selected reservations (already confirmed by BulkActionsToolbar)
+          let deletedCount = 0;
+          for (const id of selectedIds) {
+            const success = await deleteReservation(id);
+            if (success) deletedCount++;
+          }
+          alert(`✅ ${deletedCount} van ${selectedIds.length} reserveringen verwijderd`);
+          break;
+          
+        default:
+          console.warn('Unknown bulk action:', actionId);
+      }
+    } catch (error) {
+      console.error('Bulk action error:', error);
+      alert('❌ Fout bij uitvoeren van bulk actie');
     }
     
     // Deselect all after action

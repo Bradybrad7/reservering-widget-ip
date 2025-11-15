@@ -8,7 +8,7 @@ import type { ReservationTagConfig, OptionConfig, ReservationTag } from '../type
  */
 export class TagConfigService {
   
-  // 🎨 DEFAULT TAG CONFIGURATIE met logische kleuren
+  // 🎨 DEFAULT TAG CONFIGURATIE - Alleen essentiële tags
   static getDefaultTagConfigs(): ReservationTagConfig[] {
     return [
       {
@@ -22,134 +22,54 @@ export class TagConfigService {
         category: 'guest'
       },
       {
-        id: 'PERS',
-        label: 'Pers',
-        description: 'Media en journalisten',
-        color: '#3B82F6', // Blue
-        icon: 'Newspaper',
-        isDefault: true,
-        isActive: true,
-        category: 'business'
-      },
-      {
-        id: 'VIP',
-        label: 'VIP',
-        description: 'VIP gasten en belangrijke klanten',
-        color: '#F59E0B', // Gold
-        icon: 'Crown',
-        isDefault: true,
-        isActive: true,
-        category: 'special'
-      },
-      {
-        id: 'CREW',
-        label: 'Crew',
-        description: 'Theater crew en medewerkers',
-        color: '#10B981', // Green
-        icon: 'Users',
-        isDefault: true,
-        isActive: true,
-        category: 'internal'
-      },
-      {
-        id: 'SPONSOR',
-        label: 'Sponsor',
-        description: 'Theater sponsors en partners',
-        color: '#EF4444', // Red
-        icon: 'Handshake',
-        isDefault: true,
-        isActive: true,
-        category: 'business'
-      },
-      {
-        id: 'HERHALING',
-        label: 'Herhaling',
-        description: 'Terugkerende klant',
-        color: '#06B6D4', // Cyan
-        icon: 'RotateCcw',
-        isDefault: false,
-        isActive: true,
-        category: 'guest'
-      },
-      {
-        id: 'ZAKELIJK',
-        label: 'Zakelijk',
-        description: 'Zakelijke relatie',
-        color: '#6366F1', // Indigo
-        icon: 'Building',
-        isDefault: false,
-        isActive: true,
-        category: 'business'
-      },
-      {
-        id: 'FAMILIE',
-        label: 'Familie',
-        description: 'Familie/vrienden van theater',
-        color: '#EC4899', // Pink
-        icon: 'Heart',
-        isDefault: false,
-        isActive: true,
-        category: 'internal'
-      },
-      {
-        id: 'STUDENT',
-        label: 'Student',
-        description: 'Student met korting',
-        color: '#14B8A6', // Teal
-        icon: 'GraduationCap',
-        isDefault: false,
-        isActive: true,
-        category: 'guest'
-      },
-      {
-        id: 'SENIOR',
-        label: 'Senior',
-        description: 'Senior klant',
-        color: '#F97316', // Orange
-        icon: 'User',
-        isDefault: false,
-        isActive: true,
-        category: 'guest'
-      },
-      {
-        id: 'GROEP',
-        label: 'Groep',
-        description: 'Groepsboeking (10+ personen)',
-        color: '#8B5A2B', // Brown
-        icon: 'Users2',
-        isDefault: false,
-        isActive: true,
-        category: 'business'
-      },
-      {
-        id: 'LAST_MINUTE',
-        label: 'Last Minute',
-        description: 'Last minute boeking',
-        color: '#DC2626', // Deep Red
+        id: 'OPTIE',
+        label: 'Optie',
+        description: 'Optie/reservering - nog niet definitief',
+        color: '#F59E0B', // Orange
         icon: 'Clock',
-        isDefault: false,
+        isDefault: true,
         isActive: true,
         category: 'special'
       },
       {
-        id: 'CELEBRATION',
-        label: 'Iets te Vieren',
-        description: 'Speciale gelegenheid (verjaardag, jubileum, etc.)',
+        id: 'MPL',
+        label: 'Mooie Plaatsen',
+        description: 'Premium seating - speciale zitplaatsen',
         color: '#EC4899', // Pink/Magenta
-        icon: 'PartyPopper',
-        isDefault: false,
+        icon: 'Star',
+        isDefault: true,
         isActive: true,
         category: 'special'
       },
       {
         id: 'MERCHANDISE',
         label: 'Merchandise',
-        description: 'Klant heeft merchandise geboekt',
-        color: '#8B5CF6', // Purple
+        description: 'Merchandise bestelling',
+        color: '#3B82F6', // Blue
         icon: 'ShoppingBag',
-        isDefault: false,
+        isDefault: true,
         isActive: true,
         category: 'purchase'
+      },
+      {
+        id: 'DIEET',
+        label: 'Dieet',
+        description: 'Speciale dieetwensen (vegetarisch, allergieën, etc.)',
+        color: '#10B981', // Green
+        icon: 'UtensilsCrossed',
+        isDefault: true,
+        isActive: true,
+        category: 'special'
+      },
+      {
+        id: 'VIERING',
+        label: 'Viering',
+        description: 'Iets te vieren (verjaardag, jubileum, etc.)',
+        color: '#EF4444', // Red
+        icon: 'PartyPopper',
+        isDefault: true,
+        isActive: true,
+        category: 'special'
       }
     ];
   }

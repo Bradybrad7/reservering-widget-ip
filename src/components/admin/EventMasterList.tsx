@@ -37,6 +37,8 @@ import { DuplicateEventModal } from './DuplicateEventModal';
 import { EventContextMenu } from './EventContextMenu';
 import { OperationalPDFService } from '../../services/operationalPdfService';
 import { useToast } from '../Toast';
+import { useMultiSelect } from '../../hooks/useMultiSelect';
+import { BulkActionsToolbar, eventBulkActions } from './BulkActionsToolbar';
 
 interface EventMasterListProps {
   events: AdminEvent[];
@@ -64,8 +66,17 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'full' | 'waitlist' | 'closed'>('all');
   const [typeFilter, setTypeFilter] = useState<EventType | 'all'>('all');
-  const [selectedEvents, setSelectedEvents] = useState<Set<string>>(new Set());
   const [showBulkActions, setShowBulkActions] = useState(false);
+  
+  // ✨ Bulk selection with useMultiSelect hook
+  const {
+    selectedItems,
+    isItemSelected,
+    toggleItem,
+    selectAll,
+    deselectAll,
+    selectedCount
+  } = useMultiSelect<AdminEvent>(events, (event) => event.id);
   const [viewMode, setViewMode] = useState<'list'>('list');
   const [sortBy, setSortBy] = useState<'date' | 'capacity' | 'bookings'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -186,62 +197,53 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
     }
   };
 
-  // Bulk selection helpers
-  const toggleEventSelection = (eventId: string) => {
-    setSelectedEvents(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(eventId)) {
-        newSet.delete(eventId);
-      } else {
-        newSet.add(eventId);
+  // ✨ Bulk action handler
+  const handleBulkAction = async (actionId: string) => {
+    const selectedIds = selectedItems.map(e => e.id);
+    
+    try {
+      switch (actionId) {
+        case 'activate':
+          // Activate selected events
+          for (const id of selectedIds) {
+            await updateEvent(id, { isActive: true });
+          }
+          toast.success('Geactiveerd', `${selectedIds.length} events geactiveerd`);
+          break;
+          
+        case 'deactivate':
+          // Deactivate selected events
+          for (const id of selectedIds) {
+            await updateEvent(id, { isActive: false });
+          }
+          toast.success('Gedeactiveerd', `${selectedIds.length} events gedeactiveerd`);
+          break;
+          
+        case 'export':
+          // Export selected events
+          exportSelectedToCSV();
+          break;
+          
+        case 'delete':
+          // Delete selected events (already confirmed by BulkActionsToolbar)
+          await bulkDeleteEvents(selectedIds);
+          toast.success('Verwijderd', `${selectedIds.length} events verwijderd`);
+          break;
+          
+        default:
+          console.warn('Unknown bulk action:', actionId);
       }
-      return newSet;
-    });
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedEvents.size === filteredAndSortedEvents.length) {
-      setSelectedEvents(new Set());
-    } else {
-      setSelectedEvents(new Set(filteredAndSortedEvents.map(e => e.id)));
+      
+      // Clear selection after action
+      deselectAll();
+      setShowBulkActions(false);
+    } catch (error) {
+      console.error('Bulk action error:', error);
+      toast.error('Fout', 'Kon bulk actie niet uitvoeren');
     }
   };
 
-  const clearSelection = () => {
-    setSelectedEvents(new Set());
-    setShowBulkActions(false);
-  };
-
-  const handleBulkDelete = async () => {
-    const count = selectedEvents.size;
-    const confirmMsg = `🚨 WAARSCHUWING: Je staat op het punt ${count} evenement(en) PERMANENT te VERWIJDEREN!\n\n⚠️ Dit zal ook alle gekoppelde reserveringen en wachtlijst entries verwijderen!\n\n⚠️ DIT KAN NIET ONGEDAAN GEMAAKT WORDEN!\n\nOverweeg eerst om ze te annuleren in plaats van verwijderen.`;
-    
-    if (!confirm(confirmMsg)) return;
-    
-    // Double confirmation for delete
-    const doubleCheck = prompt(`Type "VERWIJDER" (hoofdletters) om te bevestigen:`);
-    if (doubleCheck !== 'VERWIJDER') {
-      alert('❌ Verwijderen geannuleerd');
-      return;
-    }
-    
-    const result = await bulkDeleteEvents(Array.from(selectedEvents));
-    alert(`✅ ${result.success} van ${result.total} evenement(en) succesvol verwijderd`);
-    clearSelection();
-  };
-
-  const handleBulkCancel = async () => {
-    const count = selectedEvents.size;
-    const confirmMsg = `Weet je zeker dat je ${count} evenement(en) wilt ANNULEREN?\n\nDe evenementen blijven bestaan maar worden gemarkeerd als inactief.`;
-    
-    if (!confirm(confirmMsg)) return;
-    
-    const result = await bulkCancelEvents(Array.from(selectedEvents));
-    alert(`✅ ${result.success} van ${result.total} evenement(en) geannuleerd`);
-    clearSelection();
-  };
-
-  // 🆕 Export naar CSV
+  // 🆕 Export naar CSV (all filtered events)
   const exportToCSV = () => {
     const csvData = filteredAndSortedEvents.map(event => {
       const stats = getEventComputedData(event, allReservations, allWaitlistEntries);
@@ -272,6 +274,41 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
     link.href = URL.createObjectURL(blob);
     link.download = `evenementen_export_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
+  };
+
+  // 🆕 Export selected events to CSV
+  const exportSelectedToCSV = () => {
+    const csvData = selectedItems.map(event => {
+      const stats = getEventComputedData(event, allReservations, allWaitlistEntries);
+      return {
+        'Datum': new Date(event.date).toLocaleDateString('nl-NL'),
+        'Type': event.type,
+        'Start': event.startsAt,
+        'Eind': event.endsAt,
+        'Capaciteit': event.capacity,
+        'Geboekt': stats.totalConfirmedPersons,
+        'Percentage': `${Math.round(stats.capacityPercentage)}%`,
+        'Status': stats.status.text,
+        'Boekingen Bevestigd': stats.confirmedCount,
+        'Boekingen Pending': stats.pendingCount,
+        'Wachtlijst': stats.waitlistCount,
+        'Actief': event.isActive ? 'Ja' : 'Nee',
+      };
+    });
+
+    const headers = Object.keys(csvData[0] || {});
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => headers.map(h => `"${row[h as keyof typeof row]}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `evenementen_selected_export_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    
+    toast.success('Geëxporteerd', `${selectedItems.length} events geëxporteerd naar CSV`);
   };
 
   // ✨ ENHANCED: Open duplicate modal instead of prompt
@@ -620,10 +657,10 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
           
           {showBulkActions && filteredAndSortedEvents.length > 0 && (
             <button
-              onClick={toggleSelectAll}
-              className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors font-medium"
+              onClick={() => selectedCount === filteredAndSortedEvents.length ? deselectAll() : selectAll()}
+              className="flex items-center gap-2 text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors font-medium"
             >
-              {selectedEvents.size === filteredAndSortedEvents.length ? (
+              {selectedCount === filteredAndSortedEvents.length ? (
                 <CheckSquare className="w-4 h-4" />
               ) : (
                 <Square className="w-4 h-4" />
@@ -653,7 +690,7 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
             {filteredAndSortedEvents.map(event => {
               const stats = getEventComputedData(event, allReservations, allWaitlistEntries);
               const isSelected = event.id === selectedEventId;
-              const isChecked = selectedEvents.has(event.id);
+              const isChecked = isItemSelected(event);
 
               return (
                 <div
@@ -673,7 +710,7 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
                       <div
                         onClick={(e) => {
                           e.stopPropagation();
-                          toggleEventSelection(event.id);
+                          toggleItem(event);
                         }}
                         className="flex-shrink-0 mt-1 cursor-pointer"
                       >
@@ -841,6 +878,21 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
           onExportGuestList={handleExportGuestList}
           onToggleActive={handleToggleActive}
           onDelete={handleDeleteEvent}
+        />
+      )}
+
+      {/* ✨ V3 Bulk Actions Toolbar */}
+      {showBulkActions && (
+        <BulkActionsToolbar
+          selectedCount={selectedCount}
+          totalCount={filteredAndSortedEvents.length}
+          onSelectAll={selectAll}
+          onDeselectAll={() => {
+            deselectAll();
+            setShowBulkActions(false);
+          }}
+          onAction={handleBulkAction}
+          actions={eventBulkActions}
         />
       )}
     </div>

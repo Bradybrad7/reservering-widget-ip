@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, Calendar as CalendarIcon, Plus, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar as CalendarIcon, Plus, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { SlideOutPanel } from './SlideOutPanel';
 import { 
   startOfMonth, 
   endOfMonth, 
@@ -231,29 +232,14 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-neutral-900 rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto border-2 border-gold-500/30">
-        {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-dark-900 to-dark-800 border-b-2 border-gold-500/50 px-6 py-4 flex justify-between items-center z-10">
-          <div className="flex items-center gap-3">
-            <CalendarIcon className="w-6 h-6 text-gold-500" />
-            <div>
-              <h2 className="text-xl font-bold text-white">Bulk Evenementen Toevoegen</h2>
-              <p className="text-sm text-gold-300">Selecteer datums in de kalender</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5 text-white" />
-          </button>
-        </div>
-
-        <form id="bulk-event-form" onSubmit={handleSubmit} className="p-6 space-y-6">
+    <SlideOutPanel
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Bulk Evenementen Toevoegen"
+      size="medium"
+    >
+      <form id="bulk-event-form" onSubmit={handleSubmit} className="space-y-6">
           {/* Error Message */}
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
@@ -709,31 +695,27 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
             />
           </div>
 
-        </form>
-
-        {/* Sticky Actions Footer */}
-        <div className="sticky bottom-0 bg-neutral-900 border-t border-gold-500/30 px-6 py-4">
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isProcessing}
-              className="flex-1 px-6 py-3 bg-neutral-800 text-white border border-neutral-600 rounded-lg hover:bg-neutral-700 font-medium transition-colors disabled:opacity-50"
-            >
-              Annuleer
-            </button>
-            <button
-              type="submit"
-              form="bulk-event-form"
-              disabled={isProcessing || selectedDates.length === 0}
-              className="flex-1 px-6 py-3 bg-gradient-to-r from-gold-600 to-gold-500 text-white rounded-lg hover:from-gold-700 hover:to-gold-600 font-medium transition-all shadow-lg shadow-gold-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
-            >
-              <Plus className="w-5 h-5" />
-              {isProcessing ? 'Bezig...' : `${selectedDates.length} Events Toevoegen`}
-            </button>
-          </div>
+        {/* Actions */}
+        <div className="flex gap-3 mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isProcessing}
+            className="flex-1 px-6 py-3 bg-neutral-800 text-white border border-neutral-600 rounded-lg hover:bg-neutral-700 font-medium transition-colors disabled:opacity-50"
+          >
+            Annuleer
+          </button>
+          <button
+            type="submit"
+            form="bulk-event-form"
+            disabled={isProcessing || selectedDates.length === 0}
+            className="flex-1 px-6 py-3 bg-gradient-to-r from-gold-600 to-gold-500 text-white rounded-lg hover:from-gold-700 hover:to-gold-600 font-medium transition-all shadow-lg shadow-gold-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+          >
+            <Plus className="w-5 h-5" />
+            {isProcessing ? 'Bezig...' : `${selectedDates.length} Events Toevoegen`}
+          </button>
         </div>
-      </div>
-    </div>
+      </form>
+    </SlideOutPanel>
   );
 };

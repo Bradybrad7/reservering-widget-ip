@@ -1,22 +1,24 @@
 import { useEffect } from 'react';
 import type { BookingAdminProps } from '../types';
 import { AdminLayoutNew } from './admin/AdminLayoutNew';
-import { DashboardModern } from './admin/DashboardModern';
+import { DashboardModernV3 } from './admin/DashboardModernV3'; // ✨ V3 Enterprise Dashboard
 import { ReservationsManager } from './admin/ReservationsWorkbench'; // ✨ Reserveringen Beheer
 import { EventWorkshop } from './admin/EventWorkshop';
+import { AgendaBeheer } from './admin/AgendaBeheer';
+import { CalendarManager } from './admin/CalendarManager';
 import { CustomerManagerEnhanced } from './admin/CustomerManagerEnhanced';
 import { ProductsManager } from './admin/ProductsManager';
 import { ConfigManagerEnhanced } from './admin/ConfigManagerEnhanced';
 import { useAdminStore } from '../store/adminStore';
 
-// ✨ OPERATIONS CONTROL CENTER (Nov 2025)
+// ✨ OPERATIONS CONTROL CENTER V3 (Nov 2025)
 import { OperationsControlCenter } from './admin/OperationsControlCenterRevamped';
 
 // ✨ Nieuwe features
 import AdvancedAnalytics from './admin/AdvancedAnalytics';
 import { WaitlistManager } from './admin/WaitlistManager';
 import { HostCheckIn } from './admin/HostCheckIn';
-import { ArchivedReservationsManager } from './admin/ArchivedReservationsManager';
+import { ArchiveCenter } from './admin/ArchiveCenter';
 import { PaymentOverview } from './admin/PaymentOverview';
 
 // ✨ Store imports voor proactief data laden
@@ -55,17 +57,26 @@ const BookingAdminNew: React.FC<BookingAdminProps> = () => {
     switch (activeSection) {
       // Dashboard
       case 'dashboard':
-        return <DashboardModern />;
+        return <DashboardModernV3 />;
 
       // ✨ OPERATIONS CONTROL CENTER (Nov 2025)
-      // Unified hub voor Events, Reservations, Waitlist, Customers, Payments
+      // Unified hub voor Reservations, Waitlist, Customers, Payments
       case 'operations':
         return <OperationsControlCenter />;
+
+      // ✨ AGENDA BEHEER (Nov 2025)
+      // Complete event & calendar management - Volledig nieuwe moderne interface
+      case 'agenda':
+        return <AgendaBeheer />;
+
+      // Calendar Management - Kalender sync met boekingspagina + bulk toevoegen
+      case 'calendar':
+        return <CalendarManager />;
 
       // DEPRECATED: Legacy individual sections (backward compatibility)
       // These are now unified in the Operations Control Center
       case 'events':
-        return <EventWorkshop />;
+        return <CalendarManager />; // Redirect to CalendarManager
       case 'reservations':
         return <ReservationsManager />;
       case 'waitlist':
@@ -75,9 +86,9 @@ const BookingAdminNew: React.FC<BookingAdminProps> = () => {
       case 'customers':
         return <CustomerManagerEnhanced />;
 
-      // Archive - Archived/deleted reservations
+      // Archive - Archived/deleted reservations + expired events
       case 'archive':
-        return <ArchivedReservationsManager />;
+        return <ArchiveCenter />;
 
       // Check-in - Today's check-in + Manual booking
       case 'checkin':
@@ -96,7 +107,7 @@ const BookingAdminNew: React.FC<BookingAdminProps> = () => {
         return <ConfigManagerEnhanced />;
 
       default:
-        return <DashboardModern />;
+        return <DashboardModernV3 />;
     }
   };
 

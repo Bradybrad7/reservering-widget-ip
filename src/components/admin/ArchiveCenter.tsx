@@ -28,12 +28,15 @@ import {
 import type { ArchivedRecord } from '../../types';
 import { formatCurrency, formatDate, cn } from '../../utils';
 import { apiService } from '../../services/apiService';
+import { useReservationsStore } from '../../store/reservationsStore';
+import { useEventsStore } from '../../store/eventsStore';
+import { parseISO, isToday } from 'date-fns';
 
 interface ArchiveCenterProps {
   onSelectArchive?: (archive: ArchivedRecord) => void;
 }
 
-type FilterType = 'all' | 'with-refunds' | 'fully-refunded' | 'partial-refund' | 'outstanding';
+type FilterType = 'all' | 'with-refunds' | 'fully-refunded' | 'partial-refund' | 'outstanding' | 'expired';
 
 export const ArchiveCenter: React.FC<ArchiveCenterProps> = ({ onSelectArchive }) => {
   const [archives, setArchives] = useState<ArchivedRecord[]>([]);
@@ -41,6 +44,10 @@ export const ArchiveCenter: React.FC<ArchiveCenterProps> = ({ onSelectArchive })
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [selectedArchive, setSelectedArchive] = useState<ArchivedRecord | null>(null);
+
+  // Get expired reservations from store
+  const { reservations } = useReservationsStore();
+  const { events } = useEventsStore();
 
   useEffect(() => {
     loadArchives();
@@ -133,9 +140,102 @@ export const ArchiveCenter: React.FC<ArchiveCenterProps> = ({ onSelectArchive })
     }
   };
 
+  // Get expired (past) reservations that aren't in the archive yet
+  const expiredReservations = useMemo(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    return reservations.filter(reservation => {
+      // Skip if already archived/cancelled
+      if (reservation.status === 'cancelled' || reservation.status === 'rejected') {
+        return false;
+      }
+
+      // Check if event has passed
+      const event = events.find(e => e.id === reservation.eventId);
+      if (event) {
+        const eventDate = event.date instanceof Date ? event.date : parseISO(event.date as any);
+        const eventDateOnly = new Date(eventDate);
+        eventDateOnly.setHours(0, 0, 0, 0);
+        return eventDateOnly < now;
+      }
+
+      // Check reservation date if no event
+      if (reservation.eventDate) {
+        const resDate = reservation.eventDate instanceof Date 
+          ? reservation.eventDate 
+          : parseISO(reservation.eventDate as any);
+        const resDateOnly = new Date(resDate);
+        resDateOnly.setHours(0, 0, 0, 0);
+        return resDateOnly < now;
+      }
+
+      return false;
+    });
+  }, [reservations, events]);
+
+  // Combine archived records with expired reservations
+  const allArchiveItems = useMemo(() => {
+    // Convert expired reservations to archive format
+    const expiredAsArchives: ArchivedRecord[] = expiredReservations.map(res => {
+      const totalPaid = res.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
+      const totalRefunded = res.refunds?.reduce((sum, r) => sum + r.amount, 0) || 0;
+
+      return {
+        id: res.id,
+        archivedAt: res.eventDate || new Date(),
+        archivedBy: 'Auto-Archive',
+        archiveReason: 'Event verlopen (automatisch gearchiveerd)',
+        reservation: {
+          companyName: res.companyName,
+          contactPerson: res.contactPerson || `${res.firstName} ${res.lastName}`,
+          email: res.email,
+          phone: res.phone,
+          eventId: res.eventId,
+          eventDate: res.eventDate,
+          eventType: res.eventType || '',
+          showName: res.showName,
+          numberOfPersons: res.numberOfPersons,
+          arrangement: res.arrangement,
+          specialRequests: res.specialRequests || res.comments,
+          createdAt: res.createdAt || new Date(),
+          updatedAt: res.updatedAt || new Date(),
+          status: res.status,
+          arrivalTime: res.arrivalTime,
+          tableNumber: res.tableNumber
+        },
+        financials: {
+          totalPrice: res.totalPrice || 0,
+          totalPaid,
+          totalRefunded,
+          netRevenue: totalPaid - totalRefunded,
+          payments: res.payments || [],
+          refunds: res.refunds || [],
+          invoiceNumber: res.invoiceNumber,
+          paymentDueDate: res.paymentDueDate
+        },
+        communication: {
+          emailsSent: res.emailsSent || 0,
+          emailLog: res.emailLog,
+          communicationLog: res.communicationLog
+        },
+        searchMetadata: {
+          keywords: ['expired', 'verlopen'],
+          paymentReferences: res.payments?.map(p => p.reference).filter(Boolean) || [],
+          refundReferences: res.refunds?.map(r => r.reference).filter(Boolean) || [],
+          hasRefunds: (res.refunds?.length || 0) > 0,
+          isFullyRefunded: totalRefunded >= totalPaid && totalPaid > 0,
+          hasOutstandingBalance: (totalPaid - totalRefunded) < (res.totalPrice || 0)
+        }
+      } as ArchivedRecord;
+    });
+
+    return [...archives, ...expiredAsArchives];
+  }, [archives, expiredReservations]);
+
   // Filter archives
   const filteredArchives = useMemo(() => {
-    let filtered = archives;
+    let filtered = allArchiveItems;
 
     // Apply filter type
     if (filterType === 'with-refunds') {
@@ -148,6 +248,8 @@ export const ArchiveCenter: React.FC<ArchiveCenterProps> = ({ onSelectArchive })
       );
     } else if (filterType === 'outstanding') {
       filtered = filtered.filter(a => a.searchMetadata.hasOutstandingBalance);
+    } else if (filterType === 'expired') {
+      filtered = filtered.filter(a => a.archiveReason.includes('verlopen') || a.archiveReason.includes('Auto-Archive'));
     }
 
     // Apply search query
@@ -190,7 +292,7 @@ export const ArchiveCenter: React.FC<ArchiveCenterProps> = ({ onSelectArchive })
     return filtered.sort((a, b) => 
       new Date(b.archivedAt).getTime() - new Date(a.archivedAt).getTime()
     );
-  }, [archives, filterType, searchQuery]);
+  }, [allArchiveItems, filterType, searchQuery]);
 
   // Calculate overall stats
   const stats = useMemo(() => {
@@ -350,7 +452,18 @@ export const ArchiveCenter: React.FC<ArchiveCenterProps> = ({ onSelectArchive })
                     : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
                 )}
               >
-                Alle ({archives.length})
+                Alle ({allArchiveItems.length})
+              </button>
+              <button
+                onClick={() => setFilterType('expired')}
+                className={cn(
+                  'px-4 py-2 rounded-lg font-medium transition-colors',
+                  filterType === 'expired'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                )}
+              >
+                🕐 Verlopen ({expiredReservations.length})
               </button>
               <button
                 onClick={() => setFilterType('with-refunds')}
@@ -361,7 +474,7 @@ export const ArchiveCenter: React.FC<ArchiveCenterProps> = ({ onSelectArchive })
                     : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
                 )}
               >
-                Met Restituties ({archives.filter(a => a.searchMetadata.hasRefunds).length})
+                Met Restituties ({allArchiveItems.filter(a => a.searchMetadata.hasRefunds).length})
               </button>
               <button
                 onClick={() => setFilterType('fully-refunded')}
@@ -372,7 +485,7 @@ export const ArchiveCenter: React.FC<ArchiveCenterProps> = ({ onSelectArchive })
                     : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
                 )}
               >
-                Volledig Terugbetaald ({archives.filter(a => a.searchMetadata.isFullyRefunded).length})
+                Volledig Terugbetaald ({allArchiveItems.filter(a => a.searchMetadata.isFullyRefunded).length})
               </button>
               <button
                 onClick={() => setFilterType('partial-refund')}
@@ -383,7 +496,7 @@ export const ArchiveCenter: React.FC<ArchiveCenterProps> = ({ onSelectArchive })
                     : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
                 )}
               >
-                Deels Terugbetaald ({archives.filter(a => a.searchMetadata.hasRefunds && !a.searchMetadata.isFullyRefunded).length})
+                Deels Terugbetaald ({allArchiveItems.filter(a => a.searchMetadata.hasRefunds && !a.searchMetadata.isFullyRefunded).length})
               </button>
               <button
                 onClick={() => setFilterType('outstanding')}
@@ -394,7 +507,7 @@ export const ArchiveCenter: React.FC<ArchiveCenterProps> = ({ onSelectArchive })
                     : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
                 )}
               >
-                Openstaand Saldo ({archives.filter(a => a.searchMetadata.hasOutstandingBalance).length})
+                Openstaand Saldo ({allArchiveItems.filter(a => a.searchMetadata.hasOutstandingBalance).length})
               </button>
             </div>
           </div>
