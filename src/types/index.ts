@@ -844,7 +844,7 @@ export interface EmailReminderConfig {
 // Sub-pages implemented as tabs within main components
 export type AdminSection = 
   | 'dashboard'      // Home overview
-  | 'operations'     // 🆕 OPERATIONS CONTROL CENTER - Unified hub for reservations, waitlist, customers, payments
+  | 'operations'     // 🆕 RESERVERINGEN - Unified hub for reservations, waitlist, customers, payments
   | 'agenda'         // 🆕 AGENDA BEHEER - Complete event & calendar management (all event functionality)
   | 'calendar'       // 🆕 CALENDAR MANAGER - Kalender sync met boekingspagina + bulk toevoegen + wachtlijst beheer
   | 'events'         // All event management (tabs: overview, calendar, templates, shows, types) - DEPRECATED: use 'agenda' or 'calendar'

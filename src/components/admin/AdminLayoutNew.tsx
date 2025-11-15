@@ -56,11 +56,11 @@ const navigationGroups: NavigationGroup[] = [
     section: 'dashboard' as AdminSection
   },
   {
-    id: 'operations',
-    label: 'Operations Control',
-    icon: 'ActivitySquare',
+    id: 'reservations',
+    label: 'Reserveringen',
+    icon: 'List',
     order: 2,
-    section: 'operations' as AdminSection
+    section: 'operations' as AdminSection // Keep operations as section for now (backward compatibility)
   },
   {
     id: 'agenda',

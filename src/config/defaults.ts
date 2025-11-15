@@ -184,6 +184,46 @@ export const eventTypeConfig = {
 export const getDefaultEventTypesConfig = (): EventTypesConfig => ({
   types: [
     {
+      key: 'weekend',
+      name: 'Weekend Show',
+      description: 'Show op vrijdag, zaterdag of zondag',
+      color: '#F59E0B', // Amber/Gold
+      defaultTimes: {
+        doorsOpen: '19:00',
+        startsAt: '20:00',
+        endsAt: '22:30'
+      },
+      days: ['vrijdag', 'zaterdag', 'zondag'],
+      enabled: true,
+      showOnCalendar: false,
+      pricing: {
+        Standard: 85,
+        Premium: 95,
+        BWF: 85,
+        BWFM: 95
+      }
+    },
+    {
+      key: 'weekday',
+      name: 'Doordeweekse Show',
+      description: 'Show op maandag t/m donderdag',
+      color: '#3B82F6', // Blue
+      defaultTimes: {
+        doorsOpen: '19:00',
+        startsAt: '20:00',
+        endsAt: '22:30'
+      },
+      days: ['maandag', 'dinsdag', 'woensdag', 'donderdag'],
+      enabled: true,
+      showOnCalendar: false,
+      pricing: {
+        Standard: 75,
+        Premium: 90,
+        BWF: 75,
+        BWFM: 90
+      }
+    },
+    {
       key: 'REGULAR',
       name: 'Reguliere Show',
       description: 'Standaard comedy show',

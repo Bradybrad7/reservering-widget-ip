@@ -12,7 +12,7 @@ import { ConfigManagerEnhanced } from './admin/ConfigManagerEnhanced';
 import { useAdminStore } from '../store/adminStore';
 
 // ✨ OPERATIONS CONTROL CENTER V3 (Nov 2025)
-import { OperationsControlCenter } from './admin/OperationsControlCenterRevamped';
+import { ReservationsDashboard } from './admin/ReservationsDashboard';
 
 // ✨ Nieuwe features
 import AdvancedAnalytics from './admin/AdvancedAnalytics';
@@ -59,10 +59,10 @@ const BookingAdminNew: React.FC<BookingAdminProps> = () => {
       case 'dashboard':
         return <DashboardModernV3 />;
 
-      // ✨ OPERATIONS CONTROL CENTER (Nov 2025)
-      // Unified hub voor Reservations, Waitlist, Customers, Payments
+      // ✨ RESERVERINGEN DASHBOARD (Nov 2025)
+      // Complete reserveringen beheer met filtering, capaciteit management en volledige bewerking
       case 'operations':
-        return <OperationsControlCenter />;
+        return <ReservationsDashboard />;
 
       // ✨ AGENDA BEHEER (Nov 2025)
       // Complete event & calendar management - Volledig nieuwe moderne interface
