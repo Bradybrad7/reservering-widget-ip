@@ -60,27 +60,20 @@ const navigationGroups: NavigationGroup[] = [
     label: 'Reserveringen',
     icon: 'List',
     order: 2,
-    section: 'operations' as AdminSection // Keep operations as section for now (backward compatibility)
-  },
-  {
-    id: 'agenda',
-    label: 'Agenda Beheer',
-    icon: 'Calendar',
-    order: 3,
-    section: 'agenda' as AdminSection
+    section: 'operations' as AdminSection
   },
   {
     id: 'calendar',
     label: 'Kalender Manager',
     icon: 'CalendarDays',
-    order: 4,
+    order: 3,
     section: 'calendar' as AdminSection
   },
   {
     id: 'archive',
     label: 'Archief',
     icon: 'Archive',
-    order: 5,
+    order: 4,
     section: 'archive' as AdminSection
   },
   {
@@ -148,6 +141,7 @@ export const AdminLayoutNew: React.FC<AdminLayoutNewProps> = ({ children }) => {
   const { activeSection, breadcrumbs, sidebarCollapsed, notificationBadges, setActiveSection, setBreadcrumbs, toggleSidebar } = useAdminStore();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+
 
   // ✨ Update notification badges automatically
   useNotificationBadges();

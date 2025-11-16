@@ -47,13 +47,14 @@ import {
   Archive,
   Trash2,
   FileEdit,
-  Ban
+  Ban,
+  Plus
 } from 'lucide-react';
 import { cn } from '../../utils';
 import { useReservationsStore } from '../../store/reservationsStore';
 import { useEventsStore } from '../../store/eventsStore';
 import { useConfigStore } from '../../store/configStore';
-import type { AddOns, Arrangement, Event } from '../../types';
+import type { AddOns, Arrangement, Event, PaymentSummary } from '../../types';
 import { format, isToday, isTomorrow, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, getWeek, getMonth, getYear } from 'date-fns';
 import { nl } from 'date-fns/locale';
 import { useToast } from '../Toast';
@@ -61,18 +62,44 @@ import { ManualBookingManager } from './ManualBookingManager';
 import { TagConfigService } from '../../services/tagConfigService';
 import type { ReservationTag } from '../../types';
 
+// Import nieuwe utilities en hooks
+import {
+  CAPACITY_THRESHOLDS,
+  CONFIRMATION_MESSAGES,
+  SUCCESS_MESSAGES,
+  ERROR_MESSAGES,
+  TAB_FILTERS,
+  VIEW_MODES,
+  PAYMENT_STATUS_FILTERS,
+  PAYMENT_DEFAULTS,
+  REFUND_DEFAULTS
+} from './reservations/constants';
+
+import {
+  convertFirestoreDate,
+  validatePaymentAmount,
+  generatePaymentId,
+  generateRefundId,
+  filterActiveReservations,
+  filterActiveEvents
+} from './reservations/utils';
+
+import { useReservationHandlers } from './reservations/useReservationHandlers';
+import { useReservationFilters } from './reservations/useReservationFilters';
+import { useReservationStats } from './reservations/useReservationStats';
+import { useBulkActions } from './reservations/useBulkActions';
+
 // ============================================================================
 // TYPES
 // ============================================================================
 
-type ViewMode = 
-  | 'dashboard'   // Overzicht + urgente items
-  | 'all'         // Alle reserveringen (met datum filters)
-  | 'pending'     // Wachten op bevestiging
-  | 'confirmed'   // Bevestigd (detail beheer)
-  | 'today'       // Vandaag (snel overzicht)
-  | 'week'        // Week overzicht
-  | 'month';      // Maand overzicht
+type MainTab = 'reserveringen' | 'betalingen' | 'opties' | 'archief';
+
+type ReserveringenSubTab = 'dashboard' | 'pending' | 'confirmed' | 'all' | 'today' | 'week' | 'month';
+
+type BetalingenSubTab = 'overview' | 'overdue' | 'unpaid' | 'partial' | 'history';
+
+type OptiesSubTab = 'overview' | 'expiring' | 'expired' | 'all';
 
 type DateFilter = 
   | { type: 'all' }
@@ -147,24 +174,568 @@ export const ReservationsDashboard: React.FC = () => {
   const { merchandiseItems, loadMerchandise, addOns, eventTypesConfig, pricing, loadConfig } = useConfigStore();
   const { success: showSuccess, error: showError } = useToast();
   
-  const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedReservationId, setSelectedReservationId] = useState<string | null>(null);
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   const [isEditMode, setIsEditMode] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showManualBooking, setShowManualBooking] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  
+  // Multi-select state
+  const [selectedReservationIds, setSelectedReservationIds] = useState<Set<string>>(new Set());
+  const [showBulkActions, setShowBulkActions] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [dateFilter, setDateFilter] = useState<DateFilter>({ type: 'all' });
+  const [mainTab, setMainTab] = useState<MainTab>('reserveringen');
+  const [reserveringenTab, setReserveringenTab] = useState<ReserveringenSubTab>('dashboard');
+  const [betalingenTab, setBetalingenTab] = useState<BetalingenSubTab>('overview');
+  const [optiesTab, setOptiesTab] = useState<OptiesSubTab>('overview');
+  
+  // ✨ NEW: Advanced Filters
+  const [dateRangeStart, setDateRangeStart] = useState<string>('');
+  const [dateRangeEnd, setDateRangeEnd] = useState<string>('');
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<'all' | 'paid' | 'unpaid' | 'partial'>('all');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   
   // Edit state
   const [editData, setEditData] = useState<any>(null);
+
+  // Payment Modal State
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentCategory, setPaymentCategory] = useState<'arrangement' | 'merchandise' | 'full' | 'other'>('full');
+  const [paymentMethod, setPaymentMethod] = useState('Bankoverschrijving');
+  const [paymentReference, setPaymentReference] = useState('');
+  const [paymentNote, setPaymentNote] = useState('');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+
+  // Refund Modal State
+  const [refundAmount, setRefundAmount] = useState('');
+  const [refundReason, setRefundReason] = useState('Annulering');
+  const [refundMethod, setRefundMethod] = useState('Bankoverschrijving');
+  const [refundNote, setRefundNote] = useState('');
+  const [isProcessingRefund, setIsProcessingRefund] = useState(false);
+
+  // ✨ NEW: Option Approval Modal State
+  const [showOptionApprovalModal, setShowOptionApprovalModal] = useState(false);
+  const [approvalArrangement, setApprovalArrangement] = useState<Arrangement>('BWF');
+  const [approvalPreDrink, setApprovalPreDrink] = useState(false);
+  const [approvalAfterParty, setApprovalAfterParty] = useState(false);
+  const [approvalMerchandise, setApprovalMerchandise] = useState<{ enabled: boolean; quantity: number }>({
+    enabled: false,
+    quantity: 0
+  });
+  const [approvalDietaryNeeds, setApprovalDietaryNeeds] = useState('');
+  const [approvalCelebrations, setApprovalCelebrations] = useState<string[]>([]);
+  const [approvalNotes, setApprovalNotes] = useState('');
+  const [isProcessingApproval, setIsProcessingApproval] = useState(false);
 
   // Get selected reservation data
   const selectedReservation = selectedReservationId 
     ? reservations.find(r => r.id === selectedReservationId) 
     : null;
+
+  // Debug logging
+  useEffect(() => {
+    if (selectedReservationId) {
+      console.log('🔍 Selected Reservation ID:', selectedReservationId);
+      console.log('📋 Found Reservation:', selectedReservation);
+    }
+  }, [selectedReservationId, selectedReservation]);
+
+  // Initialize payment amount when modal opens
+  useEffect(() => {
+    if (showPaymentModal && selectedReservation) {
+      const paymentSummary = calculatePaymentSummary(selectedReservation);
+      setPaymentAmount(paymentSummary.balance.toString());
+    }
+  }, [showPaymentModal, selectedReservation]);
+
+  // Reset modal state when closing
+  useEffect(() => {
+    if (!showPaymentModal) {
+      setPaymentAmount('');
+      setPaymentCategory('full');
+      setPaymentMethod('Bankoverschrijving');
+      setPaymentReference('');
+      setPaymentNote('');
+    }
+  }, [showPaymentModal]);
+
+  useEffect(() => {
+    if (!showRefundModal) {
+      setRefundAmount('');
+      setRefundReason('Annulering');
+      setRefundMethod('Bankoverschrijving');
+      setRefundNote('');
+    }
+  }, [showRefundModal]);
+
+  // Payment Handler
+  const handleRegisterPayment = async () => {
+    console.log('💰 handleRegisterPayment called', { 
+      selectedReservation: selectedReservation?.id,
+      paymentAmount,
+      paymentCategory,
+      paymentMethod 
+    });
+
+    if (!selectedReservation) {
+      console.error('❌ No selected reservation');
+      return;
+    }
+    
+    const amount = parseFloat(paymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      console.error('❌ Invalid amount:', paymentAmount);
+      showError('Voer een geldig bedrag in');
+      return;
+    }
+
+    console.log('✅ Validation passed, processing payment...');
+    setIsProcessingPayment(true);
+    try {
+      // Create payment object without undefined values (Firestore doesn't allow undefined)
+      const newPayment: any = {
+        id: `PAY-${Date.now()}`,
+        amount,
+        category: paymentCategory,
+        method: paymentMethod,
+        date: new Date(),
+        processedBy: 'Admin'
+      };
+      
+      // Only add optional fields if they have values
+      if (paymentReference?.trim()) {
+        newPayment.reference = paymentReference.trim();
+      }
+      if (paymentNote?.trim()) {
+        newPayment.note = paymentNote.trim();
+      }
+
+      const updatedPayments = [...(selectedReservation.payments || []), newPayment];
+      
+      console.log('📝 Updating reservation with payment:', { 
+        reservationId: selectedReservation.id,
+        newPayment,
+        totalPayments: updatedPayments.length 
+      });
+
+      // Convert all payment dates to proper Date objects for Firestore
+      const paymentsForFirestore = updatedPayments.map(p => {
+        const paymentDate = p.date instanceof Date 
+          ? p.date 
+          : p.date?.toDate 
+            ? p.date.toDate() 
+            : new Date(p.date);
+        
+        return {
+          ...p,
+          date: paymentDate
+        };
+      });
+
+      console.log('🔥 Sending to Firestore:', { paymentsForFirestore });
+
+      await updateReservation(selectedReservation.id, {
+        payments: paymentsForFirestore
+      });
+
+      console.log('✅ Payment saved, reloading reservations...');
+      await loadReservations();
+      setShowPaymentModal(false);
+      showSuccess(`Betaling van €${amount.toFixed(2)} geregistreerd!`);
+  } catch (error) {
+    console.error('❌ Error registering payment:', error);
+    console.error('Error details:', { 
+      message: error instanceof Error ? error.message : 'Unknown error',
+      reservationId: selectedReservation?.id,
+      paymentAmount: amount 
+    });
+    showError('Kon betaling niet registreren');
+  } finally {
+    setIsProcessingPayment(false);
+  }
+  };
+
+  // ✨ NEW: Option Approval Handler - Opens modal to select arrangement
+  const handleOpenApprovalModal = (reservationId: string) => {
+    setSelectedReservationId(reservationId);
+    setShowOptionApprovalModal(true);
+  };
+
+  // ✨ NEW: Complete Option Approval
+  const handleApproveOption = async () => {
+    if (!selectedReservation || selectedReservation.status !== 'option') {
+      showError('Geen geldige optie geselecteerd');
+      return;
+    }
+
+    if (!approvalArrangement) {
+      showError('Selecteer een arrangement');
+      return;
+    }
+
+    setIsProcessingApproval(true);
+    try {
+      // Calculate price based on selected arrangement and add-ons
+      const event = events.find(e => e.id === selectedReservation.eventId);
+      if (!event || !event.date) {
+        showError('Event niet gevonden');
+        return;
+      }
+
+      const eventData = typeof event.date === 'object' && 'pricing' in event.date ? event.date : null;
+      if (!eventData || !eventData.pricing) {
+        showError('Event pricing niet gevonden');
+        return;
+      }
+
+      // Get pricing from event
+      const eventPricing = eventData.pricing as Record<Arrangement, number>;
+      const arrangementPrice = eventPricing[approvalArrangement] || 0;
+      const merchandisePrice = approvalMerchandise.enabled ? (approvalMerchandise.quantity || 0) * 29.95 : 0;
+      const afterPartyPrice = approvalAfterParty ? 7.50 : 0;
+
+      const totalPrice = (arrangementPrice + afterPartyPrice) * selectedReservation.numberOfPersons + merchandisePrice;
+
+      // Update reservation to confirmed status with full details
+      await updateReservation(selectedReservation.id, {
+        status: 'confirmed',
+        arrangement: approvalArrangement,
+        totalPrice,
+        updatedAt: new Date(),
+        // Add to communication log
+        communicationLog: [
+          ...(selectedReservation.communicationLog || []),
+          {
+            id: `log-${Date.now()}`,
+            timestamp: new Date(),
+            type: 'note',
+            message: `✅ OPTIE GOEDGEKEURD door admin\nArrangement: ${approvalArrangement}${approvalNotes ? `\nNotities: ${approvalNotes}` : ''}`,
+            author: 'Admin'
+          }
+        ]
+      });
+
+      await loadReservations();
+      setShowOptionApprovalModal(false);
+      setSelectedReservationId(null);
+      showSuccess(`Optie goedgekeurd en omgezet naar volledige boeking (€${totalPrice.toFixed(2)})`);
+
+      // Reset approval modal state
+      setApprovalArrangement('BWF');
+      setApprovalPreDrink(false);
+      setApprovalAfterParty(false);
+      setApprovalMerchandise({ enabled: false, quantity: 0 });
+      setApprovalDietaryNeeds('');
+      setApprovalCelebrations([]);
+      setApprovalNotes('');
+    } catch (error) {
+      console.error('Error approving option:', error);
+      showError('Kon optie niet goedkeuren');
+    } finally {
+      setIsProcessingApproval(false);
+    }
+  };
+
+  // ✨ NEW: Option Rejection Handler
+  const handleRejectOption = async (reservationId: string) => {
+    const reservation = reservations.find(r => r.id === reservationId);
+    if (!reservation || reservation.status !== 'option') {
+      showError('Geen geldige optie geselecteerd');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Weet je zeker dat je de optie voor ${reservation.companyName || reservation.firstName + ' ' + reservation.lastName} wilt afwijzen?\n\nDe optie wordt verplaatst naar het archief.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await updateReservation(reservationId, {
+        status: 'rejected',
+        updatedAt: new Date(),
+        communicationLog: [
+          ...(reservation.communicationLog || []),
+          {
+            id: `log-${Date.now()}`,
+            timestamp: new Date(),
+            type: 'note',
+            message: '❌ OPTIE AFGEWEZEN door admin',
+            author: 'Admin'
+          }
+        ]
+      });
+
+      await loadReservations();
+      showSuccess('Optie afgewezen en verplaatst naar archief');
+    } catch (error) {
+      console.error('Error rejecting option:', error);
+      showError('Kon optie niet afwijzen');
+    }
+  };
+
+  // Refund Handler
+  const handleCreateRefund = async () => {
+    if (!selectedReservation) return;    const amount = parseFloat(refundAmount);
+    const paymentSummary = calculatePaymentSummary(selectedReservation);
+    
+    if (isNaN(amount) || amount <= 0) {
+      showError('Voer een geldig bedrag in');
+      return;
+    }
+
+    if (amount > paymentSummary.totalPaid) {
+      showError('Restitutie bedrag kan niet hoger zijn dan betaald bedrag');
+      return;
+    }
+
+    if (!refundNote.trim()) {
+      showError('Notitie is verplicht voor audit trail');
+      return;
+    }
+
+    setIsProcessingRefund(true);
+    try {
+      const newRefund: any = {
+        id: `REF-${Date.now()}`,
+        amount,
+        reason: refundReason,
+        method: refundMethod,
+        note: refundNote.trim(),
+        date: new Date(),
+        processedBy: 'Admin'
+      };
+
+      const updatedRefunds = [...(selectedReservation.refunds || []), newRefund];
+      
+      // Convert all refund dates to proper Date objects for Firestore
+      const refundsForFirestore = updatedRefunds.map(r => {
+        const refundDate = r.date instanceof Date 
+          ? r.date 
+          : r.date?.toDate 
+            ? r.date.toDate() 
+            : new Date(r.date);
+        
+        return {
+          ...r,
+          date: refundDate
+        };
+      });
+
+      await updateReservation(selectedReservation.id, {
+        refunds: refundsForFirestore
+      });
+
+      await loadReservations();
+      setShowRefundModal(false);
+      showSuccess(`Restitutie van €${amount.toFixed(2)} geregistreerd!`);
+    } catch (error) {
+      console.error('Error creating refund:', error);
+      showError('Kon restitutie niet registreren');
+    } finally {
+      setIsProcessingRefund(false);
+    }
+  };
+
+  // Multi-select handlers
+  const toggleSelectReservation = (id: string) => {
+    setSelectedReservationIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = (reservations: any[]) => {
+    if (selectedReservationIds.size === reservations.length) {
+      setSelectedReservationIds(new Set());
+    } else {
+      setSelectedReservationIds(new Set(reservations.map(r => r.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedReservationIds.size === 0) return;
+    
+    const confirmed = window.confirm(`Weet je zeker dat je ${selectedReservationIds.size} reservering(en) wilt verwijderen?`);
+    if (!confirmed) return;
+
+    try {
+      for (const id of selectedReservationIds) {
+        await deleteReservation(id);
+      }
+      showSuccess(`${selectedReservationIds.size} reservering(en) verwijderd`);
+      setSelectedReservationIds(new Set());
+    } catch (error) {
+      showError('Fout bij verwijderen van reserveringen');
+    }
+  };
+
+  const handleBulkMarkAsPaid = async () => {
+    if (selectedReservationIds.size === 0) return;
+    
+    const confirmed = window.confirm(`Weet je zeker dat je ${selectedReservationIds.size} reservering(en) wilt markeren als volledig betaald?`);
+    if (!confirmed) return;
+
+    try {
+      for (const id of selectedReservationIds) {
+        const reservation = reservations.find(r => r.id === id);
+        if (!reservation) continue;
+        
+        const summary = calculatePaymentSummary(reservation);
+        if (summary.balance > 0) {
+          const newPayment = {
+            id: `PAY-${Date.now()}-${id}`,
+            amount: summary.balance,
+            category: 'full' as const,
+            method: 'Bankoverschrijving',
+            date: new Date(),
+            processedBy: 'Admin (Bulk)',
+            note: 'Bulk markering als betaald'
+          };
+
+          const updatedPayments = [...(reservation.payments || []), newPayment];
+          const paymentsForFirestore = updatedPayments.map(p => {
+            let paymentDate: Date;
+            if (p.date instanceof Date) {
+              paymentDate = p.date;
+            } else if (p.date && typeof p.date === 'object' && 'toDate' in p.date) {
+              paymentDate = (p.date as any).toDate();
+            } else {
+              paymentDate = new Date(p.date);
+            }
+            return { ...p, date: paymentDate };
+          });
+
+          await updateReservation(id, { payments: paymentsForFirestore as any });
+        }
+      }
+      
+      await loadReservations();
+      showSuccess(`${selectedReservationIds.size} reservering(en) gemarkeerd als betaald`);
+      setSelectedReservationIds(new Set());
+    } catch (error) {
+      showError('Fout bij markeren als betaald');
+    }
+  };
+
+  const handleBulkConfirm = async () => {
+    if (selectedReservationIds.size === 0) return;
+    
+    const confirmed = window.confirm(`Weet je zeker dat je ${selectedReservationIds.size} reservering(en) wilt bevestigen?`);
+    if (!confirmed) return;
+
+    try {
+      for (const id of selectedReservationIds) {
+        await confirmReservation(id);
+      }
+      showSuccess(`${selectedReservationIds.size} reservering(en) bevestigd`);
+      setSelectedReservationIds(new Set());
+    } catch (error) {
+      showError('Fout bij bevestigen van reserveringen');
+    }
+  };
+
+  const handleBulkReject = async () => {
+    if (selectedReservationIds.size === 0) return;
+    
+    const confirmed = window.confirm(`Weet je zeker dat je ${selectedReservationIds.size} reservering(en) wilt afwijzen?`);
+    if (!confirmed) return;
+
+    try {
+      for (const id of selectedReservationIds) {
+        await updateReservation(id, { status: 'rejected' });
+      }
+      showSuccess(`${selectedReservationIds.size} reservering(en) afgewezen`);
+      setSelectedReservationIds(new Set());
+    } catch (error) {
+      showError('Fout bij afwijzen van reserveringen');
+    }
+  };
+
+  // ✨ NEW: CSV Export Function
+  const handleExportCSV = (reservationsToExport: any[]) => {
+    try {
+      // CSV Headers
+      const headers = [
+        'ID',
+        'Status',
+        'Naam',
+        'Email',
+        'Telefoon',
+        'Bedrijf',
+        'Event',
+        'Event Datum',
+        'Aantal Gasten',
+        'Arrangement',
+        'Pre-Drink',
+        'After-Party',
+        'Merchandise',
+        'Totaal Prijs',
+        'Betaal Status',
+        'Betaald Bedrag',
+        'Openstaand',
+        'Gemaakt Op',
+        'Notities'
+      ].join(',');
+
+      // CSV Rows
+      const rows = reservationsToExport.map(r => {
+        const event = activeEvents.find(e => e.id === r.eventId);
+        const eventDate = event ? (event.date instanceof Date ? event.date : parseISO(event.date as any)) : null;
+        const paymentSummary = calculatePaymentSummary(r);
+        
+        return [
+          r.id,
+          r.status,
+          `"${r.firstName} ${r.lastName}"`,
+          r.email || '',
+          r.phone || '',
+          `"${r.companyName || ''}"`,
+          event ? `"${event.type}"` : '',
+          eventDate ? format(eventDate, 'dd-MM-yyyy', { locale: nl }) : '',
+          r.numberOfPersons,
+          r.arrangement || '',
+          r.preDrink ? 'Ja' : 'Nee',
+          r.afterParty ? 'Ja' : 'Nee',
+          r.merchandise?.enabled ? `${r.merchandise.quantity}x` : 'Nee',
+          r.totalPrice?.toFixed(2) || '0.00',
+          paymentSummary.status,
+          paymentSummary.totalPaid.toFixed(2),
+          paymentSummary.balance.toFixed(2),
+          r.createdAt ? format(r.createdAt instanceof Date ? r.createdAt : parseISO(r.createdAt as any), 'dd-MM-yyyy HH:mm', { locale: nl }) : '',
+          `"${(r.notes || '').replace(/"/g, '""')}"` // Escape quotes
+        ].join(',');
+      }).join('\n');
+
+      const csv = headers + '\n' + rows;
+      
+      // Create download
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `reserveringen_${format(new Date(), 'yyyy-MM-dd_HHmm', { locale: nl })}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      showSuccess(`${reservationsToExport.length} reserveringen geëxporteerd naar CSV`);
+    } catch (error) {
+      console.error('CSV export error:', error);
+      showError('Fout bij exporteren naar CSV');
+    }
+  };
 
   // Helper function to get arrangement price for a specific event
   const getArrangementPriceForEvent = (eventId: string, arrangement: Arrangement): number => {
@@ -175,57 +746,284 @@ export const ReservationsDashboard: React.FC = () => {
       return 0;
     }
     
+    // Map Standard/Premium to BWF/BWFM (backward compatibility)
+    // BWF = Standard, BWFM = Premium
+    const arrangementMapping: Record<string, Arrangement[]> = {
+      'Standard': ['Standard', 'BWF'],
+      'Premium': ['Premium', 'BWFM'],
+      'BWF': ['BWF', 'Standard'],
+      'BWFM': ['BWFM', 'Premium']
+    };
+    
+    const arrangementsToTry = arrangementMapping[arrangement] || [arrangement];
+    
     // Priority 1: Check custom pricing on the event itself
-    if (eventData.customPricing && eventData.customPricing[arrangement]) {
-      console.log('✅ Using custom event pricing:', eventData.customPricing[arrangement]);
-      return eventData.customPricing[arrangement]!;
-    }
-    
-    // Priority 2: Check pricing.byDayType (from Producten en Prijzen page)
-    if (pricing?.byDayType) {
-      // Direct match first
-      if (pricing.byDayType[eventData.type]) {
-        const price = pricing.byDayType[eventData.type][arrangement];
-        if (price !== undefined && price !== null && price > 0) {
-          console.log(`✅ Using pricing.byDayType[${eventData.type}][${arrangement}]:`, price);
-          return price;
-        }
-      }
-      
-      // Try mapping common variations (zondag -> weekend, week -> weekday, etc.)
-      const typeMapping: Record<string, string[]> = {
-        'zondag': ['weekend', 'REGULAR'],
-        'weekend': ['weekend', 'REGULAR'],
-        'week': ['weekday', 'REGULAR'],
-        'weekday': ['weekday', 'REGULAR'],
-        'matinee': ['MATINEE', 'matinee'],
-        'zorgzamehelden': ['CARE_HEROES', 'zorgzamehelden', 'REGULAR']
-      };
-      
-      const possibleKeys = typeMapping[eventData.type.toLowerCase()] || [eventData.type];
-      
-      for (const key of possibleKeys) {
-        if (pricing.byDayType[key]) {
-          const price = pricing.byDayType[key][arrangement];
-          if (price !== undefined && price !== null && price > 0) {
-            console.log(`✅ Using mapped pricing.byDayType[${key}][${arrangement}]:`, price, `(event type was '${eventData.type}')`);
-            return price;
-          }
-        }
+    for (const arr of arrangementsToTry) {
+      if (eventData.customPricing && eventData.customPricing[arr]) {
+        console.log(`✅ Custom pricing: ${arr} = €${eventData.customPricing[arr]}`);
+        return eventData.customPricing[arr]!;
       }
     }
     
-    // Priority 3: Fallback to eventTypesConfig.pricing (defaults)
-    const eventTypeConfig = eventTypesConfig?.types.find(t => t.key === eventData.type || t.key.toLowerCase() === eventData.type.toLowerCase());
-    if (eventTypeConfig?.pricing) {
-      const price = eventTypeConfig.pricing[arrangement] || 0;
-      console.log(`📋 Fallback to eventTypeConfig pricing for ${arrangement}:`, price);
-      return price;
+    // Priority 2: Check eventTypesConfig.pricing based on event.type
+    const eventTypeConfig = eventTypesConfig?.types.find(t => {
+      if (t.key === eventData.type) return true;
+      if (t.key.toLowerCase() === eventData.type.toLowerCase()) return true;
+      return false;
+    });
+    
+    if (!eventTypeConfig) {
+      console.warn(`❌ No eventTypeConfig found for type: ${eventData.type}`);
+      console.log('Available types:', eventTypesConfig?.types?.map(t => t.key));
+      return 0;
     }
     
-    console.warn('❌ No pricing found for event type:', eventData.type, 'arrangement:', arrangement);
-    console.log('Available pricing types:', pricing?.byDayType ? Object.keys(pricing.byDayType) : 'NONE');
+    if (!eventTypeConfig.pricing) {
+      console.warn(`❌ No pricing in eventTypeConfig: ${eventTypeConfig.key}`);
+      return 0;
+    }
+    
+    // Try to get price with fallback to mapped arrangement
+    for (const arr of arrangementsToTry) {
+      const price = eventTypeConfig.pricing[arr];
+      if (price !== undefined && price !== null && price > 0) {
+        console.log(`✅ Price: ${eventTypeConfig.key}[${arr}] = €${price} (requested: ${arrangement})`);
+        return price;
+      }
+    }
+    
+    console.warn(`❌ No price found for ${eventTypeConfig.key} with arrangements:`, arrangementsToTry);
+    console.log('Available pricing:', eventTypeConfig.pricing);
     return 0;
+  };
+
+  // 💰 PAYMENT CALCULATOR - Calculate complete payment summary
+  const calculatePaymentSummary = (reservation: any): PaymentSummary => {
+    const payments = reservation.payments || [];
+    const refunds = reservation.refunds || [];
+    const totalPrice = reservation.totalPrice || 0;
+    
+    const totalPaid = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+    const totalRefunded = refunds.reduce((sum: number, r: any) => sum + (r.amount || 0), 0);
+    const balance = totalPrice - totalPaid + totalRefunded;
+    const netRevenue = totalPaid - totalRefunded;
+    
+    // Calculate due date: 1 week before event
+    const eventDate = reservation.eventDate instanceof Date 
+      ? reservation.eventDate 
+      : new Date(reservation.eventDate);
+    const dueDate = reservation.paymentDueDate 
+      ? (reservation.paymentDueDate instanceof Date ? reservation.paymentDueDate : new Date(reservation.paymentDueDate))
+      : new Date(eventDate.getTime() - 7 * 24 * 60 * 60 * 1000); // 1 week before
+    
+    const now = new Date();
+    const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+    const isOverdue = daysUntilDue < 0 && balance > 0;
+    
+    // Determine status
+    let status: 'unpaid' | 'partial' | 'paid' | 'overpaid' | 'overdue' = 'unpaid';
+    if (isOverdue) {
+      status = 'overdue';
+    } else if (balance <= 0) {
+      status = totalPaid > totalPrice ? 'overpaid' : 'paid';
+    } else if (totalPaid > 0) {
+      status = 'partial';
+    }
+    
+    return {
+      totalPrice,
+      totalPaid,
+      totalRefunded,
+      balance,
+      netRevenue,
+      status,
+      dueDate,
+      daysUntilDue,
+      isOverdue,
+      payments,
+      refunds
+    };
+  };
+
+  // Get payment status badge configuration
+  const getPaymentStatusBadge = (summary: PaymentSummary) => {
+    const configs = {
+      unpaid: { color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-300 dark:border-red-700', icon: '🔴', label: 'Onbetaald' },
+      partial: { color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-700', icon: '🟡', label: 'Deelbetaling' },
+      paid: { color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-300 dark:border-green-700', icon: '🟢', label: 'Betaald' },
+      overpaid: { color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-700', icon: '🔵', label: 'Teveel Betaald' },
+      overdue: { color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-300 dark:border-red-700', icon: '🔴', label: 'Te Laat!' }
+    };
+    return configs[summary.status];
+  };
+
+  // Export payment data to CSV (Phase 5)
+  const exportPaymentsToCSV = () => {
+    const allPayments = activeReservations
+      .filter(r => r.payments && r.payments.length > 0)
+      .flatMap(r => 
+        (r.payments || []).map(p => {
+          const payment = p as any;
+          const paymentDate = payment.date instanceof Date 
+            ? payment.date 
+            : payment.date?.toDate 
+              ? payment.date.toDate() 
+              : new Date(payment.date);
+          return {
+            Datum: format(paymentDate, 'dd-MM-yyyy HH:mm', { locale: nl }),
+            Bedrijf: r.companyName,
+            Contactpersoon: r.contactPerson,
+            Email: r.email,
+            Bedrag: payment.amount.toFixed(2),
+            Categorie: payment.category || 'Niet gespecificeerd',
+            Methode: payment.method,
+            Referentie: payment.reference || '-',
+            Notitie: payment.note || '-',
+            Verwerkt_door: payment.processedBy || 'Systeem'
+          };
+        })
+      );
+
+    if (allPayments.length === 0) {
+      showError('Geen betalingen om te exporteren');
+      return;
+    }
+
+    const headers = Object.keys(allPayments[0]);
+    const csvContent = [
+      headers.join(','),
+      ...allPayments.map(payment => 
+        headers.map(header => `"${payment[header as keyof typeof payment]}"`).join(',')
+      )
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `betalingen-export-${format(new Date(), 'yyyy-MM-dd', { locale: nl })}.csv`;
+    link.click();
+    
+    showSuccess(`${allPayments.length} betalingen geëxporteerd!`);
+  };
+
+  // Export refunds to CSV
+  const exportRefundsToCSV = () => {
+    const allRefunds = activeReservations
+      .filter(r => r.refunds && r.refunds.length > 0)
+      .flatMap(r => 
+        (r.refunds || []).map(ref => {
+          const refund = ref as any;
+          const refundDate = refund.date instanceof Date 
+            ? refund.date 
+            : refund.date?.toDate 
+              ? refund.date.toDate() 
+              : new Date(refund.date);
+          return {
+            Datum: format(refundDate, 'dd-MM-yyyy HH:mm', { locale: nl }),
+            Bedrijf: r.companyName,
+            Contactpersoon: r.contactPerson,
+            Email: r.email,
+            Bedrag: refund.amount.toFixed(2),
+            Reden: refund.reason,
+            Methode: refund.method,
+            Notitie: refund.note || '-',
+            Verwerkt_door: refund.processedBy || 'Systeem'
+          };
+        })
+      );
+
+    if (allRefunds.length === 0) {
+      showError('Geen restituties om te exporteren');
+      return;
+    }
+
+    const headers = Object.keys(allRefunds[0]);
+    const csvContent = [
+      headers.join(','),
+      ...allRefunds.map(refund => 
+        headers.map(header => `"${refund[header as keyof typeof refund]}"`).join(',')
+      )
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `restituties-export-${format(new Date(), 'yyyy-MM-dd', { locale: nl })}.csv`;
+    link.click();
+    
+    showSuccess(`${allRefunds.length} restituties geëxporteerd!`);
+  };
+
+  // Export outstanding payments report
+  const exportOutstandingPaymentsReport = () => {
+    const outstanding = activeReservations
+      .map(r => ({ reservation: r, summary: calculatePaymentSummary(r) }))
+      .filter(({ summary }) => summary.balance > 0)
+      .map(({ reservation, summary }) => {
+        const eventDate = reservation.eventDate instanceof Date ? reservation.eventDate : new Date(reservation.eventDate);
+        return {
+          Status: summary.isOverdue ? 'TE LAAT' : 'Openstaand',
+          Bedrijf: reservation.companyName,
+          Contactpersoon: reservation.contactPerson,
+          Email: reservation.email,
+          Telefoon: reservation.phone || '-',
+          Event_Datum: format(eventDate, 'dd-MM-yyyy', { locale: nl }),
+          Totaal: reservation.totalPrice.toFixed(2),
+          Betaald: summary.totalPaid.toFixed(2),
+          Openstaand: summary.balance.toFixed(2),
+          Betaal_Voor: format(summary.dueDate!, 'dd-MM-yyyy', { locale: nl }),
+          Dagen_Tot_Deadline: summary.daysUntilDue
+        };
+      })
+      .sort((a, b) => (a.Dagen_Tot_Deadline || 0) - (b.Dagen_Tot_Deadline || 0));
+
+    if (outstanding.length === 0) {
+      showError('Geen openstaande betalingen om te exporteren');
+      return;
+    }
+
+    const headers = Object.keys(outstanding[0]);
+    const csvContent = [
+      headers.join(','),
+      ...outstanding.map(item => 
+        headers.map(header => `"${item[header as keyof typeof item]}"`).join(',')
+      )
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `openstaande-betalingen-${format(new Date(), 'yyyy-MM-dd', { locale: nl })}.csv`;
+    link.click();
+    
+    showSuccess(`${outstanding.length} openstaande betalingen geëxporteerd!`);
+  };
+
+  // Check if reservation is expiring soon (within 7 days)
+  const isExpiringSoon = (reservation: any): boolean => {
+    if (reservation.status !== 'option') return false;
+    if (!reservation.optionExpiresAt) return false;
+    
+    const expiryDate = reservation.optionExpiresAt instanceof Date 
+      ? reservation.optionExpiresAt 
+      : new Date(reservation.optionExpiresAt);
+    const now = new Date();
+    const daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+    
+    return daysUntilExpiry > 0 && daysUntilExpiry <= 7;
+  };
+
+  // Check if reservation is expired
+  const isExpired = (reservation: any): boolean => {
+    if (reservation.status !== 'option') return false;
+    if (!reservation.optionExpiresAt) return false;
+    
+    const expiryDate = reservation.optionExpiresAt instanceof Date 
+      ? reservation.optionExpiresAt 
+      : new Date(reservation.optionExpiresAt);
+    const now = new Date();
+    
+    return now > expiryDate;
   };
 
   // Helper function to get merchandise item details
@@ -587,19 +1385,22 @@ export const ReservationsDashboard: React.FC = () => {
     }); // Load config including eventTypesConfig for pricing
   }, []); // Empty dependency array - only run once on mount
   
-  // Log pricing whenever it changes
+  // Log eventTypesConfig whenever it changes
   useEffect(() => {
-    console.log('💰 [RD] Pricing state updated:');
-    console.log('  - Pricing object:', pricing);
-    console.log('  - Has byDayType?', !!pricing?.byDayType);
-    if (pricing?.byDayType) {
-      console.log('  - Available types:', Object.keys(pricing.byDayType));
-      console.log('  - Full data:', pricing.byDayType);
+    console.log('📋 [RD] EventTypesConfig updated:');
+    console.log('  - Config exists?', !!eventTypesConfig);
+    console.log('  - Has types array?', !!eventTypesConfig?.types);
+    if (eventTypesConfig?.types) {
+      console.log('  - Number of types:', eventTypesConfig.types.length);
+      console.log('  - Available event types:', eventTypesConfig.types.map(t => t.key));
+      console.log('  - Full event types with pricing:');
+      eventTypesConfig.types.forEach(type => {
+        console.log(`    ${type.key}:`, type.pricing);
+      });
     } else {
-      console.warn('  ⚠️ pricing.byDayType is NULL/UNDEFINED!');
-      console.log('  - You need to set prices in Admin → Producten en Prijzen');
+      console.error('  ❌ eventTypesConfig.types is NULL/UNDEFINED!');
     }
-  }, [pricing]);
+  }, [eventTypesConfig]);
 
   // Handler voor bevestigen
   const handleConfirm = async (reservationId: string) => {
@@ -793,15 +1594,29 @@ export const ReservationsDashboard: React.FC = () => {
   }, [reservations, activeReservations, events, activeEvents]);
 
   const stats = useMemo(() => {
-    // Aanvragen (beide pending en request status - wachten op bevestiging)
     // Aanvragen (pending status)
     const pendingCount = activeReservations.filter(r => 
       r.status === 'pending'
     ).length;
 
+    // Opties
+    const optionsCount = activeReservations.filter(r => 
+      r.status === 'option'
+    ).length;
+
     // Bevestigde boekingen
     const confirmedCount = activeReservations.filter(r => 
       r.status === 'confirmed'
+    ).length;
+
+    // Checked-in
+    const checkedInCount = activeReservations.filter(r => 
+      r.status === 'checked-in'
+    ).length;
+
+    // Geannuleerd/Afgewezen
+    const cancelledCount = reservations.filter(r => 
+      r.status === 'cancelled' || r.status === 'rejected'
     ).length;
 
     // Openstaande betalingen (bevestigd maar paymentStatus is niet 'paid')
@@ -820,13 +1635,34 @@ export const ReservationsDashboard: React.FC = () => {
       })
       .reduce((sum, r) => sum + (r.totalPrice || 0), 0);
 
+    // ✨ NIEUWE STATISTICS
+    // Conversie rate (opties → bevestigd)
+    const totalConverted = reservations.filter(r => r.status === 'confirmed').length;
+    const totalOptions = reservations.filter(r => r.status === 'option').length + totalConverted;
+    const conversionRate = totalOptions > 0 ? (totalConverted / totalOptions) * 100 : 0;
+
+    // Gemiddelde groepsgrootte
+    const totalPersons = activeReservations.reduce((sum, r) => sum + r.numberOfPersons, 0);
+    const avgGroupSize = activeReservations.length > 0 ? totalPersons / activeReservations.length : 0;
+
+    // Cancellation rate
+    const totalBookings = reservations.length;
+    const cancellationRate = totalBookings > 0 ? (cancelledCount / totalBookings) * 100 : 0;
+
     return {
       pending: pendingCount,
+      options: optionsCount,
       confirmed: confirmedCount,
+      checkedIn: checkedInCount,
+      cancelled: cancelledCount,
       payments: paymentsCount,
-      revenue: todayRevenue
+      revenue: todayRevenue,
+      total: activeReservations.length,
+      conversionRate: conversionRate.toFixed(1),
+      avgGroupSize: avgGroupSize.toFixed(1),
+      cancellationRate: cancellationRate.toFixed(1)
     };
-  }, [activeReservations]);
+  }, [activeReservations, reservations]);
   // Boekingen voor vandaag en morgen
   const upcomingBookings = useMemo(() => {
     return activeReservations
@@ -895,7 +1731,15 @@ export const ReservationsDashboard: React.FC = () => {
       icon: Clock,
       color: 'orange',
       trend: stats.pending > 0 ? 'Wacht op bevestiging' : 'Alles bevestigd',
-      onClick: () => setViewMode('pending')
+      onClick: () => { setMainTab('reserveringen'); setReserveringenTab('pending'); }
+    },
+    {
+      label: 'Opties',
+      value: stats.options,
+      icon: AlertCircle,
+      color: 'blue',
+      trend: `${stats.conversionRate}% conversie rate`,
+      onClick: () => { setMainTab('opties'); setOptiesTab('overview'); }
     },
     {
       label: 'Bevestigd',
@@ -903,23 +1747,31 @@ export const ReservationsDashboard: React.FC = () => {
       icon: CheckCircle2,
       color: 'green',
       trend: `${upcomingBookings.length} vandaag/morgen`,
-      onClick: () => setViewMode('confirmed')
+      onClick: () => { setMainTab('reserveringen'); setReserveringenTab('confirmed'); }
+    },
+    {
+      label: 'Checked-in',
+      value: stats.checkedIn,
+      icon: CheckCheck,
+      color: 'purple',
+      trend: `Ø ${stats.avgGroupSize} gasten/groep`,
+      onClick: () => { setMainTab('reserveringen'); setReserveringenTab('all'); }
     },
     {
       label: 'Betalingen',
       value: stats.payments,
       icon: DollarSign,
-      color: 'blue',
+      color: 'emerald',
       trend: stats.payments > 0 ? 'Openstaande betalingen' : 'Alles betaald',
-      onClick: () => setViewMode('all')
+      onClick: () => { setMainTab('betalingen'); setBetalingenTab('overview'); }
     },
     {
       label: 'Omzet Vandaag',
       value: stats.revenue,
       icon: TrendingUp,
-      color: 'purple',
+      color: 'indigo',
       trend: 'Live omzet',
-      onClick: () => setViewMode('dashboard')
+      onClick: () => { setMainTab('reserveringen'); setReserveringenTab('dashboard'); }
     }
   ];
 
@@ -928,15 +1780,17 @@ export const ReservationsDashboard: React.FC = () => {
       {/* ====================================================================== */}
       {/* RESERVATION DETAIL MODAL */}
       {/* ====================================================================== */}
-      {selectedReservation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
-            {/* Modal Header */}
-            <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30">
-              <div>
-                <h2 className="text-2xl font-black text-slate-900 dark:text-white">
-                  Reservering Details
-                </h2>
+      {selectedReservation ? (
+        <>
+          {console.log('✅ Rendering detail modal for:', selectedReservation.id)}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+              {/* Modal Header */}
+              <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900 dark:text-white">
+                    Reservering Details
+                  </h2>
                 <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
                   {selectedReservation.id}
                 </p>
@@ -1354,6 +2208,170 @@ export const ReservationsDashboard: React.FC = () => {
                 </div>
               </div>
 
+              {/* Payment Summary */}
+              {(() => {
+                const paymentSummary = calculatePaymentSummary(selectedReservation);
+                const badge = getPaymentStatusBadge(paymentSummary);
+                
+                return (
+                  <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl p-6 border-2 border-emerald-200 dark:border-emerald-700">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Betaalstatus
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <div className={`px-3 py-1 rounded-full text-xs font-bold border ${badge.color}`}>
+                          {badge.icon} {badge.label}
+                        </div>
+                        {paymentSummary.balance > 0 && (
+                          <button
+                            onClick={() => setShowPaymentModal(true)}
+                            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Betaling Registreren
+                          </button>
+                        )}
+                        {paymentSummary.totalPaid > 0 && (
+                          <button
+                            onClick={() => setShowRefundModal(true)}
+                            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z" />
+                            </svg>
+                            Restitutie
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                      <div className="bg-white dark:bg-slate-900/50 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 uppercase mb-1">Totaal</p>
+                        <p className="text-xl font-black text-slate-900 dark:text-white">
+                          €{paymentSummary.totalPrice.toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="bg-white dark:bg-slate-900/50 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 uppercase mb-1">Betaald</p>
+                        <p className="text-xl font-black text-green-600 dark:text-green-400">
+                          €{paymentSummary.totalPaid.toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="bg-white dark:bg-slate-900/50 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 uppercase mb-1">Openstaand</p>
+                        <p className={`text-xl font-black ${paymentSummary.balance > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                          €{paymentSummary.balance.toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="bg-white dark:bg-slate-900/50 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 uppercase mb-1">Betaal Voor</p>
+                        <p className={`text-sm font-bold ${paymentSummary.isOverdue ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'}`}>
+                          {format(paymentSummary.dueDate!, 'dd MMM yyyy', { locale: nl })}
+                        </p>
+                        {paymentSummary.daysUntilDue !== undefined && (
+                          <p className={`text-xs ${paymentSummary.daysUntilDue < 0 ? 'text-red-600 dark:text-red-400' : paymentSummary.daysUntilDue <= 3 ? 'text-orange-600 dark:text-orange-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                            {paymentSummary.daysUntilDue < 0 
+                              ? `${Math.abs(paymentSummary.daysUntilDue)} dagen te laat` 
+                              : paymentSummary.daysUntilDue === 0 
+                                ? 'Vandaag!' 
+                                : `Over ${paymentSummary.daysUntilDue} dagen`}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Payment History */}
+                    {paymentSummary.payments.length > 0 && (
+                      <div className="bg-white dark:bg-slate-900/50 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-3">Betalingshistorie</p>
+                        <div className="space-y-2">
+                          {paymentSummary.payments.map((payment: any, idx: number) => (
+                            <div key={`payment-${idx}`} className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800 last:border-0">
+                              <div className="flex-1">
+                                <p className="text-sm font-bold text-slate-900 dark:text-white">
+                                  €{payment.amount.toFixed(2)}
+                                  {payment.category && (
+                                    <span className="ml-2 text-xs px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                      {payment.category === 'arrangement' ? '🍽️ Arrangement' : 
+                                       payment.category === 'merchandise' ? '🛍️ Merchandise' : 
+                                       payment.category === 'full' ? '💯 Volledig' : '📋 Overig'}
+                                    </span>
+                                  )}
+                                </p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                  {payment.date ? format(
+                                    payment.date instanceof Date 
+                                      ? payment.date 
+                                      : payment.date.toDate 
+                                        ? payment.date.toDate() 
+                                        : new Date(payment.date), 
+                                    'dd MMM yyyy HH:mm', 
+                                    { locale: nl }
+                                  ) : 'Geen datum'} • {payment.method}
+                                </p>
+                                {payment.note && (
+                                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">{payment.note}</p>
+                                )}
+                              </div>
+                              {payment.reference && (
+                                <div className="text-xs text-slate-500 dark:text-slate-400 ml-2">
+                                  {payment.reference}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Refund History */}
+                    {paymentSummary.refunds.length > 0 && (
+                      <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 border border-red-200 dark:border-red-700 mt-3">
+                        <p className="text-xs font-bold text-red-700 dark:text-red-400 uppercase mb-3">Restituties</p>
+                        <div className="space-y-2">
+                          {paymentSummary.refunds.map((refund: any, idx: number) => (
+                            <div key={`refund-${idx}`} className="flex items-center justify-between py-2 border-b border-red-100 dark:border-red-900 last:border-0">
+                              <div className="flex-1">
+                                <p className="text-sm font-bold text-red-700 dark:text-red-400">
+                                  -€{refund.amount.toFixed(2)}
+                                </p>
+                                <p className="text-xs text-red-600 dark:text-red-500">
+                                  {refund.date ? format(
+                                    refund.date instanceof Date 
+                                      ? refund.date 
+                                      : refund.date.toDate 
+                                        ? refund.date.toDate() 
+                                        : new Date(refund.date), 
+                                    'dd MMM yyyy HH:mm', 
+                                    { locale: nl }
+                                  ) : 'Geen datum'} • {refund.reason}
+                                </p>
+                                {refund.note && (
+                                  <p className="text-xs text-red-600 dark:text-red-500 mt-1">{refund.note}</p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-800">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-bold text-red-700 dark:text-red-400 uppercase">Netto Omzet</p>
+                            <p className="text-lg font-black text-red-700 dark:text-red-400">
+                              €{paymentSummary.netRevenue.toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* Add-ons */}
               {(selectedReservation.preDrink || selectedReservation.afterParty) && (
                 <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6 space-y-3">
@@ -1391,8 +2409,9 @@ export const ReservationsDashboard: React.FC = () => {
                         <div className="space-y-2">
                           {editData.merchandise.map((item: any, index: number) => {
                             const productDetails = getMerchandiseItemDetails(item.itemId || item.id, item.name);
+                            const uniqueKey = `merch-edit-${item.itemId || item.id || item.name || 'item'}-${index}-${Date.now()}`;
                             return (
-                              <div key={`merch-edit-${item.itemId || item.id}-${index}`} className="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-lg border-2 border-blue-200 dark:border-blue-700">
+                              <div key={uniqueKey} className="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-lg border-2 border-blue-200 dark:border-blue-700">
                                 {/* Product Image */}
                                 {productDetails?.imageUrl && (
                                   <div className="flex-shrink-0 w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-hidden">
@@ -1532,9 +2551,10 @@ export const ReservationsDashboard: React.FC = () => {
                             const productDetails = getMerchandiseItemDetails(item.itemId || item.id, item.name);
                             const price = productDetails?.price || item.price || 0;
                             const itemName = productDetails?.name || item.name || 'Onbekend product';
+                            const uniqueKey = `merch-view-${item.itemId || item.id || item.name || 'item'}-${index}`;
                             
                             return (
-                              <div key={`merch-view-${item.itemId || item.id}-${index}`} className="flex items-center gap-3 p-4 bg-white dark:bg-slate-900 rounded-lg border-2 border-slate-200 dark:border-slate-700 hover:border-purple-300 dark:hover:border-purple-700 transition-colors">
+                              <div key={uniqueKey} className="flex items-center gap-3 p-4 bg-white dark:bg-slate-900 rounded-lg border-2 border-slate-200 dark:border-slate-700 hover:border-purple-300 dark:hover:border-purple-700 transition-colors">
                                 {/* Product Image */}
                                 {productDetails?.imageUrl ? (
                                   <div className="flex-shrink-0 w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-hidden">
@@ -1891,9 +2911,32 @@ export const ReservationsDashboard: React.FC = () => {
                       )}
                     </div>
                   )}
-                  <div className="pt-3 border-t-2 border-green-300 dark:border-green-700 flex justify-between items-center">
-                    <span className="text-lg font-black text-slate-900 dark:text-white">Totaal {isEditMode && <span className="text-xs font-normal text-slate-500 dark:text-slate-400">(nieuw)</span>}</span>
-                    <span className="text-3xl font-black text-green-700 dark:text-green-400">€{(isEditMode && editData ? recalculatePrice() : selectedReservation.totalPrice)?.toFixed(2)}</span>
+                  <div className="pt-3 border-t-2 border-green-300 dark:border-green-700">
+                    <div className="flex justify-between items-center">
+                      <span className="text-lg font-black text-slate-900 dark:text-white">Totaal {isEditMode && <span className="text-xs font-normal text-slate-500 dark:text-slate-400">(nieuw)</span>}</span>
+                      <span className="text-3xl font-black text-green-700 dark:text-green-400">€{(isEditMode && editData ? recalculatePrice() : selectedReservation.totalPrice)?.toFixed(2)}</span>
+                    </div>
+                    {isEditMode && editData && (() => {
+                      const newPrice = recalculatePrice();
+                      const oldPrice = selectedReservation.totalPrice;
+                      const difference = newPrice - oldPrice;
+                      if (Math.abs(difference) > 0.01) {
+                        return (
+                          <div className={`mt-2 p-2 rounded-lg text-sm font-bold flex items-center justify-between ${
+                            difference > 0 
+                              ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800' 
+                              : 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800'
+                          }`}>
+                            <span>Oorspronkelijk: €{oldPrice.toFixed(2)}</span>
+                            <span className="flex items-center gap-1">
+                              {difference > 0 ? '+' : ''}€{difference.toFixed(2)}
+                              {difference > 0 ? '↗' : '↘'}
+                            </span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                   {selectedReservation.invoiceNumber && (
                     <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
@@ -2068,7 +3111,8 @@ export const ReservationsDashboard: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
+        </>
+      ) : null}
 
       {/* ====================================================================== */}
       {/* HEADER */}
@@ -2083,10 +3127,10 @@ export const ReservationsDashboard: React.FC = () => {
               </div>
               <div>
                 <h1 className="text-2xl font-black text-slate-900 dark:text-white">
-                  Operations Control
+                  Reserveringen
                 </h1>
                 <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                  Real-time overzicht van alle boekingen en activiteiten
+                  Beheer alle reserveringen en opties
                 </p>
               </div>
             </div>
@@ -2126,194 +3170,151 @@ export const ReservationsDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Capaciteit Warnings */}
-          {eventsNearCapacity.length > 0 && (
-            <div className="mb-4 space-y-2">
-              {eventsNearCapacity.map(({ event, capacity }) => {
-                const eventDate = event.date instanceof Date ? event.date : parseISO(event.date as any);
-                return (
-                  <div
-                    key={event.id}
-                    className={cn(
-                      "p-4 rounded-xl border-2 flex items-center justify-between animate-in slide-in-from-top-2 duration-300",
-                      capacity.isAtLimit
-                        ? "bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-800"
-                        : "bg-yellow-50 dark:bg-yellow-950/30 border-yellow-300 dark:border-yellow-800"
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "w-12 h-12 rounded-xl flex items-center justify-center",
-                        capacity.isAtLimit
-                          ? "bg-red-200 dark:bg-red-900/50"
-                          : "bg-yellow-200 dark:bg-yellow-900/50"
-                      )}>
-                        <AlertCircle className={cn(
-                          "w-6 h-6",
-                          capacity.isAtLimit
-                            ? "text-red-600 dark:text-red-400"
-                            : "text-yellow-600 dark:text-yellow-400"
-                        )} />
-                      </div>
-                      <div>
-                        <h3 className={cn(
-                          "font-black text-base",
-                          capacity.isAtLimit
-                            ? "text-red-900 dark:text-red-100"
-                            : "text-yellow-900 dark:text-yellow-100"
-                        )}>
-                          {capacity.isAtLimit ? '🔴 Event VOL!' : '⚠️ Bijna Vol'}
-                        </h3>
-                        <p className={cn(
-                          "text-sm font-medium",
-                          capacity.isAtLimit
-                            ? "text-red-700 dark:text-red-300"
-                            : "text-yellow-700 dark:text-yellow-300"
-                        )}>
-                          {format(eventDate, 'EEEE d MMMM yyyy', { locale: nl })} - {capacity.current}/{capacity.max} gasten
-                        </p>
-                        {capacity.isAtLimit && (
-                          <p className="text-xs font-medium text-red-600 dark:text-red-400 mt-1">
-                            ➡️ Nieuwe boekingen gaan automatisch naar wachtlijst
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <div className={cn(
-                          "text-3xl font-black",
-                          capacity.isAtLimit
-                            ? "text-red-600 dark:text-red-400"
-                            : "text-yellow-600 dark:text-yellow-400"
-                        )}>
-                          {Math.round(capacity.percentage)}%
-                        </div>
-                        <div className="w-32 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mt-1">
-                          <div 
-                            className={cn(
-                              "h-full transition-all duration-500",
-                              capacity.isAtLimit
-                                ? "bg-gradient-to-r from-red-500 to-red-600"
-                                : "bg-gradient-to-r from-yellow-500 to-yellow-600"
-                            )}
-                            style={{ width: `${capacity.percentage}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
 
-          {/* Navigation Tabs */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+
+          {/* Main Tabs */}
+          <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-700 pb-2">
             <button
-              onClick={() => setViewMode('dashboard')}
+              onClick={() => setMainTab('reserveringen')}
               className={cn(
-                'flex items-center gap-2 px-4 py-2.5 rounded-lg font-bold text-sm transition-all whitespace-nowrap',
-                viewMode === 'dashboard'
-                  ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-lg'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-              )}
-            >
-              <LayoutDashboard className="w-4 h-4" />
-              Dashboard
-            </button>
-
-            <button
-              onClick={() => setViewMode('pending')}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2.5 rounded-lg font-bold text-sm transition-all whitespace-nowrap',
-                viewMode === 'pending'
-                  ? 'bg-orange-500 text-white shadow-lg'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-              )}
-            >
-              <Clock className="w-4 h-4" />
-              Pending
-              {stats.pending > 0 && (
-                <span className="px-2 py-0.5 bg-white/20 text-white rounded-full text-xs font-black">
-                  {stats.pending}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setViewMode('confirmed')}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2.5 rounded-lg font-bold text-sm transition-all whitespace-nowrap',
-                viewMode === 'confirmed'
-                  ? 'bg-green-500 text-white shadow-lg'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-              )}
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              Bevestigd
-              {stats.confirmed > 0 && (
-                <span className="px-2 py-0.5 bg-white/20 text-white rounded-full text-xs font-black">
-                  {stats.confirmed}
-                </span>
-              )}
-            </button>
-
-            {/* Spacer */}
-            <div className="w-px h-8 bg-slate-300 dark:bg-slate-700 mx-2" />
-
-            {/* Tijdsfilters */}
-            <button
-              onClick={() => setViewMode('all')}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2.5 rounded-lg font-bold text-sm transition-all whitespace-nowrap',
-                viewMode === 'all'
+                'flex items-center gap-2 px-6 py-3 rounded-t-lg font-black text-sm transition-all',
+                mainTab === 'reserveringen'
                   ? 'bg-blue-500 text-white shadow-lg'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
               )}
             >
-              <Search className="w-4 h-4" />
-              Alle
+              <Calendar className="w-5 h-5" />
+              Reserveringen
+              {(stats.pending + stats.confirmed) > 0 && (
+                <span className="px-2 py-0.5 bg-white/20 text-white rounded-full text-xs font-black">
+                  {stats.pending + stats.confirmed}
+                </span>
+              )}
             </button>
 
             <button
-              onClick={() => setViewMode('today')}
+              onClick={() => setMainTab('betalingen')}
               className={cn(
-                'flex items-center gap-2 px-4 py-2.5 rounded-lg font-bold text-sm transition-all whitespace-nowrap',
-                viewMode === 'today'
-                  ? 'bg-purple-500 text-white shadow-lg'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                'flex items-center gap-2 px-6 py-3 rounded-t-lg font-black text-sm transition-all',
+                mainTab === 'betalingen'
+                  ? 'bg-emerald-500 text-white shadow-lg'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
               )}
             >
-              <Calendar className="w-4 h-4" />
-              Vandaag
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Betalingen
+              {(() => {
+                const overdueCount = activeReservations.filter(r => calculatePaymentSummary(r).isOverdue).length;
+                return overdueCount > 0 && (
+                  <span className="px-2 py-0.5 bg-red-500 text-white rounded-full text-xs font-black animate-pulse">
+                    {overdueCount}
+                  </span>
+                );
+              })()}
             </button>
 
             <button
-              onClick={() => setViewMode('week')}
+              onClick={() => setMainTab('opties')}
               className={cn(
-                'flex items-center gap-2 px-4 py-2.5 rounded-lg font-bold text-sm transition-all whitespace-nowrap',
-                viewMode === 'week'
-                  ? 'bg-indigo-500 text-white shadow-lg'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                'flex items-center gap-2 px-6 py-3 rounded-t-lg font-black text-sm transition-all',
+                mainTab === 'opties'
+                  ? 'bg-orange-500 text-white shadow-lg'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
               )}
             >
-              <CalendarClock className="w-4 h-4" />
-              Week
+              <Clock className="w-5 h-5" />
+              Opties
+              {(() => {
+                const expiringCount = activeReservations.filter(r => isExpiringSoon(r) || isExpired(r)).length;
+                return expiringCount > 0 && (
+                  <span className="px-2 py-0.5 bg-white/20 text-white rounded-full text-xs font-black">
+                    {expiringCount}
+                  </span>
+                );
+              })()}
             </button>
 
             <button
-              onClick={() => setViewMode('month')}
+              onClick={() => setMainTab('archief')}
               className={cn(
-                'flex items-center gap-2 px-4 py-2.5 rounded-lg font-bold text-sm transition-all whitespace-nowrap',
-                viewMode === 'month'
-                  ? 'bg-teal-500 text-white shadow-lg'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                'flex items-center gap-2 px-6 py-3 rounded-t-lg font-black text-sm transition-all',
+                mainTab === 'archief'
+                  ? 'bg-slate-600 text-white shadow-lg'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
               )}
             >
-              <CalendarRange className="w-4 h-4" />
-              Maand
+              <Archive className="w-5 h-5" />
+              Archief
+              {(() => {
+                const archivedCount = reservations.filter(r => r.status === 'rejected' || r.status === 'cancelled').length;
+                return archivedCount > 0 && (
+                  <span className="px-2 py-0.5 bg-white/20 text-white rounded-full text-xs font-black">
+                    {archivedCount}
+                  </span>
+                );
+              })()}
             </button>
+          </div>
+
+          {/* Sub-navigation based on active main tab */}
+          <div className="flex items-center gap-2 overflow-x-auto">
+            {mainTab === 'reserveringen' && (
+              <>
+                <button onClick={() => setReserveringenTab('dashboard')} className={cn('px-4 py-2 rounded-lg text-sm font-bold transition-all', reserveringenTab === 'dashboard' ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'hover:bg-slate-100 dark:hover:bg-slate-800')}>
+                  <LayoutDashboard className="w-4 h-4 inline mr-2" />Dashboard
+                </button>
+                <button onClick={() => setReserveringenTab('pending')} className={cn('px-4 py-2 rounded-lg text-sm font-bold transition-all', reserveringenTab === 'pending' ? 'bg-orange-500 text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800')}>
+                  <Clock className="w-4 h-4 inline mr-2" />Pending {stats.pending > 0 && <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded-full text-xs">{stats.pending}</span>}
+                </button>
+                <button onClick={() => setReserveringenTab('confirmed')} className={cn('px-4 py-2 rounded-lg text-sm font-bold transition-all', reserveringenTab === 'confirmed' ? 'bg-green-500 text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800')}>
+                  <CheckCircle2 className="w-4 h-4 inline mr-2" />Bevestigd {stats.confirmed > 0 && <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded-full text-xs">{stats.confirmed}</span>}
+                </button>
+                <div className="w-px h-6 bg-slate-300 dark:bg-slate-700 mx-2" />
+                <button onClick={() => setReserveringenTab('all')} className={cn('px-4 py-2 rounded-lg text-sm font-bold transition-all', reserveringenTab === 'all' ? 'bg-blue-500 text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800')}>Alle</button>
+                <button onClick={() => setReserveringenTab('today')} className={cn('px-4 py-2 rounded-lg text-sm font-bold transition-all', reserveringenTab === 'today' ? 'bg-purple-500 text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800')}>Vandaag</button>
+                <button onClick={() => setReserveringenTab('week')} className={cn('px-4 py-2 rounded-lg text-sm font-bold transition-all', reserveringenTab === 'week' ? 'bg-indigo-500 text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800')}>Week</button>
+                <button onClick={() => setReserveringenTab('month')} className={cn('px-4 py-2 rounded-lg text-sm font-bold transition-all', reserveringenTab === 'month' ? 'bg-teal-500 text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800')}>Maand</button>
+              </>
+            )}
+
+            {mainTab === 'betalingen' && (
+              <>
+                <button onClick={() => setBetalingenTab('overview')} className={cn('px-4 py-2 rounded-lg text-sm font-bold transition-all', betalingenTab === 'overview' ? 'bg-emerald-500 text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800')}>Overzicht</button>
+                <button onClick={() => setBetalingenTab('overdue')} className={cn('px-4 py-2 rounded-lg text-sm font-bold transition-all', betalingenTab === 'overdue' ? 'bg-red-500 text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800')}>
+                  🔴 Te Laat {(() => { const c = activeReservations.filter(r => calculatePaymentSummary(r).isOverdue).length; return c > 0 && <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded-full text-xs">{c}</span>; })()}
+                </button>
+                <button onClick={() => setBetalingenTab('unpaid')} className={cn('px-4 py-2 rounded-lg text-sm font-bold transition-all', betalingenTab === 'unpaid' ? 'bg-orange-500 text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800')}>
+                  🟡 Onbetaald
+                </button>
+                <button onClick={() => setBetalingenTab('partial')} className={cn('px-4 py-2 rounded-lg text-sm font-bold transition-all', betalingenTab === 'partial' ? 'bg-yellow-500 text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800')}>
+                  🟡 Deelbetaling
+                </button>
+                <button onClick={() => setBetalingenTab('history')} className={cn('px-4 py-2 rounded-lg text-sm font-bold transition-all', betalingenTab === 'history' ? 'bg-blue-500 text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800')}>Historie</button>
+              </>
+            )}
+
+            {mainTab === 'opties' && (
+              <>
+                <button onClick={() => setOptiesTab('overview')} className={cn('px-4 py-2 rounded-lg text-sm font-bold transition-all', optiesTab === 'overview' ? 'bg-orange-500 text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800')}>Overzicht</button>
+                <button onClick={() => setOptiesTab('expiring')} className={cn('px-4 py-2 rounded-lg text-sm font-bold transition-all', optiesTab === 'expiring' ? 'bg-orange-500 text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800')}>
+                  ⏰ Verloopt Snel {(() => { const c = activeReservations.filter(r => isExpiringSoon(r)).length; return c > 0 && <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded-full text-xs">{c}</span>; })()}
+                </button>
+                <button onClick={() => setOptiesTab('expired')} className={cn('px-4 py-2 rounded-lg text-sm font-bold transition-all', optiesTab === 'expired' ? 'bg-red-500 text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800')}>
+                  ❌ Verlopen
+                </button>
+                <button onClick={() => setOptiesTab('all')} className={cn('px-4 py-2 rounded-lg text-sm font-bold transition-all', optiesTab === 'all' ? 'bg-blue-500 text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800')}>Alle Opties</button>
+              </>
+            )}
+
+            {mainTab === 'archief' && (
+              <>
+                <button className="px-4 py-2 rounded-lg text-sm font-bold bg-slate-600 text-white">
+                  🗄️ Alle Gearchiveerde Items
+                </button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -2335,8 +3336,8 @@ export const ReservationsDashboard: React.FC = () => {
         )}
 
         <div className="max-w-7xl mx-auto p-6">
-          {/* DASHBOARD VIEW */}
-          {viewMode === 'dashboard' && (
+          {/* RESERVERINGEN TAB */}
+          {mainTab === 'reserveringen' && reserveringenTab === 'dashboard' && (
             <div className="space-y-6">
               {/* Debug Info */}
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
@@ -2410,6 +3411,82 @@ export const ReservationsDashboard: React.FC = () => {
                 })}
               </div>
 
+              {/* Payment & Expiration Widgets */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Payment Status Widget */}
+                {(() => {
+                  const paymentStats = activeReservations.reduce((acc, r) => {
+                    const summary = calculatePaymentSummary(r);
+                    if (summary.isOverdue) acc.overdue++;
+                    else if (summary.status === 'unpaid') acc.unpaid++;
+                    else if (summary.status === 'partial') acc.partial++;
+                    acc.totalOutstanding += summary.balance;
+                    return acc;
+                  }, { overdue: 0, unpaid: 0, partial: 0, totalOutstanding: 0 });
+
+                  return (
+                    <div className="bg-gradient-to-br from-red-500 to-orange-500 rounded-xl p-6 text-white shadow-2xl">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-black">💰 Betalingen</h3>
+                        <div className="text-xs font-bold bg-white/20 px-2 py-1 rounded">
+                          {paymentStats.overdue + paymentStats.unpaid + paymentStats.partial} openstaand
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3 mb-3">
+                        <div className="bg-white/10 rounded-lg p-3">
+                          <p className="text-2xl font-black">{paymentStats.overdue}</p>
+                          <p className="text-xs font-bold text-white/80">Te Laat</p>
+                        </div>
+                        <div className="bg-white/10 rounded-lg p-3">
+                          <p className="text-2xl font-black">{paymentStats.unpaid}</p>
+                          <p className="text-xs font-bold text-white/80">Onbetaald</p>
+                        </div>
+                        <div className="bg-white/10 rounded-lg p-3">
+                          <p className="text-2xl font-black">{paymentStats.partial}</p>
+                          <p className="text-xs font-bold text-white/80">Deelbetaling</p>
+                        </div>
+                      </div>
+                      <div className="bg-white/20 rounded-lg p-3">
+                        <p className="text-sm font-bold text-white/80 mb-1">Totaal Openstaand</p>
+                        <p className="text-3xl font-black">€{paymentStats.totalOutstanding.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Expiration Widget */}
+                {(() => {
+                  const expirationStats = activeReservations.reduce((acc, r) => {
+                    if (isExpired(r)) acc.expired++;
+                    else if (isExpiringSoon(r)) acc.expiring++;
+                    return acc;
+                  }, { expiring: 0, expired: 0 });
+
+                  return (
+                    <div className="bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl p-6 text-white shadow-2xl">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-black">⏰ Opties</h3>
+                        <div className="text-xs font-bold bg-white/20 px-2 py-1 rounded">
+                          {expirationStats.expiring + expirationStats.expired} aandacht
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-white/10 rounded-lg p-4">
+                          <p className="text-3xl font-black mb-1">{expirationStats.expiring}</p>
+                          <p className="text-xs font-bold text-white/80">Verloopt Binnenkort</p>
+                          <p className="text-xs text-white/60 mt-1">Binnen 7 dagen</p>
+                        </div>
+                        <div className="bg-white/10 rounded-lg p-4">
+                          <p className="text-3xl font-black mb-1">{expirationStats.expired}</p>
+                          <p className="text-xs font-bold text-white/80">Verlopen</p>
+                          <p className="text-xs text-white/60 mt-1">Actie vereist</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
               {/* Revenue Card */}
               <div className="bg-gradient-to-br from-emerald-500 via-green-500 to-teal-500 rounded-xl p-6 text-white shadow-2xl">
                 <div className="flex items-center justify-between">
@@ -2426,6 +3503,89 @@ export const ReservationsDashboard: React.FC = () => {
                   </div>
                   <div className="p-4 bg-white/20 rounded-xl backdrop-blur-sm">
                     <TrendingUp className="w-8 h-8" strokeWidth={2.5} />
+                  </div>
+                </div>
+              </div>
+
+              {/* ✨ NEW: Advanced Analytics */}
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+                <h3 className="text-lg font-black text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                  📊 Geavanceerde Analytics
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Conversion Rate */}
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-bold text-slate-600 dark:text-slate-400">Conversie Rate</span>
+                      <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                        <TrendingUp className="w-5 h-5 text-white" />
+                      </div>
+                    </div>
+                    <p className="text-3xl font-black text-blue-700 dark:text-blue-300 mb-1">
+                      {stats.conversionRate}%
+                    </p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      Opties → Bevestigd
+                    </p>
+                  </div>
+
+                  {/* Average Group Size */}
+                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-bold text-slate-600 dark:text-slate-400">Gem. Groepsgrootte</span>
+                      <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
+                        <Users className="w-5 h-5 text-white" />
+                      </div>
+                    </div>
+                    <p className="text-3xl font-black text-purple-700 dark:text-purple-300 mb-1">
+                      {stats.avgGroupSize}
+                    </p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      Gasten per boeking
+                    </p>
+                  </div>
+
+                  {/* Cancellation Rate */}
+                  <div className="bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 rounded-xl p-4 border border-red-200 dark:border-red-800">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-bold text-slate-600 dark:text-slate-400">Annulering Rate</span>
+                      <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center">
+                        <XCircle className="w-5 h-5 text-white" />
+                      </div>
+                    </div>
+                    <p className="text-3xl font-black text-red-700 dark:text-red-300 mb-1">
+                      {stats.cancellationRate}%
+                    </p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      Van alle boekingen
+                    </p>
+                  </div>
+                </div>
+
+                {/* Status Overview Bar */}
+                <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                  <p className="text-sm font-bold text-slate-600 dark:text-slate-400 mb-3">Status Overzicht</p>
+                  <div className="flex items-center gap-4 text-xs">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                      <span className="font-bold text-slate-700 dark:text-slate-300">Pending: {stats.pending}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                      <span className="font-bold text-slate-700 dark:text-slate-300">Opties: {stats.options}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                      <span className="font-bold text-slate-700 dark:text-slate-300">Bevestigd: {stats.confirmed}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                      <span className="font-bold text-slate-700 dark:text-slate-300">Checked-in: {stats.checkedIn}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                      <span className="font-bold text-slate-700 dark:text-slate-300">Geannuleerd: {stats.cancelled}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2506,7 +3666,7 @@ export const ReservationsDashboard: React.FC = () => {
           )}
 
           {/* REQUESTS VIEW - Gecombineerd (pending + request status) */}
-          {viewMode === 'pending' && (
+          {mainTab === 'reserveringen' && reserveringenTab === 'pending' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -2533,7 +3693,8 @@ export const ReservationsDashboard: React.FC = () => {
               </div>
 
               {(() => {
-                const requestReservations = activeReservations.filter(r => r.status === 'pending' || r.status === 'request');
+                let requestReservations = activeReservations.filter(r => r.status === 'pending' || r.status === 'request');
+                
                 console.log('📋 [OCC] Requests view:', {
                   total: activeReservations.length,
                   requests: requestReservations.length,
@@ -2564,7 +3725,7 @@ export const ReservationsDashboard: React.FC = () => {
                         <div key={reservation.id} className="p-6 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-3 mb-3">
+                              <div className="flex items-center gap-3 mb-3 flex-wrap">
                                 <span className={cn(
                                   "px-3 py-1 text-xs font-black uppercase rounded-lg",
                                   reservation.status === 'pending'
@@ -2573,6 +3734,25 @@ export const ReservationsDashboard: React.FC = () => {
                                 )}>
                                   {reservation.status === 'pending' ? 'Nieuw' : 'Request'}
                                 </span>
+                                {(() => {
+                                  const summary = calculatePaymentSummary(reservation);
+                                  const badge = getPaymentStatusBadge(summary);
+                                  return (
+                                    <span className={`px-3 py-1 text-xs font-black uppercase rounded-lg border ${badge.color}`}>
+                                      {badge.icon} {badge.label}
+                                    </span>
+                                  );
+                                })()}
+                                {isExpiringSoon(reservation) && (
+                                  <span className="px-3 py-1 text-xs font-black uppercase rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border border-orange-300 dark:border-orange-700">
+                                    ⏰ Verloopt Binnenkort
+                                  </span>
+                                )}
+                                {isExpired(reservation) && (
+                                  <span className="px-3 py-1 text-xs font-black uppercase rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-700">
+                                    ❌ Verlopen
+                                  </span>
+                                )}
                                 <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
                                   {format(reservation.createdAt instanceof Date ? reservation.createdAt : parseISO(reservation.createdAt as any), 'dd MMM yyyy HH:mm', { locale: nl })}
                                 </span>
@@ -2625,8 +3805,9 @@ export const ReservationsDashboard: React.FC = () => {
                                   <div className="flex flex-wrap gap-1">
                                     {reservation.merchandise.slice(0, 3).map((item: any, idx: number) => {
                                       const productDetails = getMerchandiseItemDetails(item.itemId || item.id, item.name);
+                                      const uniqueKey = `merch-pending-${reservation.id}-${item.itemId || item.id || item.name || 'item'}-${idx}`;
                                       return (
-                                        <span key={idx} className="text-xs px-2 py-1 bg-white dark:bg-slate-900 rounded border border-purple-200 dark:border-purple-700 text-slate-700 dark:text-slate-300">
+                                        <span key={uniqueKey} className="text-xs px-2 py-1 bg-white dark:bg-slate-900 rounded border border-purple-200 dark:border-purple-700 text-slate-700 dark:text-slate-300">
                                           {productDetails?.name || item.name} ({item.quantity}x)
                                         </span>
                                       );
@@ -2692,7 +3873,7 @@ export const ReservationsDashboard: React.FC = () => {
           )}
 
           {/* CONFIRMED VIEW */}
-          {viewMode === 'confirmed' && (
+          {mainTab === 'reserveringen' && reserveringenTab === 'confirmed' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -2723,10 +3904,10 @@ export const ReservationsDashboard: React.FC = () => {
                   .filter(r => r.status === 'confirmed')
                   .filter(r => !searchQuery || r.companyName?.toLowerCase().includes(searchQuery.toLowerCase()) || r.contactPerson?.toLowerCase().includes(searchQuery.toLowerCase()))
                   .sort((a, b) => {
-                    const dateA = a.eventDate instanceof Date ? a.eventDate : parseISO(a.eventDate as any);
-                    const dateB = b.eventDate instanceof Date ? b.eventDate : parseISO(b.eventDate as any);
-                    return dateA.getTime() - dateB.getTime();
-                  });
+                  const dateA = a.eventDate instanceof Date ? a.eventDate : parseISO(a.eventDate as any);
+                  const dateB = b.eventDate instanceof Date ? b.eventDate : parseISO(b.eventDate as any);
+                  return dateA.getTime() - dateB.getTime();
+                });
 
                 return confirmedReservations.length === 0 ? (
                   <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12 text-center">
@@ -2758,10 +3939,29 @@ export const ReservationsDashboard: React.FC = () => {
                         >
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-3 mb-3">
+                              <div className="flex items-center gap-3 mb-3 flex-wrap">
                                 <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-black uppercase rounded-lg">
                                   ✓ Bevestigd
                                 </span>
+                                {(() => {
+                                  const summary = calculatePaymentSummary(reservation);
+                                  const badge = getPaymentStatusBadge(summary);
+                                  return (
+                                    <span className={`px-3 py-1 text-xs font-black uppercase rounded-lg border ${badge.color}`}>
+                                      {badge.icon} {badge.label}
+                                    </span>
+                                  );
+                                })()}
+                                {isExpiringSoon(reservation) && (
+                                  <span className="px-3 py-1 text-xs font-black uppercase rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border border-orange-300 dark:border-orange-700">
+                                    ⏰ Verloopt Binnenkort
+                                  </span>
+                                )}
+                                {isExpired(reservation) && (
+                                  <span className="px-3 py-1 text-xs font-black uppercase rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-700">
+                                    ❌ Verlopen
+                                  </span>
+                                )}
                                 {eventDate && (
                                   <span className={cn(
                                     "text-sm font-bold",
@@ -2836,7 +4036,10 @@ export const ReservationsDashboard: React.FC = () => {
 
                             <div className="flex flex-col gap-2">
                               <button 
-                                onClick={() => setSelectedReservationId(reservation.id)}
+                                onClick={() => {
+                                  console.log('🖱️ Details button clicked for:', reservation.id);
+                                  setSelectedReservationId(reservation.id);
+                                }}
                                 className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-bold text-sm transition-colors whitespace-nowrap"
                               >
                                 <Eye className="w-4 h-4" />
@@ -2862,7 +4065,7 @@ export const ReservationsDashboard: React.FC = () => {
 
 
           {/* ALL VIEW - Alle reserveringen met filtering */}
-          {viewMode === 'all' && (
+          {mainTab === 'reserveringen' && reserveringenTab === 'all' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -2871,6 +4074,11 @@ export const ReservationsDashboard: React.FC = () => {
                   </h2>
                   <p className="text-sm text-slate-600 dark:text-slate-400">
                     {activeReservations.length} actieve reserveringen
+                    {selectedReservationIds.size > 0 && (
+                      <span className="ml-2 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-xs font-bold">
+                        {selectedReservationIds.size} geselecteerd
+                      </span>
+                    )}
                   </p>
                 </div>
 
@@ -2888,17 +4096,202 @@ export const ReservationsDashboard: React.FC = () => {
                 </div>
               </div>
 
+              {/* ✨ NEW: Advanced Filters */}
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4">
+                <div className="flex items-center gap-4 flex-wrap">
+                  {/* Date Range */}
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                      Van:
+                    </label>
+                    <input
+                      type="date"
+                      value={dateRangeStart}
+                      onChange={(e) => setDateRangeStart(e.target.value)}
+                      className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                      Tot:
+                    </label>
+                    <input
+                      type="date"
+                      value={dateRangeEnd}
+                      onChange={(e) => setDateRangeEnd(e.target.value)}
+                      className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* Payment Status Filter */}
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                      Betaling:
+                    </label>
+                    <select
+                      value={paymentStatusFilter}
+                      onChange={(e) => setPaymentStatusFilter(e.target.value as any)}
+                      className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="all">Alle</option>
+                      <option value="paid">Betaald</option>
+                      <option value="unpaid">Onbetaald</option>
+                      <option value="partial">Deelbetaald</option>
+                    </select>
+                  </div>
+
+                  {/* View Mode Toggle */}
+                  <div className="flex items-center gap-2 ml-auto">
+                    <button
+                      onClick={() => setViewMode('list')}
+                      className={`p-2 rounded-lg transition-colors ${
+                        viewMode === 'list'
+                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                      title="Lijst weergave"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => setViewMode('grid')}
+                      className={`p-2 rounded-lg transition-colors ${
+                        viewMode === 'grid'
+                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                      title="Grid weergave"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Clear Filters */}
+                  {(dateRangeStart || dateRangeEnd || paymentStatusFilter !== 'all') && (
+                    <button
+                      onClick={() => {
+                        setDateRangeStart('');
+                        setDateRangeEnd('');
+                        setPaymentStatusFilter('all');
+                      }}
+                      className="px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg text-sm font-bold hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+                    >
+                      Filters wissen
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Bulk Actions Toolbar */}
+              {selectedReservationIds.size > 0 && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-black text-blue-900 dark:text-blue-100">
+                        Bulk Acties
+                      </h3>
+                      <span className="text-sm text-blue-700 dark:text-blue-300">
+                        {selectedReservationIds.size} reservering(en) geselecteerd
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleBulkConfirm}
+                        className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        Bevestigen
+                      </button>
+                      <button
+                        onClick={handleBulkMarkAsPaid}
+                        className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                      >
+                        💰 Markeer als Betaald
+                      </button>
+                      <button
+                        onClick={handleBulkReject}
+                        className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                      >
+                        <XCircle className="w-4 h-4" />
+                        Afwijzen
+                      </button>
+                      <button
+                        onClick={handleBulkDelete}
+                        className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Verwijderen
+                      </button>
+                      <button
+                        onClick={() => setSelectedReservationIds(new Set())}
+                        className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-bold transition-colors"
+                      >
+                        Deselecteren
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ✨ NEW: Export Button - Standalone */}
+              <div className="flex justify-end">
+                <button
+                  onClick={() => {
+                    const toExport = selectedReservationIds.size > 0
+                      ? activeReservations.filter(r => selectedReservationIds.has(r.id))
+                      : activeReservations;
+                    handleExportCSV(toExport);
+                  }}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Exporteer naar CSV ({selectedReservationIds.size > 0 ? selectedReservationIds.size : activeReservations.length} reserveringen)
+                </button>
+              </div>
+
               {(() => {
                 const filteredReservations = activeReservations.filter(r => {
-                  if (!searchQuery) return true;
-                  const query = searchQuery.toLowerCase();
-                  const fullName = `${r.firstName} ${r.lastName}`.toLowerCase();
-                  return (
-                    fullName.includes(query) ||
-                    (r.email || '').toLowerCase().includes(query) ||
-                    (r.phone || '').toLowerCase().includes(query) ||
-                    r.id.toLowerCase().includes(query)
-                  );
+                  // Search filter
+                  if (searchQuery) {
+                    const query = searchQuery.toLowerCase();
+                    const fullName = `${r.firstName} ${r.lastName}`.toLowerCase();
+                    const companyName = (r.companyName || '').toLowerCase();
+                    const matchesSearch = 
+                      fullName.includes(query) ||
+                      companyName.includes(query) ||
+                      (r.email || '').toLowerCase().includes(query) ||
+                      (r.phone || '').toLowerCase().includes(query) ||
+                      r.id.toLowerCase().includes(query);
+                    if (!matchesSearch) return false;
+                  }
+
+                  // ✨ Date range filter
+                  if (dateRangeStart || dateRangeEnd) {
+                    const event = activeEvents.find(e => e.id === r.eventId);
+                    if (event) {
+                      const eventDate = event.date instanceof Date ? event.date : parseISO(event.date as any);
+                      if (dateRangeStart) {
+                        const startDate = parseISO(dateRangeStart);
+                        if (eventDate < startDate) return false;
+                      }
+                      if (dateRangeEnd) {
+                        const endDate = parseISO(dateRangeEnd);
+                        if (eventDate > endDate) return false;
+                      }
+                    }
+                  }
+
+                  // ✨ Payment status filter
+                  if (paymentStatusFilter !== 'all') {
+                    const summary = calculatePaymentSummary(r);
+                    if (paymentStatusFilter === 'paid' && summary.status !== 'paid') return false;
+                    if (paymentStatusFilter === 'unpaid' && summary.status !== 'unpaid') return false;
+                    if (paymentStatusFilter === 'partial' && summary.status !== 'partial') return false;
+                  }
+
+                  return true;
                 }).sort((a, b) => {
                   const dateA = a.createdAt instanceof Date ? a.createdAt : parseISO(a.createdAt as any);
                   const dateB = b.createdAt instanceof Date ? b.createdAt : parseISO(b.createdAt as any);
@@ -2915,12 +4308,114 @@ export const ReservationsDashboard: React.FC = () => {
                       {searchQuery ? 'Probeer een andere zoekterm' : 'Er zijn nog geen reserveringen'}
                     </p>
                   </div>
+                ) : viewMode === 'grid' ? (
+                  /* ✨ GRID VIEW */
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredReservations.map((reservation) => {
+                      const event = activeEvents.find(e => e.id === reservation.eventId);
+                      const eventDate = event ? (event.date instanceof Date ? event.date : parseISO(event.date as any)) : null;
+                      const paymentSummary = calculatePaymentSummary(reservation);
+                      const badge = getPaymentStatusBadge(paymentSummary);
+
+                      return (
+                        <div 
+                          key={reservation.id}
+                          className={cn(
+                            "bg-white dark:bg-slate-900 rounded-xl border-2 border-slate-200 dark:border-slate-800 p-6 hover:shadow-lg transition-all cursor-pointer",
+                            selectedReservationIds.has(reservation.id) && "border-blue-500 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                          )}
+                          onClick={() => setSelectedReservationId(reservation.id)}
+                        >
+                          {/* Checkbox */}
+                          <div className="flex items-start justify-between mb-4">
+                            <input
+                              type="checkbox"
+                              checked={selectedReservationIds.has(reservation.id)}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                toggleSelectReservation(reservation.id);
+                              }}
+                              className="w-5 h-5 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                            />
+                            <span className={cn(
+                              "inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-black uppercase rounded-lg border-2",
+                              reservation.status === 'confirmed' && "bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300",
+                              reservation.status === 'pending' && "bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-300",
+                              reservation.status === 'option' && "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300",
+                              reservation.status === 'checked-in' && "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-300",
+                              reservation.status === 'cancelled' && "bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-300"
+                            )}>
+                              {reservation.status === 'confirmed' && '✓ Bevestigd'}
+                              {reservation.status === 'pending' && '⏰ Pending'}
+                              {reservation.status === 'option' && '💭 Optie'}
+                              {reservation.status === 'checked-in' && '✅ Checked-in'}
+                              {reservation.status === 'cancelled' && '❌ Geannuleerd'}
+                            </span>
+                          </div>
+
+                          {/* Name & Company */}
+                          <h3 className="text-lg font-black text-slate-900 dark:text-white mb-1">
+                            {reservation.firstName} {reservation.lastName}
+                          </h3>
+                          {reservation.companyName && (
+                            <p className="text-sm text-slate-600 dark:text-slate-400 font-medium mb-3">
+                              {reservation.companyName}
+                            </p>
+                          )}
+
+                          {/* Event Date */}
+                          {eventDate && (
+                            <div className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 mb-3">
+                              <Calendar className="w-4 h-4" />
+                              {format(eventDate, 'EEEE d MMMM yyyy', { locale: nl })}
+                            </div>
+                          )}
+
+                          {/* Details Grid */}
+                          <div className="grid grid-cols-2 gap-3 mb-4">
+                            <div className="flex items-center gap-2">
+                              <Users className="w-4 h-4 text-slate-400" />
+                              <span className="text-sm font-bold">{reservation.numberOfPersons} gasten</span>
+                            </div>
+                            {reservation.merchandise && Array.isArray(reservation.merchandise) && reservation.merchandise.length > 0 && (
+                              <div className="flex items-center gap-2">
+                                <Package className="w-4 h-4 text-slate-400" />
+                                <span className="text-sm font-bold">{reservation.merchandise.length}x merch</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Payment Status */}
+                          <div className="border-t border-slate-200 dark:border-slate-700 pt-3 mt-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-bold text-slate-600 dark:text-slate-400">Totaal:</span>
+                              <span className="text-lg font-black text-slate-900 dark:text-white">
+                                €{reservation.totalPrice?.toFixed(2) || '0.00'}
+                              </span>
+                            </div>
+                            <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-black uppercase rounded-lg border ${badge.color}`}>
+                              {badge.icon} {badge.label}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 ) : (
+                  /* ✨ LIST VIEW (Original Table) */
                   <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
                     <div className="overflow-x-auto">
                       <table className="w-full">
                         <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
                           <tr>
+                            <th className="px-4 py-3 text-center w-12">
+                              <input
+                                type="checkbox"
+                                checked={selectedReservationIds.size === filteredReservations.length && filteredReservations.length > 0}
+                                onChange={() => toggleSelectAll(filteredReservations)}
+                                className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                              />
+                            </th>
                             <th className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-300 uppercase">Status</th>
                             <th className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-300 uppercase">Naam</th>
                             <th className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-300 uppercase">Event</th>
@@ -2938,19 +4433,50 @@ export const ReservationsDashboard: React.FC = () => {
                             const eventDate = event ? (event.date instanceof Date ? event.date : parseISO(event.date as any)) : null;
 
                             return (
-                              <tr key={reservation.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                              <tr key={reservation.id} className={cn(
+                                "hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors",
+                                selectedReservationIds.has(reservation.id) && "bg-blue-50 dark:bg-blue-900/20"
+                              )}>
+                                <td className="px-4 py-4 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedReservationIds.has(reservation.id)}
+                                    onChange={() => toggleSelectReservation(reservation.id)}
+                                    className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                                  />
+                                </td>
                                 <td className="px-4 py-4">
                                   <span className={cn(
-                                    "inline-flex px-2 py-1 text-xs font-black uppercase rounded",
-                                    reservation.status === 'confirmed' && "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300",
-                                    reservation.status === 'pending' && "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300",
-                                    reservation.status === 'cancelled' && "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                                    "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-black uppercase rounded-lg border-2 shadow-sm",
+                                    reservation.status === 'confirmed' && "bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700",
+                                    reservation.status === 'pending' && "bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/30 dark:to-amber-900/30 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-700",
+                                    reservation.status === 'cancelled' && "bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/30 dark:to-rose-900/30 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700"
                                   )}>
-                                    {reservation.status === 'confirmed' ? '✓' : reservation.status === 'pending' ? '⏳' : '✗'}
+                                    {reservation.status === 'confirmed' && (
+                                      <>
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        <span>Bevestigd</span>
+                                      </>
+                                    )}
+                                    {reservation.status === 'pending' && (
+                                      <>
+                                        <Clock className="w-3.5 h-3.5" />
+                                        <span>In Afwachting</span>
+                                      </>
+                                    )}
+                                    {reservation.status === 'cancelled' && (
+                                      <>
+                                        <XCircle className="w-3.5 h-3.5" />
+                                        <span>Geannuleerd</span>
+                                      </>
+                                    )}
                                   </span>
                                 </td>
                                 <td className="px-4 py-4">
                                   <div className="font-bold text-slate-900 dark:text-white">{reservation.firstName} {reservation.lastName}</div>
+                                  {reservation.companyName && (
+                                    <div className="text-xs text-slate-600 dark:text-slate-400 font-medium">{reservation.companyName}</div>
+                                  )}
                                   <div className="text-xs text-slate-500 dark:text-slate-400">{reservation.email}</div>
                                 </td>
                                 <td className="px-4 py-4">
@@ -2984,13 +4510,28 @@ export const ReservationsDashboard: React.FC = () => {
                                   </div>
                                 </td>
                                 <td className="px-4 py-4">
-                                  <span className={cn(
-                                    "inline-flex px-2 py-1 text-xs font-black uppercase rounded",
-                                    reservation.paymentStatus === 'paid' && "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300",
-                                    reservation.paymentStatus === 'pending' && "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
-                                  )}>
-                                    {reservation.paymentStatus === 'paid' ? '✓ Betaald' : 'Te betalen'}
-                                  </span>
+                                  {(() => {
+                                    const summary = calculatePaymentSummary(reservation);
+                                    const badge = getPaymentStatusBadge(summary);
+                                    return (
+                                      <div className="flex flex-col gap-1">
+                                        <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-black uppercase rounded border ${badge.color}`}>
+                                          <span>{badge.icon}</span>
+                                          <span>{badge.label}</span>
+                                        </span>
+                                        {summary.balance > 0 && (
+                                          <span className="text-xs text-slate-600 dark:text-slate-400">
+                                            €{summary.balance.toFixed(2)} openstaand
+                                          </span>
+                                        )}
+                                        {summary.isOverdue && (
+                                          <span className="text-xs text-red-600 dark:text-red-400 font-bold">
+                                            ⚠️ Te laat!
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
                                 </td>
                                 <td className="px-4 py-4">
                                   <div className="flex flex-wrap gap-1">
@@ -3004,6 +4545,29 @@ export const ReservationsDashboard: React.FC = () => {
                                 </td>
                                 <td className="px-4 py-4">
                                   <div className="flex justify-end gap-2">
+                                    {(() => {
+                                      const summary = calculatePaymentSummary(reservation);
+                                      const isPaid = summary.status === 'paid' || summary.status === 'overpaid';
+                                      return (
+                                        <button
+                                          onClick={() => {
+                                            setSelectedReservationId(reservation.id);
+                                            if (!isPaid) {
+                                              setTimeout(() => setShowPaymentModal(true), 100);
+                                            }
+                                          }}
+                                          className={cn(
+                                            "p-2 rounded-lg transition-all font-bold",
+                                            isPaid 
+                                              ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50" 
+                                              : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
+                                          )}
+                                          title={isPaid ? "Volledig Betaald" : "Betaling Registreren"}
+                                        >
+                                          💰
+                                        </button>
+                                      );
+                                    })()}
                                     <button
                                       onClick={() => setSelectedReservationId(reservation.id)}
                                       className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
@@ -3026,7 +4590,7 @@ export const ReservationsDashboard: React.FC = () => {
           )}
 
           {/* TODAY VIEW - Reserveringen vandaag */}
-          {viewMode === 'today' && (
+          {mainTab === 'reserveringen' && reserveringenTab === 'today' && (
             <div className="space-y-4">
               <div>
                 <h2 className="text-xl font-black text-slate-900 dark:text-white mb-1">
@@ -3145,7 +4709,7 @@ export const ReservationsDashboard: React.FC = () => {
           )}
 
           {/* WEEK VIEW - Week overzicht */}
-          {viewMode === 'week' && (
+          {mainTab === 'reserveringen' && reserveringenTab === 'week' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -3268,7 +4832,7 @@ export const ReservationsDashboard: React.FC = () => {
           )}
 
           {/* MONTH VIEW - Maand overzicht */}
-          {viewMode === 'month' && (
+          {mainTab === 'reserveringen' && reserveringenTab === 'month' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -3428,6 +4992,768 @@ export const ReservationsDashboard: React.FC = () => {
               })()}
             </div>
           )}
+
+          {/* ================================================================== */}
+          {/* BETALINGEN TAB */}
+          {/* ================================================================== */}
+          {mainTab === 'betalingen' && (
+            <div className="space-y-6">
+              {betalingenTab === 'overview' && (
+                <div className="space-y-6">
+                  <div className="bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl p-8 text-white">
+                    <h2 className="text-2xl font-black mb-4">💰 Betalingen Overzicht</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      {(() => {
+                        const stats = activeReservations.reduce((acc, r) => {
+                          const summary = calculatePaymentSummary(r);
+                          if (summary.isOverdue) acc.overdue++;
+                          else if (summary.status === 'unpaid') acc.unpaid++;
+                          else if (summary.status === 'partial') acc.partial++;
+                          else if (summary.status === 'paid') acc.paid++;
+                          acc.totalOutstanding += summary.balance;
+                          acc.totalRevenue += summary.netRevenue;
+                          return acc;
+                        }, { overdue: 0, unpaid: 0, partial: 0, paid: 0, totalOutstanding: 0, totalRevenue: 0 });
+
+                        return (
+                          <>
+                            <div className="bg-white/20 backdrop-blur rounded-lg p-4">
+                              <p className="text-sm font-bold text-white/80 mb-2">Te Laat</p>
+                              <p className="text-4xl font-black">{stats.overdue}</p>
+                            </div>
+                            <div className="bg-white/20 backdrop-blur rounded-lg p-4">
+                              <p className="text-sm font-bold text-white/80 mb-2">Onbetaald</p>
+                              <p className="text-4xl font-black">{stats.unpaid}</p>
+                            </div>
+                            <div className="bg-white/20 backdrop-blur rounded-lg p-4">
+                              <p className="text-sm font-bold text-white/80 mb-2">Deelbetaling</p>
+                              <p className="text-4xl font-black">{stats.partial}</p>
+                            </div>
+                            <div className="bg-white/20 backdrop-blur rounded-lg p-4">
+                              <p className="text-sm font-bold text-white/80 mb-2">Betaald</p>
+                              <p className="text-4xl font-black">{stats.paid}</p>
+                            </div>
+                            <div className="md:col-span-2 bg-white/20 backdrop-blur rounded-lg p-4">
+                              <p className="text-sm font-bold text-white/80 mb-2">Totaal Openstaand</p>
+                              <p className="text-4xl font-black">€{stats.totalOutstanding.toFixed(2)}</p>
+                            </div>
+                            <div className="md:col-span-2 bg-white/20 backdrop-blur rounded-lg p-4">
+                              <p className="text-sm font-bold text-white/80 mb-2">Netto Omzet</p>
+                              <p className="text-4xl font-black">€{stats.totalRevenue.toFixed(2)}</p>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Recent Payments List */}
+                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                    <div className="p-6 border-b border-slate-200 dark:border-slate-800">
+                      <h3 className="text-lg font-black">Recente Betalingen</h3>
+                    </div>
+                    <div className="divide-y divide-slate-200 dark:divide-slate-800">
+                      {activeReservations
+                        .filter(r => r.payments && r.payments.length > 0)
+                        .flatMap(r => 
+                          (r.payments || []).map(p => ({ ...p, reservation: r }))
+                        )
+                        .sort((a, b) => {
+                          let dateA: Date;
+                          if (a.date instanceof Date) {
+                            dateA = a.date;
+                          } else if (a.date && typeof a.date === 'object' && 'toDate' in a.date) {
+                            dateA = (a.date as any).toDate();
+                          } else {
+                            dateA = new Date(a.date);
+                          }
+                          let dateB: Date;
+                          if (b.date instanceof Date) {
+                            dateB = b.date;
+                          } else if (b.date && typeof b.date === 'object' && 'toDate' in b.date) {
+                            dateB = (b.date as any).toDate();
+                          } else {
+                            dateB = new Date(b.date);
+                          }
+                          return dateB.getTime() - dateA.getTime();
+                        })
+                        .slice(0, 20)
+                        .map((payment: any, idx) => (
+                          <div key={idx} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <p className="font-bold text-slate-900 dark:text-white">{payment.reservation.companyName}</p>
+                                <p className="text-sm text-slate-600 dark:text-slate-400">
+                                  {payment.date ? format(
+                                    payment.date instanceof Date 
+                                      ? payment.date 
+                                      : payment.date.toDate 
+                                        ? payment.date.toDate() 
+                                        : new Date(payment.date), 
+                                    'dd MMM yyyy HH:mm', 
+                                    { locale: nl }
+                                  ) : 'Geen datum'}
+                                  {' • '}{payment.method}
+                                </p>
+                                {payment.note && <p className="text-xs text-slate-500 mt-1">{payment.note}</p>}
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xl font-black text-green-600 dark:text-green-400">€{payment.amount.toFixed(2)}</p>
+                                {payment.category && (
+                                  <span className="text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                    {payment.category === 'arrangement' ? '🍽️ Arrangement' : 
+                                     payment.category === 'merchandise' ? '🛍️ Merchandise' : 
+                                     payment.category === 'full' ? '💯 Volledig' : '📋 Overig'}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Betalingen Sub-tabs: overdue, unpaid, partial */}
+              {(betalingenTab === 'overdue' || betalingenTab === 'unpaid' || betalingenTab === 'partial') && (
+                <div className="space-y-4">
+                  {(() => {
+                    const filtered = activeReservations.filter(r => {
+                      const summary = calculatePaymentSummary(r);
+                      if (betalingenTab === 'overdue') return summary.isOverdue;
+                      if (betalingenTab === 'unpaid') return summary.status === 'unpaid';
+                      if (betalingenTab === 'partial') return summary.status === 'partial';
+                      return false;
+                    }).sort((a, b) => {
+                      const summaryA = calculatePaymentSummary(a);
+                      const summaryB = calculatePaymentSummary(b);
+                      return (summaryA.daysUntilDue || 0) - (summaryB.daysUntilDue || 0);
+                    });
+
+                    const title = betalingenTab === 'overdue' ? '🔴 Te Late Betalingen' :
+                                  betalingenTab === 'unpaid' ? '🟡 Onbetaalde Reserveringen' :
+                                  '🟡 Deelbetalingen';
+
+                    return filtered.length === 0 ? (
+                      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12 text-center">
+                        <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full mb-4">
+                          <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
+                        </div>
+                        <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2">Alles up-to-date!</h3>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Geen {betalingenTab === 'overdue' ? 'te late' : betalingenTab === 'unpaid' ? 'onbetaalde' : 'deelbetaalde'} reserveringen</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+                          <h2 className="text-2xl font-black mb-2">{title}</h2>
+                          <p className="text-slate-600 dark:text-slate-400">{filtered.length} reserveringen</p>
+                        </div>
+                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-200 dark:divide-slate-800">
+                          {filtered.map(reservation => {
+                            const summary = calculatePaymentSummary(reservation);
+                            const badge = getPaymentStatusBadge(summary);
+                            return (
+                              <div key={reservation.id} className="p-6 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
+                                onClick={() => setSelectedReservationId(reservation.id)}>
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-3 mb-3">
+                                      <span className={`px-3 py-1 text-xs font-black uppercase rounded-lg border ${badge.color}`}>
+                                        {badge.icon} {badge.label}
+                                      </span>
+                                      {summary.isOverdue && (
+                                        <span className="text-sm font-bold text-red-600 dark:text-red-400">
+                                          {Math.abs(summary.daysUntilDue!)} dagen te laat!
+                                        </span>
+                                      )}
+                                    </div>
+                                    <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2">{reservation.companyName}</h3>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                      <div>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">Totaal</p>
+                                        <p className="text-lg font-bold">€{summary.totalPrice.toFixed(2)}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">Betaald</p>
+                                        <p className="text-lg font-bold text-green-600 dark:text-green-400">€{summary.totalPaid.toFixed(2)}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">Openstaand</p>
+                                        <p className="text-lg font-bold text-red-600 dark:text-red-400">€{summary.balance.toFixed(2)}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">Betaal Voor</p>
+                                        <p className={`text-sm font-bold ${summary.isOverdue ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'}`}>
+                                          {format(summary.dueDate!, 'dd MMM', { locale: nl })}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
+                                    <Eye className="w-5 h-5" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* History Tab - Phase 5: Reports & Export */}
+              {betalingenTab === 'history' && (
+                <div className="space-y-6">
+                  {/* Export Options */}
+                  <div className="bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl p-8 text-white">
+                    <h2 className="text-2xl font-black mb-4">📊 Rapporten & Export</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <button
+                        onClick={exportPaymentsToCSV}
+                        className="bg-white/20 backdrop-blur hover:bg-white/30 rounded-lg p-4 transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-3 mb-2">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <h3 className="font-black text-lg">Betalingen Export</h3>
+                        </div>
+                        <p className="text-sm text-white/80">Exporteer alle betalingen naar CSV</p>
+                      </button>
+
+                      <button
+                        onClick={exportRefundsToCSV}
+                        className="bg-white/20 backdrop-blur hover:bg-white/30 rounded-lg p-4 transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-3 mb-2">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z" />
+                          </svg>
+                          <h3 className="font-black text-lg">Restituties Export</h3>
+                        </div>
+                        <p className="text-sm text-white/80">Exporteer alle restituties naar CSV</p>
+                      </button>
+
+                      <button
+                        onClick={exportOutstandingPaymentsReport}
+                        className="bg-white/20 backdrop-blur hover:bg-white/30 rounded-lg p-4 transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-3 mb-2">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                          </svg>
+                          <h3 className="font-black text-lg">Openstaande Betalingen</h3>
+                        </div>
+                        <p className="text-sm text-white/80">Rapport van openstaande bedragen</p>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Stats Overview */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {(() => {
+                      const allPayments = activeReservations.filter(r => r.payments && r.payments.length > 0);
+                      const totalPayments = allPayments.flatMap(r => r.payments || []).length;
+                      const totalPaid = allPayments.reduce((sum, r) => {
+                        const payments = r.payments || [];
+                        return sum + payments.reduce((s: number, p: any) => s + (p.amount || 0), 0);
+                      }, 0);
+
+                      const allRefunds = activeReservations.filter(r => r.refunds && r.refunds.length > 0);
+                      const totalRefunds = allRefunds.flatMap(r => r.refunds || []).length;
+                      const totalRefunded = allRefunds.reduce((sum, r) => {
+                        const refunds = r.refunds || [];
+                        return sum + refunds.reduce((s: number, ref: any) => s + (ref.amount || 0), 0);
+                      }, 0);
+
+                      return (
+                        <>
+                          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Totaal Betalingen</p>
+                            <p className="text-3xl font-black text-slate-900 dark:text-white">{totalPayments}</p>
+                          </div>
+                          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Totaal Ontvangen</p>
+                            <p className="text-3xl font-black text-green-600 dark:text-green-400">€{totalPaid.toFixed(2)}</p>
+                          </div>
+                          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Totaal Restituties</p>
+                            <p className="text-3xl font-black text-red-600 dark:text-red-400">{totalRefunds}</p>
+                          </div>
+                          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Netto Omzet</p>
+                            <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400">€{(totalPaid - totalRefunded).toFixed(2)}</p>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Monthly Summary */}
+                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+                    <h3 className="text-xl font-black mb-4">📅 Maandelijks Overzicht</h3>
+                    <div className="space-y-4">
+                      {(() => {
+                        const now = new Date();
+                        const last6Months = Array.from({ length: 6 }, (_, i) => {
+                          const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                          return {
+                            month: format(date, 'MMMM yyyy', { locale: nl }),
+                            payments: activeReservations
+                              .flatMap(r => (r.payments || []).map((p: any) => ({ ...p, reservation: r })))
+                              .filter((p: any) => {
+                                const paymentDate = p.date instanceof Date ? p.date : new Date(p.date);
+                                return paymentDate.getMonth() === date.getMonth() && paymentDate.getFullYear() === date.getFullYear();
+                              }),
+                            refunds: activeReservations
+                              .flatMap(r => (r.refunds || []).map((ref: any) => ({ ...ref, reservation: r })))
+                              .filter((ref: any) => {
+                                const refundDate = ref.date instanceof Date ? ref.date : new Date(ref.date);
+                                return refundDate.getMonth() === date.getMonth() && refundDate.getFullYear() === date.getFullYear();
+                              })
+                          };
+                        });
+
+                        return last6Months.map((month, idx) => {
+                          const totalPaid = month.payments.reduce((sum: number, p: any) => sum + p.amount, 0);
+                          const totalRefunded = month.refunds.reduce((sum: number, r: any) => sum + r.amount, 0);
+                          const netRevenue = totalPaid - totalRefunded;
+
+                          return (
+                            <div key={idx} className="border-b border-slate-200 dark:border-slate-800 last:border-0 pb-4 last:pb-0">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h4 className="font-bold text-slate-900 dark:text-white">{month.month}</h4>
+                                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                                    {month.payments.length} betalingen • {month.refunds.length} restituties
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-lg font-black text-green-600 dark:text-green-400">€{totalPaid.toFixed(2)}</p>
+                                  {totalRefunded > 0 && (
+                                    <p className="text-sm text-red-600 dark:text-red-400">-€{totalRefunded.toFixed(2)}</p>
+                                  )}
+                                  <p className="text-xs text-slate-500 dark:text-slate-400">Netto: €{netRevenue.toFixed(2)}</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ================================================================== */}
+          {/* OPTIES TAB */}
+          {/* ================================================================== */}
+          {mainTab === 'opties' && (
+            <div className="space-y-6">
+              {optiesTab === 'overview' && (
+                <div className="space-y-6">
+                  <div className="bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl p-8 text-white">
+                    <h2 className="text-2xl font-black mb-4">⏰ Opties Overzicht</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {(() => {
+                        const stats = activeReservations.reduce((acc, r) => {
+                          if (r.status === 'option') {
+                            acc.total++;
+                            if (isExpired(r)) acc.expired++;
+                            else if (isExpiringSoon(r)) acc.expiring++;
+                            else acc.active++;
+                          }
+                          return acc;
+                        }, { total: 0, active: 0, expiring: 0, expired: 0 });
+
+                        return (
+                          <>
+                            <div className="bg-white/20 backdrop-blur rounded-lg p-4">
+                              <p className="text-sm font-bold text-white/80 mb-2">Actieve Opties</p>
+                              <p className="text-4xl font-black">{stats.active}</p>
+                            </div>
+                            <div className="bg-white/20 backdrop-blur rounded-lg p-4">
+                              <p className="text-sm font-bold text-white/80 mb-2">Verloopt Binnenkort</p>
+                              <p className="text-4xl font-black">{stats.expiring}</p>
+                              <p className="text-xs text-white/70 mt-1">Binnen 7 dagen</p>
+                            </div>
+                            <div className="bg-white/20 backdrop-blur rounded-lg p-4">
+                              <p className="text-sm font-bold text-white/80 mb-2">Verlopen</p>
+                              <p className="text-4xl font-black">{stats.expired}</p>
+                              <p className="text-xs text-white/70 mt-1">Actie vereist</p>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* All Options List */}
+                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-200 dark:divide-slate-800">
+                    {activeReservations
+                      .filter(r => r.status === 'option')
+                      .sort((a, b) => {
+                        if (!a.optionExpiresAt || !b.optionExpiresAt) return 0;
+                        const dateA = a.optionExpiresAt instanceof Date ? a.optionExpiresAt : new Date(a.optionExpiresAt);
+                        const dateB = b.optionExpiresAt instanceof Date ? b.optionExpiresAt : new Date(b.optionExpiresAt);
+                        return dateA.getTime() - dateB.getTime();
+                      })
+                      .map(reservation => (
+                        <div key={reservation.id} className="p-6 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
+                          onClick={() => setSelectedReservationId(reservation.id)}>
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-3">
+                                <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-black uppercase rounded-lg">
+                                  Optie
+                                </span>
+                                {isExpired(reservation) && (
+                                  <span className="px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-black uppercase rounded-lg border border-red-300 dark:border-red-700">
+                                    ❌ Verlopen
+                                  </span>
+                                )}
+                                {isExpiringSoon(reservation) && (
+                                  <span className="px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 text-xs font-black uppercase rounded-lg border border-orange-300 dark:border-orange-700">
+                                    ⏰ Verloopt Binnenkort
+                                  </span>
+                                )}
+                              </div>
+                              <div className="mb-3">
+                                <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                                  {reservation.companyName || `${reservation.firstName || ''} ${reservation.lastName || ''}`.trim() || reservation.email}
+                                </h3>
+                                {reservation.companyName && (reservation.firstName || reservation.lastName) && (
+                                  <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                                    {reservation.firstName} {reservation.lastName}
+                                  </p>
+                                )}
+                                <p className="text-xs text-slate-500 dark:text-slate-400">{reservation.email}</p>
+                              </div>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400">Event Datum</p>
+                                  <p className="text-sm font-bold">{format(reservation.eventDate instanceof Date ? reservation.eventDate : new Date(reservation.eventDate), 'dd MMM yyyy', { locale: nl })}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400">Verloopt Op</p>
+                                  <p className={`text-sm font-bold ${isExpired(reservation) ? 'text-red-600' : isExpiringSoon(reservation) ? 'text-orange-600' : 'text-slate-900 dark:text-white'}`}>
+                                    {reservation.optionExpiresAt ? format(reservation.optionExpiresAt instanceof Date ? reservation.optionExpiresAt : new Date(reservation.optionExpiresAt), 'dd MMM yyyy', { locale: nl }) : '-'}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400">Aantal Personen</p>
+                                  <p className="text-sm font-bold">{reservation.numberOfPersons}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400">Totaal</p>
+                                  <p className="text-sm font-bold">€{reservation.totalPrice?.toFixed(2)}</p>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {/* ✅ Goedkeuren Button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenApprovalModal(reservation.id);
+                                }}
+                                className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold transition-colors flex items-center gap-2"
+                                title="Optie goedkeuren"
+                              >
+                                <CheckCircle2 className="w-4 h-4" />
+                                Goedkeuren
+                              </button>
+                              {/* ❌ Afwijzen Button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRejectOption(reservation.id);
+                                }}
+                                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold transition-colors flex items-center gap-2"
+                                title="Optie afwijzen"
+                              >
+                                <XCircle className="w-4 h-4" />
+                                Afwijzen
+                              </button>
+                              {/* 👁️ Bekijk Button */}
+                              <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
+                                <Eye className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Opties Sub-tabs: expiring, expired */}
+              {(optiesTab === 'expiring' || optiesTab === 'expired' || optiesTab === 'all') && (
+                <div className="space-y-4">
+                  {(() => {
+                    let filtered = activeReservations.filter(r => r.status === 'option');
+                    
+                    if (optiesTab === 'expiring') filtered = filtered.filter(r => isExpiringSoon(r));
+                    if (optiesTab === 'expired') filtered = filtered.filter(r => isExpired(r));
+
+                    filtered = filtered.sort((a, b) => {
+                      if (!a.optionExpiresAt || !b.optionExpiresAt) return 0;
+                      const dateA = a.optionExpiresAt instanceof Date ? a.optionExpiresAt : new Date(a.optionExpiresAt);
+                      const dateB = b.optionExpiresAt instanceof Date ? b.optionExpiresAt : new Date(b.optionExpiresAt);
+                      return dateA.getTime() - dateB.getTime();
+                    });
+
+                    const title = optiesTab === 'expiring' ? '⏰ Verloopt Binnenkort' :
+                                  optiesTab === 'expired' ? '❌ Verlopen Opties' :
+                                  '📋 Alle Opties';
+
+                    return filtered.length === 0 ? (
+                      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12 text-center">
+                        <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full mb-4">
+                          <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
+                        </div>
+                        <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2">Geen opties gevonden</h3>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                          {optiesTab === 'expiring' ? 'Geen opties die binnenkort verlopen' : 
+                           optiesTab === 'expired' ? 'Geen verlopen opties' : 
+                           'Geen opties beschikbaar'}
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+                          <h2 className="text-2xl font-black mb-2">{title}</h2>
+                          <p className="text-slate-600 dark:text-slate-400">{filtered.length} opties</p>
+                        </div>
+                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-200 dark:divide-slate-800">
+                          {filtered.map(reservation => (
+                            <div key={reservation.id} className="p-6 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
+                              onClick={() => setSelectedReservationId(reservation.id)}>
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-3 mb-3">
+                                    <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-black uppercase rounded-lg">
+                                      Optie
+                                    </span>
+                                    {isExpired(reservation) && (
+                                      <span className="px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-black uppercase rounded-lg border border-red-300 dark:border-red-700">
+                                        ❌ Verlopen
+                                      </span>
+                                    )}
+                                    {isExpiringSoon(reservation) && !isExpired(reservation) && (
+                                      <span className="px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 text-xs font-black uppercase rounded-lg border border-orange-300 dark:border-orange-700">
+                                        ⏰ Verloopt Binnenkort
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="mb-3">
+                                    <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                                      {reservation.companyName || `${reservation.firstName || ''} ${reservation.lastName || ''}`.trim() || reservation.email}
+                                    </h3>
+                                    {reservation.companyName && (reservation.firstName || reservation.lastName) && (
+                                      <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                                        {reservation.firstName} {reservation.lastName}
+                                      </p>
+                                    )}
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">{reservation.email}</p>
+                                  </div>
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div>
+                                      <p className="text-xs text-slate-500 dark:text-slate-400">Event Datum</p>
+                                      <p className="text-sm font-bold">{format(reservation.eventDate instanceof Date ? reservation.eventDate : new Date(reservation.eventDate), 'dd MMM yyyy', { locale: nl })}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-slate-500 dark:text-slate-400">Verloopt Op</p>
+                                      <p className={`text-sm font-bold ${isExpired(reservation) ? 'text-red-600 dark:text-red-400' : isExpiringSoon(reservation) ? 'text-orange-600 dark:text-orange-400' : 'text-slate-900 dark:text-white'}`}>
+                                        {reservation.optionExpiresAt ? format(reservation.optionExpiresAt instanceof Date ? reservation.optionExpiresAt : new Date(reservation.optionExpiresAt), 'dd MMM yyyy', { locale: nl }) : '-'}
+                                      </p>
+                                      {reservation.optionExpiresAt && (() => {
+                                        const expiryDate = reservation.optionExpiresAt instanceof Date ? reservation.optionExpiresAt : new Date(reservation.optionExpiresAt);
+                                        const daysUntil = Math.ceil((expiryDate.getTime() - new Date().getTime()) / (24 * 60 * 60 * 1000));
+                                        return (
+                                          <p className={`text-xs mt-1 ${daysUntil < 0 ? 'text-red-600 dark:text-red-400' : daysUntil <= 3 ? 'text-orange-600 dark:text-orange-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                                            {daysUntil < 0 ? `${Math.abs(daysUntil)} dagen verlopen` : daysUntil === 0 ? 'Vandaag!' : `Over ${daysUntil} dagen`}
+                                          </p>
+                                        );
+                                      })()}
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-slate-500 dark:text-slate-400">Aantal Personen</p>
+                                      <p className="text-sm font-bold">{reservation.numberOfPersons}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-slate-500 dark:text-slate-400">Totaal</p>
+                                      <p className="text-sm font-bold">€{reservation.totalPrice?.toFixed(2)}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                                <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
+                                  <Eye className="w-5 h-5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ================================================================== */}
+          {/* ARCHIEF TAB */}
+          {/* ================================================================== */}
+          {mainTab === 'archief' && (
+            <div className="space-y-6">
+              <div className="bg-gradient-to-br from-slate-600 to-slate-700 rounded-xl p-8 text-white">
+                <h2 className="text-2xl font-black mb-4">🗄️ Archief</h2>
+                <p className="text-white/80">
+                  Afgewezen opties en geannuleerde reserveringen. Deze blijven beschikbaar voor audit en rapportage.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                  {(() => {
+                    const stats = reservations.reduce((acc, r) => {
+                      if (r.status === 'rejected') acc.rejected++;
+                      if (r.status === 'cancelled') acc.cancelled++;
+                      return acc;
+                    }, { rejected: 0, cancelled: 0 });
+
+                    return (
+                      <>
+                        <div className="bg-white/20 backdrop-blur rounded-lg p-4">
+                          <p className="text-sm font-bold text-white/80 mb-2">❌ Afgewezen Opties</p>
+                          <p className="text-4xl font-black">{stats.rejected}</p>
+                        </div>
+                        <div className="bg-white/20 backdrop-blur rounded-lg p-4">
+                          <p className="text-sm font-bold text-white/80 mb-2">🚫 Geannuleerde Boekingen</p>
+                          <p className="text-4xl font-black">{stats.cancelled}</p>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Archived Reservations List */}
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-200 dark:divide-slate-800">
+                {reservations
+                  .filter(r => r.status === 'rejected' || r.status === 'cancelled')
+                  .sort((a, b) => {
+                    const dateA = a.updatedAt instanceof Date ? a.updatedAt : new Date(a.updatedAt);
+                    const dateB = b.updatedAt instanceof Date ? b.updatedAt : new Date(b.updatedAt);
+                    return dateB.getTime() - dateA.getTime();
+                  })
+                  .map(reservation => (
+                    <div key={reservation.id} className="p-6 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3">
+                            <span className={cn(
+                              "px-3 py-1 text-xs font-black uppercase rounded-lg border-2",
+                              reservation.status === 'rejected' && "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700",
+                              reservation.status === 'cancelled' && "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-400 dark:border-slate-600"
+                            )}>
+                              {reservation.status === 'rejected' ? '❌ Afgewezen' : '🚫 Geannuleerd'}
+                            </span>
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                              {format(
+                                reservation.updatedAt instanceof Date ? reservation.updatedAt : new Date(reservation.updatedAt), 
+                                'dd MMM yyyy HH:mm', 
+                                { locale: nl }
+                              )}
+                            </span>
+                          </div>
+                          <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2">
+                            {reservation.companyName || `${reservation.firstName} ${reservation.lastName}`}
+                          </h3>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div>
+                              <p className="text-xs text-slate-500 dark:text-slate-400">Event Datum</p>
+                              <p className="text-sm font-bold">
+                                {format(
+                                  reservation.eventDate instanceof Date ? reservation.eventDate : new Date(reservation.eventDate), 
+                                  'dd MMM yyyy', 
+                                  { locale: nl }
+                                )}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-slate-500 dark:text-slate-400">Aantal Personen</p>
+                              <p className="text-sm font-bold">{reservation.numberOfPersons}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-slate-500 dark:text-slate-400">Totaal</p>
+                              <p className="text-sm font-bold">€{reservation.totalPrice?.toFixed(2)}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-slate-500 dark:text-slate-400">Type</p>
+                              <p className="text-sm font-bold">
+                                {reservation.status === 'rejected' ? 'Optie' : 'Boeking'}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Communication Log - Last Entry */}
+                          {reservation.communicationLog && reservation.communicationLog.length > 0 && (() => {
+                            const lastLog = reservation.communicationLog[reservation.communicationLog.length - 1];
+                            return (
+                              <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Laatste notitie:</p>
+                                <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{lastLog.message}</p>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setSelectedReservationId(reservation.id)}
+                            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                            title="Details bekijken"
+                          >
+                            <Eye className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (window.confirm(`Weet je zeker dat je deze ${reservation.status === 'rejected' ? 'optie' : 'boeking'} permanent wilt verwijderen?\n\nDit kan NIET ongedaan worden gemaakt!`)) {
+                                try {
+                                  await deleteReservation(reservation.id);
+                                  showSuccess('Reservering verwijderd uit archief');
+                                } catch (error) {
+                                  showError('Fout bij verwijderen');
+                                }
+                              }
+                            }}
+                            className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg transition-colors"
+                            title="Permanent verwijderen"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                {reservations.filter(r => r.status === 'rejected' || r.status === 'cancelled').length === 0 && (
+                  <div className="p-12 text-center">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full mb-4">
+                      <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
+                    </div>
+                    <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2">Geen gearchiveerde items</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      Afgewezen opties en geannuleerde reserveringen verschijnen hier
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
@@ -3446,7 +5772,591 @@ export const ReservationsDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ====================================================================== */}
+      {/* QUICK OPTION PLACEMENT MODAL */}
+      {/* ====================================================================== */}
+      {/* ====================================================================== */}
+      {/* PAYMENT REGISTRATION MODAL (PHASE 3) */}
+      {/* ====================================================================== */}
+      {showPaymentModal && selectedReservation && (() => {
+        const paymentSummary = calculatePaymentSummary(selectedReservation);
+        const parsedAmount = parseFloat(paymentAmount) || 0;
+        const newBalance = paymentSummary.balance - parsedAmount;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-xl shadow-2xl">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-emerald-500 to-teal-500 p-4 rounded-t-xl sticky top-0 z-10">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-black text-white flex items-center gap-2">
+                    <Plus className="w-6 h-6" />
+                    Betaling Registreren
+                  </h2>
+                  <button onClick={() => setShowPaymentModal(false)} className="p-2 hover:bg-white/20 rounded-lg transition-colors">
+                    <X className="w-5 h-5 text-white" />
+                  </button>
+                </div>
+                <p className="text-white/80 mt-1 text-sm">{selectedReservation.companyName}</p>
+              </div>
+
+              {/* Body */}
+              <div className="p-4 space-y-3">
+                {/* Current Status */}
+                <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-3">
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 uppercase mb-1">Totaal</p>
+                      <p className="text-lg font-black">€{paymentSummary.totalPrice.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 uppercase mb-1">Betaald</p>
+                      <p className="text-lg font-black text-green-600">€{paymentSummary.totalPaid.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 uppercase mb-1">Openstaand</p>
+                      <p className="text-lg font-black text-red-600">€{paymentSummary.balance.toFixed(2)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Amount Input */}
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                    Bedrag *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold">€</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={paymentAmount}
+                      onChange={(e) => setPaymentAmount(e.target.value)}
+                      className="w-full pl-8 pr-4 py-3 border-2 border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-lg"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  {parsedAmount > 0 && (
+                    <p className={`text-sm mt-2 font-bold ${newBalance < 0 ? 'text-orange-600' : newBalance === 0 ? 'text-green-600' : 'text-slate-600'}`}>
+                      {newBalance < 0 ? `⚠️ Overschot: €${Math.abs(newBalance).toFixed(2)}` :
+                       newBalance === 0 ? `✅ Volledig betaald!` :
+                       `Resterend na betaling: €${newBalance.toFixed(2)}`}
+                    </p>
+                  )}
+                </div>
+
+                {/* Category */}
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                    Categorie *
+                  </label>
+                  <select
+                    value={paymentCategory}
+                    onChange={(e) => setPaymentCategory(e.target.value as any)}
+                    className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold"
+                  >
+                    <option value="full">💯 Volledig (Arrangement + Merchandise)</option>
+                    <option value="arrangement">🍽️ Alleen Arrangement</option>
+                    <option value="merchandise">🛍️ Alleen Merchandise</option>
+                    <option value="other">📋 Overig (Borg, Extra's, etc.)</option>
+                  </select>
+                </div>
+
+                {/* Payment Method */}
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                    Betaalmethode *
+                  </label>
+                  <select
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold"
+                  >
+                    <option value="iDEAL">iDEAL</option>
+                    <option value="Bankoverschrijving">Bankoverschrijving</option>
+                    <option value="Contant">Contant</option>
+                    <option value="Pin">Pin</option>
+                    <option value="Creditcard">Creditcard</option>
+                    <option value="PayPal">PayPal</option>
+                    <option value="Anders">Anders</option>
+                  </select>
+                </div>
+
+                {/* Reference */}
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                    Referentie (Optioneel)
+                  </label>
+                  <input
+                    type="text"
+                    value={paymentReference}
+                    onChange={(e) => setPaymentReference(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                    placeholder="Bijv. transactienummer, factuurnummer..."
+                  />
+                </div>
+
+                {/* Note */}
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                    Notitie (Optioneel)
+                  </label>
+                  <textarea
+                    value={paymentNote}
+                    onChange={(e) => setPaymentNote(e.target.value)}
+                    rows={3}
+                    className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                    placeholder="Extra informatie over de betaling..."
+                  />
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-b-xl flex items-center justify-between sticky bottom-0 border-t border-slate-200 dark:border-slate-700">
+                <button
+                  onClick={() => setShowPaymentModal(false)}
+                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                >
+                  Annuleren
+                </button>
+                <button
+                  onClick={handleRegisterPayment}
+                  disabled={isProcessingPayment || parsedAmount <= 0}
+                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 text-white rounded-lg font-bold text-sm transition-colors flex items-center gap-2"
+                >
+                  {isProcessingPayment ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Bezig...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-5 h-5" />
+                      Betaling Registreren
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ====================================================================== */}
+      {/* REFUND MODAL (PHASE 4) */}
+      {/* ====================================================================== */}
+      {showRefundModal && selectedReservation && (() => {
+        const paymentSummary = calculatePaymentSummary(selectedReservation);
+        const parsedAmount = parseFloat(refundAmount) || 0;
+        const newNetRevenue = paymentSummary.netRevenue - parsedAmount;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-xl shadow-2xl">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-red-500 to-orange-500 p-4 rounded-t-xl sticky top-0 z-10">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-black text-white flex items-center gap-2">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z" />
+                    </svg>
+                    Restitutie Aanmaken
+                  </h2>
+                  <button onClick={() => setShowRefundModal(false)} className="p-2 hover:bg-white/20 rounded-lg transition-colors">
+                    <X className="w-5 h-5 text-white" />
+                  </button>
+                </div>
+                <p className="text-white/80 mt-2">{selectedReservation.companyName}</p>
+              </div>
+
+              {/* Body */}
+              <div className="p-4 space-y-3">
+                {/* Current Status */}
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <p className="text-xs text-red-700 dark:text-red-400 uppercase mb-1">Betaald</p>
+                      <p className="text-lg font-black">€{paymentSummary.totalPaid.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-red-700 dark:text-red-400 uppercase mb-1">Gerestitueerd</p>
+                      <p className="text-lg font-black">€{paymentSummary.totalRefunded.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-red-700 dark:text-red-400 uppercase mb-1">Netto Omzet</p>
+                      <p className="text-lg font-black text-green-600 dark:text-green-400">€{paymentSummary.netRevenue.toFixed(2)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Amount Input */}
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                    Bedrag *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold">€</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={refundAmount}
+                      onChange={(e) => setRefundAmount(e.target.value)}
+                      max={paymentSummary.totalPaid}
+                      className="w-full pl-8 pr-4 py-3 border-2 border-red-200 dark:border-red-700 rounded-lg focus:ring-2 focus:ring-red-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-lg"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  {parsedAmount > 0 && (
+                    <p className={`text-sm mt-2 font-bold ${parsedAmount > paymentSummary.totalPaid ? 'text-red-600' : 'text-slate-600'}`}>
+                      {parsedAmount > paymentSummary.totalPaid ? `⚠️ Bedrag te hoog! Max: €${paymentSummary.totalPaid.toFixed(2)}` :
+                       `Netto omzet na restitutie: €${newNetRevenue.toFixed(2)}`}
+                    </p>
+                  )}
+                </div>
+
+                {/* Reason */}
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                    Reden *
+                  </label>
+                  <select
+                    value={refundReason}
+                    onChange={(e) => setRefundReason(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-red-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold"
+                  >
+                    <option value="Annulering">Annulering door klant</option>
+                    <option value="Annulering door bedrijf">Annulering door bedrijf</option>
+                    <option value="Merchandise niet leverbaar">Merchandise niet leverbaar</option>
+                    <option value="Overboeking fout">Te veel betaald</option>
+                    <option value="Gedeeltelijke annulering">Gedeeltelijke annulering</option>
+                    <option value="Compensatie">Compensatie (service issue)</option>
+                    <option value="Anders">Anders</option>
+                  </select>
+                </div>
+
+                {/* Refund Method */}
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                    Restitutiemethode *
+                  </label>
+                  <select
+                    value={refundMethod}
+                    onChange={(e) => setRefundMethod(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-red-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold"
+                  >
+                    <option value="Bankoverschrijving">Bankoverschrijving</option>
+                    <option value="Contant">Contant</option>
+                    <option value="Originele betaalmethode">Originele betaalmethode</option>
+                    <option value="Creditnota">Creditnota</option>
+                    <option value="Anders">Anders</option>
+                  </select>
+                </div>
+
+                {/* Note */}
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                    Notitie * (Verplicht)
+                  </label>
+                  <textarea
+                    value={refundNote}
+                    onChange={(e) => setRefundNote(e.target.value)}
+                    rows={3}
+                    className="w-full px-4 py-3 border-2 border-red-200 dark:border-red-700 rounded-lg focus:ring-2 focus:ring-red-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                    placeholder="Gedetailleerde uitleg van de restitutie (verplicht voor audit trail)..."
+                  />
+                </div>
+
+                {/* Warning */}
+                <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
+                  <div className="flex gap-3">
+                    <svg className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-bold text-orange-900 dark:text-orange-200">Let op</p>
+                      <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
+                        Deze actie kan niet ongedaan worden gemaakt. Controleer het bedrag en de reden zorgvuldig voordat je doorgaat.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-b-xl flex items-center justify-between sticky bottom-0 border-t border-slate-200 dark:border-slate-700">
+                <button
+                  onClick={() => setShowRefundModal(false)}
+                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                >
+                  Annuleren
+                </button>
+                <button
+                  onClick={handleCreateRefund}
+                  disabled={isProcessingRefund || parsedAmount <= 0 || parsedAmount > paymentSummary.totalPaid || !refundNote.trim()}
+                  className="px-4 py-2 bg-red-500 hover:bg-red-600 disabled:bg-slate-300 text-white rounded-lg font-bold text-sm transition-colors flex items-center gap-2"
+                >
+                  {isProcessingRefund ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Bezig...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-5 h-5" />
+                      Restitutie Aanmaken
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ====================================================================== */}
+      {/* OPTION APPROVAL MODAL */}
+      {/* ====================================================================== */}
+      {showOptionApprovalModal && selectedReservation && selectedReservation.status === 'option' && (() => {
+        const event = events.find(e => e.id === selectedReservation.eventId);
+        if (!event || !event.date) return null;
+
+        const eventData = typeof event.date === 'object' && 'pricing' in event.date ? event.date : null;
+        if (!eventData || !eventData.pricing) return null;
+
+        const eventPricing = eventData.pricing as Record<Arrangement, number>;
+        const arrangementPrice = eventPricing[approvalArrangement] || 0;
+        const merchandisePrice = approvalMerchandise.enabled ? (approvalMerchandise.quantity || 0) * 29.95 : 0;
+        const afterPartyPrice = approvalAfterParty ? 7.50 : 0;
+        const totalPrice = (arrangementPrice + afterPartyPrice) * selectedReservation.numberOfPersons + merchandisePrice;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-xl shadow-2xl">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-green-500 to-emerald-500 p-4 rounded-t-xl sticky top-0 z-10">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-black text-white flex items-center gap-2">
+                    <CheckCircle2 className="w-6 h-6" />
+                    Optie Goedkeuren
+                  </h2>
+                  <button onClick={() => setShowOptionApprovalModal(false)} className="p-2 hover:bg-white/20 rounded-lg transition-colors">
+                    <X className="w-5 h-5 text-white" />
+                  </button>
+                </div>
+                <p className="text-white/90 mt-2">{selectedReservation.companyName || `${selectedReservation.firstName} ${selectedReservation.lastName}`}</p>
+                <p className="text-white/80 text-sm">{selectedReservation.numberOfPersons} personen • {format(selectedReservation.eventDate instanceof Date ? selectedReservation.eventDate : new Date(selectedReservation.eventDate), 'dd MMM yyyy', { locale: nl })}</p>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 space-y-6">
+                {/* Option Info */}
+                <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                  <h3 className="font-black text-blue-900 dark:text-blue-100 mb-3 flex items-center gap-2">
+                    <Clock className="w-5 h-5" />
+                    Optie Informatie
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-blue-700 dark:text-blue-300 font-medium">Geplaatst op:</p>
+                      <p className="text-blue-900 dark:text-blue-100 font-bold">
+                        {selectedReservation.optionPlacedAt ? format(
+                          selectedReservation.optionPlacedAt instanceof Date ? selectedReservation.optionPlacedAt : new Date(selectedReservation.optionPlacedAt), 
+                          'dd MMM yyyy HH:mm', 
+                          { locale: nl }
+                        ) : '-'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-blue-700 dark:text-blue-300 font-medium">Verloopt op:</p>
+                      <p className="text-blue-900 dark:text-blue-100 font-bold">
+                        {selectedReservation.optionExpiresAt ? format(
+                          selectedReservation.optionExpiresAt instanceof Date ? selectedReservation.optionExpiresAt : new Date(selectedReservation.optionExpiresAt), 
+                          'dd MMM yyyy HH:mm', 
+                          { locale: nl }
+                        ) : '-'}
+                      </p>
+                    </div>
+                  </div>
+                  {selectedReservation.optionNotes && (
+                    <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-800">
+                      <p className="text-blue-700 dark:text-blue-300 font-medium mb-1">Notities:</p>
+                      <p className="text-blue-900 dark:text-blue-100">{selectedReservation.optionNotes}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Arrangement Selection */}
+                <div>
+                  <label className="block text-sm font-black text-slate-700 dark:text-slate-300 mb-2">
+                    Selecteer Arrangement *
+                  </label>
+                  <select
+                    value={approvalArrangement}
+                    onChange={(e) => setApprovalArrangement(e.target.value as Arrangement)}
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white font-medium focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                  >
+                    <option value="BWF">BWF - Basis Without Food (€{(eventPricing.BWF || 0).toFixed(2)})</option>
+                    <option value="BWFM">BWFM - Basis With Food & Merch (€{(eventPricing.BWFM || 0).toFixed(2)})</option>
+                    <option value="Standard">Standard (€{(eventPricing.Standard || 0).toFixed(2)})</option>
+                    <option value="Premium">Premium (€{(eventPricing.Premium || 0).toFixed(2)})</option>
+                  </select>
+                </div>
+
+                {/* Add-Ons */}
+                <div>
+                  <label className="block text-sm font-black text-slate-700 dark:text-slate-300 mb-3">Extra's</label>
+                  <div className="space-y-3">
+                    {/* Merchandise */}
+                    <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={approvalMerchandise.enabled}
+                          onChange={(e) => setApprovalMerchandise({
+                            enabled: e.target.checked,
+                            quantity: e.target.checked ? 1 : 0
+                          })}
+                          className="w-5 h-5 rounded border-slate-300 text-emerald-600"
+                        />
+                        <label className="font-bold">Merchandise (€29,95 per stuk)</label>
+                      </div>
+                      {approvalMerchandise.enabled && (
+                        <input
+                          type="number"
+                          min="1"
+                          value={approvalMerchandise.quantity}
+                          onChange={(e) => setApprovalMerchandise(prev => ({
+                            ...prev,
+                            quantity: parseInt(e.target.value) || 1
+                          }))}
+                          className="w-20 px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg font-medium"
+                        />
+                      )}
+                    </div>
+
+                    {/* After Party */}
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <input
+                        type="checkbox"
+                        checked={approvalAfterParty}
+                        onChange={(e) => setApprovalAfterParty(e.target.checked)}
+                        className="w-5 h-5 rounded border-slate-300 text-emerald-600"
+                      />
+                      <label className="font-bold">After Party (€7,50 per persoon)</label>
+                    </div>
+
+                    {/* Pre Drink */}
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <input
+                        type="checkbox"
+                        checked={approvalPreDrink}
+                        onChange={(e) => setApprovalPreDrink(e.target.checked)}
+                        className="w-5 h-5 rounded border-slate-300 text-emerald-600"
+                      />
+                      <label className="font-bold">Pre-Drink (Gratis)</label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dietary Needs */}
+                <div>
+                  <label className="block text-sm font-black text-slate-700 dark:text-slate-300 mb-2">
+                    Dieetwensen
+                  </label>
+                  <textarea
+                    value={approvalDietaryNeeds}
+                    onChange={(e) => setApprovalDietaryNeeds(e.target.value)}
+                    placeholder="Vegetarisch, veganistisch, allergieën, etc."
+                    rows={2}
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white resize-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                  />
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-sm font-black text-slate-700 dark:text-slate-300 mb-2">
+                    Admin Notities
+                  </label>
+                  <textarea
+                    value={approvalNotes}
+                    onChange={(e) => setApprovalNotes(e.target.value)}
+                    placeholder="Interne notities over deze goedkeuring..."
+                    rows={2}
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white resize-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                  />
+                </div>
+
+                {/* Price Summary */}
+                <div className="bg-gradient-to-br from-emerald-500 to-green-500 rounded-xl p-6 text-white">
+                  <h3 className="font-black text-lg mb-4">💰 Prijs Overzicht</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Arrangement ({approvalArrangement}):</span>
+                      <span className="font-bold">€{arrangementPrice.toFixed(2)} x {selectedReservation.numberOfPersons}</span>
+                    </div>
+                    {approvalMerchandise.enabled && (
+                      <div className="flex justify-between">
+                        <span>Merchandise:</span>
+                        <span className="font-bold">€{merchandisePrice.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {approvalAfterParty && (
+                      <div className="flex justify-between">
+                        <span>After Party:</span>
+                        <span className="font-bold">€{afterPartyPrice.toFixed(2)} x {selectedReservation.numberOfPersons}</span>
+                      </div>
+                    )}
+                    {approvalPreDrink && (
+                      <div className="flex justify-between text-white/80">
+                        <span>Pre-Drink:</span>
+                        <span className="font-bold">GRATIS</span>
+                      </div>
+                    )}
+                    <div className="border-t-2 border-white/30 pt-2 mt-2">
+                      <div className="flex justify-between text-lg">
+                        <span className="font-black">TOTAAL:</span>
+                        <span className="font-black">€{totalPrice.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-b-xl flex items-center justify-between sticky bottom-0 border-t border-slate-200 dark:border-slate-700">
+                <button
+                  onClick={() => setShowOptionApprovalModal(false)}
+                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                >
+                  Annuleren
+                </button>
+                <button
+                  onClick={handleApproveOption}
+                  disabled={isProcessingApproval || !approvalArrangement}
+                  className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 text-white rounded-lg font-bold text-sm transition-colors flex items-center gap-2"
+                >
+                  {isProcessingApproval ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Bezig...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-5 h-5" />
+                      Optie Goedkeuren (€{totalPrice.toFixed(2)})
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
+
+
+
 

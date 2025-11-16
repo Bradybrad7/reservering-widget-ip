@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Calendar as CalendarIcon, Plus, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar as CalendarIcon, Plus, AlertCircle, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { SlideOutPanel } from './SlideOutPanel';
 import { 
   startOfMonth, 
@@ -26,15 +26,16 @@ interface BulkEventModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  preSelectedDates?: Date[]; // Optional: pre-selected dates from calendar multi-select
 }
 
-export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose, onSuccess }) => {
+export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose, onSuccess, preSelectedDates }) => {
   const { eventTypesConfig, loadConfig } = useConfigStore();
   const { events: existingEvents, loadEvents, shows, loadShows } = useEventsStore();
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDates, setSelectedDates] = useState<Date[]>([]);
-  const [eventType, setEventType] = useState<EventType>('REGULAR');
+  const [selectedDates, setSelectedDates] = useState<Date[]>(preSelectedDates || []);
+  const [eventType, setEventType] = useState<EventType>('');
   const [doorsOpen, setDoorsOpen] = useState('19:00');
   const [startsAt, setStartsAt] = useState('20:00');
   const [endsAt, setEndsAt] = useState('22:30');
@@ -56,6 +57,18 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
     };
     loadAll();
   }, [loadConfig, loadEvents, loadShows]);
+  
+  // Update selectedDates when preSelectedDates changes
+  useEffect(() => {
+    if (preSelectedDates && preSelectedDates.length > 0) {
+      console.log('📅 BulkEventModal - Received pre-selected dates:', preSelectedDates.length, 'dates', preSelectedDates);
+      setSelectedDates(preSelectedDates);
+      // Set current month to first selected date for better UX
+      if (preSelectedDates[0]) {
+        setCurrentMonth(preSelectedDates[0]);
+      }
+    }
+  }, [preSelectedDates]);
   
   // Set default show when shows are loaded
   useEffect(() => {
@@ -80,13 +93,13 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
 
   // 🆕 Set default event type to first enabled type
   useEffect(() => {
-    if (enabledEventTypes.length > 0 && eventType === 'REGULAR') {
-      // Only set if we're still on the hardcoded default
+    if (enabledEventTypes.length > 0 && !eventType) {
+      // Set to first enabled type if not set yet
       const firstType = enabledEventTypes[0];
       console.log(`🎯 BulkEventModal - Setting default event type to: ${firstType.key}`);
       setEventType(firstType.key as EventType);
     }
-  }, [enabledEventTypes]);
+  }, [enabledEventTypes, eventType]);
 
   // Auto-update times and pricing when event type changes
   useEffect(() => {

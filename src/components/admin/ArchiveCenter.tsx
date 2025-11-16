@@ -23,7 +23,8 @@ import {
   ArrowDownCircle,
   TrendingUp,
   FileText,
-  XCircle
+  XCircle,
+  Trash2
 } from 'lucide-react';
 import type { ArchivedRecord } from '../../types';
 import { formatCurrency, formatDate, cn } from '../../utils';
@@ -52,6 +53,39 @@ export const ArchiveCenter: React.FC<ArchiveCenterProps> = ({ onSelectArchive })
   useEffect(() => {
     loadArchives();
   }, []);
+
+  const handleDeleteArchive = async (archiveId: string) => {
+    const confirmed = window.confirm(
+      'Weet je zeker dat je dit archief permanent wilt verwijderen?\n\nDit kan NIET ongedaan worden gemaakt!'
+    );
+    
+    if (!confirmed) return;
+
+    try {
+      setIsLoading(true);
+      const response = await apiService.deleteReservation(archiveId);
+      
+      if (response.success) {
+        // Remove from local state
+        setArchives(prev => prev.filter(a => a.id !== archiveId));
+        
+        // Close detail modal if this archive was selected
+        if (selectedArchive?.id === archiveId) {
+          setSelectedArchive(null);
+        }
+        
+        // Show success message (you can add toast notification here)
+        alert('Archief succesvol verwijderd');
+      } else {
+        alert('Fout bij verwijderen: ' + (response.error || 'Onbekende fout'));
+      }
+    } catch (error) {
+      console.error('Error deleting archive:', error);
+      alert('Er is een fout opgetreden bij het verwijderen');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const loadArchives = async () => {
     try {
@@ -670,13 +704,26 @@ export const ArchiveCenter: React.FC<ArchiveCenterProps> = ({ onSelectArchive })
                       {archive.archiveReason}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => handleSelectArchive(archive)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gold-600 hover:bg-gold-700 text-black rounded-lg text-sm font-medium transition-colors"
-                      >
-                        <Eye className="w-4 h-4" />
-                        Bekijken
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleSelectArchive(archive)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gold-600 hover:bg-gold-700 text-black rounded-lg text-sm font-medium transition-colors"
+                        >
+                          <Eye className="w-4 h-4" />
+                          Bekijken
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteArchive(archive.id);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
+                          title="Permanent verwijderen"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Verwijderen
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

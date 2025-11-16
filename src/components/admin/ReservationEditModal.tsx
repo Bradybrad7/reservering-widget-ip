@@ -447,6 +447,18 @@ export const ReservationEditModal: React.FC<ReservationEditModalProps> = ({
         updatedAt: new Date()
       };
       
+      // 🔧 FIX: Ensure firstName and lastName are always set
+      // If they're empty but contactPerson exists, split contactPerson
+      if ((!baseUpdateData.firstName || !baseUpdateData.lastName) && baseUpdateData.contactPerson) {
+        const parts = baseUpdateData.contactPerson.trim().split(' ');
+        if (!baseUpdateData.firstName) {
+          baseUpdateData.firstName = parts[0] || '';
+        }
+        if (!baseUpdateData.lastName && parts.length > 1) {
+          baseUpdateData.lastName = parts.slice(1).join(' ');
+        }
+      }
+      
       // ✨ Als we een optie converteren, wijzig status naar 'confirmed' en verwijder optie velden
       const updateData: Partial<Reservation> = isConvertingOption ? {
         ...baseUpdateData,

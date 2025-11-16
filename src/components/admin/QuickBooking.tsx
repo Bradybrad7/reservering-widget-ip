@@ -109,12 +109,17 @@ export const QuickBooking: React.FC<QuickBookingProps> = ({ onClose }) => {
         ? new Date(optionPlacedAt.getTime() + 7 * 24 * 60 * 60 * 1000) // +7 dagen
         : undefined;
 
+      // 🔧 Split contactPerson into firstName and lastName
+      const nameParts = contactPerson.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+      
       const reservationData = {
         eventId: selectedEvent.id,
         eventDate: selectedEvent.date,
         salutation: '',
-        firstName: contactPerson.split(' ')[0] || '',
-        lastName: contactPerson.split(' ').slice(1).join(' ') || '',
+        firstName,
+        lastName,
         contactPerson,
         phone,
         phoneCountryCode,

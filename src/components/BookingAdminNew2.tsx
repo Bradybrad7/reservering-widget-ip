@@ -4,7 +4,6 @@ import { AdminLayoutNew } from './admin/AdminLayoutNew';
 import { DashboardModernV3 } from './admin/DashboardModernV3'; // ✨ V3 Enterprise Dashboard
 import { ReservationsManager } from './admin/ReservationsWorkbench'; // ✨ Reserveringen Beheer
 import { EventWorkshop } from './admin/EventWorkshop';
-import { AgendaBeheer } from './admin/AgendaBeheer';
 import { CalendarManager } from './admin/CalendarManager';
 import { CustomerManagerEnhanced } from './admin/CustomerManagerEnhanced';
 import { ProductsManager } from './admin/ProductsManager';
@@ -63,11 +62,6 @@ const BookingAdminNew: React.FC<BookingAdminProps> = () => {
       // Complete reserveringen beheer met filtering, capaciteit management en volledige bewerking
       case 'operations':
         return <ReservationsDashboard />;
-
-      // ✨ AGENDA BEHEER (Nov 2025)
-      // Complete event & calendar management - Volledig nieuwe moderne interface
-      case 'agenda':
-        return <AgendaBeheer />;
 
       // Calendar Management - Kalender sync met boekingspagina + bulk toevoegen
       case 'calendar':

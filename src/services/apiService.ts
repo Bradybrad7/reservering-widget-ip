@@ -425,20 +425,29 @@ export const apiService = {
         eventDate: event.date,
         totalPrice: priceCalculation.totalPrice,
         pricingSnapshot, // ✨ CRITICAL: Store pricing snapshot at time of booking
-        status: 'pending', // Awaiting admin review and confirmation
+        // 🔧 NEW: Preserve status if already set (e.g., 'option'), otherwise 'pending'
+        status: (formData as any).status || 'pending',
         requestedOverCapacity, // Flag for admin review
         isWaitlist: false, // Deprecated in favor of status management
-        tags: autoTags, // ✨ NEW: Auto-generated tags for celebration and merchandise
+        // 🔧 NEW: Merge auto-generated tags with manual tags (preserve OPTIE tag, etc.)
+        tags: [...(autoTags || []), ...((formData as any).tags || [])].filter((v, i, a) => a.indexOf(v) === i), // Remove duplicates
         createdAt: new Date(),
         updatedAt: new Date(),
         // ✨ NEW: Payment fields (October 2025) - Set to empty strings instead of undefined
-        paymentStatus: 'pending',
+        paymentStatus: (formData as any).status === 'option' ? 'not_applicable' : 'pending',
         invoiceNumber: '',
         paymentMethod: '',
         paymentNotes: ''
         // paymentReceivedAt and paymentDueDate are NOT set (undefined would break Firestore)
         // These will be added by admin later when processing payment
       };
+
+      // 🔥 CRITICAL: Remove all undefined values (Firestore doesn't accept undefined)
+      Object.keys(reservationData).forEach(key => {
+        if (reservationData[key] === undefined) {
+          delete reservationData[key];
+        }
+      });
 
       // Add reservation to Firestore and get back the saved reservation with generated ID
       const reservation = await storageService.addReservation(reservationData);

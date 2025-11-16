@@ -56,9 +56,25 @@ export const WalkInModal: React.FC<WalkInModalProps> = ({
         totalPrice: 0,
         status: 'confirmed',
         eventDate: event.date,
+        // 🔧 Split contactPerson into firstName and lastName
+      const nameParts = formData.contactPerson.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+      
+      walkIn = {
+        eventId: event.id,
+        contactPerson: formData.contactPerson,
+        companyName: formData.companyName || undefined,
+        email: formData.email,
+        phone: formData.phone || undefined,
+        numberOfPersons: formData.numberOfPersons,
+        arrangement: 'Standard',
+        totalPrice: 0,
+        status: 'confirmed',
+        eventDate: event.date,
         // Required fields for form data
-        firstName: formData.contactPerson.split(' ')[0] || '',
-        lastName: formData.contactPerson.split(' ').slice(1).join(' ') || '',
+        firstName,
+        lastName,
         salutation: '',
         address: '',
         houseNumber: '',

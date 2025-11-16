@@ -1,14 +1,15 @@
 /**
- * ✨ DASHBOARD MODERN V3 - ENTERPRISE EDITION
+ * ✨ DASHBOARD MODERN V4 - OPERATIONS EDITION
  * 
- * Volledig opnieuw ontworpen dashboard met:
- * - Priority Inbox Widget
- * - Capacity Gauge Widget
- * - Revenue Chart Widget
- * - Timeline Widget
- * - Activity Feed Widget
- * - Dashboard Presets (Host/Manager/Owner mode)
- * - Drag & Drop personalisatie
+ * Volledig vernieuwde dashboard met focus op operationele informatie:
+ * - Quick Stats Widget (belangrijkste metrics)
+ * - Pending Reservations Widget (opties die actie vereisen)
+ * - New Reservations Widget (nieuwe boekingen)
+ * - Event Capacity Widget (event bezetting)
+ * - Activity Feed Widget (recente activiteit)
+ * - Upcoming Events Widget (komende shows)
+ * 
+ * Geen financiële info - volledig gefocust op operationele workflows
  */
 
 import React, { useState } from 'react';
@@ -22,12 +23,15 @@ import {
 } from 'lucide-react';
 import { cn } from '../../utils';
 
-// Import nieuwe V3 widgets
-import { PriorityInboxWidget } from './widgets/PriorityInboxWidget';
-import { CapacityGaugeWidget } from './widgets/CapacityGaugeWidget';
-import { RevenueChartWidget } from './widgets/RevenueChartWidget';
-import { TimelineWidget } from './widgets/TimelineWidget';
+// Import nieuwe V4 operational widgets
+import { QuickStatsWidget } from './widgets/QuickStatsWidget';
+import { PendingReservationsWidget } from './widgets/PendingReservationsWidget';
+import { NewReservationsWidget } from './widgets/NewReservationsWidget';
+import { EventCapacityWidget } from './widgets/EventCapacityWidget';
 import { ActivityFeedWidget } from './widgets/ActivityFeedWidget';
+import { UpcomingEventsWidget } from './widgets/UpcomingEventsWidget';
+import { TodayCheckInsWidget } from './widgets/TodayCheckInsWidget';
+import { WaitlistHotlistWidget } from './widgets/WaitlistHotlistWidget';
 
 // Dashboard preset types
 type DashboardPreset = 'host' | 'manager' | 'owner' | 'custom';
@@ -45,25 +49,25 @@ const PRESETS: PresetConfig[] = [
   {
     id: 'host',
     label: 'Host Mode',
-    description: 'Focus op check-in, timeline en vandaag\'s events',
+    description: 'Focus op check-ins en vandaag\'s events',
     icon: User,
-    widgets: ['timeline', 'priority-inbox', 'activity-feed'],
+    widgets: ['quick-stats', 'today-checkins', 'upcoming-events', 'activity-feed'],
     layout: 'grid'
   },
   {
     id: 'manager',
     label: 'Manager Mode',
-    description: 'Focus op priority inbox, revenue en wachtlijst',
+    description: 'Focus op reservaties en event management',
     icon: Briefcase,
-    widgets: ['priority-inbox', 'capacity-gauge', 'revenue-chart', 'activity-feed'],
+    widgets: ['quick-stats', 'pending-reservations', 'new-reservations', 'event-capacity', 'activity-feed'],
     layout: 'grid'
   },
   {
     id: 'owner',
     label: 'Owner Mode',
-    description: 'High-level KPIs, revenue en capacity trends',
+    description: 'Volledig overzicht van alle operaties',
     icon: Crown,
-    widgets: ['revenue-chart', 'capacity-gauge', 'timeline', 'activity-feed', 'priority-inbox'],
+    widgets: ['quick-stats', 'pending-reservations', 'new-reservations', 'event-capacity', 'upcoming-events', 'waitlist-hotlist', 'activity-feed'],
     layout: 'grid'
   }
 ];
@@ -77,16 +81,22 @@ export const DashboardModernV3: React.FC = () => {
   // Render widget based on ID
   const renderWidget = (widgetId: string) => {
     switch (widgetId) {
-      case 'priority-inbox':
-        return <PriorityInboxWidget />;
-      case 'capacity-gauge':
-        return <CapacityGaugeWidget />;
-      case 'revenue-chart':
-        return <RevenueChartWidget />;
-      case 'timeline':
-        return <TimelineWidget />;
+      case 'quick-stats':
+        return <QuickStatsWidget />;
+      case 'pending-reservations':
+        return <PendingReservationsWidget />;
+      case 'new-reservations':
+        return <NewReservationsWidget />;
+      case 'event-capacity':
+        return <EventCapacityWidget />;
       case 'activity-feed':
         return <ActivityFeedWidget />;
+      case 'upcoming-events':
+        return <UpcomingEventsWidget />;
+      case 'today-checkins':
+        return <TodayCheckInsWidget />;
+      case 'waitlist-hotlist':
+        return <WaitlistHotlistWidget />;
       default:
         return null;
     }
@@ -204,10 +214,14 @@ export const DashboardModernV3: React.FC = () => {
           {currentPreset.widgets.map((widgetId, index) => {
             // Special sizing for certain widgets
             const getGridClass = () => {
-              if (widgetId === 'priority-inbox') return 'lg:col-span-2';
-              if (widgetId === 'timeline') return 'lg:row-span-2';
+              if (widgetId === 'quick-stats') return 'lg:col-span-3';
+              if (widgetId === 'pending-reservations') return 'lg:col-span-2';
+              if (widgetId === 'new-reservations') return 'lg:col-span-2';
+              if (widgetId === 'event-capacity') return 'lg:col-span-2';
               if (widgetId === 'activity-feed') return 'lg:col-span-2 xl:col-span-1';
-              if (widgetId === 'revenue-chart') return 'lg:col-span-2';
+              if (widgetId === 'upcoming-events') return 'lg:col-span-1';
+              if (widgetId === 'today-checkins') return 'lg:col-span-2';
+              if (widgetId === 'waitlist-hotlist') return 'lg:col-span-1';
               return '';
             };
 

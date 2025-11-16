@@ -96,6 +96,7 @@ export interface Payment {
   reference?: string;            // Transactie-ID, factuurnummer, voucher-code
   note?: string;                 // Interne notitie over deze betaling
   processedBy?: string;          // Admin die betaling registreerde
+  category?: 'arrangement' | 'merchandise' | 'full' | 'other'; // 🆕 Voor deelbetalingen
 }
 
 // Refund Reasons
@@ -130,6 +131,21 @@ export interface PaymentTransaction {
   notes?: string;
   processedBy?: string;
   referenceNumber?: string;
+}
+
+// 💰 Payment Summary - Berekende betalingsstatus
+export interface PaymentSummary {
+  totalPrice: number;           // Totale prijs van reservering
+  totalPaid: number;            // Som van alle payments
+  totalRefunded: number;        // Som van alle refunds
+  balance: number;              // Restbedrag: totalPrice - totalPaid + totalRefunded
+  netRevenue: number;           // Netto inkomsten: totalPaid - totalRefunded
+  status: 'unpaid' | 'partial' | 'paid' | 'overpaid' | 'overdue';
+  dueDate?: Date;               // Wanneer moet betaald zijn
+  daysUntilDue?: number;        // Aantal dagen tot deadline (negatief = te laat)
+  isOverdue: boolean;           // Is de deadline verstreken?
+  payments: Payment[];          // Alle betalingen
+  refunds: Refund[];            // Alle restituties
 }
 
 // Wizard step types
@@ -845,9 +861,8 @@ export interface EmailReminderConfig {
 export type AdminSection = 
   | 'dashboard'      // Home overview
   | 'operations'     // 🆕 RESERVERINGEN - Unified hub for reservations, waitlist, customers, payments
-  | 'agenda'         // 🆕 AGENDA BEHEER - Complete event & calendar management (all event functionality)
-  | 'calendar'       // 🆕 CALENDAR MANAGER - Kalender sync met boekingspagina + bulk toevoegen + wachtlijst beheer
-  | 'events'         // All event management (tabs: overview, calendar, templates, shows, types) - DEPRECATED: use 'agenda' or 'calendar'
+  | 'calendar'       // 🆕 CALENDAR MANAGER - Kalender sync met boekingspagina + bulk toevoegen + wachtlijst beheer (replaces agenda & events)
+  | 'events'         // DEPRECATED: use 'calendar'
   | 'reservations'   // All reservations with filter tabs (all, pending, confirmed, cancelled) - DEPRECATED: use 'operations'
   | 'waitlist'       // Waitlist management (separate workflow) - DEPRECATED: use 'operations'
   | 'payments'       // Payment overview & deadline management - DEPRECATED: use 'operations'
