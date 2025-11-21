@@ -232,6 +232,11 @@ export const ReservationsDashboard: React.FC = () => {
   const [approvalNotes, setApprovalNotes] = useState('');
   const [isProcessingApproval, setIsProcessingApproval] = useState(false);
 
+  // ✨ NEW: Merge Reservations Modal State (November 2025)
+  const [showMergeModal, setShowMergeModal] = useState(false);
+  const [mergePrimaryId, setMergePrimaryId] = useState<string>('');
+  const [isProcessingMerge, setIsProcessingMerge] = useState(false);
+
   // Get selected reservation data
   const selectedReservation = selectedReservationId 
     ? reservations.find(r => r.id === selectedReservationId) 
@@ -659,6 +664,71 @@ export const ReservationsDashboard: React.FC = () => {
       setSelectedReservationIds(new Set());
     } catch (error) {
       showError('Fout bij afwijzen van reserveringen');
+    }
+  };
+
+  // ✨ NEW: Open merge modal (November 2025)
+  const handleOpenMergeModal = () => {
+    if (selectedReservationIds.size < 2) {
+      showError('Selecteer minimaal 2 reserveringen om samen te voegen');
+      return;
+    }
+
+    // Validate: All must be for the same event
+    const selectedReservations = reservations.filter(r => selectedReservationIds.has(r.id));
+    const firstEventId = selectedReservations[0]?.eventId;
+    const allSameEvent = selectedReservations.every(r => r.eventId === firstEventId);
+
+    if (!allSameEvent) {
+      showError('Alle reserveringen moeten voor hetzelfde event zijn');
+      return;
+    }
+
+    // Default to first selected as primary
+    setMergePrimaryId(Array.from(selectedReservationIds)[0]);
+    setShowMergeModal(true);
+  };
+
+  // ✨ NEW: Execute merge (November 2025)
+  const handleMergeReservations = async () => {
+    if (!mergePrimaryId || selectedReservationIds.size < 2) return;
+
+    const secondaryIds = Array.from(selectedReservationIds).filter(id => id !== mergePrimaryId);
+
+    if (secondaryIds.length === 0) {
+      showError('Selecteer ten minste één secundaire reservering');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Weet je zeker dat je ${secondaryIds.length} reservering(en) wilt samenvoegen in ${mergePrimaryId}?\n\n` +
+      `De secundaire reserveringen worden geannuleerd en alle gegevens (gasten, notities, merchandise) worden samengevoegd.`
+    );
+    
+    if (!confirmed) return;
+
+    setIsProcessingMerge(true);
+    try {
+      const { mergeReservations } = useReservationsStore.getState();
+      const success = await mergeReservations(mergePrimaryId, secondaryIds);
+
+      if (success) {
+        showSuccess(
+          `✅ ${secondaryIds.length + 1} reserveringen samengevoegd!`,
+          `Alle gegevens zijn gecombineerd in ${mergePrimaryId}`
+        );
+        setShowMergeModal(false);
+        setSelectedReservationIds(new Set());
+        await loadReservations();
+        await loadEvents();
+      } else {
+        showError('Samenvoegen mislukt', 'Probeer het opnieuw');
+      }
+    } catch (error) {
+      console.error('Merge error:', error);
+      showError('Fout bij samenvoegen', error instanceof Error ? error.message : 'Onbekende fout');
+    } finally {
+      setIsProcessingMerge(false);
     }
   };
 
@@ -1497,8 +1567,8 @@ export const ReservationsDashboard: React.FC = () => {
       }
 
       // Send email based on current status
-      const { modernEmailService } = await import('../../services/modernEmailService');
-      await modernEmailService.sendByStatus(
+      const { emailService } = await import('../../services/emailService');
+      await emailService.sendByStatus(
         reservation, 
         event, 
         false,
@@ -4276,6 +4346,14 @@ export const ReservationsDashboard: React.FC = () => {
                         💰 Markeer als Betaald
                       </button>
                       <button
+                        onClick={handleOpenMergeModal}
+                        disabled={selectedReservationIds.size < 2}
+                        className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={selectedReservationIds.size < 2 ? 'Selecteer minimaal 2 reserveringen' : 'Voeg reserveringen samen'}
+                      >
+                        🔗 Samenvoegen
+                      </button>
+                      <button
                         onClick={handleBulkReject}
                         className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
                       >
@@ -6406,6 +6484,190 @@ export const ReservationsDashboard: React.FC = () => {
                     <>
                       <CheckCircle2 className="w-5 h-5" />
                       Optie Goedkeuren (€{totalPrice.toFixed(2)})
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ✨ NEW: Merge Reservations Modal (November 2025) */}
+      {showMergeModal && (() => {
+        const selectedReservations = reservations.filter(r => selectedReservationIds.has(r.id));
+        const primaryReservation = selectedReservations.find(r => r.id === mergePrimaryId);
+        const secondaryReservations = selectedReservations.filter(r => r.id !== mergePrimaryId);
+        
+        const totalPersons = selectedReservations.reduce((sum, r) => sum + r.numberOfPersons, 0);
+        const totalPrice = selectedReservations.reduce((sum, r) => sum + r.totalPrice, 0);
+        
+        return (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-6 text-white">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                      <span className="text-2xl">🔗</span>
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-black">Reserveringen Samenvoegen</h2>
+                      <p className="text-purple-100 text-sm mt-1">
+                        Combineer {selectedReservations.length} reserveringen in één
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowMergeModal(false)}
+                    className="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center transition-colors"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* Primary Selection */}
+                <div>
+                  <label className="block text-sm font-black text-slate-700 dark:text-slate-300 mb-3">
+                    📍 Primaire Reservering (Behoudt ID):
+                  </label>
+                  <select
+                    value={mergePrimaryId}
+                    onChange={(e) => setMergePrimaryId(e.target.value)}
+                    className="w-full px-4 py-3 bg-purple-50 dark:bg-purple-900/20 border-2 border-purple-300 dark:border-purple-700 rounded-lg text-slate-900 dark:text-white font-semibold"
+                  >
+                    {selectedReservations.map(r => (
+                      <option key={r.id} value={r.id}>
+                        {r.id} - {r.contactPerson} ({r.numberOfPersons} personen) - €{r.totalPrice.toFixed(2)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Reservations Overview */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-black text-slate-700 dark:text-slate-300 mb-2">
+                    📋 Te Samenvoegen Reserveringen:
+                  </h3>
+                  
+                  {selectedReservations.map(r => (
+                    <div
+                      key={r.id}
+                      className={cn(
+                        "p-4 rounded-xl border-2 transition-all",
+                        r.id === mergePrimaryId
+                          ? "bg-purple-50 dark:bg-purple-900/20 border-purple-500"
+                          : "bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-600"
+                      )}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            {r.id === mergePrimaryId && (
+                              <span className="px-2 py-0.5 bg-purple-500 text-white text-xs font-bold rounded">
+                                PRIMAIR
+                              </span>
+                            )}
+                            <span className="font-mono text-sm font-bold text-slate-900 dark:text-white">
+                              {r.id}
+                            </span>
+                          </div>
+                          <p className="text-base font-semibold text-slate-900 dark:text-white">
+                            {r.contactPerson}
+                          </p>
+                          <p className="text-sm text-slate-600 dark:text-slate-400">
+                            {r.email} • {r.phone}
+                          </p>
+                          {r.comments && (
+                            <p className="text-xs text-slate-500 dark:text-slate-500 mt-2 line-clamp-2">
+                              💬 {r.comments}
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-black text-slate-900 dark:text-white">
+                            {r.numberOfPersons} 👤
+                          </p>
+                          <p className="text-sm text-slate-600 dark:text-slate-400">
+                            €{r.totalPrice.toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Merge Summary */}
+                <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl p-6 text-white">
+                  <h3 className="font-black text-lg mb-4">📊 Resultaat Na Samenvoegen</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-purple-100">Totaal Gasten:</span>
+                      <span className="text-2xl font-black">{totalPersons} personen</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-purple-100">Totaal Prijs:</span>
+                      <span className="text-2xl font-black">€{totalPrice.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-purple-100">Primaire ID:</span>
+                      <span className="font-mono font-bold">{mergePrimaryId}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-purple-100">Secundaire IDs:</span>
+                      <span className="text-sm">
+                        {secondaryReservations.map(r => r.id).join(', ')} <span className="text-purple-200">(geannuleerd)</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Warning */}
+                <div className="bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-300 dark:border-orange-700 rounded-xl p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                      ⚠️
+                    </div>
+                    <div className="flex-1 text-sm">
+                      <p className="font-bold text-orange-900 dark:text-orange-100 mb-2">
+                        Let Op:
+                      </p>
+                      <ul className="space-y-1 text-orange-800 dark:text-orange-200">
+                        <li>• Alle gasten, notities, merchandise en vieringen worden samengevoegd</li>
+                        <li>• Secundaire reserveringen worden geannuleerd met merge notitie</li>
+                        <li>• Deze actie kan niet ongedaan worden gemaakt</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="bg-slate-50 dark:bg-slate-800 p-4 flex items-center justify-between border-t border-slate-200 dark:border-slate-700">
+                <button
+                  onClick={() => setShowMergeModal(false)}
+                  disabled={isProcessingMerge}
+                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                >
+                  Annuleren
+                </button>
+                <button
+                  onClick={handleMergeReservations}
+                  disabled={isProcessingMerge || !mergePrimaryId}
+                  className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:from-slate-300 disabled:to-slate-300 text-white rounded-lg font-bold text-sm transition-all flex items-center gap-2 shadow-lg"
+                >
+                  {isProcessingMerge ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Bezig met Samenvoegen...
+                    </>
+                  ) : (
+                    <>
+                      🔗 Samenvoegen ({secondaryReservations.length + 1} → 1)
                     </>
                   )}
                 </button>

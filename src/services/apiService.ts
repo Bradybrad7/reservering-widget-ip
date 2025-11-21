@@ -85,6 +85,62 @@ function generateAutoTags(formData: CustomerFormData): any[] {
   return tags;
 }
 
+/**
+ * ⚠️ NEW: Check for overlapping bookings (potential double bookings)
+ * Detects if same contact person has multiple bookings for the same event
+ */
+interface OverlapWarning {
+  hasOverlap: boolean;
+  overlappingReservations: Reservation[];
+  message?: string;
+}
+
+async function checkOverlappingBookings(
+  eventId: string, 
+  email: string, 
+  phone: string,
+  contactPerson: string
+): Promise<OverlapWarning> {
+  try {
+    const allReservations = await storageService.getReservations();
+    
+    // Find existing reservations for this event with matching contact details
+    const overlapping = allReservations.filter(r => {
+      // Must be same event
+      if (r.eventId !== eventId) return false;
+      
+      // Must be active status (not cancelled/rejected)
+      if (r.status === 'cancelled' || r.status === 'rejected') return false;
+      
+      // Check for matching contact details (email, phone, or contact person)
+      const emailMatch = email && r.email?.toLowerCase() === email.toLowerCase();
+      const phoneMatch = phone && r.phone === phone;
+      const nameMatch = contactPerson && r.contactPerson?.toLowerCase() === contactPerson.toLowerCase();
+      
+      return emailMatch || phoneMatch || nameMatch;
+    });
+    
+    if (overlapping.length > 0) {
+      const totalPersons = overlapping.reduce((sum, r) => sum + (r.numberOfPersons || 0), 0);
+      return {
+        hasOverlap: true,
+        overlappingReservations: overlapping,
+        message: `⚠️ Mogelijk dubbele boeking gedetecteerd!\n\n` +
+          `${overlapping.length} bestaande reservering(en) gevonden voor dezelfde persoon/contact bij dit event:\n` +
+          overlapping.map(r => 
+            `- ${r.contactPerson} (${r.numberOfPersons} personen) - Status: ${r.status}`
+          ).join('\n') +
+          `\n\nTotaal al geboekt: ${totalPersons} personen`
+      };
+    }
+    
+    return { hasOverlap: false, overlappingReservations: [] };
+  } catch (error) {
+    console.error('Error checking overlapping bookings:', error);
+    return { hasOverlap: false, overlappingReservations: [] };
+  }
+}
+
 // Utility functions
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -407,6 +463,35 @@ export const apiService = {
         pricingSnapshot.voucherAmount = priceCalculation.discountAmount;
       }
       
+      // ⚠️ NEW: Check for overlapping bookings (double booking detection)
+      // Skip check if explicitly bypassed (admin override)
+      const bypassOverlapCheck = (formData as any).bypassOverlapCheck === true;
+      
+      if (!bypassOverlapCheck) {
+        const overlapCheck = await checkOverlappingBookings(
+          eventId, 
+          formData.email, 
+          formData.phone || '', 
+          formData.contactPerson || ''
+        );
+        
+        // Return overlap warning to client - they can decide whether to proceed
+        if (overlapCheck.hasOverlap) {
+          console.warn('⚠️ Overlapping booking detected:', overlapCheck.message);
+          // Return special response with overlap data
+          return {
+            success: false,
+            error: overlapCheck.message || 'Mogelijk dubbele boeking gedetecteerd',
+            data: {
+              overlapWarning: overlapCheck,
+              canProceed: true // Client can choose to proceed anyway
+            } as any
+          };
+        }
+      } else {
+        console.log('ℹ️ Overlap check bypassed (admin override)');
+      }
+      
       // ✨ NEW: Determine if booking is over current available capacity
       const currentRemaining = event.remainingCapacity ?? 0;
       const requestedOverCapacity = formData.numberOfPersons > currentRemaining;
@@ -493,13 +578,32 @@ export const apiService = {
           console.log('📧 [API] Created mock event for email:', event.id);
         }
         
-        // ✨ ALWAYS TRY TO SEND EMAIL - Don't let missing events stop emails
-        console.log('📧 [API] Calling emailService.sendReservationConfirmation...');
-        console.log('📧 [API] Reservation:', { id: reservation.id, email: reservation.email });
+        // ✨ IMPROVED: Send different emails based on reservation status
+        console.log('📧 [API] Preparing email notification...');
+        console.log('📧 [API] Reservation:', { id: reservation.id, email: reservation.email, status: reservation.status });
         console.log('📧 [API] Event:', { id: event.id, date: event.date });
         
-        // Send both admin and customer emails
-        const emailResult = await emailService.sendReservationConfirmation(reservation, event);
+        // Choose email type based on initial status
+        let emailResult;
+        if (reservation.status === 'pending') {
+          // NEW BOOKING - Send "Request Received" email (pending approval)
+          console.log('📧 [API] Sending REQUEST RECEIVED email (pending status)...');
+          const { emailService } = await import('./emailService');
+          emailResult = await emailService.sendPending(reservation, event);
+        } else if (reservation.status === 'confirmed') {
+          // DIRECTLY CONFIRMED - Send confirmation email (rare, usually manual bookings)
+          console.log('📧 [API] Sending CONFIRMATION email (directly confirmed)...');
+          emailResult = await emailService.sendReservationConfirmation(reservation, event);
+        } else if (reservation.status === 'option') {
+          // OPTION - Send option email
+          console.log('📧 [API] Sending OPTION email...');
+          const { emailService } = await import('./emailService');
+          emailResult = await emailService.sendOption(reservation, event);
+        } else {
+          // Fallback to confirmation email
+          console.log('📧 [API] Sending default confirmation email...');
+          emailResult = await emailService.sendReservationConfirmation(reservation, event);
+        }
         
         console.log('📧 [API] Email result:', emailResult);
         

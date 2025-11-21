@@ -50,6 +50,10 @@ const CompactManualBookingFormContent: React.FC<CompactManualBookingFormProps> =
   // State voor prijs override
   const [arrangementPricePerPerson, setArrangementPricePerPerson] = useState<number | null>(null);
   const [overrideReason, setOverrideReason] = useState('');
+  
+  // ⚠️ NEW: Overlap warning state
+  const [showOverlapWarning, setShowOverlapWarning] = useState(false);
+  const [overlapData, setOverlapData] = useState<any>(null);
 
   // Load events on mount
   useEffect(() => {
@@ -134,9 +138,14 @@ const CompactManualBookingFormContent: React.FC<CompactManualBookingFormProps> =
         comments: currentComments + metadataNote
       });
 
-      const result = await submitReservation();
+      // Call apiService directly to catch overlap errors
+      const { apiService } = await import('../../services/apiService');
+      const response = await apiService.submitReservation(
+        formData as any, 
+        selectedEvent.id
+      );
 
-      if (result) {
+      if (response.success && response.data) {
         success(
           '✅ Boeking aangemaakt!',
           `Handmatige reservering succesvol toegevoegd.`
@@ -153,11 +162,55 @@ const CompactManualBookingFormContent: React.FC<CompactManualBookingFormProps> =
             if (onClose) onClose();
           }, 1500);
         }
+      } else if ((response as any).data?.overlapWarning && (response as any).data?.canProceed) {
+        // ⚠️ Overlap warning detected
+        setOverlapData((response as any).data.overlapWarning);
+        setShowOverlapWarning(true);
       } else {
-        error('Reservering mislukt', 'Er is een fout opgetreden. Probeer het opnieuw.');
+        error('Reservering mislukt', response.error || 'Er is een fout opgetreden. Probeer het opnieuw.');
       }
-    } catch (err) {
-      handleApiError('Onverwachte fout opgetreden. Probeer het later opnieuw.');
+    } catch (err: any) {
+      handleApiError(err?.message || 'Onverwachte fout opgetreden. Probeer het later opnieuw.');
+    }
+  };
+
+  // ⚠️ NEW: Handle proceed despite overlap
+  const handleProceedWithOverlap = async () => {
+    setShowOverlapWarning(false);
+    
+    try {
+      // Set bypass flag in formData
+      const bypassFormData = { ...formData, bypassOverlapCheck: true };
+      
+      // Call apiService directly with bypass flag
+      const { apiService } = await import('../../services/apiService');
+      const response = await apiService.submitReservation(
+        bypassFormData as any, 
+        selectedEvent!.id
+      );
+      
+      if (response.success && response.data) {
+        success(
+          '✅ Boeking aangemaakt!',
+          `Handmatige reservering succesvol toegevoegd (overlap genegeerd).`
+        );
+
+        await loadReservations();
+        await loadEvents();
+
+        if (wizardMode && onComplete) {
+          setTimeout(() => onComplete(), 1000);
+        } else {
+          setTimeout(() => {
+            reset();
+            if (onClose) onClose();
+          }, 1500);
+        }
+      } else {
+        error('Reservering mislukt', response.error || 'Er is een fout opgetreden.');
+      }
+    } catch (err: any) {
+      handleApiError(err?.message || 'Fout bij aanmaken reservering.');
     }
   };
 
@@ -505,6 +558,67 @@ const CompactManualBookingFormContent: React.FC<CompactManualBookingFormProps> =
               </div>
               <h3 className="text-xl font-bold text-white mb-3">Reservering Aanmaken</h3>
               <p className="text-sm text-neutral-400">Een moment geduld alstublieft...</p>
+            </div>
+          </div>
+        )}
+
+        {/* ⚠️ NEW: Overlap Warning Modal */}
+        {showOverlapWarning && overlapData && (
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50 p-4">
+            <div className="bg-orange-900/20 border-2 border-orange-500 rounded-2xl p-8 max-w-lg mx-4 shadow-2xl">
+              <div className="flex items-start gap-4 mb-4">
+                <div className="flex-shrink-0 w-12 h-12 bg-orange-500/20 rounded-full flex items-center justify-center">
+                  <span className="text-2xl">⚠️</span>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-orange-400 mb-2">
+                    Mogelijk Dubbele Boeking
+                  </h3>
+                  <p className="text-white text-sm mb-4 whitespace-pre-line">
+                    {overlapData.message}
+                  </p>
+                  <div className="bg-orange-950/50 rounded-lg p-4 mb-4">
+                    <p className="text-orange-200 text-xs font-semibold mb-2">
+                      Bestaande reservering(en):
+                    </p>
+                    {overlapData.overlappingReservations?.map((r: any, i: number) => (
+                      <div key={i} className="text-orange-100 text-xs mb-1 flex items-center gap-2">
+                        <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
+                        <span className="font-mono">{r.id?.substring(0, 8)}</span>
+                        <span>-</span>
+                        <span>{r.contactPerson}</span>
+                        <span className="text-orange-300">({r.numberOfPersons}p)</span>
+                        <span className={cn(
+                          "px-2 py-0.5 rounded text-[10px] font-bold",
+                          r.status === 'confirmed' ? 'bg-green-500/20 text-green-300' :
+                          r.status === 'pending' ? 'bg-yellow-500/20 text-yellow-300' :
+                          'bg-blue-500/20 text-blue-300'
+                        )}>
+                          {r.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowOverlapWarning(false);
+                    setOverlapData(null);
+                  }}
+                  className="flex-1 px-4 py-3 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg font-bold text-sm transition-colors"
+                >
+                  Annuleren
+                </button>
+                <button
+                  onClick={handleProceedWithOverlap}
+                  className="flex-1 px-4 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-bold text-sm transition-colors shadow-lg"
+                >
+                  Toch Doorgaan
+                </button>
+              </div>
             </div>
           </div>
         )}

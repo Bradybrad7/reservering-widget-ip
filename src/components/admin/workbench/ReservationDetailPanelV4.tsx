@@ -909,9 +909,8 @@ const CommunicationTab: React.FC<CommunicationTabProps> = ({ reservation, onRefr
         return;
       }
 
-      // Import email services
+      // Import email service
       const { emailService } = await import('../../../services/emailService');
-      const { modernEmailService } = await import('../../../services/modernEmailService');
 
       let success = false;
       let message = '';
@@ -920,7 +919,7 @@ const CommunicationTab: React.FC<CommunicationTabProps> = ({ reservation, onRefr
       switch (emailType) {
         case 'current':
           // Send email based on current status
-          await modernEmailService.sendByStatus(
+          await emailService.sendByStatus(
             reservation, 
             event, 
             false,
@@ -933,7 +932,7 @@ const CommunicationTab: React.FC<CommunicationTabProps> = ({ reservation, onRefr
         case 'confirmation':
           // Force send confirmation email regardless of status
           const confirmedReservation = { ...reservation, status: 'confirmed' as const };
-          await modernEmailService.sendByStatus(confirmedReservation, event);
+          await emailService.sendByStatus(confirmedReservation, event);
           success = true;
           message = 'Bevestigingsmail opnieuw verstuurd';
           break;
@@ -941,7 +940,7 @@ const CommunicationTab: React.FC<CommunicationTabProps> = ({ reservation, onRefr
         case 'pending':
           // Force send pending email
           const pendingReservation = { ...reservation, status: 'pending' as const };
-          await modernEmailService.sendByStatus(pendingReservation, event);
+          await emailService.sendByStatus(pendingReservation, event);
           success = true;
           message = 'Aanvraag ontvangen mail opnieuw verstuurd';
           break;
@@ -950,7 +949,7 @@ const CommunicationTab: React.FC<CommunicationTabProps> = ({ reservation, onRefr
           // Force send rejection email
           const reason = reservation.rejectionReason || prompt('Reden voor afwijzing (optioneel):') || 'De gevraagde datum is helaas niet beschikbaar.';
           const rejectedReservation = { ...reservation, status: 'rejected' as const };
-          await modernEmailService.sendByStatus(rejectedReservation, event, false, reason);
+          await emailService.sendByStatus(rejectedReservation, event, false, reason);
           success = true;
           message = 'Afwijzingsmail opnieuw verstuurd';
           break;

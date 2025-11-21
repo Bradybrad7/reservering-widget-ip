@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useRef, useCallback } from 'react';
-import { useOperationsStore } from '../store/operationsStoreEnhanced';
+import { useOperationsStore } from '../store/operationsStore';
 import { useReservationsStore } from '../store/reservationsStore';
 import { useWaitlistStore } from '../store/waitlistStore';
 import { useEventsStore } from '../store/eventsStore';

@@ -52,10 +52,8 @@ export const ContactStep: React.FC = () => {
       value = capitalizeName(value);
     }
     
-    // Auto-capitalize company name
-    if (field === 'companyName' && typeof value === 'string') {
-      value = capitalizeCompanyName(value);
-    }
+    // Company name: allow free input without auto-capitalization
+    // Users can type company names with spaces as they prefer
     
     updateFormData({ [field]: value });
   };
@@ -134,6 +132,7 @@ export const ContactStep: React.FC = () => {
             className={cn(
               'w-full px-4 py-3 bg-dark-800/50 border-2 rounded-xl text-white transition-all duration-200 shadow-inner',
               'focus:outline-none focus:ring-2 focus:ring-gold-400/50',
+              '[&>option]:bg-dark-900 [&>option]:text-white',
               formErrors.salutation
                 ? 'border-red-500 focus:border-red-400'
                 : 'border-white/10 focus:border-gold-500'

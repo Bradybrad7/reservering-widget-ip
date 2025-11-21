@@ -27,11 +27,13 @@ import {
   ChevronUp,
   Euro,
   Hash,
-  QrCode
+  QrCode,
+  Eye
 } from 'lucide-react';
 import { useEventsStore } from '../../store/eventsStore';
 import { useReservationsStore } from '../../store/reservationsStore';
 import { CheckInCalendar } from './CheckInCalendar';
+import { ReservationDetailsModal } from './ReservationDetailsModal';
 import type { AdminEvent, Reservation } from '../../types';
 import { formatCurrency, formatDate, cn } from '../../utils';
 import { QRScanner } from './QRScanner';
@@ -44,7 +46,7 @@ export const HostCheckIn: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'checked-in'>('all');
-  const [expandedReservation, setExpandedReservation] = useState<string | null>(null);
+  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchMode, setSearchMode] = useState<'event' | 'global'>('event'); // NEW: search mode
   const [showCalendar, setShowCalendar] = useState(true); // NEW: calendar toggle - DEFAULT TRUE
@@ -148,6 +150,12 @@ export const HostCheckIn: React.FC = () => {
   const handleCheckIn = async (reservation: Reservation) => {
     await checkInReservation(reservation.id, 'Host');
     // Refresh is automatic via store
+  };
+
+  const handleStatusChange = async (reservationId: string, newStatus: Reservation['status']) => {
+    const { updateReservationStatus } = useReservationsStore.getState();
+    await updateReservationStatus(reservationId, newStatus);
+    setSelectedReservation(null); // Close modal after status change
   };
 
   const handleRefresh = async () => {
@@ -714,7 +722,6 @@ export const HostCheckIn: React.FC = () => {
             <div className="space-y-3">
               {eventReservations.map(reservation => {
               const isCheckedIn = reservation.status === 'checked-in';
-              const isExpanded = expandedReservation === reservation.id;
               
               return (
                 <div
@@ -790,15 +797,12 @@ export const HostCheckIn: React.FC = () => {
                     {/* Actions */}
                     <div className="flex items-center gap-3">
                       <button
-                        onClick={() => setExpandedReservation(isExpanded ? null : reservation.id)}
-                        className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-                        title="Toon details"
+                        onClick={() => setSelectedReservation(reservation)}
+                        className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center gap-2"
+                        title="Bekijk details"
                       >
-                        {isExpanded ? (
-                          <ChevronUp className="w-5 h-5 text-gray-400" />
-                        ) : (
-                          <ChevronDown className="w-5 h-5 text-gray-400" />
-                        )}
+                        <Eye className="w-4 h-4" />
+                        Details
                       </button>
                       
                       {!isCheckedIn && (
@@ -812,78 +816,6 @@ export const HostCheckIn: React.FC = () => {
                       )}
                     </div>
                   </div>
-
-                  {/* Expanded Details */}
-                  {isExpanded && (
-                    <div className="px-4 pb-4 border-t border-gray-700">
-                      <div className="grid grid-cols-2 gap-4 mt-4">
-                        <div className="space-y-3">
-                          <div>
-                            <div className="text-xs text-gray-400 mb-1">Reserveringsnummer</div>
-                            <div className="text-sm text-white font-mono">{reservation.id}</div>
-                          </div>
-                          {reservation.email && (
-                            <div>
-                              <div className="text-xs text-gray-400 mb-1">Email</div>
-                              <a 
-                                href={`mailto:${reservation.email}`}
-                                className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-2"
-                              >
-                                <Mail className="w-4 h-4" />
-                                {reservation.email}
-                              </a>
-                            </div>
-                          )}
-                          {reservation.phone && (
-                            <div>
-                              <div className="text-xs text-gray-400 mb-1">Telefoon</div>
-                              <a 
-                                href={`tel:${reservation.phone}`}
-                                className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-2"
-                              >
-                                <Phone className="w-4 h-4" />
-                                {reservation.phone}
-                              </a>
-                            </div>
-                          )}
-                        </div>
-                        <div className="space-y-3">
-                          <div>
-                            <div className="text-xs text-gray-400 mb-1">Arrangement</div>
-                            <div className="text-sm text-white">{reservation.arrangement}</div>
-                          </div>
-                          {reservation.comments && (
-                            <div>
-                              <div className="text-xs text-gray-400 mb-1">Opmerkingen</div>
-                              <div className="text-sm text-white">{reservation.comments}</div>
-                            </div>
-                          )}
-                          {reservation.dietaryRequirements && (
-                            <div>
-                              <div className="text-xs text-gray-400 mb-1">Dieetwensen</div>
-                              <div className="text-sm text-white space-y-1">
-                                {reservation.dietaryRequirements.vegetarian && (
-                                  <div>Vegetarisch: {reservation.dietaryRequirements.vegetarianCount || 1}</div>
-                                )}
-                                {reservation.dietaryRequirements.vegan && (
-                                  <div>Veganistisch: {reservation.dietaryRequirements.veganCount || 1}</div>
-                                )}
-                                {reservation.dietaryRequirements.glutenFree && (
-                                  <div>Glutenvrij: {reservation.dietaryRequirements.glutenFreeCount || 1}</div>
-                                )}
-                                {reservation.dietaryRequirements.lactoseFree && (
-                                  <div>Lactosevrij: {reservation.dietaryRequirements.lactoseFreeCount || 1}</div>
-                                )}
-                                {reservation.dietaryRequirements.other && (
-                                  <div>Overige: {reservation.dietaryRequirements.other}</div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               );
               })}
@@ -916,6 +848,16 @@ export const HostCheckIn: React.FC = () => {
             setShowQRScanner(false);
           }}
           onClose={() => setShowQRScanner(false)}
+        />
+      )}
+      
+      {/* Reservation Details Modal */}
+      {selectedReservation && (
+        <ReservationDetailsModal
+          reservation={selectedReservation}
+          event={events?.find(e => e.id === selectedReservation.eventId)}
+          onClose={() => setSelectedReservation(null)}
+          onStatusChange={(newStatus) => handleStatusChange(selectedReservation.id, newStatus)}
         />
       )}
     </div>

@@ -214,8 +214,8 @@ export const ReservationDetailPanel: React.FC<ReservationDetailPanelProps> = ({
       }
 
       // Send email based on current status
-      const { modernEmailService } = await import('../../../services/modernEmailService');
-      await modernEmailService.sendByStatus(
+      const { emailService } = await import('../../../services/emailService');
+      await emailService.sendByStatus(
         reservation, 
         event, 
         false,

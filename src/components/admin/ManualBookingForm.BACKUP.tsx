@@ -1,5 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { X, Phone, Check } from 'lucide-react';
+import { useReservationStore } from '../../store/reservationStore';
+import { useEventsStore } from '../../store/eventsStore';
 import { useReservationsStore } from '../../store/reservationsStore';
 import { ToastProvider, useToast, useFormErrorHandler } from '../Toast';
 import { StepIndicator } from '../StepIndicator';
@@ -8,8 +10,6 @@ import OrderSummary from '../OrderSummary';
 import { MobileSummaryBar } from '../MobileSummaryBar';
 import { cn } from '../../utils';
 import type { PrefilledContact } from '../../types';
-// ✨ NEW: Unified booking logic hook (November 2025 Refactoring)
-import { useBookingLogic } from '../../hooks/useBookingLogic';
 
 // Lazy load heavy components voor betere performance
 const Calendar = lazy(() => import('../Calendar'));
@@ -57,66 +57,85 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
   wizardMode = false,
   importMode = false
 }) => {
-  // ✨ REFACTORED: Use unified booking logic hook in ADMIN mode
-  const booking = useBookingLogic({
-    mode: 'admin',
-    adminOverrides: {
-      skipEmails: importMode,           // Don't send emails for imports
-      allowPriceOverride: importMode,   // Allow manual price for old bookings
-      importMode,                       // Special handling for imports
-      autoConfirm: false                // Admin must manually confirm
-    },
-    prefilledData: prefilledContact ? {
-      firstName: prefilledContact.firstName,
-      lastName: prefilledContact.lastName,
-      email: prefilledContact.email,
-      phone: prefilledContact.phone,
-      companyName: prefilledContact.companyName,
-      contactPerson: prefilledContact.firstName && prefilledContact.lastName
-        ? `${prefilledContact.firstName} ${prefilledContact.lastName}`
-        : undefined
-    } : undefined,
-    onComplete: (reservation) => {
-      success(
-        'Boeking aangemaakt!',
-        `Reservering ${reservation.id} succesvol opgeslagen`
-      );
-      onComplete?.();
-    },
-    onError: (err) => {
-      error('Fout bij opslaan', err.message);
-    }
-  });
+  const {
+    currentStep,
+    selectedEvent,
+    isSubmitting,
+    completedReservation,
+    formErrors,
+    formData,
+    priceCalculation,
+    submitReservation,
+    updateFormData,
+    goToNextStep,
+    goToPreviousStep,
+    setCurrentStep,
+    reset
+  } = useReservationStore();
 
+  const { loadEvents } = useEventsStore();
   const { loadReservations } = useReservationsStore();
-  const { error, success } = useToast();
+  const { error, success, addToast } = useToast();
   const { handleValidationErrors, handleApiError } = useFormErrorHandler();
+
+  const [isAdminMode] = useState(true); // Flag om admin-specifieke features te tonen
   
   // 💰 ARRANGEMENT PRIJS OVERRIDE - Per persoon prijs aanpassen voor oude boekingen
   const [showPriceOverride, setShowPriceOverride] = useState(importMode); // Auto-show voor imports
   const [arrangementPricePerPerson, setArrangementPricePerPerson] = useState<number | null>(null);
   const [overrideReason, setOverrideReason] = useState('');
 
-  // Note: Pre-fill is handled by the hook via prefilledData option
-  // Show toast when prefilled
+  // Pre-fill contact data wanneer beschikbaar
   useEffect(() => {
     if (prefilledContact) {
+      const updates: any = {};
+      
+      if (prefilledContact.firstName) updates.firstName = prefilledContact.firstName;
+      if (prefilledContact.lastName) updates.lastName = prefilledContact.lastName;
+      if (prefilledContact.email) updates.email = prefilledContact.email;
+      if (prefilledContact.phone) updates.phone = prefilledContact.phone;
+      if (prefilledContact.companyName) updates.companyName = prefilledContact.companyName;
+      
+      // Auto-fill contactPerson from firstName + lastName
+      if (prefilledContact.firstName && prefilledContact.lastName) {
+        updates.contactPerson = `${prefilledContact.firstName} ${prefilledContact.lastName}`;
+      }
+
+      updateFormData(updates);
+      
+      // Show toast om gebruiker te informeren
       success(
         'Gegevens ingevuld!',
         'Contactgegevens zijn automatisch ingevuld vanuit de import.'
       );
     }
-  }, [prefilledContact, success]);
+  }, [prefilledContact, updateFormData, success]);
 
-  // Events loading is handled by the hook automatically
+  // Load events bij mount
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        await loadEvents();
+        // Start bij calendar stap
+        setCurrentStep('calendar');
+      } catch (err) {
+        error(
+          'Laden mislukt',
+          'Kon evenementen niet laden. Probeer opnieuw.'
+        );
+      }
+    };
+    
+    loadInitialData();
+  }, [loadEvents, error, setCurrentStep]);
 
   // Handle reservation completion
   const handleReserve = async () => {
     // Admin accepteert automatisch de algemene voorwaarden namens de klant
-    booking.updateFormData({ acceptTerms: true });
+    updateFormData({ acceptTerms: true });
     
     // Check for form validation errors first
-    const errorEntries = Object.entries(booking.formErrors).filter(([, value]) => value !== undefined) as [string, string][];
+    const errorEntries = Object.entries(formErrors).filter(([, value]) => value !== undefined) as [string, string][];
     if (errorEntries.length > 0) {
       const errorRecord = Object.fromEntries(errorEntries);
       handleValidationErrors(errorRecord);
@@ -125,16 +144,16 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
 
     try {
       // 💰 Calculate final price with custom arrangement price per person if set
-      const calculatedPrice = booking.priceCalculation?.totalPrice || 0;
+      const calculatedPrice = priceCalculation?.totalPrice || 0;
       let finalPrice = calculatedPrice;
       
       // If custom arrangement price is set, recalculate total
-      if (arrangementPricePerPerson !== null && booking.formData.numberOfPersons) {
+      if (arrangementPricePerPerson !== null && formData.numberOfPersons) {
         // Calculate new arrangement subtotal
-        const customArrangementTotal = arrangementPricePerPerson * booking.formData.numberOfPersons;
+        const customArrangementTotal = arrangementPricePerPerson * formData.numberOfPersons;
         
         // Calculate original arrangement price from priceCalculation
-        const originalArrangementPrice = booking.priceCalculation?.breakdown?.arrangement?.total || booking.priceCalculation?.basePrice || 0;
+        const originalArrangementPrice = priceCalculation?.breakdown?.arrangement?.total || priceCalculation?.basePrice || 0;
         
         // Adjust total price: remove original arrangement, add custom arrangement
         finalPrice = calculatedPrice - originalArrangementPrice + customArrangementTotal;
@@ -150,7 +169,7 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
             timestamp: new Date(),
             type: 'note' as const,
             message: importMode
-              ? `📥 Geïmporteerde reservering - Bestaande boeking toegevoegd door admin${arrangementPricePerPerson !== null ? `\n💰 Arrangement prijs aangepast: €${(booking.priceCalculation?.breakdown?.arrangement?.pricePerPerson || 0).toFixed(2)}/pp → €${arrangementPricePerPerson}/pp${overrideReason ? `\nReden: ${overrideReason}` : ''}` : ''}`
+              ? `📥 Geïmporteerde reservering - Bestaande boeking toegevoegd door admin${arrangementPricePerPerson !== null ? `\n💰 Arrangement prijs aangepast: €${(priceCalculation?.breakdown?.arrangement?.pricePerPerson || 0).toFixed(2)}/pp → €${arrangementPricePerPerson}/pp${overrideReason ? `\nReden: ${overrideReason}` : ''}` : ''}`
               : `📞 Handmatig aangemaakt door admin via telefonische boeking${arrangementPricePerPerson !== null ? `\n💰 Arrangement prijs aangepast: €${arrangementPricePerPerson}/pp${overrideReason ? `\nReden: ${overrideReason}` : ''}` : ''}`,
             author: 'Admin'
           }
@@ -161,17 +180,16 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
       if (arrangementPricePerPerson !== null) {
         adminMetadata.totalPrice = finalPrice;
         adminMetadata.customArrangementPrice = arrangementPricePerPerson; // Per persoon
-        adminMetadata.originalArrangementPrice = booking.priceCalculation?.breakdown?.arrangement?.pricePerPerson || 0; // Origineel per persoon
+        adminMetadata.originalArrangementPrice = priceCalculation?.breakdown?.arrangement?.pricePerPerson || 0; // Origineel per persoon
         if (overrideReason) {
           adminMetadata.priceOverrideReason = overrideReason;
         }
       }
 
       // Update form data with admin-specific fields
-      booking.updateFormData(adminMetadata);
+      updateFormData(adminMetadata);
 
-      const result = await booking.submitBooking();
-      const reservationSuccess = result.success;
+      const reservationSuccess = await submitReservation();
       
       if (reservationSuccess) {
         success(
@@ -183,7 +201,7 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
         
         // Reload data
         await loadReservations();
-        // Events are automatically reloaded by the hook
+        await loadEvents();
 
         // Handle wizard mode completion
         if (wizardMode && onComplete) {
@@ -209,7 +227,7 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
     }
   };
 
-  const showBackButton = booking.currentStep !== 'calendar' && booking.currentStep !== 'success';
+  const showBackButton = currentStep !== 'calendar' && currentStep !== 'success';
 
   // Loading fallback component voor Suspense
   const LoadingFallback = () => (
@@ -225,7 +243,7 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
   );
 
   const renderCurrentStep = () => {
-    switch (booking.currentStep) {
+    switch (currentStep) {
       case 'calendar':
         return (
           <>
@@ -235,7 +253,7 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
               </Suspense>
             </StepLayout>
             <MobileSummaryBar
-              onNext={booking.goToNextStep}
+              onNext={goToNextStep}
               nextButtonLabel="Datum kiezen"
             />
           </>
@@ -246,7 +264,7 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
           <>
             <StepLayout
               showBackButton={showBackButton}
-              onBack={booking.goToPreviousStep}
+              onBack={goToPreviousStep}
               sidebar={<OrderSummary />}
             >
               <Suspense fallback={<LoadingFallback />}>
@@ -254,8 +272,8 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
               </Suspense>
             </StepLayout>
             <MobileSummaryBar
-              onNext={booking.goToNextStep}
-              onBack={booking.goToPreviousStep}
+              onNext={goToNextStep}
+              onBack={goToPreviousStep}
               showBackButton={showBackButton}
               nextButtonLabel="Volgende"
             />
@@ -267,7 +285,7 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
           <>
             <StepLayout
               showBackButton={showBackButton}
-              onBack={booking.goToPreviousStep}
+              onBack={goToPreviousStep}
               sidebar={<OrderSummary />}
             >
               <Suspense fallback={<LoadingFallback />}>
@@ -275,8 +293,8 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
               </Suspense>
             </StepLayout>
             <MobileSummaryBar
-              onNext={booking.goToNextStep}
-              onBack={booking.goToPreviousStep}
+              onNext={goToNextStep}
+              onBack={goToPreviousStep}
               showBackButton={showBackButton}
               nextButtonLabel="Volgende"
             />
@@ -288,7 +306,7 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
           <>
             <StepLayout
               showBackButton={showBackButton}
-              onBack={booking.goToPreviousStep}
+              onBack={goToPreviousStep}
               sidebar={<OrderSummary />}
             >
               <Suspense fallback={<LoadingFallback />}>
@@ -296,8 +314,8 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
               </Suspense>
             </StepLayout>
             <MobileSummaryBar
-              onNext={booking.goToNextStep}
-              onBack={booking.goToPreviousStep}
+              onNext={goToNextStep}
+              onBack={goToPreviousStep}
               showBackButton={showBackButton}
               nextButtonLabel="Volgende"
             />
@@ -309,7 +327,7 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
           <>
             <StepLayout
               showBackButton={showBackButton}
-              onBack={booking.goToPreviousStep}
+              onBack={goToPreviousStep}
               sidebar={<OrderSummary />}
             >
               <Suspense fallback={<LoadingFallback />}>
@@ -317,8 +335,8 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
               </Suspense>
             </StepLayout>
             <MobileSummaryBar
-              onNext={booking.goToNextStep}
-              onBack={booking.goToPreviousStep}
+              onNext={goToNextStep}
+              onBack={goToPreviousStep}
               showBackButton={showBackButton}
               nextButtonLabel="Volgende"
             />
@@ -330,7 +348,7 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
           <>
             <StepLayout
               showBackButton={showBackButton}
-              onBack={booking.goToPreviousStep}
+              onBack={goToPreviousStep}
               sidebar={<OrderSummary />}
             >
               <Suspense fallback={<LoadingFallback />}>
@@ -338,8 +356,8 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
               </Suspense>
             </StepLayout>
             <MobileSummaryBar
-              onNext={booking.goToNextStep}
-              onBack={booking.goToPreviousStep}
+              onNext={goToNextStep}
+              onBack={goToPreviousStep}
               showBackButton={showBackButton}
               nextButtonLabel="Volgende"
             />
@@ -351,7 +369,7 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
           <>
             <StepLayout
               showBackButton={showBackButton}
-              onBack={booking.goToPreviousStep}
+              onBack={goToPreviousStep}
               sidebar={<OrderSummary />}
             >
               <div className="space-y-4">
@@ -433,27 +451,27 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
                                 <div className="p-3 bg-neutral-800/50 rounded-lg">
                                   <div className="text-xs text-neutral-400 mb-1">Huidige prijs per persoon</div>
                                   <div className="text-lg font-bold text-white">
-                                    €{booking.priceCalculation?.breakdown?.arrangement?.pricePerPerson 
-                                      ? booking.priceCalculation.breakdown.arrangement.pricePerPerson.toFixed(2)
+                                    €{priceCalculation?.breakdown?.arrangement?.pricePerPerson 
+                                      ? priceCalculation.breakdown.arrangement.pricePerPerson.toFixed(2)
                                       : '0.00'}/pp
                                   </div>
                                 </div>
                                 <div className="p-3 bg-neutral-800/50 rounded-lg">
                                   <div className="text-xs text-neutral-400 mb-1">Aantal personen</div>
                                   <div className="text-lg font-bold text-white">
-                                    {booking.formData.numberOfPersons || 0} personen
+                                    {formData.numberOfPersons || 0} personen
                                   </div>
                                 </div>
                               </div>
 
                               {/* Arrangement selectie */}
-                              {booking.formData.arrangement && (
+                              {formData.arrangement && (
                                 <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                                   <div className="text-xs text-blue-300 mb-1">Geselecteerd arrangement</div>
                                   <div className="text-sm font-medium text-blue-200">
-                                    {booking.formData.arrangement === 'BWF' ? 'Borrel, Show & Buffet' : 
-                                     booking.formData.arrangement === 'BWFM' ? 'Borrel, Show, Buffet & Muziek' : 
-                                     booking.formData.arrangement}
+                                    {formData.arrangement === 'BWF' ? 'Borrel, Show & Buffet' : 
+                                     formData.arrangement === 'BWFM' ? 'Borrel, Show, Buffet & Muziek' : 
+                                     formData.arrangement}
                                   </div>
                                 </div>
                               )}
@@ -479,8 +497,8 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
                                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">/pp</span>
                                 </div>
                                 <p className="mt-1 text-xs text-amber-200/70">
-                                  Bijvoorbeeld: €70,00 in plaats van €{booking.priceCalculation?.breakdown?.arrangement?.pricePerPerson 
-                                    ? booking.priceCalculation.breakdown.arrangement.pricePerPerson.toFixed(2)
+                                  Bijvoorbeeld: €70,00 in plaats van €{priceCalculation?.breakdown?.arrangement?.pricePerPerson 
+                                    ? priceCalculation.breakdown.arrangement.pricePerPerson.toFixed(2)
                                     : '80,00'}/pp
                                 </p>
                               </div>
@@ -500,19 +518,19 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
                               </div>
 
                               {/* Preview van nieuwe berekening */}
-                              {arrangementPricePerPerson !== null && booking.formData.numberOfPersons && (
+                              {arrangementPricePerPerson !== null && formData.numberOfPersons && (
                                 <div className="space-y-2">
                                   <div className="p-3 bg-neutral-800/50 rounded-lg border border-neutral-600">
                                     <div className="text-xs text-neutral-400 mb-2">Nieuwe berekening:</div>
                                     <div className="space-y-1 text-sm">
                                       <div className="flex justify-between">
-                                        <span className="text-neutral-300">Arrangement ({booking.formData.numberOfPersons}x €{arrangementPricePerPerson.toFixed(2)})</span>
-                                        <span className="text-white font-medium">€{(arrangementPricePerPerson * booking.formData.numberOfPersons).toFixed(2)}</span>
+                                        <span className="text-neutral-300">Arrangement ({formData.numberOfPersons}x €{arrangementPricePerPerson.toFixed(2)})</span>
+                                        <span className="text-white font-medium">€{(arrangementPricePerPerson * formData.numberOfPersons).toFixed(2)}</span>
                                       </div>
-                                      {booking.priceCalculation && booking.priceCalculation.totalPrice - (booking.priceCalculation.breakdown?.arrangement?.total || 0) > 0 && (
+                                      {priceCalculation && priceCalculation.totalPrice - (priceCalculation.breakdown?.arrangement?.total || 0) > 0 && (
                                         <div className="flex justify-between text-neutral-400">
                                           <span>Extra's (merchandise, etc.)</span>
-                                          <span>€{(booking.priceCalculation.totalPrice - (booking.priceCalculation.breakdown?.arrangement?.total || 0)).toFixed(2)}</span>
+                                          <span>€{(priceCalculation.totalPrice - (priceCalculation.breakdown?.arrangement?.total || 0)).toFixed(2)}</span>
                                         </div>
                                       )}
                                     </div>
@@ -523,18 +541,18 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
                                       <span className="text-sm text-green-300">Nieuwe totaalprijs:</span>
                                       <span className="text-xl font-bold text-green-400">
                                         €{(() => {
-                                          const customArrangementTotal = arrangementPricePerPerson * booking.formData.numberOfPersons;
-                                          const originalArrangementPrice = booking.priceCalculation?.breakdown?.arrangement?.total || 0;
-                                          const finalPrice = (booking.priceCalculation?.totalPrice || 0) - originalArrangementPrice + customArrangementTotal;
+                                          const customArrangementTotal = arrangementPricePerPerson * formData.numberOfPersons;
+                                          const originalArrangementPrice = priceCalculation?.breakdown?.arrangement?.total || 0;
+                                          const finalPrice = (priceCalculation?.totalPrice || 0) - originalArrangementPrice + customArrangementTotal;
                                           return finalPrice.toFixed(2);
                                         })()}
                                       </span>
                                     </div>
-                                    {booking.priceCalculation && (
+                                    {priceCalculation && (
                                       <div className="mt-2 text-xs text-green-200/70">
                                         Verschil: {(() => {
-                                          const customArrangementTotal = arrangementPricePerPerson * booking.formData.numberOfPersons;
-                                          const originalArrangementPrice = booking.priceCalculation.breakdown?.arrangement?.total || 0;
+                                          const customArrangementTotal = arrangementPricePerPerson * formData.numberOfPersons;
+                                          const originalArrangementPrice = priceCalculation.breakdown?.arrangement?.total || 0;
                                           const diff = customArrangementTotal - originalArrangementPrice;
                                           return `${diff > 0 ? '+' : ''}€${diff.toFixed(2)}`;
                                         })()} op arrangement
@@ -579,7 +597,7 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
 
                     <div className="flex flex-col sm:flex-row gap-3">
                       <button
-                        onClick={booking.goToPreviousStep}
+                        onClick={goToPreviousStep}
                         className="flex-1 px-6 py-4 bg-neutral-700 hover:bg-neutral-600 text-white font-bold rounded-xl transition-all duration-200 border-2 border-neutral-600 hover:border-neutral-500"
                       >
                         ← Wijzigen
@@ -588,7 +606,7 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
                       {wizardMode && onCancel && (
                         <button
                           onClick={onCancel}
-                          disabled={booking.isSubmitting}
+                          disabled={isSubmitting}
                           className="flex-1 px-6 py-4 bg-neutral-700 hover:bg-neutral-600 text-white font-bold rounded-xl transition-all border-2 border-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Overslaan
@@ -597,17 +615,17 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
                       
                       <button
                         onClick={handleReserve}
-                        disabled={booking.isSubmitting || (showPriceOverride && arrangementPricePerPerson === null)}
+                        disabled={isSubmitting || (showPriceOverride && arrangementPricePerPerson === null)}
                         className={cn(
                           'flex-1 px-6 py-4 font-bold rounded-xl transition-all duration-200 shadow-lg',
                           'flex items-center justify-center gap-2',
-                          booking.isSubmitting || (showPriceOverride && arrangementPricePerPerson === null)
+                          isSubmitting || (showPriceOverride && arrangementPricePerPerson === null)
                             ? 'bg-neutral-600 text-neutral-400 cursor-not-allowed'
                             : 'bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-dark-900 hover:shadow-xl hover:scale-[1.02]'
                         )}
                         title={showPriceOverride && arrangementPricePerPerson === null ? 'Vul eerst de nieuwe prijs per persoon in' : ''}
                       >
-                        {booking.isSubmitting ? (
+                        {isSubmitting ? (
                           <>
                             <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
                             <span>Bezig met opslaan...</span>
@@ -645,7 +663,7 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
             {!wizardMode && (
               <button
                 onClick={() => {
-                  booking.reset();
+                  reset();
                   if (onClose) onClose();
                 }}
                 className="px-6 py-3 bg-gold-500 hover:bg-gold-600 text-white font-bold rounded-xl transition-all"
@@ -685,7 +703,7 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
           <button
             onClick={() => {
               if (window.confirm('Weet je zeker dat je wilt annuleren? Alle ingevoerde gegevens gaan verloren.')) {
-                booking.reset();
+                reset();
                 if (onClose) onClose();
                 if (onCancel) onCancel();
               }
@@ -697,11 +715,11 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
         </div>
 
         {/* Progress Indicator */}
-        {booking.currentStep !== 'success' && (
+        {currentStep !== 'success' && (
           <div className="px-6 pt-4 bg-neutral-900/50">
             <StepIndicator
-              currentStep={booking.currentStep}
-              selectedEvent={!!booking.selectedEvent}
+              currentStep={currentStep}
+              selectedEvent={!!selectedEvent}
             />
           </div>
         )}
@@ -712,7 +730,7 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
         </div>
 
         {/* Loading Overlay */}
-        {booking.isSubmitting && (
+        {isSubmitting && (
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50">
             <div className="bg-neutral-800 rounded-2xl p-10 max-w-sm mx-4 text-center shadow-2xl">
               <div className="relative inline-block mb-6">

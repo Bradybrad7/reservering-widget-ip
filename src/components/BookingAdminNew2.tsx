@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import type { BookingAdminProps } from '../types';
 import { AdminLayoutNew } from './admin/AdminLayoutNew';
-import { DashboardModernV3 } from './admin/DashboardModernV3'; // ✨ V3 Enterprise Dashboard
+import { Dashboard } from './admin/Dashboard';
 import { ReservationsManager } from './admin/ReservationsWorkbench'; // ✨ Reserveringen Beheer
 import { EventWorkshop } from './admin/EventWorkshop';
 import { CalendarManager } from './admin/CalendarManager';
@@ -56,7 +56,7 @@ const BookingAdminNew: React.FC<BookingAdminProps> = () => {
     switch (activeSection) {
       // Dashboard
       case 'dashboard':
-        return <DashboardModernV3 />;
+        return <Dashboard />;
 
       // ✨ RESERVERINGEN DASHBOARD (Nov 2025)
       // Complete reserveringen beheer met filtering, capaciteit management en volledige bewerking

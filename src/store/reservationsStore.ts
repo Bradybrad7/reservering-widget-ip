@@ -82,6 +82,9 @@ interface ReservationsActions {
   bulkDelete: (reservationIds: string[]) => Promise<boolean>;
   bulkArchive: (reservationIds: string[]) => Promise<{ success: number; total: number }>;
   
+  // ✨ NEW: Merge Bookings (November 2025)
+  mergeReservations: (primaryId: string, secondaryIds: string[]) => Promise<boolean>;
+  
   // Check-in
   checkInReservation: (reservationId: string, adminName: string) => Promise<boolean>;
   undoCheckIn: (reservationId: string) => Promise<boolean>;
@@ -368,15 +371,27 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
           } else {
             // Send email based on status change
             if (status === 'confirmed' && oldStatus === 'pending') {
-              console.log('📧 [STORE] Sending confirmation email (pending → confirmed)...');
+              // ✅ CONFIRMED FROM PENDING - Send official confirmation email
+              console.log('📧 [STORE] Sending CONFIRMATION email (pending → confirmed)...');
               const { emailService } = await import('../services/emailService');
-              await emailService.sendReservationConfirmation(reservation, event);
+              await emailService.sendConfirmation(reservation, event);
+              console.log('✅ [STORE] Confirmation email sent');
+            } else if (status === 'confirmed' && oldStatus === 'option') {
+              // ✅ CONFIRMED FROM OPTION - Send confirmation email
+              console.log('📧 [STORE] Sending CONFIRMATION email (option → confirmed)...');
+              const { emailService } = await import('../services/emailService');
+              await emailService.sendConfirmation(reservation, event);
               console.log('✅ [STORE] Confirmation email sent');
             } else if (status === 'rejected') {
               console.log('📧 [STORE] Sending rejection email...');
-              const { modernEmailService } = await import('../services/modernEmailService');
-              await modernEmailService.sendByStatus(reservation, event, false, rejectionReason);
+              const { emailService } = await import('../services/emailService');
+              await emailService.sendByStatus(reservation, event, false, rejectionReason);
               console.log('✅ [STORE] Rejection email sent');
+            } else if (status === 'option') {
+              console.log('📧 [STORE] Sending option email...');
+              const { emailService } = await import('../services/emailService');
+              await emailService.sendOption(reservation, event);
+              console.log('✅ [STORE] Option email sent');
             }
           }
         } catch (emailError) {
@@ -802,6 +817,146 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
       }
       
       return { success: successCount, total };
+    },
+
+    // ✨ NEW: Merge Reservations (November 2025)
+    mergeReservations: async (primaryId: string, secondaryIds: string[]) => {
+      const reservations = get().reservations;
+      const primary = reservations.find(r => r.id === primaryId);
+      const secondaries = secondaryIds.map(id => reservations.find(r => r.id === id)).filter(Boolean) as Reservation[];
+      
+      if (!primary || secondaries.length === 0) {
+        console.error('❌ Merge failed: Primary or secondary reservations not found');
+        return false;
+      }
+      
+      // Validate: All reservations must be for the same event
+      const allSameEvent = secondaries.every(r => r.eventId === primary.eventId);
+      if (!allSameEvent) {
+        console.error('❌ Merge failed: Reservations must be for the same event');
+        return false;
+      }
+      
+      try {
+        console.log('🔄 Merging reservations:', { primary: primaryId, secondaries: secondaryIds });
+        
+        // Calculate merged data
+        const totalPersons = primary.numberOfPersons + secondaries.reduce((sum, r) => sum + r.numberOfPersons, 0);
+        
+        // Combine notes/comments
+        const allComments = [
+          primary.comments,
+          ...secondaries.map(r => r.comments)
+        ].filter(Boolean);
+        
+        const mergeNote = `\n\n🔗 MERGED RESERVATIONS (${new Date().toLocaleDateString('nl-NL')}):\n` +
+          secondaries.map(r => `- ${r.id}: ${r.contactPerson} (${r.numberOfPersons} personen)`).join('\n');
+        
+        const combinedComments = allComments.join('\n\n---\n\n') + mergeNote;
+        
+        // Combine dietary requirements
+        const allDietaryReqs = [
+          primary.dietaryRequirements,
+          ...secondaries.map(r => r.dietaryRequirements)
+        ].filter(Boolean);
+        const combinedDietary = allDietaryReqs.length > 0 ? allDietaryReqs.join('\n\n') : undefined;
+        
+        // Combine merchandise
+        const allMerchandise = [
+          ...(primary.merchandise || []),
+          ...secondaries.flatMap(r => r.merchandise || [])
+        ];
+        
+        // Group merchandise by ID and sum quantities
+        const merchandiseMap = new Map<string, any>();
+        allMerchandise.forEach(item => {
+          const existing = merchandiseMap.get(item.id);
+          if (existing) {
+            existing.quantity += item.quantity;
+          } else {
+            merchandiseMap.set(item.id, { ...item });
+          }
+        });
+        const combinedMerchandise = Array.from(merchandiseMap.values());
+        
+        // Combine celebration details if present
+        const celebrations = [primary, ...secondaries]
+          .filter(r => r.celebrationOccasion || r.partyPerson || r.celebrationDetails)
+          .map(r => ({
+            occasion: r.celebrationOccasion,
+            person: r.partyPerson,
+            details: r.celebrationDetails
+          }));
+        
+        const combinedCelebrationDetails = celebrations.length > 0
+          ? celebrations.map(c => 
+              `${c.occasion || ''} ${c.person ? 'voor ' + c.person : ''} ${c.details || ''}`.trim()
+            ).filter(Boolean).join(' | ')
+          : primary.celebrationDetails;
+        
+        // Calculate new total price (sum all totals)
+        const totalPrice = primary.totalPrice + secondaries.reduce((sum, r) => sum + r.totalPrice, 0);
+        
+        // Update primary reservation
+        const updates: Partial<Reservation> = {
+          numberOfPersons: totalPersons,
+          comments: combinedComments,
+          dietaryRequirements: combinedDietary,
+          merchandise: combinedMerchandise.length > 0 ? combinedMerchandise : undefined,
+          celebrationDetails: combinedCelebrationDetails,
+          totalPrice,
+          updatedAt: new Date()
+        };
+        
+        const success = await get().updateReservation(primaryId, updates, primary, true);
+        
+        if (success) {
+          // Add communication log to primary
+          await communicationLogService.addNote(
+            primaryId,
+            `Samenvoegen van ${secondaries.length} reservering(en): ${secondaryIds.join(', ')}`,
+            'admin'
+          );
+          
+          // Cancel secondary reservations (mark as merged)
+          for (const secondary of secondaries) {
+            await get().updateReservation(secondary.id, {
+              status: 'cancelled',
+              comments: (secondary.comments || '') + `\n\n🔗 MERGED into ${primaryId} on ${new Date().toLocaleDateString('nl-NL')}`,
+              updatedAt: new Date()
+            }, secondary, true);
+            
+            await communicationLogService.addNote(
+              secondary.id,
+              `Samengevoegd in reservering ${primaryId}`,
+              'admin'
+            );
+          }
+          
+          // Reload reservations
+          await get().loadReservations();
+          
+          auditLogger.log({
+            action: 'merge_reservations',
+            userId: 'admin',
+            resourceId: primaryId,
+            details: {
+              secondaryIds,
+              totalPersons,
+              totalPrice
+            },
+            timestamp: new Date()
+          });
+          
+          console.log('✅ Merge successful:', { primary: primaryId, merged: secondaryIds });
+          return true;
+        }
+        
+        return false;
+      } catch (error) {
+        console.error('❌ Merge failed:', error);
+        return false;
+      }
     },
 
     // Check-in

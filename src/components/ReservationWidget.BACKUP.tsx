@@ -1,6 +1,6 @@
 import { useEffect, lazy, Suspense, useState } from 'react';
 import type { ReservationWidgetProps } from '../types';
-import { useBookingLogic } from '../hooks';
+import { useReservationStore } from '../store/reservationStore';
 import { ToastProvider, useToast, useFormErrorHandler } from './Toast';
 import { StepIndicator } from './StepIndicator';
 import { StepLayout } from './StepLayout';
@@ -29,16 +29,24 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
   // ✨ NEW: State for draft recovery modal
   const [showDraftModal, setShowDraftModal] = useState(false);
   
-  // Use unified booking logic in client mode
-  const booking = useBookingLogic({
-    mode: 'client',
-    onComplete: (reservation) => {
-      success('Reservering verzonden!', 'U ontvangt binnenkort een bevestiging per e-mail.');
-      if (onReservationComplete) {
-        onReservationComplete(reservation);
-      }
-    }
-  });
+  const {
+    currentStep,
+    selectedEvent,
+    isSubmitting,
+    completedReservation,
+    formErrors,
+    formData,
+    priceCalculation,
+    loadEvents,
+    submitReservation,
+    updateConfig,
+    updateFormData,
+    goToNextStep,
+    goToPreviousStep,
+    setCurrentStep,
+    clearDraft,
+    reset
+  } = useReservationStore();
 
   const { error, success, addToast } = useToast();
   const { handleValidationErrors, handleApiError } = useFormErrorHandler();
@@ -46,54 +54,71 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
   // Apply custom config on mount
   useEffect(() => {
     if (config) {
-      booking.updateConfig(config);
+      updateConfig(config);
     }
-  }, [config, booking]);
+  }, [config, updateConfig]);
 
   // Load initial events with error handling
   useEffect(() => {
     const loadInitialData = async () => {
-      // Events are auto-loaded by the hook, just handle errors if needed
-      if (!booking.isLoadingEvents && !booking.selectedEvent) {
-        // Check for voucher from URL params (coming from voucher redeem flow)
-        const params = new URLSearchParams(window.location.search);
-        const fromVoucher = params.get('source') === 'voucher';
-        
-        if (fromVoucher) {
-          // Check sessionStorage for voucher data
-          const storedVoucher = sessionStorage.getItem('activeVoucher');
-          if (storedVoucher) {
-            try {
-              const voucherData = JSON.parse(storedVoucher);
-              
-              // Show welcome toast
-              success(
-                `Voucher ${voucherData.code} toegepast! 🎫`,
-                `Restwaarde: €${voucherData.remainingValue} - Start je boeking!`
-              );
-              
-              // Voucher is already in formData from VoucherRedeemFlow
-            } catch (e) {
-              console.error('Failed to parse voucher data:', e);
-            }
+      const result = await loadEvents();
+      
+      if (!result.success) {
+        error(
+          'Laden mislukt',
+          result.error || 'Kon evenementen niet laden. Probeer de pagina te verversen.'
+        );
+        return;
+      }
+      
+      // ✨ NEW: Check for voucher from URL params (coming from voucher redeem flow)
+      const params = new URLSearchParams(window.location.search);
+      const fromVoucher = params.get('source') === 'voucher';
+      
+      if (fromVoucher) {
+        // Check sessionStorage for voucher data
+        const storedVoucher = sessionStorage.getItem('activeVoucher');
+        if (storedVoucher) {
+          try {
+            const voucherData = JSON.parse(storedVoucher);
+            
+            // Show welcome toast
+            success(
+              `Voucher ${voucherData.code} toegepast! 🎫`,
+              `Restwaarde: €${voucherData.remainingValue} - Start je boeking!`
+            );
+            
+            // Voucher is already in formData from VoucherRedeemFlow
+            // Just set the first step
+            setCurrentStep('calendar');
+          } catch (e) {
+            console.error('Failed to parse voucher data:', e);
           }
         }
-        
-        // Check for draft reservation and show modal
-        if (booking.hasDraft) {
-          setShowDraftModal(true);
-        }
+      }
+      
+      // ✨ NEW: Check for draft reservation and show modal
+      const store = useReservationStore.getState();
+      const draft = store.loadDraftReservation();
+      
+      if (draft.loaded) {
+        setShowDraftModal(true);
       }
     };
     
     loadInitialData();
-  }, [booking.isLoadingEvents, booking.selectedEvent, booking.hasDraft, success]);
+  }, [loadEvents, success, error, addToast, setCurrentStep]);
 
-  // Reservation completion is now handled in the hook's onComplete callback
+  // Handle reservation completion callback
+  useEffect(() => {
+    if (completedReservation && onReservationComplete) {
+      onReservationComplete(completedReservation);
+    }
+  }, [completedReservation, onReservationComplete]);
 
   const handleReserve = async () => {
     // Check for form validation errors first
-    const errorEntries = Object.entries(booking.formErrors).filter(([, value]) => value !== undefined) as [string, string][];
+    const errorEntries = Object.entries(formErrors).filter(([, value]) => value !== undefined) as [string, string][];
     if (errorEntries.length > 0) {
       const errorRecord = Object.fromEntries(errorEntries);
       handleValidationErrors(errorRecord);
@@ -101,17 +126,18 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
     }
 
     try {
-      const result = await booking.submitBooking();
-      if (!result.success) {
-        error('Reservering mislukt', result.error || 'Er is een fout opgetreden bij het verzenden van uw reservering. Probeer het opnieuw.');
+      const reservationSuccess = await submitReservation();
+      if (reservationSuccess) {
+        success('Reservering verzonden!', 'U ontvangt binnenkort een bevestiging per e-mail.');
+      } else {
+        error('Reservering mislukt', 'Er is een fout opgetreden bij het verzenden van uw reservering. Probeer het opnieuw.');
       }
-      // Success is handled in the onComplete callback
     } catch (err) {
       handleApiError('Onverwachte fout opgetreden. Probeer het later opnieuw.');
     }
   };
 
-  const showBackButton = booking.currentStep !== 'calendar' && booking.currentStep !== 'success';
+  const showBackButton = currentStep !== 'calendar' && currentStep !== 'success';
 
   // Loading fallback component for Suspense
   const LoadingFallback = () => (
@@ -127,7 +153,7 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
   );
 
   const renderCurrentStep = () => {
-    switch (booking.currentStep) {
+    switch (currentStep) {
       case 'calendar':
         return (
           <>
@@ -137,7 +163,7 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
               </Suspense>
             </StepLayout>
             <MobileSummaryBar
-              onNext={booking.goToNextStep}
+              onNext={goToNextStep}
               nextButtonLabel="Datum kiezen"
             />
           </>
@@ -148,7 +174,7 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
           <>
             <StepLayout
               showBackButton={showBackButton}
-              onBack={booking.goToPreviousStep}
+              onBack={goToPreviousStep}
               sidebar={<OrderSummary />}
             >
               <Suspense fallback={<LoadingFallback />}>
@@ -156,8 +182,8 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
               </Suspense>
             </StepLayout>
             <MobileSummaryBar
-              onNext={booking.goToNextStep}
-              onBack={booking.goToPreviousStep}
+              onNext={goToNextStep}
+              onBack={goToPreviousStep}
               showBackButton={showBackButton}
               nextButtonLabel="Volgende"
             />
@@ -170,7 +196,7 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
           <>
             <StepLayout
               showBackButton={showBackButton}
-              onBack={booking.goToPreviousStep}
+              onBack={goToPreviousStep}
               sidebar={<OrderSummary />}
             >
               <Suspense fallback={<LoadingFallback />}>
@@ -178,8 +204,8 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
               </Suspense>
             </StepLayout>
             <MobileSummaryBar
-              onNext={booking.goToNextStep}
-              onBack={booking.goToPreviousStep}
+              onNext={goToNextStep}
+              onBack={goToPreviousStep}
               showBackButton={showBackButton}
               nextButtonLabel="Volgende"
             />
@@ -192,7 +218,7 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
           <>
             <StepLayout
               showBackButton={showBackButton}
-              onBack={booking.goToPreviousStep}
+              onBack={goToPreviousStep}
               sidebar={<OrderSummary />}
             >
               <Suspense fallback={<LoadingFallback />}>
@@ -200,8 +226,8 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
               </Suspense>
             </StepLayout>
             <MobileSummaryBar
-              onNext={booking.goToNextStep}
-              onBack={booking.goToPreviousStep}
+              onNext={goToNextStep}
+              onBack={goToPreviousStep}
               showBackButton={showBackButton}
               nextButtonLabel="Volgende"
             />
@@ -214,7 +240,7 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
           <>
             <StepLayout
               showBackButton={showBackButton}
-              onBack={booking.goToPreviousStep}
+              onBack={goToPreviousStep}
               sidebar={<OrderSummary />}
             >
               <Suspense fallback={<LoadingFallback />}>
@@ -222,8 +248,8 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
               </Suspense>
             </StepLayout>
             <MobileSummaryBar
-              onNext={booking.goToNextStep}
-              onBack={booking.goToPreviousStep}
+              onNext={goToNextStep}
+              onBack={goToPreviousStep}
               showBackButton={showBackButton}
               nextButtonLabel="Volgende"
             />
@@ -236,7 +262,7 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
           <>
             <StepLayout
               showBackButton={showBackButton}
-              onBack={booking.goToPreviousStep}
+              onBack={goToPreviousStep}
               sidebar={<OrderSummary />}
             >
               <Suspense fallback={<LoadingFallback />}>
@@ -244,8 +270,8 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
               </Suspense>
             </StepLayout>
             <MobileSummaryBar
-              onNext={booking.goToNextStep}
-              onBack={booking.goToPreviousStep}
+              onNext={goToNextStep}
+              onBack={goToPreviousStep}
               showBackButton={showBackButton}
               nextButtonLabel="Volgende"
             />
@@ -257,7 +283,7 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
           <>
             <StepLayout
               showBackButton={showBackButton}
-              onBack={booking.goToPreviousStep}
+              onBack={goToPreviousStep}
               sidebar={<OrderSummary />}
             >
               <div className="space-y-4">
@@ -272,7 +298,7 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
               {/* Complete Overview */}
               <div className="card-theatre rounded-2xl border border-gold-400/20 p-4 md:p-6 shadow-lifted space-y-6">
                 {/* Event Info */}
-                {booking.selectedEvent && (
+                {selectedEvent && (
                   <div className="p-5 bg-gradient-to-br from-gold-500/20 to-gold-600/10 border border-gold-400/30 rounded-xl backdrop-blur-sm">
                     <h3 className="font-bold text-gold-400 mb-3 flex items-center gap-2">
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -286,10 +312,10 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric'
-                      }).format(booking.selectedEvent.date)}
+                      }).format(selectedEvent.date)}
                     </p>
                     <p className="text-neutral-300 text-sm mt-1">
-                      Aanvang: {formatTime(booking.selectedEvent.startsAt)} • Deuren open: {formatTime(booking.selectedEvent.doorsOpen)}
+                      Aanvang: {formatTime(selectedEvent.startsAt)} • Deuren open: {formatTime(selectedEvent.doorsOpen)}
                     </p>
                   </div>
                 )}
@@ -306,11 +332,11 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
                     <dl className="space-y-2 text-sm">
                       <div>
                         <dt className="text-neutral-400">Bedrijfsnaam</dt>
-                        <dd className="text-white font-medium">{booking.formData.companyName}</dd>
+                        <dd className="text-white font-medium">{formData.companyName}</dd>
                       </div>
                       <div>
                         <dt className="text-neutral-400">Contactpersoon</dt>
-                        <dd className="text-white font-medium">{booking.formData.contactPerson}</dd>
+                        <dd className="text-white font-medium">{formData.contactPerson}</dd>
                       </div>
                     </dl>
                   </div>
@@ -326,15 +352,15 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
                     <dl className="space-y-2 text-sm">
                       <div>
                         <dt className="text-neutral-400">E-mail</dt>
-                        <dd className="text-white font-medium">{booking.formData.email}</dd>
+                        <dd className="text-white font-medium">{formData.email}</dd>
                       </div>
                       <div>
                         <dt className="text-neutral-400">Telefoon</dt>
-                        <dd className="text-white font-medium">{booking.formData.phone}</dd>
+                        <dd className="text-white font-medium">{formData.phone}</dd>
                       </div>
                       <div>
                         <dt className="text-neutral-400">Postcode</dt>
-                        <dd className="text-white font-medium">{booking.formData.postalCode}</dd>
+                        <dd className="text-white font-medium">{formData.postalCode}</dd>
                       </div>
                     </dl>
                   </div>
@@ -351,41 +377,41 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
                   <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     <div>
                       <dt className="text-neutral-400">Aantal personen</dt>
-                      <dd className="text-white font-medium text-lg">{booking.formData.numberOfPersons}</dd>
+                      <dd className="text-white font-medium text-lg">{formData.numberOfPersons}</dd>
                     </div>
                     <div>
                       <dt className="text-neutral-400">Arrangement</dt>
-                      <dd className="text-white font-medium">{booking.formData.arrangement ? (nl.arrangements as Record<string, string>)[booking.formData.arrangement] || booking.formData.arrangement : '-'}</dd>
+                      <dd className="text-white font-medium">{formData.arrangement ? (nl.arrangements as Record<string, string>)[formData.arrangement] || formData.arrangement : '-'}</dd>
                     </div>
-                    {booking.formData.preDrink?.enabled && (
+                    {formData.preDrink?.enabled && (
                       <div>
                         <dt className="text-neutral-400">Voorborrel</dt>
-                        <dd className="text-white font-medium">✓ Ja ({booking.formData.preDrink.quantity} personen)</dd>
+                        <dd className="text-white font-medium">✓ Ja ({formData.preDrink.quantity} personen)</dd>
                       </div>
                     )}
-                    {booking.formData.afterParty?.enabled && (
+                    {formData.afterParty?.enabled && (
                       <div>
                         <dt className="text-neutral-400">AfterParty</dt>
-                        <dd className="text-white font-medium">✓ Ja ({booking.formData.afterParty.quantity} personen)</dd>
+                        <dd className="text-white font-medium">✓ Ja ({formData.afterParty.quantity} personen)</dd>
                       </div>
                     )}
-                    {booking.formData.partyPerson && (
+                    {formData.partyPerson && (
                       <div>
                         <dt className="text-neutral-400">Feestvierder</dt>
-                        <dd className="text-white font-medium">🎉 {booking.formData.partyPerson}</dd>
+                        <dd className="text-white font-medium">🎉 {formData.partyPerson}</dd>
                       </div>
                     )}
                   </dl>
-                  {booking.formData.comments && (
+                  {formData.comments && (
                     <div className="mt-4 pt-4 border-t border-neutral-600">
                       <dt className="text-neutral-400 mb-1">Opmerkingen</dt>
-                      <dd className="text-white">{booking.formData.comments}</dd>
+                      <dd className="text-white">{formData.comments}</dd>
                     </div>
                   )}
                 </div>
 
                 {/* Price Summary (Mobile visible) */}
-                {booking.priceCalculation && (
+                {priceCalculation && (
                   <div className="p-5 bg-gradient-to-br from-gold-500/20 to-gold-600/10 border-2 border-gold-400/40 rounded-xl backdrop-blur-sm">
                     <h3 className="font-bold text-gold-400 mb-3 flex items-center gap-2">
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -394,7 +420,7 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
                       </svg>
                       Totale prijs
                     </h3>
-                    <p className="text-3xl font-bold text-white">{formatCurrency(booking.priceCalculation.totalPrice)}</p>
+                    <p className="text-3xl font-bold text-white">{formatCurrency(priceCalculation.totalPrice)}</p>
                     <p className="text-sm text-neutral-300 mt-1">Inclusief BTW</p>
                   </div>
                 )}
@@ -406,8 +432,8 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
                 <label className="flex items-start gap-3 p-4 bg-neutral-800/50 rounded-xl border border-neutral-600 cursor-pointer hover:border-gold-400/40 transition-colors">
                   <input
                     type="checkbox"
-                    checked={booking.formData.acceptTerms || false}
-                    onChange={(e) => booking.updateFormData({ acceptTerms: e.target.checked })}
+                    checked={formData.acceptTerms || false}
+                    onChange={(e) => updateFormData({ acceptTerms: e.target.checked })}
                     className="mt-1 w-5 h-5 rounded border-neutral-500 text-gold-500 focus:ring-2 focus:ring-gold-400/20 cursor-pointer"
                   />
                   <span className="flex-1 text-sm text-neutral-300">
@@ -425,7 +451,7 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
                   </span>
                 </label>
 
-                {!booking.formData.acceptTerms && (
+                {!formData.acceptTerms && (
                   <p className="text-sm text-red-400 flex items-center gap-2 px-4">
                     <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -438,8 +464,8 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
                 <label className="flex items-start gap-3 p-4 bg-neutral-800/50 rounded-xl border border-neutral-600 cursor-pointer hover:border-gold-400/40 transition-colors">
                   <input
                     type="checkbox"
-                    checked={booking.formData.newsletterOptIn || false}
-                    onChange={(e) => booking.updateFormData({ newsletterOptIn: e.target.checked })}
+                    checked={formData.newsletterOptIn || false}
+                    onChange={(e) => updateFormData({ newsletterOptIn: e.target.checked })}
                     className="mt-1 w-5 h-5 rounded border-neutral-500 text-gold-500 focus:ring-2 focus:ring-gold-400/20 cursor-pointer"
                   />
                   <span className="flex-1 text-sm text-neutral-300">
@@ -457,16 +483,16 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
                   </button>
                   <button
                     onClick={handleReserve}
-                    disabled={booking.isSubmitting || !booking.formData.acceptTerms}
+                    disabled={isSubmitting || !formData.acceptTerms}
                     className={cn(
                       'flex-1 px-6 py-4 font-bold rounded-xl transition-all duration-200 shadow-lg',
                       'flex items-center justify-center gap-2',
-                      booking.isSubmitting || !booking.formData.acceptTerms
+                      isSubmitting || !formData.acceptTerms
                         ? 'bg-neutral-600 text-neutral-400 cursor-not-allowed'
                         : 'bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-dark-900 hover:shadow-xl hover:scale-[1.02]'
                     )}
                   >
-                    {booking.isSubmitting ? (
+                    {isSubmitting ? (
                       <>
                         <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
                         <span>Bezig met opslaan...</span>
@@ -484,7 +510,7 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
           </StepLayout>
           <MobileSummaryBar
             onNext={handleReserve}
-            onBack={booking.goToPreviousStep}
+            onBack={goToPreviousStep}
             showBackButton={showBackButton}
             nextButtonLabel="Reservering bevestigen"
           />
@@ -495,7 +521,7 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
         return (
           <StepLayout
             showBackButton={showBackButton}
-            onBack={booking.goToPreviousStep}
+            onBack={goToPreviousStep}
           >
             <Suspense fallback={<LoadingFallback />}>
               <WaitlistPrompt />
@@ -506,14 +532,14 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
       case 'success':
         return (
           <Suspense fallback={<LoadingFallback />}>
-            <SuccessPage onNewReservation={() => booking.setCurrentStep('calendar')} />
+            <SuccessPage onNewReservation={() => setCurrentStep('calendar')} />
           </Suspense>
         );
 
       case 'waitlistSuccess':
         return (
           <Suspense fallback={<LoadingFallback />}>
-            <WaitlistSuccessPage onNewReservation={() => booking.setCurrentStep('calendar')} />
+            <WaitlistSuccessPage onNewReservation={() => setCurrentStep('calendar')} />
           </Suspense>
         );
 
@@ -525,11 +551,11 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
   return (
     <div className={cn('w-full max-w-7xl mx-auto p-4 md:p-6', className)}>
       {/* Step Indicator - ✨ ENHANCED: Sticky positioning for better visibility */}
-      {booking.currentStep !== 'success' && (
+      {currentStep !== 'success' && (
         <div className="sticky top-0 z-30 bg-gradient-to-b from-dark-950 via-dark-950/95 to-transparent pb-2 -mx-4 md:-mx-6 px-4 md:px-6 mb-4">
           <StepIndicator
-            currentStep={booking.currentStep}
-            selectedEvent={!!booking.selectedEvent}
+            currentStep={currentStep}
+            selectedEvent={!!selectedEvent}
           />
         </div>
       )}
@@ -538,7 +564,7 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
       {renderCurrentStep()}
 
       {/* Loading Overlay - Dark Mode Optimized */}
-      {booking.isSubmitting && (
+      {isSubmitting && (
         <div 
           className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 animate-fade-in"
           role="dialog"
@@ -567,13 +593,13 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
         isOpen={showDraftModal}
         onContinue={() => setShowDraftModal(false)}
         onStartFresh={() => {
-          booking.clearDraft();
-          booking.reset();
+          clearDraft();
+          reset();
           setShowDraftModal(false);
           window.location.reload(); // Reload to start completely fresh
         }}
-        draftData={booking.formData}
-        draftEvent={booking.selectedEvent}
+        draftData={formData}
+        draftEvent={selectedEvent}
       />
     </div>
   );

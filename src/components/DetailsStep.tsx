@@ -307,15 +307,10 @@ export const DetailsStep: React.FC = () => {
                 className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 transition-colors appearance-none"
               >
                 <option value="">Selecteer...</option>
-                <option value="verjaardag">🎂 Verjaardag</option>
-                <option value="jubileum">💍 Jubileum / Trouwdag</option>
+                <option value="verjaardag">🎂 Jarig</option>
+                <option value="jubileum">💍 Jubileum</option>
                 <option value="pensioen">🎓 Pensioen</option>
-                <option value="promotie">🎯 Promotie</option>
-                <option value="geslaagd">📚 Geslaagd</option>
-                <option value="verloving">💎 Verloving</option>
-                <option value="geboorte">👶 Geboorte</option>
-                <option value="afstuderen">🎓 Afstuderen</option>
-                <option value="anders">🎈 Iets anders</option>
+                <option value="anders">🎈 Anders</option>
               </select>
             </div>
 
