@@ -161,6 +161,15 @@ export type StepKey =
   | 'waitlistPrompt'
   | 'waitlistSuccess';
 
+// 📞 Prefilled Contact Data - Voor manual booking en import wizard
+export interface PrefilledContact {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  companyName?: string;
+}
+
 // Show interface
 export interface Show {
   id: string;
@@ -480,6 +489,7 @@ export interface Reservation extends CustomerFormData {
   tags?: ReservationTag[]; // ✨ Speciale categorieën: GENODIGDE, PERS, VIP, CREW, etc.
   communicationLog?: CommunicationLog[];
   notes?: string; // Admin notes
+  rejectionReason?: string; // Reason for rejection (when status = 'rejected')
   checkedInAt?: Date; // NEW: Check-in timestamp
   checkedInBy?: string; // NEW: Who performed the check-in
   emailLog?: EmailLog[]; // ✨ NEW: Email history for this reservation
@@ -672,6 +682,7 @@ export interface EventQueryOptions extends QueryOptions {
 // Price calculation
 export interface PriceCalculation {
   basePrice: number;
+  arrangementPrice?: number; // 💰 Total arrangement price (for admin override calculations)
   preDrinkTotal: number;
   afterPartyTotal: number;
   merchandiseTotal: number;

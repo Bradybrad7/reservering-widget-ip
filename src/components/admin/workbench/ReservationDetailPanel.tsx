@@ -156,14 +156,15 @@ export const ReservationDetailPanel: React.FC<ReservationDetailPanelProps> = ({
   };
 
   const handleReject = async () => {
-    if (!confirm('Weet je zeker dat je deze reservering wilt annuleren?')) return;
+    const reason = prompt('Reden voor afwijzing (optioneel):');
+    if (reason === null) return; // User cancelled
     setIsProcessing(true);
     try {
-      await rejectReservation(reservation.id);
-      toast.success('Geannuleerd', 'Reservering is geannuleerd');
+      await rejectReservation(reservation.id, reason || undefined);
+      toast.success('Afgewezen', 'Reservering is afgewezen');
       onRefresh();
     } catch (error) {
-      toast.error('Fout', 'Kon reservering niet annuleren');
+      toast.error('Fout', 'Kon reservering niet afwijzen');
     } finally {
       setIsProcessing(false);
     }
@@ -192,6 +193,50 @@ export const ReservationDetailPanel: React.FC<ReservationDetailPanelProps> = ({
       onRefresh();
     } catch (error) {
       toast.error('Fout', 'Kon betaalstatus niet updaten');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleResendEmail = async () => {
+    if (!confirm(`Email opnieuw versturen naar ${reservation.email}?`)) return;
+    
+    setIsProcessing(true);
+    try {
+      // Get event data
+      const { useEventsStore } = await import('../../../store/eventsStore');
+      const eventsStore = useEventsStore.getState();
+      const event = eventsStore.events.find(e => e.id === reservation.eventId);
+
+      if (!event) {
+        toast.error('Fout', 'Event niet gevonden');
+        return;
+      }
+
+      // Send email based on current status
+      const { modernEmailService } = await import('../../../services/modernEmailService');
+      await modernEmailService.sendByStatus(
+        reservation, 
+        event, 
+        false,
+        reservation.rejectionReason
+      );
+
+      toast.success('Email Verstuurd', `Email verstuurd naar ${reservation.email}`);
+      
+      // Log to communication log
+      const { communicationLogService } = await import('../../../services/communicationLogService');
+      await communicationLogService.logEmail(
+        reservation.id,
+        `Email opnieuw verstuurd (${reservation.status})`,
+        reservation.email,
+        'Admin'
+      );
+      
+      onRefresh();
+    } catch (error) {
+      console.error('Error resending email:', error);
+      toast.error('Fout', 'Kon email niet versturen');
     } finally {
       setIsProcessing(false);
     }
@@ -285,6 +330,15 @@ export const ReservationDetailPanel: React.FC<ReservationDetailPanelProps> = ({
                 <DollarSign className="w-4 h-4" />
               </button>
             )}
+
+            <button
+              onClick={handleResendEmail}
+              disabled={isProcessing}
+              className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50"
+              title="Email opnieuw versturen"
+            >
+              <Send className="w-4 h-4" />
+            </button>
 
             <button
               onClick={handleDelete}

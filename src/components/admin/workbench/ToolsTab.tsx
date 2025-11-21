@@ -26,7 +26,7 @@ import type { Event, Reservation } from '../../../types';
 import { formatDate } from '../../../utils';
 import { ManualBookingManager } from '../QuickBooking';
 import { SmartImport } from '../SmartImport';
-import { SystemMigrationImport } from '../SystemMigrationImport';
+import { ContactImportWizard } from '../ContactImportWizard';
 import { PDFExportManager } from '../PDFExportManager';
 import { ExcelExportManager } from '../ExcelExportManager';
 
@@ -41,7 +41,7 @@ export const ToolsTab: React.FC<ToolsTabProps> = ({ events, reservations, onRefr
   // Modal states
   const [showManualBooking, setShowManualBooking] = useState(false);
   const [showSmartImport, setShowSmartImport] = useState(false);
-  const [showMigrationImport, setShowMigrationImport] = useState(false);
+  const [showContactImportWizard, setShowContactImportWizard] = useState(false);
   const [showEventSelector, setShowEventSelector] = useState(false);
   
   // Selected event for import
@@ -108,12 +108,12 @@ export const ToolsTab: React.FC<ToolsTabProps> = ({ events, reservations, onRefr
             />
 
             <ToolCard
-              icon={Database}
-              title="Systeem Migratie"
-              description="Voor interne migratie van oude boekingssysteem data"
-              buttonText="Migratie Import"
-              buttonColor="neutral"
-              onClick={() => setShowMigrationImport(true)}
+              icon={Package}
+              title="Importeer & Voltooi"
+              description="Upload contacten en voltooi stap-voor-stap elke boeking"
+              buttonText="Start Wizard"
+              buttonColor="blue"
+              onClick={() => setShowContactImportWizard(true)}
             />
           </div>
         </ToolSection>
@@ -160,13 +160,10 @@ export const ToolsTab: React.FC<ToolsTabProps> = ({ events, reservations, onRefr
         />
       )}
 
-      {showMigrationImport && (
-        <SystemMigrationImport
+      {showContactImportWizard && (
+        <ContactImportWizard
           onClose={() => {
-            setShowMigrationImport(false);
-          }}
-          onImportComplete={() => {
-            setShowMigrationImport(false);
+            setShowContactImportWizard(false);
             onRefresh();
           }}
         />

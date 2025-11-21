@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Check, Phone, Mail, Users, User, Calendar, AlertTriangle, DollarSign } from 'lucide-react';
+import { X, Check, Phone, Mail, Users, User, Calendar, AlertTriangle, DollarSign, ShoppingBag } from 'lucide-react';
 import { useEventsStore } from '../../store/eventsStore';
 import { useReservationsStore } from '../../store/reservationsStore';
+import { useConfigStore } from '../../store/configStore';
 import { apiService } from '../../services/apiService';
 import { priceService } from '../../services/priceService';
 import type { Event, Arrangement } from '../../types';
@@ -15,6 +16,7 @@ interface QuickBookingProps {
 export const QuickBooking: React.FC<QuickBookingProps> = ({ onClose }) => {
   const { events, loadEvents } = useEventsStore();
   const { loadReservations } = useReservationsStore();
+  const { merchandiseItems, loadMerchandise } = useConfigStore();
   
   const [bookingType, setBookingType] = useState<'booking' | 'guest' | 'option'>('booking');
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -28,6 +30,23 @@ export const QuickBooking: React.FC<QuickBookingProps> = ({ onClose }) => {
   const [comments, setComments] = useState('');
   const [companyName, setCompanyName] = useState('');
   
+  // 🆕 NEW: Voor/na borrels
+  const [preDrinkEnabled, setPreDrinkEnabled] = useState(false);
+  const [preDrinkQuantity, setPreDrinkQuantity] = useState(0);
+  const [afterPartyEnabled, setAfterPartyEnabled] = useState(false);
+  const [afterPartyQuantity, setAfterPartyQuantity] = useState(0);
+  
+  // 🆕 NEW: Merchandise (gebruik dezelfde structuur als boekingspagina)
+  const [selectedMerchandise, setSelectedMerchandise] = useState<Array<{itemId: string; quantity: number}>>([]);
+  
+  // 🆕 NEW: Promo codes & vouchers
+  const [promoCode, setPromoCode] = useState('');
+  const [voucherCode, setVoucherCode] = useState('');
+  
+  // 🆕 NEW: Manual price override
+  const [manualPriceOverride, setManualPriceOverride] = useState<number | null>(null);
+  const [useManualPrice, setUseManualPrice] = useState(false);
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   
@@ -38,7 +57,8 @@ export const QuickBooking: React.FC<QuickBookingProps> = ({ onClose }) => {
   useEffect(() => {
     console.log('📅 [QuickBooking] Loading events...');
     loadEvents();
-  }, [loadEvents]);
+    loadMerchandise();
+  }, [loadEvents, loadMerchandise]);
 
   const availableEvents = events
     .filter(e => new Date(e.date) >= new Date() && e.isActive && !shouldArchiveEvent(e))
@@ -77,14 +97,38 @@ export const QuickBooking: React.FC<QuickBookingProps> = ({ onClose }) => {
       return;
     }
 
+    // Use manual override if enabled
+    if (useManualPrice && manualPriceOverride !== null) {
+      setCalculatedPrice(manualPriceOverride);
+      return;
+    }
+
     if (arrangementPricePerPerson > 0 && numberOfPersons > 0) {
-      const total = arrangementPricePerPerson * numberOfPersons;
+      let total = arrangementPricePerPerson * numberOfPersons;
+      
+      // Add merchandise (same logic as booking page)
+      const merchandiseTotal = selectedMerchandise.reduce((sum, item) => {
+        const merchItem = merchandiseItems.find(m => m.id === item.itemId);
+        return sum + ((merchItem?.price || 0) * item.quantity);
+      }, 0);
+      total += merchandiseTotal;
+      
       console.log('💰 [QuickBooking] Total price:', total);
       setCalculatedPrice(total);
     } else {
       setCalculatedPrice(0);
     }
-  }, [bookingType, arrangementPricePerPerson, numberOfPersons]);
+  }, [bookingType, arrangementPricePerPerson, numberOfPersons, selectedMerchandise, merchandiseItems, useManualPrice, manualPriceOverride]);
+
+  // Update pre-drink and after-party quantities when numberOfPersons changes
+  useEffect(() => {
+    if (preDrinkEnabled && preDrinkQuantity === 0) {
+      setPreDrinkQuantity(numberOfPersons);
+    }
+    if (afterPartyEnabled && afterPartyQuantity === 0) {
+      setAfterPartyQuantity(numberOfPersons);
+    }
+  }, [numberOfPersons, preDrinkEnabled, afterPartyEnabled, preDrinkQuantity, afterPartyQuantity]);
 
   const totalPrice = calculatedPrice;
 
@@ -137,12 +181,22 @@ export const QuickBooking: React.FC<QuickBookingProps> = ({ onClose }) => {
         comments: comments.trim() || '',
         newsletterOptIn: false,
         acceptTerms: true,
-        preDrink: { enabled: false, quantity: 0 },
-        afterParty: { enabled: false, quantity: 0 },
-        merchandise: [],
+        // 🆕 Voor/na borrels
+        preDrink: { enabled: preDrinkEnabled, quantity: preDrinkQuantity },
+        afterParty: { enabled: afterPartyEnabled, quantity: afterPartyQuantity },
+        // 🆕 Merchandise (exact same format as booking page)
+        merchandise: selectedMerchandise,
+        // 🆕 Promo codes & vouchers
+        ...(promoCode && { promotionCode: promoCode }),
+        ...(voucherCode && { voucherCode: voucherCode }),
         // Status: option, confirmed, of confirmed (guest)
         status: isOption ? 'option' as const : 'confirmed' as const,
         totalPrice: totalPrice,
+        // 🆕 Manual price override
+        ...(useManualPrice && manualPriceOverride !== null && { 
+          manualPriceOverride: manualPriceOverride,
+          originalPrice: arrangementPricePerPerson * numberOfPersons
+        }),
         paymentStatus: 'pending' as const,
         tags: isOption 
           ? ['Admin Handmatig', 'Optie', 'Follow-up Required']
@@ -392,6 +446,249 @@ export const QuickBooking: React.FC<QuickBookingProps> = ({ onClose }) => {
                     💡 Prijzen van {selectedEvent.customPricing ? 'custom pricing voor dit event' : `event type: ${selectedEvent.type}`}
                   </div>
                 )}
+                
+                {/* 🆕 Manual Price Override */}
+                <div className="mt-4 border-t border-neutral-700 pt-4">
+                  <label className="flex items-center gap-2 text-sm font-medium text-neutral-300 mb-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={useManualPrice}
+                      onChange={(e) => {
+                        setUseManualPrice(e.target.checked);
+                        if (e.target.checked && manualPriceOverride === null) {
+                          setManualPriceOverride(arrangementPricePerPerson * numberOfPersons);
+                        }
+                      }}
+                      className="w-4 h-4 rounded border-neutral-600 text-green-500 focus:ring-green-500"
+                    />
+                    <DollarSign className="w-4 h-4" />
+                    Handmatige prijs override (korting/oud arrangement)
+                  </label>
+                  
+                  {useManualPrice && (
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">€</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={manualPriceOverride || 0}
+                          onChange={(e) => setManualPriceOverride(parseFloat(e.target.value) || 0)}
+                          onFocus={(e) => e.target.select()}
+                          className="w-full pl-8 pr-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                        />
+                      </div>
+                      <div className="text-xs text-neutral-400">
+                        Originele prijs: {formatCurrency(arrangementPricePerPerson * numberOfPersons)} 
+                        {manualPriceOverride && manualPriceOverride < (arrangementPricePerPerson * numberOfPersons) && (
+                          <span className="text-green-400 ml-2">
+                            (💰 Korting: {formatCurrency((arrangementPricePerPerson * numberOfPersons) - manualPriceOverride)})
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 🆕 Voor/Na Borrels - alleen bij booking */}
+            {bookingType === 'booking' && (
+              <div className="space-y-4">
+                <h4 className="text-sm font-semibold text-neutral-300 uppercase tracking-wide">Add-ons</h4>
+                
+                {/* Pre-drink */}
+                <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={preDrinkEnabled}
+                      onChange={(e) => {
+                        setPreDrinkEnabled(e.target.checked);
+                        if (e.target.checked && preDrinkQuantity === 0) {
+                          setPreDrinkQuantity(numberOfPersons);
+                        }
+                      }}
+                      className="w-5 h-5 rounded border-neutral-600 text-blue-500 focus:ring-blue-500"
+                    />
+                    <div className="flex-1">
+                      <div className="font-semibold text-white">🍷 Borrel Vooraf</div>
+                      <div className="text-sm text-neutral-400">Ontvangst met drankje voor de show</div>
+                    </div>
+                  </label>
+                  
+                  {preDrinkEnabled && (
+                    <div className="mt-3 pl-8">
+                      <label className="block text-xs text-neutral-400 mb-1">Aantal personen</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max={numberOfPersons}
+                        value={preDrinkQuantity}
+                        onChange={(e) => setPreDrinkQuantity(Math.min(parseInt(e.target.value) || 0, numberOfPersons))}
+                        className="w-24 px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white text-sm"
+                      />
+                      <span className="ml-2 text-xs text-neutral-400">van {numberOfPersons}</span>
+                    </div>
+                  )}
+                </div>
+                
+                {/* After Party */}
+                <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={afterPartyEnabled}
+                      onChange={(e) => {
+                        setAfterPartyEnabled(e.target.checked);
+                        if (e.target.checked && afterPartyQuantity === 0) {
+                          setAfterPartyQuantity(numberOfPersons);
+                        }
+                      }}
+                      className="w-5 h-5 rounded border-neutral-600 text-purple-500 focus:ring-purple-500"
+                    />
+                    <div className="flex-1">
+                      <div className="font-semibold text-white">🎉 Nazit / After Party</div>
+                      <div className="text-sm text-neutral-400">Blijf langer genieten na de show</div>
+                    </div>
+                  </label>
+                  
+                  {afterPartyEnabled && (
+                    <div className="mt-3 pl-8">
+                      <label className="block text-xs text-neutral-400 mb-1">Aantal personen</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max={numberOfPersons}
+                        value={afterPartyQuantity}
+                        onChange={(e) => setAfterPartyQuantity(Math.min(parseInt(e.target.value) || 0, numberOfPersons))}
+                        className="w-24 px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white text-sm"
+                      />
+                      <span className="ml-2 text-xs text-neutral-400">van {numberOfPersons}</span>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Merchandise - Same as booking page */}
+                <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <ShoppingBag className="w-5 h-5 text-green-400" />
+                    <div className="flex-1">
+                      <div className="font-semibold text-white">Merchandise</div>
+                      <div className="text-sm text-neutral-400">Kies merchandise items</div>
+                    </div>
+                  </div>
+                  
+                  {merchandiseItems.filter(item => item.inStock).length === 0 ? (
+                    <p className="text-sm text-neutral-500 text-center py-4">Geen merchandise beschikbaar</p>
+                  ) : (
+                    <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+                      {merchandiseItems.filter(item => item.inStock).map((item) => {
+                        const quantity = selectedMerchandise.find(m => m.itemId === item.id)?.quantity || 0;
+                        
+                        return (
+                          <div key={item.id} className={cn(
+                            'p-3 rounded-lg border-2 transition-all',
+                            quantity > 0 
+                              ? 'border-green-500 bg-green-500/10' 
+                              : 'border-neutral-700 bg-neutral-800/50'
+                          )}>
+                            <div className="flex items-start gap-3">
+                              {item.imageUrl && (
+                                <div className="w-12 h-12 rounded-lg overflow-hidden bg-neutral-700 flex-shrink-0">
+                                  <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-white text-sm">{item.name}</div>
+                                {item.description && (
+                                  <div className="text-xs text-neutral-400 mt-0.5">{item.description}</div>
+                                )}
+                                <div className="text-sm font-bold text-green-400 mt-1">
+                                  {formatCurrency(item.price)}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="99"
+                                  value={quantity}
+                                  onChange={(e) => {
+                                    const newQuantity = parseInt(e.target.value) || 0;
+                                    if (newQuantity <= 0) {
+                                      setSelectedMerchandise(selectedMerchandise.filter(m => m.itemId !== item.id));
+                                    } else {
+                                      const existing = selectedMerchandise.find(m => m.itemId === item.id);
+                                      if (existing) {
+                                        setSelectedMerchandise(selectedMerchandise.map(m =>
+                                          m.itemId === item.id ? { ...m, quantity: newQuantity } : m
+                                        ));
+                                      } else {
+                                        setSelectedMerchandise([...selectedMerchandise, { itemId: item.id, quantity: newQuantity }]);
+                                      }
+                                    }
+                                  }}
+                                  className="w-16 px-2 py-1.5 bg-neutral-700 border border-neutral-600 rounded text-white text-sm text-center font-bold focus:outline-none focus:ring-2 focus:ring-green-500"
+                                  placeholder="0"
+                                />
+                                {quantity > 0 && (
+                                  <div className="text-xs text-neutral-400">
+                                    = {formatCurrency(item.price * quantity)}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  
+                  {selectedMerchandise.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-neutral-700 flex justify-between items-center">
+                      <span className="text-sm text-neutral-400">{selectedMerchandise.length} item(s)</span>
+                      <span className="text-lg font-bold text-green-400">
+                        {formatCurrency(selectedMerchandise.reduce((sum, item) => {
+                          const merchItem = merchandiseItems.find(m => m.id === item.itemId);
+                          return sum + ((merchItem?.price || 0) * item.quantity);
+                        }, 0))}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 🆕 Promo Codes & Vouchers */}
+            {bookingType === 'booking' && (
+              <div className="space-y-4">
+                <h4 className="text-sm font-semibold text-neutral-300 uppercase tracking-wide">Kortingen & Vouchers</h4>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-neutral-400 mb-1">Promocode</label>
+                    <input
+                      type="text"
+                      value={promoCode}
+                      onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                      placeholder="PROMO10"
+                      className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm uppercase"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs text-neutral-400 mb-1">Vouchercode</label>
+                    <input
+                      type="text"
+                      value={voucherCode}
+                      onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
+                      placeholder="VOUCHER123"
+                      className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm uppercase"
+                    />
+                  </div>
+                </div>
               </div>
             )}
 
@@ -412,23 +709,63 @@ export const QuickBooking: React.FC<QuickBookingProps> = ({ onClose }) => {
                   <span className="text-sm font-semibold text-green-300">Prijsberekening</span>
                 </div>
                 
-                {arrangementPricePerPerson > 0 ? (
+                {arrangementPricePerPerson > 0 || useManualPrice ? (
                   <>
                     <div className="space-y-2 mb-3">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-neutral-400">Arrangement ({arrangement}):</span>
-                        <span className="text-neutral-200 font-medium">{formatCurrency(arrangementPricePerPerson)} p.p.</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-neutral-400">Aantal personen:</span>
-                        <span className="text-neutral-200 font-medium">{numberOfPersons}x</span>
-                      </div>
+                      {!useManualPrice ? (
+                        <>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-neutral-400">Arrangement ({arrangement}):</span>
+                            <span className="text-neutral-200 font-medium">{formatCurrency(arrangementPricePerPerson)} p.p.</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-neutral-400">Aantal personen:</span>
+                            <span className="text-neutral-200 font-medium">{numberOfPersons}x</span>
+                          </div>
+                          <div className="flex justify-between text-sm font-medium">
+                            <span className="text-neutral-300">Subtotaal arrangement:</span>
+                            <span className="text-neutral-100">{formatCurrency(arrangementPricePerPerson * numberOfPersons)}</span>
+                          </div>
+                          
+                          {/* Merchandise items */}
+                          {selectedMerchandise.length > 0 && selectedMerchandise.map((item) => {
+                            const merchItem = merchandiseItems.find(m => m.id === item.itemId);
+                            if (!merchItem) return null;
+                            return (
+                              <div key={item.itemId} className="flex justify-between text-sm">
+                                <span className="text-neutral-400">{merchItem.name} ({item.quantity}x):</span>
+                                <span className="text-neutral-200 font-medium">{formatCurrency(merchItem.price * item.quantity)}</span>
+                              </div>
+                            );
+                          })}
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-amber-400">🎁 Handmatige prijs (korting/override):</span>
+                            <span className="text-amber-200 font-medium">{formatCurrency(manualPriceOverride || 0)}</span>
+                          </div>
+                          <div className="text-xs text-neutral-500">
+                            Origineel: {formatCurrency(arrangementPricePerPerson * numberOfPersons)}
+                          </div>
+                        </>
+                      )}
                     </div>
                     
                     <div className="border-t border-green-500/30 pt-3 flex justify-between items-center">
                       <span className="text-neutral-300 font-semibold">Totaalprijs</span>
                       <span className="text-2xl font-bold text-green-400">{formatCurrency(totalPrice)}</span>
                     </div>
+                    
+                    {/* Summary of add-ons */}
+                    {(preDrinkEnabled || afterPartyEnabled || promoCode || voucherCode) && !useManualPrice && (
+                      <div className="mt-3 pt-3 border-t border-green-500/20 text-xs text-neutral-400 space-y-1">
+                        {preDrinkEnabled && <div>✓ Borrel vooraf: {preDrinkQuantity} personen</div>}
+                        {afterPartyEnabled && <div>✓ After party: {afterPartyQuantity} personen</div>}
+                        {promoCode && <div>✓ Promocode: {promoCode}</div>}
+                        {voucherCode && <div>✓ Voucher: {voucherCode}</div>}
+                      </div>
+                    )}
                   </>
                 ) : (
                   <div className="text-sm text-yellow-300">

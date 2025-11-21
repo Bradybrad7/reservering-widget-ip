@@ -32,7 +32,8 @@ import {
   Download,
   AlertTriangle,
   TrendingUp,
-  BarChart3
+  BarChart3,
+  List
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { nl } from 'date-fns/locale';
@@ -43,6 +44,7 @@ import { useWaitlistStore } from '../../store/waitlistStore';
 import { useConfigStore } from '../../store/configStore';
 import { useEventsStore } from '../../store/eventsStore';
 import { useToast } from '../Toast';
+import { EventReservationsPanel } from './EventReservationsPanel';
 
 interface EventDetailModalProps {
   event: AdminEvent;
@@ -70,6 +72,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editedEvent, setEditedEvent] = useState(event);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'reservations'>('overview');
 
   if (!isOpen) return null;
 
@@ -200,9 +203,43 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
         </div>
 
+        {/* Tabs Navigation */}
+        <div className="border-b border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm">
+          <div className="flex gap-1 px-6">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={cn(
+                "flex items-center gap-2 px-6 py-3 font-bold text-sm transition-all border-b-2",
+                activeTab === 'overview'
+                  ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                  : "border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+              )}
+            >
+              <BarChart3 className="w-4 h-4" />
+              Overzicht & Statistieken
+            </button>
+            <button
+              onClick={() => setActiveTab('reservations')}
+              className={cn(
+                "flex items-center gap-2 px-6 py-3 font-bold text-sm transition-all border-b-2",
+                activeTab === 'reservations'
+                  ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                  : "border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+              )}
+            >
+              <List className="w-4 h-4" />
+              Boekingen & Tafels
+              <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-black rounded-full">
+                {eventReservations.length}
+              </span>
+            </button>
+          </div>
+        </div>
+
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          <div className="grid grid-cols-3 gap-6">
+          {activeTab === 'overview' && (
+            <div className="grid grid-cols-3 gap-6">
             {/* Left Column: Stats */}
             <div className="col-span-2 space-y-6">
               {/* Key Metrics */}
@@ -521,6 +558,13 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
               )}
             </div>
           </div>
+          )}
+
+          {activeTab === 'reservations' && (
+            <div>
+              <EventReservationsPanel eventId={event.id} eventDate={event.date.toISOString()} />
+            </div>
+          )}
         </div>
       </div>
     </div>

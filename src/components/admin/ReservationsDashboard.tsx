@@ -58,7 +58,7 @@ import type { AddOns, Arrangement, Event, PaymentSummary } from '../../types';
 import { format, isToday, isTomorrow, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, getWeek, getMonth, getYear } from 'date-fns';
 import { nl } from 'date-fns/locale';
 import { useToast } from '../Toast';
-import { ManualBookingManager } from './ManualBookingManager';
+import { CompactManualBookingForm } from './CompactManualBookingForm';
 import { TagConfigService } from '../../services/tagConfigService';
 import type { ReservationTag } from '../../types';
 
@@ -1427,11 +1427,12 @@ export const ReservationsDashboard: React.FC = () => {
 
   // Handler voor afwijzen
   const handleReject = async (reservationId: string) => {
-    if (!confirm('Weet je zeker dat je deze reservering wilt afwijzen?')) return;
+    const reason = prompt('Reden voor afwijzing (optioneel):');
+    if (reason === null) return; // User cancelled
     
     setProcessingIds(prev => new Set(prev).add(reservationId));
     try {
-      const success = await rejectReservation(reservationId);
+      const success = await rejectReservation(reservationId, reason || undefined);
       if (success) {
         showSuccess('Reservering afgewezen');
         await loadReservations(); // Refresh data
@@ -1467,6 +1468,58 @@ export const ReservationsDashboard: React.FC = () => {
     } catch (error) {
       console.error('Error cancelling reservation:', error);
       showError('Er ging iets mis');
+    } finally {
+      setProcessingIds(prev => {
+        const next = new Set(prev);
+        next.delete(reservationId);
+        return next;
+      });
+    }
+  };
+
+  // Handler voor email opnieuw versturen
+  const handleResendEmail = async (reservationId: string) => {
+    const reservation = reservations.find(r => r.id === reservationId);
+    if (!reservation) {
+      showError('Reservering niet gevonden');
+      return;
+    }
+
+    if (!confirm(`Email opnieuw versturen naar ${reservation.email}?`)) return;
+    
+    setProcessingIds(prev => new Set(prev).add(reservationId));
+    try {
+      // Get event data
+      const event = events.find(e => e.id === reservation.eventId);
+      if (!event) {
+        showError('Event niet gevonden');
+        return;
+      }
+
+      // Send email based on current status
+      const { modernEmailService } = await import('../../services/modernEmailService');
+      await modernEmailService.sendByStatus(
+        reservation, 
+        event, 
+        false,
+        reservation.rejectionReason
+      );
+
+      showSuccess(`Email verstuurd naar ${reservation.email}`);
+      
+      // Log to communication log
+      const { communicationLogService } = await import('../../services/communicationLogService');
+      await communicationLogService.logEmail(
+        reservationId,
+        `Email opnieuw verstuurd (${reservation.status})`,
+        reservation.email,
+        'Admin'
+      );
+      
+      await loadReservations();
+    } catch (error) {
+      console.error('Error resending email:', error);
+      showError('Kon email niet versturen');
     } finally {
       setProcessingIds(prev => {
         const next = new Set(prev);
@@ -3850,6 +3903,18 @@ export const ReservationsDashboard: React.FC = () => {
                                 Details
                               </button>
                               <button 
+                                onClick={() => handleResendEmail(reservation.id)}
+                                disabled={processingIds.has(reservation.id)}
+                                className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg font-bold text-sm transition-colors whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {processingIds.has(reservation.id) ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Mail className="w-4 h-4" />
+                                )}
+                                Email
+                              </button>
+                              <button 
                                 onClick={() => handleReject(reservation.id)}
                                 disabled={processingIds.has(reservation.id)}
                                 className="flex items-center justify-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg font-bold text-sm transition-colors whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50"
@@ -5761,16 +5826,12 @@ export const ReservationsDashboard: React.FC = () => {
       {/* MANUAL BOOKING MODAL */}
       {/* ====================================================================== */}
       {showManualBooking && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-6xl max-h-[90vh] overflow-auto">
-            <ManualBookingManager 
-              onClose={() => {
-                setShowManualBooking(false);
-                loadReservations();
-              }}
-            />
-          </div>
-        </div>
+        <CompactManualBookingForm 
+          onClose={() => {
+            setShowManualBooking(false);
+            loadReservations();
+          }}
+        />
       )}
 
       {/* ====================================================================== */}

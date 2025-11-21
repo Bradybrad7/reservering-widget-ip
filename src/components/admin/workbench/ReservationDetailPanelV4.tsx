@@ -333,6 +333,14 @@ export const ReservationDetailPanelV4: React.FC<ReservationDetailPanelV4Props> =
               </>
             )}
             <button
+              onClick={() => setActiveTab('communication')}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+              title="Email opnieuw versturen"
+            >
+              <Send className="w-4 h-4" />
+              Email Versturen
+            </button>
+            <button
               onClick={handleDelete}
               disabled={isProcessing}
               className="px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
@@ -881,25 +889,171 @@ interface CommunicationTabProps {
 }
 
 const CommunicationTab: React.FC<CommunicationTabProps> = ({ reservation, onRefresh }) => {
+  const [isSending, setIsSending] = useState(false);
+  const toast = useToast();
+
+  const handleResendEmail = async (emailType: 'current' | 'confirmation' | 'pending' | 'rejection') => {
+    if (!confirm(`Weet je zeker dat je de ${emailType === 'current' ? 'huidige status' : emailType} email opnieuw wilt versturen naar ${reservation.email}?`)) {
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      // Get event data
+      const { useEventsStore } = await import('../../../store/eventsStore');
+      const eventsStore = useEventsStore.getState();
+      const event = eventsStore.events.find(e => e.id === reservation.eventId);
+
+      if (!event) {
+        toast.error('Fout', 'Event niet gevonden');
+        return;
+      }
+
+      // Import email services
+      const { emailService } = await import('../../../services/emailService');
+      const { modernEmailService } = await import('../../../services/modernEmailService');
+
+      let success = false;
+      let message = '';
+
+      // Determine which email to send
+      switch (emailType) {
+        case 'current':
+          // Send email based on current status
+          await modernEmailService.sendByStatus(
+            reservation, 
+            event, 
+            false,
+            reservation.rejectionReason
+          );
+          success = true;
+          message = `Email verstuurd op basis van huidige status: ${reservation.status}`;
+          break;
+
+        case 'confirmation':
+          // Force send confirmation email regardless of status
+          const confirmedReservation = { ...reservation, status: 'confirmed' as const };
+          await modernEmailService.sendByStatus(confirmedReservation, event);
+          success = true;
+          message = 'Bevestigingsmail opnieuw verstuurd';
+          break;
+
+        case 'pending':
+          // Force send pending email
+          const pendingReservation = { ...reservation, status: 'pending' as const };
+          await modernEmailService.sendByStatus(pendingReservation, event);
+          success = true;
+          message = 'Aanvraag ontvangen mail opnieuw verstuurd';
+          break;
+
+        case 'rejection':
+          // Force send rejection email
+          const reason = reservation.rejectionReason || prompt('Reden voor afwijzing (optioneel):') || 'De gevraagde datum is helaas niet beschikbaar.';
+          const rejectedReservation = { ...reservation, status: 'rejected' as const };
+          await modernEmailService.sendByStatus(rejectedReservation, event, false, reason);
+          success = true;
+          message = 'Afwijzingsmail opnieuw verstuurd';
+          break;
+      }
+
+      if (success) {
+        toast.success('Email Verstuurd', message);
+        
+        // Log to communication log
+        const { communicationLogService } = await import('../../../services/communicationLogService');
+        await communicationLogService.logEmail(
+          reservation.id,
+          `Email opnieuw verstuurd: ${emailType}`,
+          reservation.email,
+          'Admin'
+        );
+        
+        onRefresh();
+      }
+    } catch (error) {
+      console.error('Error resending email:', error);
+      toast.error('Fout', 'Kon email niet versturen. Controleer de console voor details.');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-4xl">
+      {/* Email Opnieuw Versturen Section */}
+      <section className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 rounded-xl p-6 border border-blue-500/30">
+        <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+          <Send className="w-5 h-5 text-blue-400" />
+          Email Opnieuw Versturen
+        </h3>
+        <p className="text-sm text-neutral-400 mb-4">
+          Verstuur een email opnieuw als de klant deze niet heeft ontvangen
+        </p>
+        
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => handleResendEmail('current')}
+            disabled={isSending}
+            className="px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-neutral-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+          >
+            <Send className="w-4 h-4" />
+            {reservation.status === 'confirmed' && 'Bevestigingsmail'}
+            {reservation.status === 'pending' && 'Aanvraag Mail'}
+            {reservation.status === 'rejected' && 'Afwijzingsmail'}
+            {reservation.status === 'option' && 'Optie Mail'}
+            {!['confirmed', 'pending', 'rejected', 'option'].includes(reservation.status) && 'Huidige Status Mail'}
+          </button>
+
+          <button
+            onClick={() => handleResendEmail('confirmation')}
+            disabled={isSending}
+            className="px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-neutral-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+          >
+            <CheckCircle className="w-4 h-4" />
+            Bevestigingsmail
+          </button>
+
+          <button
+            onClick={() => handleResendEmail('pending')}
+            disabled={isSending}
+            className="px-4 py-3 bg-yellow-600 hover:bg-yellow-700 disabled:bg-neutral-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+          >
+            <Clock className="w-4 h-4" />
+            Aanvraag Mail
+          </button>
+
+          <button
+            onClick={() => handleResendEmail('rejection')}
+            disabled={isSending}
+            className="px-4 py-3 bg-red-600 hover:bg-red-700 disabled:bg-neutral-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+          >
+            <XCircle className="w-4 h-4" />
+            Afwijzingsmail
+          </button>
+        </div>
+
+        {isSending && (
+          <div className="mt-4 p-3 bg-blue-900/30 border border-blue-500/30 rounded-lg">
+            <p className="text-sm text-blue-400 flex items-center gap-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-400 border-t-transparent"></div>
+              Email wordt verstuurd...
+            </p>
+          </div>
+        )}
+
+        <div className="mt-4 p-3 bg-neutral-800/50 border border-neutral-700 rounded-lg">
+          <p className="text-xs text-neutral-400">
+            <strong className="text-neutral-300">Email adres:</strong> {reservation.email}
+          </p>
+        </div>
+      </section>
+
       <section className="bg-neutral-800/50 rounded-xl p-6 border border-neutral-700">
         <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
           <Mail className="w-5 h-5 text-gold-400" />
           Email Historie
         </h3>
         <EmailHistoryTimeline reservationId={reservation.id} />
-      </section>
-
-      <section className="bg-neutral-800/50 rounded-xl p-6 border border-neutral-700">
-        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <Send className="w-5 h-5 text-gold-400" />
-          Handmatige Email
-        </h3>
-        <button className="px-4 py-2 bg-gold-600 hover:bg-gold-700 text-black rounded-lg font-medium transition-colors">
-          <Send className="w-4 h-4 inline mr-2" />
-          Stuur Email
-        </button>
       </section>
     </div>
   );

@@ -40,6 +40,7 @@ import { ReservationMasterList } from './ReservationMasterList.tsx';
 import { ReservationDetailPanel } from './ReservationDetailPanel.tsx';
 import { GlobalQuickStats } from './GlobalQuickStats';
 import { BulkActionsToolbar, reservationBulkActions } from './BulkActionsToolbar';
+import { ContactImportWizard } from './ContactImportWizard';
 import { useMultiSelect } from '../../hooks/useMultiSelect';
 
 type ViewMode = 'list' | 'grid';
@@ -208,6 +209,9 @@ export const ReservationsCommandCenterRevamped: React.FC = () => {
 
   const isLoading = isLoadingEvents;
 
+  // 🆕 Contact Import Wizard state
+  const [showContactImportWizard, setShowContactImportWizard] = useState(false);
+
   const handleExport = async () => {
     const { exportReservationsCSV } = await import('../../utils/exportUtils');
     const filename = `reserveringen_${new Date().toISOString().split('T')[0]}.csv`;
@@ -215,8 +219,7 @@ export const ReservationsCommandCenterRevamped: React.FC = () => {
   };
 
   const handleImport = () => {
-    // Import modal is available via BulkImportModal component
-    alert('Import functionaliteit: Gebruik het Bulk Import icoon in de toolbar of ga naar Config > Data Management');
+    setShowContactImportWizard(true);
   };
 
   // ✨ Bulk actions handler with full implementation
@@ -387,7 +390,7 @@ export const ReservationsCommandCenterRevamped: React.FC = () => {
             >
               <div className="absolute inset-0 bg-blue-400 rounded-xl blur-xl opacity-50 group-hover:opacity-75 -z-10"></div>
               <Upload className="w-4 h-4" />
-              <span className="hidden md:inline">Import</span>
+              <span className="hidden md:inline">Importeer & Voltooi</span>
             </button>
           </div>
         </div>
@@ -765,6 +768,17 @@ export const ReservationsCommandCenterRevamped: React.FC = () => {
           onDeselectAll={deselectAll}
           onAction={handleBulkAction}
           actions={reservationBulkActions}
+        />
+      )}
+
+      {/* 🆕 Contact Import Wizard */}
+      {showContactImportWizard && (
+        <ContactImportWizard
+          onClose={() => {
+            setShowContactImportWizard(false);
+            // Reload reservations after import
+            loadReservations();
+          }}
         />
       )}
     </div>

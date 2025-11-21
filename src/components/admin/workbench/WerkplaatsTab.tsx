@@ -498,7 +498,9 @@ export const WerkplaatsTab: React.FC<WerkplaatsTabProps> = ({
                 toast.success(`${reservationIds.length} reserveringen bevestigd`);
                 break;
               case 'reject':
-                await Promise.all(reservationIds.map(id => rejectReservation(id)));
+                const reason = prompt('Reden voor afwijzing (geldt voor alle geselecteerde reserveringen, optioneel):');
+                if (reason === null) break; // User cancelled
+                await Promise.all(reservationIds.map(id => rejectReservation(id, reason || undefined)));
                 toast.success(`${reservationIds.length} reserveringen afgewezen`);
                 break;
               case 'cancel':

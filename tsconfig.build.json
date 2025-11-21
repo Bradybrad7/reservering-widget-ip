@@ -8,8 +8,6 @@
     "noUnusedParameters": false
   },
   "exclude": [
-    "src/examples/**/*",
-    "src/tests/**/*",
     "src/components/voucher/**/*",
     "src/store/firebaseConfigStore.ts"
   ]

@@ -12,22 +12,54 @@ import { shouldArchiveEvent } from '../../utils/eventArchiving';
 /**
  * ⚡ ADMIN POWER-USER: Manual Booking Manager
  * 
- * Allows admin to create bookings directly for phone/walk-in customers
+ * ⚠️ DEPRECATED: Dit component is behouden voor backward compatibility en snelle optie placement.
+ * Voor volledige boekingen met alle stappen, gebruik ManualBookingForm component.
+ * 
+ * Dit component is specifiek voor:
+ * - Snelle optie placement (1-week hold zonder volledige details)
+ * - Genodigden toevoegen (gratis toegang)
+ * - Quick bookings zonder alle formulier stappen
+ * 
+ * Voor normale telefonische/walk-in boekingen → gebruik ManualBookingForm
+ * 
  * Features:
+ * - Snelle optie placement (minimale gegevens)
+ * - Genodigden toevoegen (€0 pricing)
  * - Override price manually
  * - Bypass capacity limits (with warning)
- * - Direct booking without customer validation rules
  * - One-page fast workflow
  */
 
-interface ManualBookingManagerProps {
-  onClose?: () => void;
+interface PrefilledContact {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  companyName?: string;
 }
 
-export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onClose }) => {
+interface ManualBookingManagerProps {
+  onClose?: () => void;
+  prefilledContact?: PrefilledContact;
+  preselectedEvent?: AdminEvent; // 🆕 Event pre-selected from Calendar Manager
+  onComplete?: () => void; // Callback when booking is completed (for wizard mode)
+  onCancel?: () => void; // Callback when booking is cancelled (for wizard mode)
+  wizardMode?: boolean; // When true, shows different UI/buttons for wizard flow
+  importMode?: boolean; // 🆕 When true, marks as existing reservation (no emails, status=confirmed)
+}
+
+export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ 
+  onClose, 
+  prefilledContact,
+  preselectedEvent,
+  onComplete, 
+  onCancel,
+  wizardMode = false,
+  importMode = false
+}) => {
   const { events, loadEvents } = useEventsStore();
   const { loadReservations } = useReservationsStore();
-  const [selectedEvent, setSelectedEvent] = useState<AdminEvent | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<AdminEvent | null>(preselectedEvent || null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   
@@ -49,18 +81,25 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
     }
   }, [bookingType]);
   
-  // Form state
-  const [formData, setFormData] = useState<Partial<CustomerFormData>>({
-    companyName: '',
-    contactPerson: '',
-    email: '',
-    phone: '',
-    phoneCountryCode: '+31',
-    numberOfPersons: 2,
-    arrangement: 'BWF' as Arrangement, // Default for full bookings
-    preDrink: { enabled: false, quantity: 0 },
-    afterParty: { enabled: false, quantity: 0 },
-    comments: ''
+  // Form state - Initialize with prefilled data if available
+  const [formData, setFormData] = useState<Partial<CustomerFormData>>(() => {
+    const baseData = {
+      companyName: prefilledContact?.companyName || '',
+      contactPerson: prefilledContact?.firstName && prefilledContact?.lastName 
+        ? `${prefilledContact.firstName} ${prefilledContact.lastName}` 
+        : '',
+      firstName: prefilledContact?.firstName || '',
+      lastName: prefilledContact?.lastName || '',
+      email: prefilledContact?.email || '',
+      phone: prefilledContact?.phone || '',
+      phoneCountryCode: '+31',
+      numberOfPersons: 2,
+      arrangement: 'BWF' as Arrangement, // Default for full bookings
+      preDrink: { enabled: false, quantity: 0 },
+      afterParty: { enabled: false, quantity: 0 },
+      comments: ''
+    };
+    return baseData;
   });
 
   // 🆕 Option notes
@@ -217,7 +256,9 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
         eventDate: selectedEvent.date,
         // ✨ Prijs: €0 voor opties EN voor genodigden
         totalPrice: isOption || guestTags.includes('GENODIGDE') ? 0 : finalPrice,
-        status: isOption ? 'option' : 'confirmed', // Opties krijgen status 'option'
+        status: isOption ? 'option' : 'confirmed', // Opties krijgen status 'option', imports altijd confirmed
+        source: importMode ? 'import' : 'admin', // Track import vs manual
+        skipEmail: importMode, // ✨ No emails for imported bookings
         createdAt: new Date(),
         updatedAt: new Date(),
         // ✨ Use proper ReservationTag types + any selected guest tags
@@ -236,9 +277,11 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
             id: `log-${Date.now()}`,
             timestamp: new Date(),
             type: 'note',
-            message: isOption
-              ? `⏰ OPTIE geplaatst door admin - Verloopt op ${optionExpiresAt?.toLocaleDateString('nl-NL')}${optionNotes ? `\nNotities: ${optionNotes}` : ''}`
-              : `📞 Handmatig aangemaakt door admin${priceOverride !== null ? ` - Prijs overschreven: ${formatCurrency(priceOverride)}` : ''}`,
+            message: importMode
+              ? `📥 Geïmporteerde reservering (bestaande boeking)${priceOverride !== null ? ` - Prijs: ${formatCurrency(priceOverride)}` : ''}`
+              : isOption
+                ? `⏰ OPTIE geplaatst door admin - Verloopt op ${optionExpiresAt?.toLocaleDateString('nl-NL')}${optionNotes ? `\nNotities: ${optionNotes}` : ''}`
+                : `📞 Handmatig aangemaakt door admin${priceOverride !== null ? ` - Prijs overschreven: ${formatCurrency(priceOverride)}` : ''}`,
             author: 'Admin'
           }
         ]
@@ -251,30 +294,37 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
         await loadReservations();
         await loadEvents();
         
-        // Close modal and reset form after 1 second
-        setTimeout(() => {
-          if (onClose) {
-            onClose();
-          } else {
-            // If no onClose provided, reset form
-            setFormData({
-              companyName: '',
-              contactPerson: '',
-              email: '',
-              phone: '',
-              phoneCountryCode: '+31',
-              numberOfPersons: 2,
-              arrangement: 'BWF' as Arrangement,
-              preDrink: { enabled: false, quantity: 0 },
-              afterParty: { enabled: false, quantity: 0 },
-              comments: ''
-            });
-            setSelectedEvent(null);
-            setPriceOverride(null);
-            setShowPriceOverride(false);
-            setSuccess(false);
-          }
-        }, 1000);
+        // 🆕 Wizard mode: call onComplete immediately
+        if (wizardMode && onComplete) {
+          setTimeout(() => {
+            onComplete();
+          }, 500);
+        } else {
+          // Normal mode: close or reset after delay
+          setTimeout(() => {
+            if (onClose) {
+              onClose();
+            } else {
+              // If no onClose provided, reset form
+              setFormData({
+                companyName: '',
+                contactPerson: '',
+                email: '',
+                phone: '',
+                phoneCountryCode: '+31',
+                numberOfPersons: 2,
+                arrangement: 'BWF' as Arrangement,
+                preDrink: { enabled: false, quantity: 0 },
+                afterParty: { enabled: false, quantity: 0 },
+                comments: ''
+              });
+              setSelectedEvent(null);
+              setPriceOverride(null);
+              setShowPriceOverride(false);
+              setSuccess(false);
+            }
+          }, 1000);
+        }
       }
     } catch (error) {
       console.error('Failed to create manual booking:', error);
@@ -599,23 +649,30 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
             <h3 className="text-lg font-semibold text-white flex items-center gap-2">
               <Calendar className="w-5 h-5 text-gold-500" />
               Event Selectie
+              {preselectedEvent && wizardMode && (
+                <span className="ml-auto text-xs text-blue-400 bg-blue-500/20 px-3 py-1 rounded-full border border-blue-500/30">
+                  🔒 Vanuit Calendar Manager
+                </span>
+              )}
             </h3>
             
-            <button
-              type="button"
-              onClick={async () => {
-                const personsToSearch = formData.numberOfPersons || 2;
-                console.log('🔍 Searching availability for:', personsToSearch, 'persons');
-                setShowAvailabilitySearch(true);
-                await searchAvailability(personsToSearch);
-              }}
-              disabled={isSearching || !formData.numberOfPersons || formData.numberOfPersons < 1}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title={!formData.numberOfPersons || formData.numberOfPersons < 1 ? 'Vul eerst aantal personen in' : 'Zoek beschikbare events'}
-            >
-              <Search className="w-4 h-4" />
-              {isSearching ? 'Zoeken...' : 'Zoek Beschikbaarheid'}
-            </button>
+            {!preselectedEvent && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const personsToSearch = formData.numberOfPersons || 2;
+                  console.log('🔍 Searching availability for:', personsToSearch, 'persons');
+                  setShowAvailabilitySearch(true);
+                  await searchAvailability(personsToSearch);
+                }}
+                disabled={isSearching || !formData.numberOfPersons || formData.numberOfPersons < 1}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={!formData.numberOfPersons || formData.numberOfPersons < 1 ? 'Vul eerst aantal personen in' : 'Zoek beschikbare events'}
+              >
+                <Search className="w-4 h-4" />
+                {isSearching ? 'Zoeken...' : 'Zoek Beschikbaarheid'}
+              </button>
+            )}
           </div>
 
           {/* Beschikbaarheid Zoekresultaten */}
@@ -749,6 +806,22 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
                 </div>
               )}
             </div>
+          ) : preselectedEvent ? (
+            /* Pre-selected Event (Read-only) */
+            <div className="p-4 bg-blue-500/10 border-2 border-blue-500/30 rounded-lg">
+              <div className="flex items-center gap-3">
+                <Calendar className="w-5 h-5 text-blue-400" />
+                <div className="flex-1">
+                  <p className="text-sm text-blue-300">Geselecteerd event:</p>
+                  <p className="font-bold text-white text-lg">
+                    {formatDate(preselectedEvent.date)} - {preselectedEvent.startsAt}
+                  </p>
+                  <p className="text-xs text-blue-200 mt-1">
+                    {preselectedEvent.type} • Capaciteit: {preselectedEvent.capacity} personen
+                  </p>
+                </div>
+              </div>
+            </div>
           ) : (
             /* Standaard Dropdown Selectie */
             <>
@@ -801,19 +874,30 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <User className="w-5 h-5 text-gold-500" />
             Klantgegevens
+            {wizardMode && prefilledContact && (
+              <span className="ml-auto text-xs text-blue-400 bg-blue-500/20 px-3 py-1 rounded-full border border-blue-500/30">
+                🔒 Geïmporteerd uit Excel
+              </span>
+            )}
           </h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-neutral-300 mb-2">
                 <Building2 className="w-4 h-4 inline mr-1" />
-                Bedrijfsnaam {bookingType === 'full' && '*'}
+                Bedrijfsnaam {bookingType === 'full' && !prefilledContact && '*'}
               </label>
               <input
                 type="text"
                 value={formData.companyName || ''}
                 onChange={(e) => updateFormField('companyName', e.target.value)}
-                className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold-500"
+                disabled={!!prefilledContact?.companyName}
+                className={cn(
+                  "w-full px-4 py-2 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold-500",
+                  prefilledContact?.companyName 
+                    ? "bg-neutral-700/50 border-neutral-600/50 cursor-not-allowed opacity-75"
+                    : "bg-neutral-700 border-neutral-600"
+                )}
                 required={bookingType === 'full'}
               />
             </div>
@@ -842,7 +926,13 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
                   }).join(' ');
                   updateFormField('contactPerson', capitalized);
                 }}
-                className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold-500"
+                disabled={!!(prefilledContact?.firstName && prefilledContact?.lastName)}
+                className={cn(
+                  "w-full px-4 py-2 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold-500",
+                  (prefilledContact?.firstName && prefilledContact?.lastName)
+                    ? "bg-neutral-700/50 border-neutral-600/50 cursor-not-allowed opacity-75"
+                    : "bg-neutral-700 border-neutral-600"
+                )}
                 placeholder="Bijv. Peter van de Bakker"
                 required
               />
@@ -857,7 +947,13 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
                 type="email"
                 value={formData.email || ''}
                 onChange={(e) => updateFormField('email', e.target.value)}
-                className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold-500"
+                disabled={!!prefilledContact?.email}
+                className={cn(
+                  "w-full px-4 py-2 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold-500",
+                  prefilledContact?.email
+                    ? "bg-neutral-700/50 border-neutral-600/50 cursor-not-allowed opacity-75"
+                    : "bg-neutral-700 border-neutral-600"
+                )}
                 required={bookingType === 'full'}
               />
             </div>
@@ -871,7 +967,13 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
                 type="tel"
                 value={formData.phone || ''}
                 onChange={(e) => updateFormField('phone', e.target.value)}
-                className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold-500"
+                disabled={!!prefilledContact?.phone}
+                className={cn(
+                  "w-full px-4 py-2 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold-500",
+                  prefilledContact?.phone
+                    ? "bg-neutral-700/50 border-neutral-600/50 cursor-not-allowed opacity-75"
+                    : "bg-neutral-700 border-neutral-600"
+                )}
                 required
               />
             </div>
@@ -1121,6 +1223,18 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
 
         {/* Submit Buttons */}
         <div className="flex items-center gap-4">
+          {/* Wizard mode: Skip button */}
+          {wizardMode && onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={isSubmitting}
+              className="px-6 py-4 rounded-xl font-semibold text-slate-400 hover:text-white bg-neutral-700 hover:bg-neutral-600 transition-all border-2 border-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Overslaan
+            </button>
+          )}
+          
           <button
             type="submit"
             disabled={isSubmitting || !selectedEvent}
@@ -1144,7 +1258,12 @@ export const ManualBookingManager: React.FC<ManualBookingManagerProps> = ({ onCl
             ) : (
               <span className="flex items-center justify-center gap-2">
                 {bookingType === 'option' ? <AlertCircle className="w-5 h-5" /> : <Check className="w-5 h-5" />}
-                {bookingType === 'option' ? '⏰ Optie Plaatsen (1 week)' : 'Boeking Aanmaken & Bevestigen'}
+                {wizardMode 
+                  ? '✅ Opslaan & Volgende' 
+                  : bookingType === 'option' 
+                    ? '⏰ Optie Plaatsen (1 week)' 
+                    : 'Boeking Aanmaken & Bevestigen'
+                }
               </span>
             )}
           </button>

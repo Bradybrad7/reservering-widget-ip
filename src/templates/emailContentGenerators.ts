@@ -607,6 +607,90 @@ export const generatePendingEmailContent = async (
 };
 
 /**
+ * 4️⃣ AFWIJZING EMAIL (Status: rejected)
+ * 
+ * Doel: Informeer klant dat reservering niet doorgaat met reden
+ * CTA: "Bekijk andere datums"
+ */
+export const generateRejectionEmailContent = async (
+  reservation: Reservation,
+  event: Event,
+  show?: Show,
+  rejectionReason?: string
+): Promise<EmailContentBlock> => {
+  // Format name with proper capitalization
+  const firstName = formatName(reservation.firstName || '');
+  const lastName = formatName(reservation.lastName || '');
+  const fullName = `${firstName} ${lastName}`.trim() || formatName(reservation.contactPerson || '') || '';
+  
+  const arrangement = reservation.arrangement === 'BWF' ? 'Premium' : 'Deluxe';
+  
+  const details: EmailContentBlock['reservationDetails'] = [];
+
+  if (reservation.companyName) {
+    details.push({
+      label: 'Bedrijfsnaam:',
+      value: reservation.companyName,
+    });
+  }
+
+  details.push(
+    {
+      label: 'Naam:',
+      value: fullName,
+    },
+    {
+      label: 'Evenement:',
+      value: 'Dinner theater Show',
+    },
+    {
+      label: 'Datum:',
+      value: formatDate(event.date),
+    },
+    {
+      label: 'Aantal personen:',
+      value: `${reservation.numberOfPersons} ${reservation.numberOfPersons === 1 ? 'persoon' : 'personen'}`,
+    },
+    {
+      label: 'Arrangement:',
+      value: `${arrangement}`,
+    }
+  );
+
+  // Build rejection reason section
+  const rejectionReasonText = rejectionReason || 'De gevraagde datum is helaas niet beschikbaar.';
+
+  return {
+    spotlightTitle: 'Reservering kan helaas niet doorgaan ❌',
+    // ✨ NEW: Show Identity (Logo + Description)
+    showInfo: show ? {
+      logoUrl: show.logoUrl || show.imageUrl,
+      description: show.description,
+    } : undefined,
+    greeting: `Beste ${fullName},`,
+    introText: 'Bedankt voor uw interesse in Inspiration Point. Helaas kunnen wij uw reserveringsaanvraag niet honoreren.',
+    reservationDetails: details,
+    additionalInfo: `
+      <div style="background: rgba(139, 0, 0, 0.3); border: 2px solid #8B0000; border-radius: 8px; padding: 20px; margin: 20px 0;">
+        <strong style="color: #FFD700; font-size: 16px;">📋 Reden van afwijzing:</strong><br /><br />
+        <span style="color: #E5E5E5; font-size: 15px;">
+          ${rejectionReasonText}
+        </span>
+      </div>
+      <strong>🎭 Alternatieve mogelijkheden</strong><br />
+      Mogelijk zijn andere datums of arrangementen wel beschikbaar. Neem gerust contact met ons op om de mogelijkheden te bespreken:<br /><br />
+      📧 <a href="mailto:info@inspiration-point.nl" style="color: #FFD700;">info@inspiration-point.nl</a><br />
+      📞 <a href="tel:0402110679" style="color: #FFD700;">040-2110679</a>
+    `,
+    ctaButton: {
+      text: 'Bekijk andere datums',
+      url: 'https://inspiration-point.nl',
+    },
+    footerNote: 'We hopen u in de toekomst alsnog te mogen ontvangen voor een onvergetelijke avond!',
+  };
+};
+
+/**
  * 🎭 MASTER FUNCTION: Generate Email by Status
  * 
  * Deze functie selecteert automatisch het juiste email type
@@ -614,7 +698,8 @@ export const generatePendingEmailContent = async (
 export const generateEmailContentByStatus = async (
   reservation: Reservation,
   event: Event,
-  show?: Show
+  show?: Show,
+  rejectionReason?: string
 ): Promise<EmailContentBlock> => {
   switch (reservation.status) {
     case 'confirmed':
@@ -625,6 +710,9 @@ export const generateEmailContentByStatus = async (
     
     case 'pending':
       return generatePendingEmailContent(reservation, event, show);
+    
+    case 'rejected':
+      return generateRejectionEmailContent(reservation, event, show, rejectionReason);
     
     // Note: waitlist heeft een aparte flow met WaitlistEntry ipv Reservation
     default:

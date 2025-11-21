@@ -453,14 +453,19 @@ export const apiService = {
       const reservation = await storageService.addReservation(reservationData);
       console.log('✅ [API] Reservation created with Firestore ID:', reservation.id);
 
-      // ✨ SEND EMAIL NOTIFICATIONS - ALWAYS FORCE SEND
-      try {
-        console.log('📧 [API] FORCE SENDING email notifications for new reservation...');
-        console.log('📧 [API] Environment check:', {
-          isDev: import.meta.env.DEV,
-          forceEmail: import.meta.env.VITE_FORCE_EMAIL_IN_DEV,
-          emailFrom: import.meta.env.VITE_EMAIL_FROM
-        });
+      // ✨ SEND EMAIL NOTIFICATIONS - ALWAYS FORCE SEND (unless skipEmail is true for imports)
+      const shouldSkipEmail = (reservationData as any).skipEmail === true;
+      
+      if (shouldSkipEmail) {
+        console.log('📧 [API] Skipping email notifications - imported/existing reservation');
+      } else {
+        try {
+          console.log('📧 [API] FORCE SENDING email notifications for new reservation...');
+          console.log('📧 [API] Environment check:', {
+            isDev: import.meta.env.DEV,
+            forceEmail: import.meta.env.VITE_FORCE_EMAIL_IN_DEV,
+            emailFrom: import.meta.env.VITE_EMAIL_FROM
+          });
         
         const events = await storageService.getEvents();
         console.log('📧 [API] Found events:', events.length);
@@ -498,19 +503,20 @@ export const apiService = {
         
         console.log('📧 [API] Email result:', emailResult);
         
-        if (emailResult.success) {
-          console.log('✅ [API] Email notifications sent successfully');
-        } else {
-          console.error('⚠️ [API] Email notifications failed:', emailResult.error);
+          if (emailResult.success) {
+            console.log('✅ [API] Email notifications sent successfully');
+          } else {
+            console.error('⚠️ [API] Email notifications failed:', emailResult.error);
+          }
+        } catch (error) {
+          console.error('❌ [API] Email notification error:', error);
+          if (error instanceof Error) {
+            console.error('❌ [API] Error stack:', error.stack);
+          }
+          // Don't fail the reservation if email fails
+        } finally {
+          console.log('📧 [API] Email notification attempt completed');
         }
-      } catch (error) {
-        console.error('❌ [API] Email notification error:', error);
-        if (error instanceof Error) {
-          console.error('❌ [API] Error stack:', error.stack);
-        }
-        // Don't fail the reservation if email fails
-      } finally {
-        console.log('📧 [API] Email notification attempt completed');
       }
 
       // ✨ FIXED: Capacity IS updated immediately when reservation is placed

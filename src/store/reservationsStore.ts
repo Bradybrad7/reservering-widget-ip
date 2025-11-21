@@ -54,7 +54,7 @@ interface ReservationsActions {
   updateReservation: (reservationId: string, updates: Partial<Reservation>, originalReservation?: Reservation, skipCommunicationLog?: boolean) => Promise<boolean>;
   updateReservationStatus: (reservationId: string, status: Reservation['status']) => Promise<boolean>;
   confirmReservation: (reservationId: string) => Promise<boolean>;
-  rejectReservation: (reservationId: string) => Promise<boolean>;
+  rejectReservation: (reservationId: string, rejectionReason?: string) => Promise<boolean>;
   moveToWaitlist: (reservationId: string) => Promise<boolean>;
   cancelReservation: (reservationId: string, reason?: string) => Promise<boolean>;
   deleteReservation: (reservationId: string) => Promise<boolean>;
@@ -324,8 +324,8 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
       return false;
     },
 
-    updateReservationStatus: async (reservationId: string, status: Reservation['status']) => {
-      console.log('🟡 [STORE] updateReservationStatus called:', { reservationId, status });
+    updateReservationStatus: async (reservationId: string, status: Reservation['status'], rejectionReason?: string) => {
+      console.log('🟡 [STORE] updateReservationStatus called:', { reservationId, status, rejectionReason });
       
       const reservation = get().reservations.find(r => r.id === reservationId);
       if (!reservation) {
@@ -343,6 +343,7 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
       });
       console.log('🟡 [STORE] Calling updateReservation with status:', status);
 
+      const oldStatus = reservation.status;
       const success = await get().updateReservation(reservationId, { status });
       console.log('🟡 [STORE] updateReservation returned:', success);
       
@@ -350,19 +351,37 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
         // ✅ Log status change via communication log service
         await communicationLogService.logStatusChange(
           reservationId, 
-          reservation.status, 
+          oldStatus, 
           status, 
           'Admin'
         );
 
-        // Send email notification if confirmed
-        if (status === 'confirmed') {
-          console.log('📧 [STORE] Sending confirmation email...');
-          console.log('📧 [STORE] Note: Email service will handle event lookup internally');
+        // 📧 Send email notification for status changes
+        try {
+          // Get event data for email
+          const { useEventsStore } = await import('./eventsStore');
+          const eventsStore = useEventsStore.getState();
+          const event = eventsStore.events.find(e => e.id === reservation.eventId);
           
-          // For now, skip email sending from status update
-          // Email is already sent when reservation is created via apiService
-          console.log('📧 [STORE] Skipping email - already sent during reservation creation');
+          if (!event) {
+            console.warn('⚠️ [STORE] Event not found for email notification:', reservation.eventId);
+          } else {
+            // Send email based on status change
+            if (status === 'confirmed' && oldStatus === 'pending') {
+              console.log('📧 [STORE] Sending confirmation email (pending → confirmed)...');
+              const { emailService } = await import('../services/emailService');
+              await emailService.sendReservationConfirmation(reservation, event);
+              console.log('✅ [STORE] Confirmation email sent');
+            } else if (status === 'rejected') {
+              console.log('📧 [STORE] Sending rejection email...');
+              const { modernEmailService } = await import('../services/modernEmailService');
+              await modernEmailService.sendByStatus(reservation, event, false, rejectionReason);
+              console.log('✅ [STORE] Rejection email sent');
+            }
+          }
+        } catch (emailError) {
+          console.error('❌ [STORE] Failed to send email notification:', emailError);
+          // Don't fail the status update if email fails
         }
         
         // ⚡ AUTOMATION: Emit capacity freed event via EventBus when cancelled
@@ -439,7 +458,7 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
       return result;
     },
 
-    rejectReservation: async (reservationId: string) => {
+    rejectReservation: async (reservationId: string, rejectionReason?: string) => {
       console.log('🔴 [STORE] rejectReservation called for:', reservationId);
       
       // 🔧 CHECK: Validate ID format
@@ -457,7 +476,17 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
         return false;
       }
       
-      const result = await get().updateReservationStatus(reservationId, 'rejected');
+      // Store rejection reason in reservation data before updating status
+      if (rejectionReason) {
+        await get().updateReservation(reservationId, { 
+          rejectionReason,
+          notes: reservation.notes 
+            ? `${reservation.notes}\n\n❌ Afwijzingsreden: ${rejectionReason}`
+            : `❌ Afwijzingsreden: ${rejectionReason}`
+        });
+      }
+      
+      const result = await get().updateReservationStatus(reservationId, 'rejected', rejectionReason);
       console.log('🔴 [STORE] rejectReservation result:', result);
       return result;
     },

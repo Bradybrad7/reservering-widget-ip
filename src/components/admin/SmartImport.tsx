@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 import { storageService } from '../../services/storageService';
+import { useConfigStore } from '../../store/configStore';
 import { formatDate, cn } from '../../utils';
 import type { Event, Reservation, Salutation } from '../../types';
 
@@ -41,6 +42,7 @@ interface SmartImportRow {
     dietaryRequirements?: string; // Vrije tekst
     preDrink?: string; // ja/nee of aantal
     afterParty?: string; // ja/nee of aantal
+    merchandise?: string; // Vrije tekst: "T-shirt (2x €20), Mok (5x €12)"
     promotionCode?: string;
     voucherCode?: string;
     comments?: string;
@@ -67,6 +69,8 @@ export const SmartImport: React.FC<SmartImportProps> = ({
   onClose,
   onImportComplete
 }) => {
+  const { merchandiseItems } = useConfigStore();
+  
   const [step, setStep] = useState<'upload' | 'preview' | 'importing' | 'complete'>('upload');
   const [importData, setImportData] = useState<SmartImportRow[]>([]);
   const [importProgress, setImportProgress] = useState(0);
@@ -113,6 +117,7 @@ export const SmartImport: React.FC<SmartImportProps> = ({
         // OPTIONELE VELDEN - Add-ons
         'Borrel vooraf': 'ja',
         'Afterparty': '4',
+        'Merchandise': '',
         
         // OPTIONELE VELDEN - Promoties
         'Promocode': '',
@@ -145,6 +150,7 @@ export const SmartImport: React.FC<SmartImportProps> = ({
         'Dieetwensen': '',
         'Borrel vooraf': '',
         'Afterparty': '',
+        'Merchandise': '',
         'Promocode': '',
         'Vouchercode': '',
         'Opmerkingen': '',
@@ -173,6 +179,7 @@ export const SmartImport: React.FC<SmartImportProps> = ({
         'Dieetwensen': '3x vega, 2x glutenvrij, 1x lactosevrij',
         'Borrel vooraf': '12',
         'Afterparty': '8',
+        'Merchandise': 'T-shirt (2x €20), Mok (5x €12)',
         'Promocode': 'CORPORATE10',
         'Vouchercode': '',
         'Opmerkingen': 'VIP behandeling graag',
@@ -335,6 +342,9 @@ export const SmartImport: React.FC<SmartImportProps> = ({
     const preDrinkRaw = getColumn(['borrel vooraf', 'predrink', 'pre-drink', 'borrel']);
     const afterPartyRaw = getColumn(['afterparty', 'after party', 'nazit']);
     
+    // MERCHANDISE - vrije tekst: "T-shirt (2x), Mok (5x)" of "T-shirt (2x €20), Mok (5x €12)"
+    const merchandiseRaw = getColumn(['merchandise', 'merch', 'producten']);
+    
     const promotionCode = getColumn(['promocode', 'promotion', 'promo']);
     const voucherCode = getColumn(['voucher', 'vouchercode']);
     
@@ -392,6 +402,7 @@ export const SmartImport: React.FC<SmartImportProps> = ({
         dietaryRequirements,
         preDrink: preDrinkRaw,
         afterParty: afterPartyRaw,
+        merchandise: merchandiseRaw,
         promotionCode,
         voucherCode,
         comments,
@@ -427,6 +438,37 @@ export const SmartImport: React.FC<SmartImportProps> = ({
       }
       
       return { enabled: false, quantity: 0 };
+    };
+
+    // Parse merchandise: "T-shirt (2x), Mok (5x)" → [{itemId: ..., quantity: 2}, ...]
+    const parseMerchandise = (value?: string): Array<{itemId: string; quantity: number}> => {
+      if (!value || !value.trim()) return [];
+      
+      const result: Array<{itemId: string; quantity: number}> = [];
+      
+      // Split op komma's
+      const items = value.split(',').map(s => s.trim()).filter(Boolean);
+      
+      for (const itemStr of items) {
+        // Zoek naar patroon: "naam (aantal)" of "naam (aantalx)"
+        const match = itemStr.match(/^(.+?)\s*\((\d+)x?\)/i);
+        
+        if (match) {
+          const name = match[1].trim();
+          const quantity = parseInt(match[2]);
+          
+          // Zoek merchandise item in de store (case-insensitive)
+          const merchItem = merchandiseItems.find(m => 
+            m.name.toLowerCase() === name.toLowerCase() && m.inStock
+          );
+          
+          if (merchItem && quantity > 0) {
+            result.push({ itemId: merchItem.id, quantity });
+          }
+        }
+      }
+      
+      return result;
     };
 
     // Build tags
@@ -470,6 +512,9 @@ export const SmartImport: React.FC<SmartImportProps> = ({
       // Add-ons
       preDrink: parseAddOn(data.preDrink),
       afterParty: parseAddOn(data.afterParty),
+      
+      // Merchandise - parse vrije tekst naar array
+      merchandise: parseMerchandise(data.merchandise),
       
       // Dietary (als vrije tekst in "other")
       dietaryRequirements: data.dietaryRequirements ? {

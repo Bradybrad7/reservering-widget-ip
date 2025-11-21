@@ -45,7 +45,7 @@ export interface ModernEmailLog {
   eventId: string;
   to: string;
   subject: string;
-  emailType: 'confirmed' | 'option' | 'pending' | 'waitlist' | 'custom';
+  emailType: 'confirmed' | 'option' | 'pending' | 'rejected' | 'waitlist' | 'custom';
   sentAt: Date;
   status: 'sent' | 'failed' | 'preview';
   error?: string;
@@ -103,11 +103,12 @@ export const modernEmailService = {
   async sendByStatus(
     reservation: Reservation,
     event: Event,
-    previewMode = false
+    previewMode = false,
+    rejectionReason?: string
   ): Promise<ModernEmailLog> {
     // ✨ Get show info for email
     const show = await this._getShowByEvent(event);
-    const content = await generateEmailContentByStatus(reservation, event, show);
+    const content = await generateEmailContentByStatus(reservation, event, show, rejectionReason);
     const html = generateEmailHTML(content, EMAIL_CONFIG.logoUrl);
     
     const emailLog: ModernEmailLog = {
@@ -303,6 +304,8 @@ export const modernEmailService = {
         return `⏰ Optie vastgelegd - ${eventName} op ${date}`;
       case 'pending':
         return `⏳ Aanvraag ontvangen - ${eventName} op ${date}`;
+      case 'rejected':
+        return `❌ Afwijzing - ${eventName} op ${date}`;
       case 'waitlist':
         return `📋 Wachtlijst - ${eventName} op ${date}`;
       default:

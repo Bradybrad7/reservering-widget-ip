@@ -40,7 +40,8 @@ import {
   Search,
   SortAsc,
   Flame,
-  Layers
+  Layers,
+  Upload
 } from 'lucide-react';
 import { useEventsStore } from '../../store/eventsStore';
 import { useReservationsStore } from '../../store/reservationsStore';
@@ -54,6 +55,7 @@ import { BulkEventModal } from './BulkEventModal';
 import { EventDetailModal } from './EventDetailModal';
 import { BulkEditModal } from './BulkEditModal';
 import { DuplicateEventModal } from './DuplicateEventModal';
+import { ContactImportWizard } from './ContactImportWizard';
 import { useToast } from '../Toast';
 
 interface CalendarDay {
@@ -79,6 +81,10 @@ export const CalendarManager: React.FC = () => {
   const [showEventDetail, setShowEventDetail] = useState(false);
   const [showBulkEditModal, setShowBulkEditModal] = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  
+  // 🆕 Import Wizard
+  const [showImportWizard, setShowImportWizard] = useState(false);
+  const [selectedEventForImport, setSelectedEventForImport] = useState<AdminEvent | null>(null);
   
   // 🆕 Multi-select & bulk actions
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
@@ -969,7 +975,23 @@ export const CalendarManager: React.FC = () => {
                           {/* Action Buttons */}
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() => handleToggleWaitlist(event.id, event.waitlistActive || false)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedEventForImport(event);
+                                setShowImportWizard(true);
+                              }}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold text-xs transition-all"
+                              title="Importeer reserveringen"
+                            >
+                              <Upload className="w-3 h-3" />
+                              <span>Import</span>
+                            </button>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleWaitlist(event.id, event.waitlistActive || false);
+                              }}
                               className={cn(
                                 "flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs transition-all",
                                 event.waitlistActive
@@ -982,7 +1004,8 @@ export const CalendarManager: React.FC = () => {
                             </button>
 
                             <button
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setSelectedEventId(event.id);
                                 setShowEventDetail(true);
                               }}
@@ -1298,6 +1321,19 @@ export const CalendarManager: React.FC = () => {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  setSelectedEventForImport(event);
+                                  setShowImportWizard(true);
+                                }}
+                                className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg font-bold text-xs transition-all shadow-md"
+                                title="Importeer reserveringen voor dit event"
+                              >
+                                <Upload className="w-3 h-3" />
+                                <span>Import</span>
+                              </button>
+
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   handleDuplicate(event.id);
                                 }}
                                 className="flex items-center gap-1.5 px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-bold text-xs transition-all"
@@ -1357,9 +1393,11 @@ export const CalendarManager: React.FC = () => {
             <BulkEventModal
               isOpen={showBulkModal}
               onClose={() => setShowBulkModal(false)}
-              onSuccess={() => {
+              onSuccess={async () => {
                 setShowBulkModal(false);
-                loadEvents();
+                await loadEvents();
+                // Force re-render by updating currentMonth
+                setCurrentMonth(new Date(currentMonth));
                 showSuccess('Events succesvol toegevoegd!');
               }}
             />
@@ -1429,12 +1467,14 @@ export const CalendarManager: React.FC = () => {
                     setShowQuickCreateModal(false);
                     setSelectedDates(new Set());
                   }}
-                  onSuccess={() => {
+                  onSuccess={async () => {
                     const count = selectedDates.size;
                     setShowQuickCreateModal(false);
                     setSelectedDates(new Set());
                     setIsMultiSelectMode(false);
-                    loadEvents();
+                    await loadEvents();
+                    // Force re-render
+                    setCurrentMonth(new Date(currentMonth));
                     showSuccess(`✅ Events succesvol aangemaakt voor ${count} datum(s)!`);
                   }}
                 />
@@ -1498,6 +1538,25 @@ export const CalendarManager: React.FC = () => {
             setShowDuplicateModal(false);
             setSelectedEvent(null);
             loadEvents();
+          }}
+        />
+      )}
+
+      {/* ====================================================================== */}
+      {/* 🆕 CONTACT IMPORT WIZARD */}
+      {/* ====================================================================== */}
+      {showImportWizard && selectedEventForImport && (
+        <ContactImportWizard
+          event={selectedEventForImport}
+          onClose={async () => {
+            setShowImportWizard(false);
+            setSelectedEventForImport(null);
+            // Reload events and reservations after import
+            await loadEvents();
+            await loadReservations();
+            // Force re-render
+            setCurrentMonth(new Date(currentMonth));
+            showSuccess('Import voltooid!');
           }}
         />
       )}
