@@ -149,7 +149,7 @@ export const WaitlistSuccessPage: React.FC<WaitlistSuccessPageProps> = ({
           </li>
           <li className="flex items-start gap-3">
             <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-sm font-bold">4</span>
-            <span>Bij boeking <strong className="text-white">kiest u dan uw arrangement</strong> (BWF of BWFM)</span>
+            <span>Bij boeking <strong className="text-white">kiest u dan uw arrangement</strong> (standaard of premium)</span>
           </li>
         </ul>
       </div>

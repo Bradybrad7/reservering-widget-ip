@@ -418,7 +418,7 @@ const CheckInManager: React.FC = () => {
                           {/* Details Row */}
                           <div className="flex flex-wrap gap-3 mb-3">
                             <span className="px-3 py-1 bg-slate-700/50 text-slate-300 rounded-full text-sm">
-                              {reservation.arrangement === 'BWF' ? 'Standaard Arrangement' : 'Premium Arrangement'}
+                              {reservation.arrangement === 'standaard' ? 'Standaard Arrangement' : 'Premium Arrangement'}
                             </span>
                             
                             {reservation.preDrink.enabled && (

@@ -92,7 +92,7 @@ export const EventWorkshopPricing: React.FC<EventWorkshopPricingProps> = ({ even
     }
   };
 
-  const arrangements: Arrangement[] = event.allowedArrangements || ['Standard', 'Premium', 'BWF', 'BWFM'];
+  const arrangements: Arrangement[] = event.allowedArrangements || ['standaard', 'premium'];
 
   return (
     <div className="space-y-6">

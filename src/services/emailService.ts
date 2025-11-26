@@ -231,8 +231,97 @@ export const emailService = {
     previewMode = false
   ): Promise<ModernEmailLog> {
     const { generatePaymentConfirmationEmailContent } = await import('../templates/emailContentGenerators');
-    const content = await generatePaymentConfirmationEmailContent(reservation, event);
-    return this._sendEmail(reservation, event, content, 'confirmed', previewMode);
+    // Don't fetch show - avoid permission errors, email works without logo
+    const content = await generatePaymentConfirmationEmailContent(reservation, event, undefined);
+    const html = generateEmailHTML(content, EMAIL_CONFIG.logoUrl);
+    
+    const emailLog: ModernEmailLog = {
+      reservationId: reservation.id,
+      eventId: event.id,
+      to: reservation.email,
+      subject: `💶 Betaling ontvangen - ${event.type} op ${new Date(event.date).toLocaleDateString('nl-NL')}`,
+      emailType: 'confirmed',
+      sentAt: new Date(),
+      status: previewMode ? 'preview' : 'sent',
+    };
+
+    try {
+      if (!previewMode) {
+        const success = await sendViaFirebaseSMTP(emailLog.to, emailLog.subject, html);
+        if (!success) {
+          throw new Error('Failed to send email via SMTP');
+        }
+        
+        // Log naar Firestore (optional)
+        try {
+          await addDoc(collection(db, 'emailLogs'), {
+            ...emailLog,
+            sentAt: serverTimestamp(),
+          });
+        } catch (logError) {
+          console.warn('⚠️ Failed to log to Firestore (email was sent):', logError);
+        }
+        
+        console.log(`✅ Payment confirmation email sent to ${emailLog.to}`);
+      }
+      return emailLog;
+    } catch (error) {
+      console.error('❌ Failed to send payment confirmation:', error);
+      emailLog.status = 'failed';
+      emailLog.error = error instanceof Error ? error.message : 'Unknown error';
+      throw error;
+    }
+  },
+
+  /**
+   * Verzend boeking goedkeuring (pending → confirmed)
+   */
+  async sendBookingConfirmed(
+    reservation: Reservation,
+    event: Event,
+    previewMode = false
+  ): Promise<ModernEmailLog> {
+    const { generateBookingConfirmedEmailContent } = await import('../templates/emailContentGenerators');
+    // Don't fetch show - avoid permission errors, email works without logo
+    const content = await generateBookingConfirmedEmailContent(reservation, event, undefined);
+    const html = generateEmailHTML(content, EMAIL_CONFIG.logoUrl);
+    
+    const emailLog: ModernEmailLog = {
+      reservationId: reservation.id,
+      eventId: event.id,
+      to: reservation.email,
+      subject: `✅ Boeking goedgekeurd - ${event.type} op ${new Date(event.date).toLocaleDateString('nl-NL')}`,
+      emailType: 'confirmed',
+      sentAt: new Date(),
+      status: previewMode ? 'preview' : 'sent',
+    };
+
+    try {
+      if (!previewMode) {
+        const success = await sendViaFirebaseSMTP(emailLog.to, emailLog.subject, html);
+        if (!success) {
+          throw new Error('Failed to send email via SMTP');
+        }
+        
+        // Log naar Firestore (optional)
+        try {
+          await addDoc(collection(db, 'emailLogs'), {
+            ...emailLog,
+            sentAt: serverTimestamp(),
+          });
+        } catch (logError) {
+          console.warn('⚠️ Failed to log to Firestore (email was sent):', logError);
+        }
+        
+        console.log(`✅ Booking confirmed email sent to ${emailLog.to}`);
+      }
+      return emailLog;
+    } catch (error) {
+      console.error('❌ Failed to send booking confirmed:', error);
+      emailLog.status = 'failed';
+      emailLog.error = error instanceof Error ? error.message : 'Unknown error';
+      throw error;
+    }
   },
 
   /**

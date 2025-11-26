@@ -2,7 +2,7 @@
  * 🆕 NIEUWE SIMPELE PRICING SERVICE
  * 
  * CONCEPT:
- * - Elk event type heeft VASTE prijzen (BWF + BWFM)
+ * - Elk event type heeft VASTE prijzen (standaard + premium)
  * - Deze staan in eventTypesConfig.types[].pricing
  * - GEEN complexe byDayType/weekday/weekend logica meer
  * - Event type → prijs. KLAAR.
@@ -38,10 +38,8 @@ const getMerchandiseItems = (): MerchandiseItem[] => {
  * Haal de pricing op voor een specifiek event type
  */
 export const getPricingForEventType = async (eventTypeKey: string): Promise<{ 
-  Standard: number; 
-  Premium: number; 
-  BWF: number; 
-  BWFM: number 
+  standaard: number; 
+  premium: number; 
 } | null> => {
   try {
     // Haal eventTypesConfig op
@@ -104,13 +102,7 @@ export const getArrangementPrice = async (
     return 0;
   }
 
-  let price = pricing[arrangement];
-  
-  // 🔄 FALLBACK: Als Standard/Premium niet bestaat, map naar BWF/BWFM
-  if ((price === undefined || price === null) && (arrangement === 'Standard' || arrangement === 'Premium')) {
-    console.warn(`⚠️ ${arrangement} prijs niet gevonden, fallback naar legacy pricing`);
-    price = arrangement === 'Standard' ? pricing.BWF : pricing.BWFM;
-  }
+  const price = pricing[arrangement];
   
   if (price === undefined || price === null) {
     console.error(`❌ Geen prijs voor arrangement '${arrangement}' bij type '${event.type}'!`);
@@ -126,7 +118,7 @@ export const getArrangementPrice = async (
  */
 export const updateEventTypePricing = async (
   eventTypeKey: string,
-  pricing: { Standard: number; Premium: number; BWF: number; BWFM: number }
+  pricing: { standaard: number; premium: number }
 ): Promise<boolean> => {
   try {
     console.log(`💾 Updating pricing for event type '${eventTypeKey}':`, pricing);
@@ -191,7 +183,7 @@ export const calculatePrice = async (
 ): Promise<PriceCalculation> => {
   const {
     numberOfPersons = 0,
-    arrangement = 'BWF',
+    arrangement = 'standaard',
     preDrink = { enabled: false, quantity: 0 },
     afterParty = { enabled: false, quantity: 0 },
     merchandise = []
@@ -342,22 +334,22 @@ export const createPricingSnapshot = async (
   event: Event,
   arrangement: Arrangement,
   numberOfPersons: number
-): Promise<{ BWF: number; BWFM: number; selectedPrice: number }> => {
+): Promise<{ standaard: number; premium: number; selectedPrice: number }> => {
   // Check voor customPricing eerst
   if (event.customPricing) {
-    const bwfPrice = event.customPricing.BWF !== undefined 
-      ? event.customPricing.BWF 
-      : await getArrangementPrice(event, 'BWF');
-    const bwfmPrice = event.customPricing.BWFM !== undefined 
-      ? event.customPricing.BWFM 
-      : await getArrangementPrice(event, 'BWFM');
+    const standaardPrice = event.customPricing.standaard !== undefined 
+      ? event.customPricing.standaard 
+      : await getArrangementPrice(event, 'standaard');
+    const premiumPrice = event.customPricing.premium !== undefined 
+      ? event.customPricing.premium 
+      : await getArrangementPrice(event, 'premium');
     
-    console.log('💰 Pricing snapshot (custom):', { BWF: bwfPrice, BWFM: bwfmPrice });
+    console.log('💰 Pricing snapshot (custom):', { standaard: standaardPrice, premium: premiumPrice });
     
     return {
-      BWF: bwfPrice,
-      BWFM: bwfmPrice,
-      selectedPrice: arrangement === 'BWF' ? bwfPrice : bwfmPrice
+      standaard: standaardPrice,
+      premium: premiumPrice,
+      selectedPrice: arrangement === 'standaard' ? standaardPrice : premiumPrice
     };
   }
   
@@ -367,8 +359,8 @@ export const createPricingSnapshot = async (
   if (!pricing) {
     console.error('❌ Cannot create pricing snapshot - no pricing found!');
     return {
-      BWF: 0,
-      BWFM: 0,
+      standaard: 0,
+      premium: 0,
       selectedPrice: 0
     };
   }
@@ -376,8 +368,8 @@ export const createPricingSnapshot = async (
   console.log('💰 Pricing snapshot (event type):', pricing);
   
   return {
-    BWF: pricing.BWF,
-    BWFM: pricing.BWFM,
+    standaard: pricing.standaard,
+    premium: pricing.premium,
     selectedPrice: pricing[arrangement]
   };
 };

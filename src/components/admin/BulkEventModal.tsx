@@ -45,7 +45,7 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
   const [error, setError] = useState<string | null>(null);
   
   // 🆕 Store pricing for selected event type
-  const [selectedTypePricing, setSelectedTypePricing] = useState<{ BWF: number; BWFM: number } | null>(null);
+  const [selectedTypePricing, setSelectedTypePricing] = useState<{ standaard: number; premium: number } | null>(null);
 
   // Load event types config, existing events, and shows on mount
   useEffect(() => {
@@ -199,7 +199,7 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
     }
 
     // 🆕 Validatie: Check of het event type pricing heeft
-    if (!selectedTypePricing || selectedTypePricing.BWF === 0 || selectedTypePricing.BWFM === 0) {
+    if (!selectedTypePricing || selectedTypePricing.standaard === 0 || selectedTypePricing.premium === 0) {
       setError('⚠️ Dit event type heeft geen geldige prijzen ingesteld! Ga naar Producten → Event Types om prijzen in te stellen.');
       return;
     }
@@ -223,7 +223,7 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
           remainingCapacity: capacity,
           bookingOpensAt: null,
           bookingClosesAt: null,
-          allowedArrangements: ['BWF', 'BWFM'] as Arrangement[],
+          allowedArrangements: ['standaard', 'premium'] as Arrangement[],
           // 🔒 customPricing NIET meer - prijzen komen van EventTypeConfig via priceService!
           isActive: true
         }))
@@ -573,12 +573,12 @@ export const BulkEventModal: React.FC<BulkEventModalProps> = ({ isOpen, onClose,
                   <div className="text-sm font-medium text-gold-300">💰 Prijzen voor dit event type:</div>
                   <div className="flex gap-4">
                     <div className="text-right">
-                      <div className="text-xs text-neutral-400">BWF</div>
-                      <div className="text-white font-bold">€{selectedTypePricing.BWF}</div>
+                      <div className="text-xs text-neutral-400">Standaard</div>
+                      <div className="text-white font-bold">€{selectedTypePricing.standaard}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-xs text-neutral-400">BWFM</div>
-                      <div className="text-white font-bold">€{selectedTypePricing.BWFM}</div>
+                      <div className="text-xs text-neutral-400">Premium</div>
+                      <div className="text-white font-bold">€{selectedTypePricing.premium}</div>
                     </div>
                   </div>
                 </div>

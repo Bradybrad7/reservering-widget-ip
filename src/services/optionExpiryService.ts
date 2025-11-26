@@ -190,7 +190,7 @@ class OptionExpiryService {
    */
   async convertOptionToBooking(
     optionId: string, 
-    arrangement: 'BWF' | 'BWFM',
+    arrangement: 'standaard' | 'premium',
     totalPrice: number
   ): Promise<void> {
     const reservations = await storageService.getReservations();

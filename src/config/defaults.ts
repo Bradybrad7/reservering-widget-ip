@@ -37,10 +37,10 @@ export const defaultConfig: GlobalConfig = {
 // Keys should match event type keys (e.g., 'weekday', 'weekend', 'matinee', 'care_heroes')
 export const defaultPricing: Pricing = {
   byDayType: {
-    'weekday': { Standard: 70, Premium: 85, BWF: 70, BWFM: 85 },      // Doordeweeks (zo–do)
-    'weekend': { Standard: 80, Premium: 95, BWF: 80, BWFM: 95 },      // Weekend (vr–za)
-    'matinee': { Standard: 70, Premium: 85, BWF: 70, BWFM: 85 },      // Matinee voorstellingen
-    'care_heroes': { Standard: 65, Premium: 80, BWF: 65, BWFM: 80 }   // Zorgzame Helden korting
+    'weekday': { standaard: 70, premium: 85 },      // Doordeweeks (zo–do)
+    'weekend': { standaard: 80, premium: 95 },      // Weekend (vr–za)
+    'matinee': { standaard: 70, premium: 85 },      // Matinee voorstellingen
+    'care_heroes': { standaard: 65, premium: 80 }   // Zorgzame Helden korting
   }
 };
 
@@ -197,10 +197,8 @@ export const getDefaultEventTypesConfig = (): EventTypesConfig => ({
       enabled: true,
       showOnCalendar: false,
       pricing: {
-        Standard: 85,
-        Premium: 95,
-        BWF: 85,
-        BWFM: 95
+        standaard: 85,
+        premium: 95
       }
     },
     {
@@ -217,10 +215,8 @@ export const getDefaultEventTypesConfig = (): EventTypesConfig => ({
       enabled: true,
       showOnCalendar: false,
       pricing: {
-        Standard: 75,
-        Premium: 90,
-        BWF: 75,
-        BWFM: 90
+        standaard: 75,
+        premium: 90
       }
     },
     {
@@ -237,10 +233,8 @@ export const getDefaultEventTypesConfig = (): EventTypesConfig => ({
       enabled: true,
       showOnCalendar: false, // REGULAR wordt niet getoond (is standaard)
       pricing: {
-        Standard: 75,
-        Premium: 90,
-        BWF: 75,
-        BWFM: 90
+        standaard: 75,
+        premium: 90
       }
     },
     {
@@ -257,10 +251,8 @@ export const getDefaultEventTypesConfig = (): EventTypesConfig => ({
       enabled: true,
       showOnCalendar: true, // Matinee wel tonen (andere tijd/prijs)
       pricing: {
-        Standard: 70,
-        Premium: 85,
-        BWF: 70,
-        BWFM: 85
+        standaard: 70,
+        premium: 85
       }
     },
     {
@@ -277,10 +269,8 @@ export const getDefaultEventTypesConfig = (): EventTypesConfig => ({
       enabled: true,
       showOnCalendar: true, // Speciale show, wel tonen
       pricing: {
-        Standard: 65,
-        Premium: 80,
-        BWF: 65,
-        BWFM: 80
+        standaard: 65,
+        premium: 80
       }
     },
     {
@@ -297,10 +287,8 @@ export const getDefaultEventTypesConfig = (): EventTypesConfig => ({
       enabled: true,
       showOnCalendar: false, // REQUEST niet tonen (op aanvraag)
       pricing: {
-        Standard: 75,
-        Premium: 90,
-        BWF: 75,
-        BWFM: 90
+        standaard: 75,
+        premium: 90
       }
     },
     {
@@ -317,10 +305,8 @@ export const getDefaultEventTypesConfig = (): EventTypesConfig => ({
       enabled: true,
       showOnCalendar: false, // Niet beschikbaar, niet tonen
       pricing: {
-        Standard: 0,
-        Premium: 0,
-        BWF: 0,
-        BWFM: 0
+        standaard: 0,
+        premium: 0
       }
     }
   ]
@@ -383,14 +369,10 @@ export const nl = {
   
   // Arrangements
   arrangements: {
-    Standard: 'Standaard Arrangement',
-    Premium: 'Premium Arrangement',
-    BWF: 'Standaard Arrangement',  // Legacy
-    BWFM: 'Premium Arrangement',    // Legacy
-    standardDescription: 'Bier, wijn, fris, port & Martini',
-    premiumDescription: 'Bier, wijn, fris, sterke drank, speciale bieren en bubbels van het huis',
-    bwfDescription: 'Bier, wijn, fris, port & Martini',  // Legacy
-    bwfmDescription: 'Bier, wijn, fris, sterke drank, speciale bieren en bubbels van het huis'  // Legacy
+    standaard: 'Standaard Arrangement',
+    premium: 'Premium Arrangement',
+    standaardDescription: 'Bier, wijn, fris, port & Martini',
+    premiumDescription: 'Bier, wijn, fris, sterke drank, speciale bieren en bubbels van het huis'
   },
   
   // Form fields

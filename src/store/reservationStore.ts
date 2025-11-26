@@ -121,7 +121,7 @@ const initialFormData: Partial<CustomerFormData> = {
   phone: '',
   email: '',
   numberOfPersons: 1,
-  arrangement: 'BWF' as Arrangement,
+  arrangement: 'standaard' as Arrangement,
   preDrink: {
     enabled: false,
     quantity: 0

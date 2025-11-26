@@ -89,6 +89,17 @@ import { useReservationFilters } from './reservations/useReservationFilters';
 import { useReservationStats } from './reservations/useReservationStats';
 import { useBulkActions } from './reservations/useBulkActions';
 
+// Import financial helpers
+import { 
+  getTotalAmount, 
+  getTotalPaid, 
+  getTotalRefunded, 
+  getNetRevenue, 
+  getOutstandingBalance,
+  getPaymentStatus,
+  getPaymentStatusLabel 
+} from '../../utils/financialHelpers';
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -182,6 +193,7 @@ export const ReservationsDashboard: React.FC = () => {
   const [showManualBooking, setShowManualBooking] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showRefundModal, setShowRefundModal] = useState(false);
+  const [showEmailMenu, setShowEmailMenu] = useState(false);
   
   // Multi-select state
   const [selectedReservationIds, setSelectedReservationIds] = useState<Set<string>>(new Set());
@@ -278,6 +290,21 @@ export const ReservationsDashboard: React.FC = () => {
     }
   }, [showRefundModal]);
 
+  // Close email menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showEmailMenu) {
+        const target = event.target as HTMLElement;
+        if (!target.closest('.email-menu-container')) {
+          setShowEmailMenu(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showEmailMenu]);
+
   // Payment Handler
   const handleRegisterPayment = async () => {
     console.log('💰 handleRegisterPayment called', { 
@@ -344,12 +371,45 @@ export const ReservationsDashboard: React.FC = () => {
 
       console.log('🔥 Sending to Firestore:', { paymentsForFirestore });
 
+      // Calculate new payment status
+      const totalAmount = getTotalAmount(selectedReservation);
+      const totalPaid = paymentsForFirestore.reduce((sum, p) => sum + p.amount, 0);
+      const newPaymentStatus = totalPaid >= totalAmount ? 'paid' : totalPaid > 0 ? 'partial' : 'pending';
+
       await updateReservation(selectedReservation.id, {
-        payments: paymentsForFirestore
+        payments: paymentsForFirestore,
+        paymentStatus: newPaymentStatus
       });
 
-      console.log('✅ Payment saved, reloading reservations...');
+      console.log('✅ Payment saved (status:', newPaymentStatus, '), reloading reservations...');
       await loadReservations();
+      
+      // Get fresh reservation data with the new payment
+      const updatedReservation = reservations.find(r => r.id === selectedReservation.id) || selectedReservation;
+      
+      // Create updated reservation object with new payment for email
+      const reservationForEmail = {
+        ...updatedReservation,
+        payments: paymentsForFirestore
+      };
+      
+      // Send payment confirmation email
+      const event = events.find(e => e.id === selectedReservation.eventId);
+      if (event) {
+        try {
+          console.log('📧 Sending payment confirmation email...');
+          const { emailService } = await import('../../services/emailService');
+          await emailService.sendPaymentConfirmation(reservationForEmail, event);
+          console.log('✅ Payment confirmation email sent to:', reservationForEmail.email);
+        } catch (emailError) {
+          console.error('⚠️ Could not send payment confirmation email:', emailError);
+          console.error('Email error details:', emailError);
+          // Don't fail the payment if email fails
+        }
+      } else {
+        console.warn('⚠️ Event not found for email:', selectedReservation.eventId);
+      }
+      
       setShowPaymentModal(false);
       showSuccess(`Betaling van €${amount.toFixed(2)} geregistreerd!`);
   } catch (error) {
@@ -532,8 +592,24 @@ export const ReservationsDashboard: React.FC = () => {
         };
       });
 
+      // Calculate new payment status after refund
+      const totalAmount = getTotalAmount(selectedReservation);
+      const totalPaid = (selectedReservation.payments || []).reduce((sum, p) => sum + p.amount, 0);
+      const totalRefunded = refundsForFirestore.reduce((sum, r) => sum + r.amount, 0);
+      const netRevenue = totalPaid - totalRefunded;
+      
+      let newPaymentStatus = 'pending';
+      if (totalRefunded > 0) {
+        newPaymentStatus = 'refunded';
+      } else if (netRevenue >= totalAmount) {
+        newPaymentStatus = 'paid';
+      } else if (netRevenue > 0) {
+        newPaymentStatus = 'partial';
+      }
+
       await updateReservation(selectedReservation.id, {
-        refunds: refundsForFirestore
+        refunds: refundsForFirestore,
+        paymentStatus: newPaymentStatus
       });
 
       await loadReservations();
@@ -871,7 +947,8 @@ export const ReservationsDashboard: React.FC = () => {
   const calculatePaymentSummary = (reservation: any): PaymentSummary => {
     const payments = reservation.payments || [];
     const refunds = reservation.refunds || [];
-    const totalPrice = reservation.totalPrice || 0;
+    // ✅ Use getTotalAmount to get correct total including borrels/merchandise
+    const totalPrice = getTotalAmount(reservation);
     
     const totalPaid = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
     const totalRefunded = refunds.reduce((sum: number, r: any) => sum + (r.amount || 0), 0);
@@ -1038,7 +1115,7 @@ export const ReservationsDashboard: React.FC = () => {
           Email: reservation.email,
           Telefoon: reservation.phone || '-',
           Event_Datum: format(eventDate, 'dd-MM-yyyy', { locale: nl }),
-          Totaal: reservation.totalPrice.toFixed(2),
+          Totaal: getTotalAmount(reservation).toFixed(2),
           Betaald: summary.totalPaid.toFixed(2),
           Openstaand: summary.balance.toFixed(2),
           Betaal_Voor: format(summary.dueDate!, 'dd-MM-yyyy', { locale: nl }),
@@ -1306,7 +1383,7 @@ export const ReservationsDashboard: React.FC = () => {
       changes.push(`After-party aantal: ${selectedReservation.afterParty?.quantity} → ${editData.afterParty?.quantity}`);
     }
     
-    const originalPrice = selectedReservation.totalPrice || 0;
+    const originalPrice = getTotalAmount(selectedReservation) || 0;
     const newPrice = recalculatePrice();
     if (Math.abs(newPrice - originalPrice) > 0.01) {
       changes.push(`Totaalprijs: €${originalPrice.toFixed(2)} → €${newPrice.toFixed(2)}`);
@@ -1404,6 +1481,20 @@ export const ReservationsDashboard: React.FC = () => {
       const newEvent = events.find(e => e.id === editData.eventId);
       const newEventDate = newEvent?.date;
       
+      // Recalculate payment status based on new total price
+      const totalPaid = (selectedReservation.payments || []).reduce((sum, p) => sum + p.amount, 0);
+      const totalRefunded = (selectedReservation.refunds || []).reduce((sum, r) => sum + r.amount, 0);
+      const netRevenue = totalPaid - totalRefunded;
+      
+      let newPaymentStatus = 'pending';
+      if (totalRefunded > 0) {
+        newPaymentStatus = 'refunded';
+      } else if (netRevenue >= newTotalPrice) {
+        newPaymentStatus = 'paid';
+      } else if (netRevenue > 0) {
+        newPaymentStatus = 'partial';
+      }
+      
       const updates = {
         eventId: editData.eventId,
         eventDate: newEventDate,
@@ -1418,7 +1509,8 @@ export const ReservationsDashboard: React.FC = () => {
         celebrationDetails: editData.celebrationDetails,
         comments: editData.comments,
         totalPrice: newTotalPrice,
-        pricingSnapshot: updatedPricingSnapshot
+        pricingSnapshot: updatedPricingSnapshot,
+        paymentStatus: newPaymentStatus
       };
       
       // Update via reservations store
@@ -1476,10 +1568,25 @@ export const ReservationsDashboard: React.FC = () => {
   const handleConfirm = async (reservationId: string) => {
     setProcessingIds(prev => new Set(prev).add(reservationId));
     try {
+      // Get reservation and event data before confirming
+      const reservation = activeReservations.find(r => r.id === reservationId);
+      const event = reservation ? events.find(e => e.id === reservation.eventId) : null;
+      
       const success = await confirmReservation(reservationId);
       if (success) {
         showSuccess('Reservering bevestigd!');
-        // Geen reload hier, de store update het vanzelf
+        
+        // Send booking confirmed email (different from initial confirmation)
+        if (reservation && event) {
+          try {
+            const { emailService } = await import('../../services/emailService');
+            await emailService.sendBookingConfirmed(reservation, event);
+            console.log('✅ Booking confirmed email sent');
+          } catch (emailError) {
+            console.error('⚠️ Could not send booking confirmed email:', emailError);
+            // Don't fail the confirmation if email fails
+          }
+        }
       } else {
         showError('Kon reservering niet bevestigen');
       }
@@ -1547,7 +1654,81 @@ export const ReservationsDashboard: React.FC = () => {
     }
   };
 
-  // Handler voor email opnieuw versturen
+  // Handler voor specifieke email types versturen
+  const handleSendEmail = async (emailType: 'status' | 'payment' | 'booking-confirmed') => {
+    if (!selectedReservation) {
+      showError('Geen reservering geselecteerd');
+      return;
+    }
+
+    const reservation = selectedReservation;
+    
+    if (!confirm(`Email versturen naar ${reservation.email}?`)) return;
+    
+    setShowEmailMenu(false);
+    setProcessingIds(prev => new Set(prev).add(reservation.id));
+    
+    try {
+      console.log('📧 Sending email type:', emailType, 'for reservation:', reservation.id);
+      
+      // Get event data
+      const event = events.find(e => e.id === reservation.eventId);
+      if (!event) {
+        console.error('❌ Event not found for reservation:', reservation.eventId);
+        showError('Event niet gevonden');
+        return;
+      }
+
+      console.log('✅ Event found:', event.title, event.id);
+
+      const { emailService } = await import('../../services/emailService');
+      console.log('✅ Email service loaded');
+      
+      // Send appropriate email type
+      switch (emailType) {
+        case 'status':
+          console.log('📤 Sending status email...');
+          // Send email based on current status (aanvraag, bevestiging, etc.)
+          await emailService.sendByStatus(reservation, event, false, reservation.rejectionReason);
+          showSuccess(`Status email verstuurd naar ${reservation.email}`);
+          break;
+          
+        case 'payment':
+          console.log('📤 Sending payment confirmation...');
+          // Send payment confirmation email
+          await emailService.sendPaymentConfirmation(reservation, event);
+          showSuccess(`Betalingsbevestiging verstuurd naar ${reservation.email}`);
+          break;
+          
+        case 'booking-confirmed':
+          console.log('📤 Sending booking confirmed email...');
+          // Send booking confirmed email (pending → confirmed)
+          await emailService.sendBookingConfirmed(reservation, event);
+          showSuccess(`Boeking goedkeuring email verstuurd naar ${reservation.email}`);
+          break;
+      }
+      
+      console.log('✅ Email sent successfully');
+      
+    } catch (error) {
+      console.error('❌ Error sending email:', error);
+      console.error('Error details:', {
+        message: error?.message,
+        stack: error?.stack,
+        type: emailType,
+        reservationId: reservation?.id
+      });
+      showError(`Kon email niet versturen: ${error?.message || 'Onbekende fout'}`);
+    } finally {
+      setProcessingIds(prev => {
+        const next = new Set(prev);
+        next.delete(reservation.id);
+        return next;
+      });
+    }
+  };
+
+  // Handler voor email opnieuw versturen (oude functie - behouden voor backwards compatibility)
   const handleResendEmail = async (reservationId: string) => {
     const reservation = reservations.find(r => r.id === reservationId);
     if (!reservation) {
@@ -2495,29 +2676,159 @@ export const ReservationsDashboard: React.FC = () => {
                 );
               })()}
 
-              {/* Add-ons */}
-              {(selectedReservation.preDrink || selectedReservation.afterParty) && (
-                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6 space-y-3">
-                  <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                    <Package className="w-5 h-5" />
-                    Extra's
-                  </h3>
+              {/* Add-ons / Borrels */}
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6 space-y-4">
+                <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <Package className="w-5 h-5" />
+                  Extra's (Borrels)
+                </h3>
+                
+                {isEditMode && editData ? (
+                  <div className="space-y-4">
+                    {/* Borrel vooraf */}
+                    <div className="p-4 bg-white dark:bg-slate-900 rounded-lg border-2 border-slate-200 dark:border-slate-700">
+                      <label className="flex items-start gap-3 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={editData.preDrink?.enabled || false}
+                          onChange={(e) => {
+                            const enabled = e.target.checked;
+                            setEditData({
+                              ...editData,
+                              preDrink: {
+                                enabled,
+                                quantity: enabled ? editData.numberOfPersons : 0
+                              }
+                            });
+                          }}
+                          className="mt-1 w-5 h-5 rounded border-slate-300 dark:border-slate-600 text-purple-600 focus:ring-2 focus:ring-purple-500 cursor-pointer"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                              🍷 Borrel vooraf
+                            </span>
+                            <span className="text-sm font-bold text-purple-600 dark:text-purple-400">
+                              €{(addOns?.preDrink?.pricePerPerson || 15).toFixed(2)} p.p.
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            Start de avond gezellig met een borrel vooraf
+                          </p>
+                          {editData.preDrink?.enabled && (
+                            <div className="mt-3 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-slate-700 dark:text-slate-300">
+                                  {editData.preDrink.quantity} personen × €{(addOns?.preDrink?.pricePerPerson || 15).toFixed(2)}
+                                </span>
+                                <span className="font-black text-purple-700 dark:text-purple-400">
+                                  €{((editData.preDrink.quantity || 0) * (addOns?.preDrink?.pricePerPerson || 15)).toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    </div>
+
+                    {/* Nafeest */}
+                    <div className="p-4 bg-white dark:bg-slate-900 rounded-lg border-2 border-slate-200 dark:border-slate-700">
+                      <label className="flex items-start gap-3 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={editData.afterParty?.enabled || false}
+                          onChange={(e) => {
+                            const enabled = e.target.checked;
+                            setEditData({
+                              ...editData,
+                              afterParty: {
+                                enabled,
+                                quantity: enabled ? editData.numberOfPersons : 0
+                              }
+                            });
+                          }}
+                          className="mt-1 w-5 h-5 rounded border-slate-300 dark:border-slate-600 text-pink-600 focus:ring-2 focus:ring-pink-500 cursor-pointer"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-900 dark:text-white group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors">
+                              🎉 Nafeest
+                            </span>
+                            <span className="text-sm font-bold text-pink-600 dark:text-pink-400">
+                              €{(addOns?.afterParty?.pricePerPerson || 15).toFixed(2)} p.p.
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            Sluit de avond af met een gezellige naborrel
+                          </p>
+                          {editData.afterParty?.enabled && (
+                            <div className="mt-3 p-3 bg-pink-50 dark:bg-pink-900/20 rounded-lg border border-pink-200 dark:border-pink-800">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-slate-700 dark:text-slate-300">
+                                  {editData.afterParty.quantity} personen × €{(addOns?.afterParty?.pricePerPerson || 15).toFixed(2)}
+                                </span>
+                                <span className="font-black text-pink-700 dark:text-pink-400">
+                                  €{((editData.afterParty.quantity || 0) * (addOns?.afterParty?.pricePerPerson || 15)).toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                ) : (
                   <div className="space-y-2">
-                    {selectedReservation.preDrink && (
-                      <div className="flex items-center gap-2 text-slate-900 dark:text-white">
-                        <CheckCircle2 className="w-4 h-4 text-green-600" />
-                        <span>Borrel vooraf</span>
+                    {selectedReservation.preDrink?.enabled ? (
+                      <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                            <span className="font-bold text-slate-900 dark:text-white">🍷 Borrel vooraf</span>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-slate-600 dark:text-slate-400">
+                              {selectedReservation.preDrink.quantity} pers. × €{(addOns?.preDrink?.pricePerPerson || 15).toFixed(2)}
+                            </p>
+                            <p className="font-black text-purple-700 dark:text-purple-400">
+                              €{((selectedReservation.preDrink.quantity || 0) * (addOns?.preDrink?.pricePerPerson || 15)).toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-slate-100 dark:bg-slate-900 rounded-lg flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                        <XCircle className="w-4 h-4" />
+                        <span className="text-sm">Geen borrel vooraf</span>
                       </div>
                     )}
-                    {selectedReservation.afterParty && (
-                      <div className="flex items-center gap-2 text-slate-900 dark:text-white">
-                        <CheckCircle2 className="w-4 h-4 text-green-600" />
-                        <span>Nafeest</span>
+                    
+                    {selectedReservation.afterParty?.enabled ? (
+                      <div className="p-3 bg-pink-50 dark:bg-pink-900/20 rounded-lg border border-pink-200 dark:border-pink-800">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-5 h-5 text-pink-600 dark:text-pink-400" />
+                            <span className="font-bold text-slate-900 dark:text-white">🎉 Nafeest</span>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-slate-600 dark:text-slate-400">
+                              {selectedReservation.afterParty.quantity} pers. × €{(addOns?.afterParty?.pricePerPerson || 15).toFixed(2)}
+                            </p>
+                            <p className="font-black text-pink-700 dark:text-pink-400">
+                              €{((selectedReservation.afterParty.quantity || 0) * (addOns?.afterParty?.pricePerPerson || 15)).toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-slate-100 dark:bg-slate-900 rounded-lg flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                        <XCircle className="w-4 h-4" />
+                        <span className="text-sm">Geen nafeest</span>
                       </div>
                     )}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Merchandise */}
               {(isEditMode || (selectedReservation.merchandise && selectedReservation.merchandise.length > 0)) && (
@@ -2982,32 +3293,36 @@ export const ReservationsDashboard: React.FC = () => {
                       })()}
                       
                       {/* Pre-drink */}
-                      {(selectedReservation.pricingSnapshot.preDrinkTotal || (isEditMode && editData?.preDrink?.enabled)) && (
+                      {((selectedReservation.preDrink?.enabled && selectedReservation.preDrink?.quantity > 0) || selectedReservation.pricingSnapshot?.preDrinkTotal || (isEditMode && editData?.preDrink?.enabled)) && (
                         <div className="flex justify-between">
                           <span className="text-slate-600 dark:text-slate-400">
                             {isEditMode && editData?.preDrink?.enabled && !selectedReservation.preDrink?.enabled && (
                               <span className="text-xs text-green-600 dark:text-green-400 font-bold mr-2">NIEUW +</span>
                             )}
-                            Borrel vooraf {isEditMode && editData && editData.preDrink?.enabled && `(${editData.preDrink.quantity} pers.)`}
+                            Borrel vooraf ({isEditMode && editData?.preDrink?.enabled 
+                              ? editData.preDrink.quantity 
+                              : selectedReservation.preDrink?.quantity || 0} × €{(addOns?.preDrink?.pricePerPerson || selectedReservation.pricingSnapshot?.preDrinkPrice || 0).toFixed(2)})
                           </span>
                           <span className="font-bold">€{(isEditMode && editData?.preDrink?.enabled 
                             ? (addOns?.preDrink?.pricePerPerson || 0) * editData.preDrink.quantity 
-                            : selectedReservation.pricingSnapshot.preDrinkTotal || 0).toFixed(2)}</span>
+                            : selectedReservation.pricingSnapshot?.preDrinkTotal || ((selectedReservation.preDrink?.quantity || 0) * (addOns?.preDrink?.pricePerPerson || 0))).toFixed(2)}</span>
                         </div>
                       )}
                       
                       {/* After-party */}
-                      {(selectedReservation.pricingSnapshot.afterPartyTotal || (isEditMode && editData?.afterParty?.enabled)) && (
+                      {((selectedReservation.afterParty?.enabled && selectedReservation.afterParty?.quantity > 0) || selectedReservation.pricingSnapshot?.afterPartyTotal || (isEditMode && editData?.afterParty?.enabled)) && (
                         <div className="flex justify-between">
                           <span className="text-slate-600 dark:text-slate-400">
                             {isEditMode && editData?.afterParty?.enabled && !selectedReservation.afterParty?.enabled && (
                               <span className="text-xs text-green-600 dark:text-green-400 font-bold mr-2">NIEUW +</span>
                             )}
-                            Nafeest {isEditMode && editData && editData.afterParty?.enabled && `(${editData.afterParty.quantity} pers.)`}
+                            Nafeest ({isEditMode && editData?.afterParty?.enabled 
+                              ? editData.afterParty.quantity 
+                              : selectedReservation.afterParty?.quantity || 0} × €{(addOns?.afterParty?.pricePerPerson || selectedReservation.pricingSnapshot?.afterPartyPrice || 0).toFixed(2)})
                           </span>
                           <span className="font-bold">€{(isEditMode && editData?.afterParty?.enabled 
                             ? (addOns?.afterParty?.pricePerPerson || 0) * editData.afterParty.quantity 
-                            : selectedReservation.pricingSnapshot.afterPartyTotal || 0).toFixed(2)}</span>
+                            : selectedReservation.pricingSnapshot?.afterPartyTotal || ((selectedReservation.afterParty?.quantity || 0) * (addOns?.afterParty?.pricePerPerson || 0))).toFixed(2)}</span>
                         </div>
                       )}
                       
@@ -3037,11 +3352,11 @@ export const ReservationsDashboard: React.FC = () => {
                   <div className="pt-3 border-t-2 border-green-300 dark:border-green-700">
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-black text-slate-900 dark:text-white">Totaal {isEditMode && <span className="text-xs font-normal text-slate-500 dark:text-slate-400">(nieuw)</span>}</span>
-                      <span className="text-3xl font-black text-green-700 dark:text-green-400">€{(isEditMode && editData ? recalculatePrice() : selectedReservation.totalPrice)?.toFixed(2)}</span>
+                      <span className="text-3xl font-black text-green-700 dark:text-green-400">€{(isEditMode && editData ? recalculatePrice() : getTotalAmount(selectedReservation))?.toFixed(2)}</span>
                     </div>
                     {isEditMode && editData && (() => {
                       const newPrice = recalculatePrice();
-                      const oldPrice = selectedReservation.totalPrice;
+                      const oldPrice = getTotalAmount(selectedReservation);
                       const difference = newPrice - oldPrice;
                       if (Math.abs(difference) > 0.01) {
                         return (
@@ -3137,12 +3452,83 @@ export const ReservationsDashboard: React.FC = () => {
                     </>
                   )}
                   
-                  {/* Email Action */}
+                  {/* Email Action - Dropdown Menu */}
+                  <div className="relative email-menu-container">
+                    <button 
+                      onClick={() => setShowEmailMenu(!showEmailMenu)}
+                      className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-bold text-sm transition-colors flex items-center gap-2"
+                    >
+                      <Mail className="w-4 h-4" />
+                      Email
+                      <ChevronRight className={`w-4 h-4 transition-transform ${showEmailMenu ? 'rotate-90' : ''}`} />
+                    </button>
+                    
+                    {showEmailMenu && (
+                      <div className="absolute bottom-full mb-2 right-0 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-2 min-w-[280px] z-50">
+                        <button
+                          onClick={() => handleSendEmail('status')}
+                          disabled={processingIds.has(selectedReservation.id)}
+                          className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-start gap-3 disabled:opacity-50"
+                        >
+                          <Mail className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <div className="font-bold text-slate-900 dark:text-white">Status Email</div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400">
+                              {selectedReservation.status === 'pending' ? 'Aanvraag ontvangen' :
+                               selectedReservation.status === 'confirmed' ? 'Reservering bevestigd' :
+                               selectedReservation.status === 'option' ? 'Optie vastgelegd' :
+                               'Huidige status'}
+                            </div>
+                          </div>
+                        </button>
+                        
+                        <button
+                          onClick={() => handleSendEmail('booking-confirmed')}
+                          disabled={processingIds.has(selectedReservation.id)}
+                          className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-start gap-3 disabled:opacity-50"
+                        >
+                          <CheckCheck className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <div className="font-bold text-slate-900 dark:text-white">Boeking Goedgekeurd</div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400">
+                              Aanvraag is goedgekeurd en bevestigd
+                            </div>
+                          </div>
+                        </button>
+                        
+                        <button
+                          onClick={() => handleSendEmail('payment')}
+                          disabled={processingIds.has(selectedReservation.id)}
+                          className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-start gap-3 disabled:opacity-50"
+                        >
+                          <DollarSign className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <div className="font-bold text-slate-900 dark:text-white">Betalingsbevestiging</div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400">
+                              Betaling ontvangen (€{((selectedReservation.payments || []).reduce((sum, p) => sum + p.amount, 0)).toFixed(2)})
+                            </div>
+                          </div>
+                        </button>
+                        
+                        <div className="border-t border-slate-200 dark:border-slate-700 my-2"></div>
+                        
+                        <button
+                          onClick={() => setShowEmailMenu(false)}
+                          className="w-full px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-sm text-slate-500 dark:text-slate-400"
+                        >
+                          Annuleren
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Payment Action */}
                   <button 
-                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-bold text-sm transition-colors flex items-center gap-2"
+                    onClick={() => setShowPaymentModal(true)}
+                    className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold text-sm transition-colors flex items-center gap-2"
                   >
-                    <Mail className="w-4 h-4" />
-                    Email
+                    <DollarSign className="w-4 h-4" />
+                    Betaling Registreren
                   </button>
                 </div>
               </div>
@@ -3769,7 +4155,7 @@ export const ReservationsDashboard: React.FC = () => {
                                 </span>
                                 <span className="flex items-center gap-1">
                                   <Euro className="w-4 h-4" />
-                                  €{reservation.totalPrice?.toFixed(2)}
+                                  €{getTotalAmount(reservation)?.toFixed(2)}
                                 </span>
                               </div>
                             </div>
@@ -3947,7 +4333,7 @@ export const ReservationsDashboard: React.FC = () => {
                               <div className="flex items-center gap-3 mt-2">
                                 <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-lg">
                                   <Euro className="w-4 h-4" />
-                                  <span className="font-black">€{reservation.totalPrice?.toFixed(2)}</span>
+                                  <span className="font-black">€{getTotalAmount(reservation)?.toFixed(2)}</span>
                                 </div>
                               </div>
                             </div>
@@ -3983,6 +4369,16 @@ export const ReservationsDashboard: React.FC = () => {
                                   <Mail className="w-4 h-4" />
                                 )}
                                 Email
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setSelectedReservationId(reservation.id);
+                                  setShowPaymentModal(true);
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg font-bold text-sm transition-colors whitespace-nowrap"
+                              >
+                                <DollarSign className="w-4 h-4" />
+                                Betaling
                               </button>
                               <button 
                                 onClick={() => handleReject(reservation.id)}
@@ -4150,7 +4546,7 @@ export const ReservationsDashboard: React.FC = () => {
                               <div className="flex items-center gap-3">
                                 <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-lg">
                                   <Euro className="w-4 h-4" />
-                                  <span className="font-black">€{reservation.totalPrice?.toFixed(2)}</span>
+                                  <span className="font-black">€{getTotalAmount(reservation)?.toFixed(2)}</span>
                                 </div>
                                 {reservation.paymentStatus && (
                                   <span className={cn(
@@ -4185,6 +4581,16 @@ export const ReservationsDashboard: React.FC = () => {
                               >
                                 <Send className="w-4 h-4" />
                                 Email
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setSelectedReservationId(reservation.id);
+                                  setShowPaymentModal(true);
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg font-bold text-sm transition-colors whitespace-nowrap"
+                              >
+                                <DollarSign className="w-4 h-4" />
+                                Betaling
                               </button>
                             </div>
                           </div>
@@ -4533,7 +4939,7 @@ export const ReservationsDashboard: React.FC = () => {
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-sm font-bold text-slate-600 dark:text-slate-400">Totaal:</span>
                               <span className="text-lg font-black text-slate-900 dark:text-white">
-                                €{reservation.totalPrice?.toFixed(2) || '0.00'}
+                                €{getTotalAmount(reservation)?.toFixed(2) || '0.00'}
                               </span>
                             </div>
                             <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-black uppercase rounded-lg border ${badge.color}`}>
@@ -4649,7 +5055,7 @@ export const ReservationsDashboard: React.FC = () => {
                                 </td>
                                 <td className="px-4 py-4">
                                   <div className="font-bold text-slate-900 dark:text-white">
-                                    €{reservation.totalPrice?.toFixed(2)}
+                                    €{getTotalAmount(reservation)?.toFixed(2)}
                                   </div>
                                 </td>
                                 <td className="px-4 py-4">
@@ -4830,16 +5236,28 @@ export const ReservationsDashboard: React.FC = () => {
                                   </div>
                                   <div className="flex items-center gap-1 font-bold">
                                     <Euro className="w-4 h-4" />
-                                    <span>€{reservation.totalPrice?.toFixed(2)}</span>
+                                    <span>€{getTotalAmount(reservation)?.toFixed(2)}</span>
                                   </div>
                                 </div>
                               </div>
-                              <button
-                                onClick={() => setSelectedReservationId(reservation.id)}
-                                className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg font-bold text-sm transition-colors"
-                              >
-                                Details
-                              </button>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => {
+                                    setSelectedReservationId(reservation.id);
+                                    setShowPaymentModal(true);
+                                  }}
+                                  className="px-4 py-2 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg font-bold text-sm transition-colors flex items-center gap-2"
+                                >
+                                  <DollarSign className="w-4 h-4" />
+                                  Betaling
+                                </button>
+                                <button
+                                  onClick={() => setSelectedReservationId(reservation.id)}
+                                  className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg font-bold text-sm transition-colors"
+                                >
+                                  Details
+                                </button>
+                              </div>
                             </div>
                           </div>
                         );
@@ -5117,9 +5535,20 @@ export const ReservationsDashboard: React.FC = () => {
                                               <span>•</span>
                                               <span>{reservation.arrangement}</span>
                                               <span>•</span>
-                                              <span className="font-bold">€{reservation.totalPrice?.toFixed(2)}</span>
+                                              <span className="font-bold">€{getTotalAmount(reservation)?.toFixed(2)}</span>
                                             </div>
                                           </div>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setSelectedReservationId(reservation.id);
+                                              setShowPaymentModal(true);
+                                            }}
+                                            className="px-3 py-1.5 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg font-bold text-xs transition-colors flex items-center gap-1"
+                                          >
+                                            <DollarSign className="w-3 h-3" />
+                                            Betaling
+                                          </button>
                                         </div>
                                       </div>
                                     );
@@ -5333,9 +5762,21 @@ export const ReservationsDashboard: React.FC = () => {
                                       </div>
                                     </div>
                                   </div>
-                                  <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
-                                    <Eye className="w-5 h-5" />
-                                  </button>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowPaymentModal(true);
+                                      }}
+                                      className="px-3 py-2 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg font-bold text-sm transition-colors flex items-center gap-2"
+                                    >
+                                      <DollarSign className="w-4 h-4" />
+                                      Betaling
+                                    </button>
+                                    <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
+                                      <Eye className="w-5 h-5" />
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
                             );
@@ -5594,7 +6035,7 @@ export const ReservationsDashboard: React.FC = () => {
                                 </div>
                                 <div>
                                   <p className="text-xs text-slate-500 dark:text-slate-400">Totaal</p>
-                                  <p className="text-sm font-bold">€{reservation.totalPrice?.toFixed(2)}</p>
+                                  <p className="text-sm font-bold">€{getTotalAmount(reservation)?.toFixed(2)}</p>
                                 </div>
                               </div>
                             </div>
@@ -5731,7 +6172,7 @@ export const ReservationsDashboard: React.FC = () => {
                                     </div>
                                     <div>
                                       <p className="text-xs text-slate-500 dark:text-slate-400">Totaal</p>
-                                      <p className="text-sm font-bold">€{reservation.totalPrice?.toFixed(2)}</p>
+                                      <p className="text-sm font-bold">€{getTotalAmount(reservation)?.toFixed(2)}</p>
                                     </div>
                                   </div>
                                 </div>
@@ -5833,7 +6274,7 @@ export const ReservationsDashboard: React.FC = () => {
                             </div>
                             <div>
                               <p className="text-xs text-slate-500 dark:text-slate-400">Totaal</p>
-                              <p className="text-sm font-bold">€{reservation.totalPrice?.toFixed(2)}</p>
+                              <p className="text-sm font-bold">€{getTotalAmount(reservation)?.toFixed(2)}</p>
                             </div>
                             <div>
                               <p className="text-xs text-slate-500 dark:text-slate-400">Type</p>
@@ -6679,6 +7120,8 @@ export const ReservationsDashboard: React.FC = () => {
     </div>
   );
 };
+
+
 
 
 

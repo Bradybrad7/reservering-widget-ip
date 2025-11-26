@@ -9,7 +9,7 @@ import { cn } from '../utils';
 
 const arrangementOptions = [
   {
-    value: 'BWF' as Arrangement,
+    value: 'standaard' as Arrangement,
     label: 'Standaard Arrangement',
     shortLabel: 'Standaard',
     description: 'Buffet show met bier, wijn, fris, port, martini en sherry',
@@ -22,7 +22,7 @@ const arrangementOptions = [
     highlight: false
   },
   {
-    value: 'BWFM' as Arrangement,
+    value: 'premium' as Arrangement,
     label: 'Premium Arrangement',
     shortLabel: 'Premium',
     description: 'Met mix dranken en speciale bieren - slechts €15 per persoon meer voor nog meer genot',
@@ -51,13 +51,13 @@ export const PackageStep: React.FC = () => {
   const { loadConfig, eventTypesConfig } = useConfigStore();
 
   const [selectedArrangement, setSelectedArrangement] = useState<Arrangement>(
-    formData.arrangement || 'BWF'
+    formData.arrangement || 'standaard'
   );
   
   // ✨ Store actual prices in state (not promises!)
   const [arrangementPrices, setArrangementPrices] = useState<Record<Arrangement, number>>({
-    BWF: 0,
-    BWFM: 0
+    standaard: 0,
+    premium: 0
   });
 
   // ✨ Load prices when component mounts or event changes
@@ -72,19 +72,19 @@ export const PackageStep: React.FC = () => {
         await loadConfig();
         
         // Fetch prices for both arrangements
-        const bwfPrice = await getArrangementPrice(selectedEvent, 'BWF');
-        const bwfmPrice = await getArrangementPrice(selectedEvent, 'BWFM');
+        const standaardPrice = await getArrangementPrice(selectedEvent, 'standaard');
+        const premiumPrice = await getArrangementPrice(selectedEvent, 'premium');
         
-        console.log('💰 PackageStep - Prices loaded:', { BWF: bwfPrice, BWFM: bwfmPrice });
+        console.log('💰 PackageStep - Prices loaded:', { standaard: standaardPrice, premium: premiumPrice });
         
         setArrangementPrices({
-          BWF: bwfPrice,
-          BWFM: bwfmPrice
+          standaard: standaardPrice,
+          premium: premiumPrice
         });
       } catch (error) {
         console.error('❌ PackageStep - Error loading prices:', error);
         // Fallback to 0 if there's an error
-        setArrangementPrices({ BWF: 0, BWFM: 0 });
+        setArrangementPrices({ standaard: 0, premium: 0 });
       }
     };
 
@@ -99,12 +99,12 @@ export const PackageStep: React.FC = () => {
       console.log('🔄 PackageStep - Event types config changed, reloading prices');
       
       try {
-        const bwfPrice = await getArrangementPrice(selectedEvent, 'BWF');
-        const bwfmPrice = await getArrangementPrice(selectedEvent, 'BWFM');
+        const standaardPrice = await getArrangementPrice(selectedEvent, 'standaard');
+        const premiumPrice = await getArrangementPrice(selectedEvent, 'premium');
         
         setArrangementPrices({
-          BWF: bwfPrice,
-          BWFM: bwfmPrice
+          standaard: standaardPrice,
+          premium: premiumPrice
         });
       } catch (error) {
         console.error('❌ PackageStep - Error reloading prices:', error);

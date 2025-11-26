@@ -91,10 +91,10 @@ class LocalStorageService {
     // REGULAR events are mapped to weekday/weekend based on date
     const initialPricing: Pricing = {
       byDayType: {
-        'weekday': { BWF: 70, BWFM: 85 },      // REGULAR events on Sun-Thu
-        'weekend': { BWF: 80, BWFM: 95 },      // REGULAR events on Fri-Sat
-        'matinee': { BWF: 70, BWFM: 85 },      // MATINEE events
-        'care_heroes': { BWF: 65, BWFM: 80 }   // CARE_HEROES events
+        'weekday': { standaard: 70, premium: 85 },      // REGULAR events on Sun-Thu
+        'weekend': { standaard: 80, premium: 95 },      // REGULAR events on Fri-Sat
+        'matinee': { standaard: 70, premium: 85 },      // MATINEE events
+        'care_heroes': { standaard: 65, premium: 80 }   // CARE_HEROES events
       }
     };
     
@@ -620,7 +620,7 @@ class LocalStorageService {
           remainingCapacity: parseInt(values[7]),
           bookingOpensAt: null,
           bookingClosesAt: null,
-          allowedArrangements: ['BWF', 'BWFM'],
+          allowedArrangements: ['standaard', 'premium'],
           isActive: values[8] === 'Ja'
         };
 

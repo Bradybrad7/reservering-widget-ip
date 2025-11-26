@@ -1,5 +1,5 @@
 
-import { Eye, Edit, CheckCircle, XCircle, Archive, Trash2, List } from 'lucide-react';
+import { Eye, Edit, CheckCircle, XCircle, Archive, Trash2, List, Ban } from 'lucide-react';
 import { cn } from '../../utils';
 import type { Reservation } from '../../types';
 
@@ -12,6 +12,7 @@ interface ReservationActionsProps {
   onMoveToWaitlist: (reservation: Reservation) => void;
   onArchive: (reservation: Reservation) => void;
   onDelete: (reservation: Reservation) => void;
+  onMarkNoShow?: (reservation: Reservation) => void;  // 🚫 NEW: No-Show action
 }
 
 export const ReservationActions: React.FC<ReservationActionsProps> = ({
@@ -22,10 +23,13 @@ export const ReservationActions: React.FC<ReservationActionsProps> = ({
   onReject,
   onMoveToWaitlist,
   onArchive,
-  onDelete
+  onDelete,
+  onMarkNoShow
 }) => {
   const isPending = reservation.status === 'pending';
   const isConfirmed = reservation.status === 'confirmed';
+  const isCheckedIn = reservation.status === 'checked-in';
+  const canMarkNoShow = (isConfirmed || isCheckedIn) && onMarkNoShow;
 
   return (
     <div className="flex items-center gap-1">
@@ -77,6 +81,17 @@ export const ReservationActions: React.FC<ReservationActionsProps> = ({
           title="Naar wachtlijst"
         >
           <List className="w-4 h-4" />
+        </button>
+      )}
+
+      {/* 🚫 Mark as No-Show (only for confirmed/checked-in) */}
+      {canMarkNoShow && (
+        <button
+          onClick={() => onMarkNoShow!(reservation)}
+          className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+          title="Markeer als No-Show"
+        >
+          <Ban className="w-4 h-4" />
         </button>
       )}
 

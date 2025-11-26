@@ -22,8 +22,9 @@ import { useAdminStore } from '../../store/adminStore';
 import { useOperationsStore } from '../../store/operationsStore';
 import { formatCurrency, formatDate, cn } from '../../utils';
 import type { CustomerProfile } from '../../types';
+import { CustomerCard } from './customers/CustomerCard';
 
-export const CustomerManagerEnhanced: React.FC = () => {
+export const CustomerManager: React.FC = () => {
   // ✨ REFACTORED: Use customersStore instead of adminStore (October 2025)
   const {
     customers,
@@ -297,26 +298,17 @@ export const CustomerManagerEnhanced: React.FC = () => {
               <div className="mt-4 pt-4 border-t border-neutral-700 space-y-3">
                 <button
                   onClick={() => {
-                    // Context is al gezet door handleSelectCustomer
-                    // Wissel alleen naar de juiste tab
-                    const { setActiveTab } = useOperationsStore.getState();
-                    setActiveTab('reservations');
+                    // Navigeer naar Operations/Reserveringen sectie met deze klant als filter
+                    setActiveSection('operations');
+                    setBreadcrumbs([
+                      { label: 'Reserveringen', section: 'operations' as AdminSection }
+                    ]);
+                    // Context is al gezet door handleSelectCustomer via setCustomerContext
                   }}
                   className="w-full px-4 py-3 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-400 hover:text-blue-300 transition-all flex items-center justify-center gap-2 group"
                 >
                   <List className="w-5 h-5 group-hover:scale-110 transition-transform" />
                   <span className="font-medium">Bekijk Reserveringen ({selectedCustomer.totalBookings})</span>
-                </button>
-                
-                <button
-                  onClick={() => {
-                    const { setActiveTab } = useOperationsStore.getState();
-                    setActiveTab('payments');
-                  }}
-                  className="w-full px-4 py-3 bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 rounded-lg text-green-400 hover:text-green-300 transition-all flex items-center justify-center gap-2 group"
-                >
-                  <DollarSign className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                  <span className="font-medium">Bekijk Betalingen</span>
                 </button>
               </div>
             </div>
@@ -602,83 +594,14 @@ export const CustomerManagerEnhanced: React.FC = () => {
                   <p className="text-neutral-500">Pas je zoekfilters aan of voeg nieuwe klanten toe</p>
                 </div>
               ) : (
-                filteredCustomers.map((customer) => {
-                  const level = getCustomerLevel(customer.totalSpent);
-                  
-                  return (
-                    <div
-                      key={customer.email}
-                      onClick={() => handleSelectCustomer(customer)}
-                      className="group relative bg-gradient-to-br from-neutral-800/80 to-neutral-800/50 backdrop-blur-sm rounded-xl p-6 border-2 border-neutral-700 hover:border-gold-500/50 transition-all duration-200 cursor-pointer hover:scale-[1.02] hover:shadow-2xl hover:shadow-gold-500/10"
-                    >
-                      {/* Hover glow effect */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-gold-500/0 to-gold-500/0 group-hover:from-gold-500/5 group-hover:to-transparent rounded-xl transition-all duration-200"></div>
-                      
-                      <div className="relative flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-3">
-                            {/* Company name */}
-                            <h3 className="text-xl font-bold text-white group-hover:text-gold-400 transition-colors">
-                              {customer.companyName}
-                            </h3>
-                            
-                            {/* Level badge */}
-                            <span className={cn(
-                              'px-3 py-1 rounded-lg font-bold text-sm shadow-lg flex items-center gap-1.5',
-                              level.level === 'Gold' && 'bg-gradient-to-br from-gold-500 to-gold-600 text-white',
-                              level.level === 'Silver' && 'bg-gradient-to-br from-neutral-400 to-neutral-500 text-white',
-                              level.level === 'Bronze' && 'bg-gradient-to-br from-orange-500 to-orange-600 text-white'
-                            )}>
-                              <span>{level.icon}</span>
-                              <span>{level.level}</span>
-                            </span>
-                            
-                            {/* Tags */}
-                            {customer.tags.map(tag => {
-                              const tagId = typeof tag === 'string' ? tag : 
-                                (typeof tag === 'object' && tag && 'id' in tag ? (tag as any).id : String(tag));
-                              return (
-                                <span
-                                  key={tagId}
-                                  className="px-3 py-1 bg-gradient-to-br from-gold-500/20 to-gold-600/10 text-gold-400 rounded-lg text-xs font-semibold border border-gold-500/30"
-                                >
-                                  {tagId}
-                                </span>
-                              );
-                            })}
-                          </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-neutral-300">
-                          <div className="flex items-center gap-2">
-                            <Users className="w-4 h-4 text-neutral-500" />
-                            <span>{customer.contactPerson}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Mail className="w-4 h-4 text-neutral-500" />
-                            <span className="truncate">{customer.email}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-neutral-500" />
-                            <span>{customer.totalBookings} boekingen</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Clock className="w-4 h-4 text-neutral-500" />
-                            <span>{formatDate(customer.lastBooking)}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-gold-400">
-                          {formatCurrency(customer.totalSpent)}
-                        </div>
-                        <div className="text-xs text-neutral-500">Totaal besteed</div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
+                filteredCustomers.map((customer) => (
+                  <CustomerCard
+                    key={customer.email}
+                    customer={customer}
+                    onSelect={handleSelectCustomer}
+                  />
+                ))
+              )}
           </div>
         </div>
         </div>

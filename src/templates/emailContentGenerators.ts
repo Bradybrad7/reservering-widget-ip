@@ -70,7 +70,7 @@ export const generateConfirmationEmailContent = async (
   const lastName = formatName(reservation.lastName || '');
   const fullName = `${firstName} ${lastName}`.trim() || formatName(reservation.contactPerson || '') || '';
   
-  const arrangement = reservation.arrangement === 'BWF' ? 'Premium' : 'Deluxe';
+  const arrangement = reservation.arrangement === 'standaard' ? 'Standaard Arrangement' : 'Premium Arrangement';
   const basePrice = reservation.pricingSnapshot?.basePrice || 0;
   const priceInfo = basePrice > 0 ? ` (€${basePrice.toFixed(2)} per persoon)` : '';
   
@@ -173,9 +173,16 @@ export const generateConfirmationEmailContent = async (
     highlight: true,
   });
 
-  // Payment status
-  const paymentText = reservation.paymentStatus === 'paid' 
-    ? '✅ Betaald'
+  // Payment status - Calculate from actual payments
+  const totalAmount = reservation.pricingSnapshot?.finalTotal || reservation.totalPrice;
+  const payments = reservation.payments || [];
+  const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+  const balance = totalAmount - totalPaid;
+  
+  const paymentText = balance <= 0
+    ? '✅ Volledig betaald'
+    : totalPaid > 0
+    ? `⏳ Deels betaald (€${totalPaid.toFixed(2)} van €${totalAmount.toFixed(2)})`
     : `⏳ Te betalen${reservation.paymentDueDate ? ` vóór ${formatDate(reservation.paymentDueDate)}` : ''}`;
   
   details.push({
@@ -271,7 +278,7 @@ export const generateOptionEmailContent = async (
   const lastName = formatName(reservation.lastName || '');
   const fullName = `${firstName} ${lastName}`.trim() || formatName(reservation.contactPerson || '') || '';
   
-  const arrangement = reservation.arrangement === 'BWF' ? 'Premium' : 'Deluxe';
+  const arrangement = reservation.arrangement === 'standaard' ? 'Standaard Arrangement' : 'Premium Arrangement';
   const basePrice = reservation.pricingSnapshot?.basePrice || 0;
   const priceInfo = basePrice > 0 ? ` (€${basePrice.toFixed(2)} per persoon)` : '';
   
@@ -372,79 +379,7 @@ export const generateOptionEmailContent = async (
  * Doel: Bevestig ontvangst betaling
  * CTA: "Terug naar website"
  */
-export const generatePaymentConfirmationEmailContent = async (
-  reservation: Reservation,
-  event: Event
-): Promise<EmailContentBlock> => {
-  // Format name with proper capitalization
-  const firstName = formatName(reservation.firstName || '');
-  const lastName = formatName(reservation.lastName || '');
-  const fullName = `${firstName} ${lastName}`.trim() || formatName(reservation.contactPerson || '') || '';
-  
-  const arrangement = reservation.arrangement === 'BWF' ? 'Premium' : 'Deluxe';
-  
-  const details: EmailContentBlock['reservationDetails'] = [
-    {
-      label: 'Naam:',
-      value: fullName,
-    },
-    {
-      label: 'Evenement:',
-      value: 'Dinner theater Show',
-    },
-    {
-      label: 'Datum:',
-      value: formatDate(event.date),
-    },
-    {
-      label: 'Tijd:',
-      value: formatEventTimes(event.doorsOpen, event.startsAt, event.endsAt),
-    },
-    {
-      label: 'Aantal personen:',
-      value: `${reservation.numberOfPersons} ${reservation.numberOfPersons === 1 ? 'persoon' : 'personen'}`,
-    },
-    {
-      label: 'Arrangement:',
-      value: arrangement,
-    },
-    {
-      label: 'Betaald bedrag:',
-      value: formatCurrency(reservation.pricingSnapshot?.finalTotal || reservation.totalPrice),
-      highlight: true,
-    },
-    {
-      label: 'Betaalstatus:',
-      value: '✅ BETAALD',
-    },
-  ];
 
-  return {
-    spotlightTitle: 'Betaling Ontvangen ✓',
-    greeting: `Beste ${fullName},`,
-    introText: 'Goed nieuws! Wij hebben uw betaling in goede orde ontvangen. Uw reservering is nu volledig bevestigd!',
-    reservationDetails: details,
-    additionalInfo: `
-      <div style="background: linear-gradient(135deg, #006400 0%, #228B22 100%); border: 2px solid #32CD32; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
-        <strong style="color: white; font-size: 18px;">✓ UW RESERVERING IS VOLLEDIG BEVESTIGD</strong><br /><br />
-        <span style="color: #E5FFE5;">
-          U kunt zich nu vol verwachting verheugen op een onvergetelijke avond bij Inspiration Point!
-        </span>
-      </div>
-      <strong>Wat te verwachten:</strong><br />
-      • De deuren openen om ${formatTime(event.doorsOpen)}<br />
-      • U wordt hartelijk welkom geheten door ons team<br />
-      • Neemt u rustig de tijd om uw plaatsen te vinden<br />
-      • De show begint om ${formatTime(event.startsAt)}<br /><br />
-      <strong>💡 Tip:</strong> Kom op tijd voor een ontspannen start van uw avond!
-    `,
-    ctaButton: {
-      text: 'Terug naar website',
-      url: 'https://inspiration-point.nl',
-    },
-    footerNote: 'We kijken ernaar uit u te ontvangen! Bij vragen: info@inspiration-point.nl of 040-2110679',
-  };
-};
 
 /**
  * 3️⃣ WACHTLIJST EMAIL (Status: waitlist)
@@ -511,7 +446,7 @@ export const generatePendingEmailContent = async (
   const lastName = formatName(reservation.lastName || '');
   const fullName = `${firstName} ${lastName}`.trim() || formatName(reservation.contactPerson || '') || '';
   
-  const arrangement = reservation.arrangement === 'BWF' ? 'Premium' : 'Deluxe';
+  const arrangement = reservation.arrangement === 'standaard' ? 'Standaard Arrangement' : 'Premium Arrangement';
   const basePrice = reservation.pricingSnapshot?.basePrice || 0;
   const priceInfo = basePrice > 0 ? ` (€${basePrice.toFixed(2)} per persoon)` : '';
   
@@ -623,7 +558,7 @@ export const generateRejectionEmailContent = async (
   const lastName = formatName(reservation.lastName || '');
   const fullName = `${firstName} ${lastName}`.trim() || formatName(reservation.contactPerson || '') || '';
   
-  const arrangement = reservation.arrangement === 'BWF' ? 'Premium' : 'Deluxe';
+  const arrangement = reservation.arrangement === 'standaard' ? 'Standaard Arrangement' : 'Premium Arrangement';
   
   const details: EmailContentBlock['reservationDetails'] = [];
 
@@ -691,6 +626,325 @@ export const generateRejectionEmailContent = async (
 };
 
 /**
+ * 💰 BETALING BEVESTIGING EMAIL
+ * 
+ * Doel: Bevestig ontvangst van betaling met details
+ */
+export const generatePaymentConfirmationEmailContent = async (
+  reservation: Reservation,
+  event: Event,
+  show?: Show
+): Promise<EmailContentBlock> => {
+  const firstName = formatName(reservation.firstName || '');
+  const lastName = formatName(reservation.lastName || '');
+  const fullName = `${firstName} ${lastName}`.trim() || formatName(reservation.contactPerson || '') || '';
+  
+  const details: EmailContentBlock['reservationDetails'] = [];
+
+  if (reservation.companyName) {
+    details.push({
+      label: 'Bedrijfsnaam:',
+      value: reservation.companyName,
+    });
+  }
+
+  details.push(
+    {
+      label: 'Naam:',
+      value: fullName,
+    },
+    {
+      label: 'Evenement:',
+      value: 'Dinner theater Show',
+    },
+    {
+      label: 'Datum:',
+      value: formatDate(event.date),
+    },
+    {
+      label: 'Aantal personen:',
+      value: `${reservation.numberOfPersons} ${reservation.numberOfPersons === 1 ? 'persoon' : 'personen'}`,
+    }
+  );
+
+  // Calculate payment details
+  const totalAmount = reservation.pricingSnapshot?.finalTotal || reservation.totalPrice || 0;
+  const payments = reservation.payments || [];
+  const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+  const latestPayment = payments.length > 0 ? payments[payments.length - 1] : null;
+
+  if (latestPayment) {
+    details.push({
+      label: 'Ontvangen betaling:',
+      value: formatCurrency(latestPayment.amount),
+      highlight: true,
+    });
+
+    if (latestPayment.method) {
+      details.push({
+        label: 'Betaalmethode:',
+        value: latestPayment.method === 'cash' ? 'Contant' :
+               latestPayment.method === 'pin' ? 'PIN' :
+               latestPayment.method === 'bank' ? 'Bankoverschrijving' :
+               latestPayment.method === 'ideal' ? 'iDEAL' : latestPayment.method,
+      });
+    }
+
+    if (latestPayment.reference) {
+      details.push({
+        label: 'Referentie:',
+        value: latestPayment.reference,
+      });
+    }
+
+    if (latestPayment.notes) {
+      details.push({
+        label: 'Notitie:',
+        value: latestPayment.notes,
+      });
+    }
+  }
+
+  details.push({
+    label: 'Totaalbedrag reservering:',
+    value: formatCurrency(totalAmount),
+  });
+
+  details.push({
+    label: 'Totaal betaald:',
+    value: formatCurrency(totalPaid),
+  });
+
+  const balance = totalAmount - totalPaid;
+  if (balance > 0) {
+    details.push({
+      label: 'Nog te betalen:',
+      value: formatCurrency(balance),
+    });
+  } else if (balance === 0) {
+    details.push({
+      label: 'Status:',
+      value: '✅ Volledig betaald',
+    });
+  } else {
+    details.push({
+      label: 'Teveel betaald:',
+      value: formatCurrency(Math.abs(balance)),
+    });
+  }
+
+  return {
+    spotlightTitle: 'Betaling ontvangen! 💰',
+    showInfo: show ? {
+      logoUrl: show.logoUrl || show.imageUrl,
+      description: show.description,
+    } : undefined,
+    greeting: `Beste ${fullName},`,
+    introText: balance === 0 
+      ? 'Hartelijk dank voor uw betaling! We hebben uw volledige betaling in goede orde ontvangen. U bent helemaal klaar voor uw bezoek.'
+      : balance > 0
+      ? `Hartelijk dank voor uw betaling van ${formatCurrency(latestPayment?.amount || 0)}. We hebben dit bedrag in goede orde ontvangen.`
+      : 'Hartelijk dank voor uw betaling! We hebben uw betaling in goede orde ontvangen.',
+    reservationDetails: details,
+    ctaButton: {
+      text: 'Terug naar website',
+      url: 'https://inspiration-point.nl',
+    },
+    footerNote: 'Bij vragen over uw betaling kunt u ons bereiken via info@inspiration-point.nl of 040-2110679',
+  };
+};
+
+/**
+ * ✅ BOEKING BEVESTIGING EMAIL (van pending → confirmed)
+ * 
+ * Doel: Bevestig dat de aanvraag is goedgekeurd en definitief is
+ * Anders dan de gewone confirmation - dit is na goedkeuring
+ */
+export const generateBookingConfirmedEmailContent = async (
+  reservation: Reservation,
+  event: Event,
+  show?: Show
+): Promise<EmailContentBlock> => {
+  const firstName = formatName(reservation.firstName || '');
+  const lastName = formatName(reservation.lastName || '');
+  const fullName = `${firstName} ${lastName}`.trim() || formatName(reservation.contactPerson || '') || '';
+  
+  const arrangement = reservation.arrangement === 'standaard' ? 'Standaard Arrangement' : 'Premium Arrangement';
+  const basePrice = reservation.pricingSnapshot?.basePrice || 0;
+  const priceInfo = basePrice > 0 ? ` (€${basePrice.toFixed(2)} per persoon)` : '';
+  
+  const details: EmailContentBlock['reservationDetails'] = [];
+
+  if (reservation.companyName) {
+    details.push({
+      label: 'Bedrijfsnaam:',
+      value: reservation.companyName,
+    });
+  }
+
+  if (reservation.salutation) {
+    details.push({
+      label: 'Aanhef:',
+      value: reservation.salutation,
+    });
+  }
+
+  details.push(
+    {
+      label: 'Naam:',
+      value: fullName,
+    },
+    {
+      label: 'Evenement:',
+      value: 'Dinner theater Show',
+    },
+    {
+      label: 'Datum:',
+      value: formatDate(event.date),
+    },
+    {
+      label: 'Tijd:',
+      value: formatEventTimes(event.doorsOpen, event.startsAt, event.endsAt),
+    },
+    {
+      label: 'Aantal personen:',
+      value: `${reservation.numberOfPersons} ${reservation.numberOfPersons === 1 ? 'persoon' : 'personen'}`,
+    },
+    {
+      label: 'Arrangement:',
+      value: `${arrangement}${priceInfo}`,
+    }
+  );
+
+  // Add-ons
+  if (reservation.preDrink?.enabled) {
+    const preDrinkPrice = reservation.pricingSnapshot?.preDrinkPrice || 0;
+    details.push({
+      label: 'Preparty:',
+      value: `✅ Ja (€${preDrinkPrice.toFixed(2)} p.p.)`,
+    });
+  }
+  
+  if (reservation.afterParty?.enabled) {
+    const afterPartyPrice = reservation.pricingSnapshot?.afterPartyPrice || 0;
+    details.push({
+      label: 'Afterparty:',
+      value: `✅ Ja (€${afterPartyPrice.toFixed(2)} p.p.)`,
+    });
+  }
+
+  // Merchandise
+  if (reservation.merchandise && reservation.merchandise.length > 0) {
+    try {
+      const { storageService } = await import('../services/storageService');
+      const merchandiseItems = await storageService.getMerchandise();
+      
+      const merchandiseText = reservation.merchandise.map(item => {
+        const merchandiseItem = merchandiseItems.find(m => m.id === item.itemId);
+        const productName = merchandiseItem?.name || `Product`;
+        const price = merchandiseItem?.price || 0;
+        const totalPrice = price * item.quantity;
+        return `${productName} ${item.quantity}x (€${totalPrice.toFixed(2)})`;
+      }).join(', ');
+      
+      details.push({
+        label: 'Merchandise:',
+        value: merchandiseText,
+      });
+    } catch (error) {
+      console.warn('Could not load merchandise names:', error);
+      if (reservation.merchandise.length > 0) {
+        details.push({
+          label: 'Merchandise:',
+          value: `${reservation.merchandise.length} item(s)`,
+        });
+      }
+    }
+  }
+
+  // Total price
+  const totalAmount = reservation.pricingSnapshot?.finalTotal || reservation.totalPrice;
+  details.push({
+    label: 'Totaalprijs:',
+    value: formatCurrency(totalAmount),
+    highlight: true,
+  });
+
+  // Payment info - Calculate from actual payments
+  const payments = reservation.payments || [];
+  const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+  const balance = totalAmount - totalPaid;
+  
+  const paymentText = balance <= 0
+    ? '✅ Volledig betaald'
+    : totalPaid > 0
+    ? `⏳ Deels betaald (€${totalPaid.toFixed(2)} van €${totalAmount.toFixed(2)})`
+    : `⏳ Te betalen${reservation.paymentDueDate ? ` vóór ${formatDate(reservation.paymentDueDate)}` : ''}`;
+  
+  details.push({
+    label: 'Betaalstatus:',
+    value: paymentText,
+  });
+
+  // Additional info
+  const additionalInfoParts = [];
+
+  if (reservation.celebrationOccasion) {
+    let celebration = `🎉 ${reservation.celebrationOccasion}`;
+    if (reservation.partyPerson) {
+      celebration += ` voor ${reservation.partyPerson}`;
+    }
+    if (reservation.celebrationDetails) {
+      celebration += ` - ${reservation.celebrationDetails}`;
+    }
+    additionalInfoParts.push(celebration);
+  }
+
+  if (reservation.dietaryRequirements) {
+    const dietary = [];
+    if (reservation.dietaryRequirements.vegetarian) {
+      dietary.push(`🥗 Vegetarisch: ${reservation.dietaryRequirements.vegetarianCount || 0}x`);
+    }
+    if (reservation.dietaryRequirements.vegan) {
+      dietary.push(`🌱 Veganistisch: ${reservation.dietaryRequirements.veganCount || 0}x`);
+    }
+    if (reservation.dietaryRequirements.glutenFree) {
+      dietary.push(`🌾 Glutenvrij: ${reservation.dietaryRequirements.glutenFreeCount || 0}x`);
+    }
+    if (reservation.dietaryRequirements.lactoseFree) {
+      dietary.push(`🥛 Lactosevrij: ${reservation.dietaryRequirements.lactoseFreeCount || 0}x`);
+    }
+    if (reservation.dietaryRequirements.other) {
+      dietary.push(`📝 Overig: ${reservation.dietaryRequirements.other}`);
+    }
+    if (dietary.length > 0) {
+      additionalInfoParts.push(`<strong>Dieetwensen:</strong><br />${dietary.join('<br />')}`);
+    }
+  }
+
+  if (reservation.comments) {
+    additionalInfoParts.push(`<strong>Uw opmerking:</strong><br />${reservation.comments}`);
+  }
+
+  return {
+    spotlightTitle: 'Uw boeking is goedgekeurd! ✅',
+    showInfo: show ? {
+      logoUrl: show.logoUrl || show.imageUrl,
+      description: show.description,
+    } : undefined,
+    greeting: `Beste ${fullName},`,
+    introText: 'Goed nieuws! Uw reserveringsaanvraag is door ons goedgekeurd en definitief bevestigd. We kijken er naar uit om u te ontvangen voor een onvergetelijke avond bij Inspiration Point!',
+    reservationDetails: details,
+    additionalInfo: additionalInfoParts.length > 0 ? additionalInfoParts.join('<br /><br />') : undefined,
+    ctaButton: {
+      text: 'Terug naar website',
+      url: 'https://inspiration-point.nl',
+    },
+    footerNote: 'Bij vragen kunt u ons altijd bereiken via info@inspiration-point.nl of 040-2110679',
+  };
+};
+
+/**
  * 🎭 MASTER FUNCTION: Generate Email by Status
  * 
  * Deze functie selecteert automatisch het juiste email type
@@ -719,4 +973,5 @@ export const generateEmailContentByStatus = async (
       return generateConfirmationEmailContent(reservation, event);
   }
 };
+
 

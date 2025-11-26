@@ -3,7 +3,7 @@ import { ShoppingBag, Package, DollarSign, Tag, Gift, Settings, Boxes, Theater }
 import { cn } from '../../utils';
 // import type { AdminSection } from '../../types'; // Unused
 import { MerchandiseManager } from './MerchandiseManager';
-import { AddOnsManagerEnhanced } from './AddOnsManagerEnhanced';
+import { AddOnsManager } from './AddOnsManager';
 import { SimplePricingManager } from './SimplePricingManager'; // 🆕 NIEUWE SIMPELE PRICING MANAGER
 import { EventTypeManager } from './EventTypeManager'; // 🆕 EVENT TYPE BEHEER
 import { ShowManager } from './ShowManager'; // ✨ SHOW BEHEER (Logo + Description)
@@ -41,7 +41,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ activeTab: ini
       case 'pricing':
         return <SimplePricingManager />;
       case 'addons':
-        return <AddOnsManagerEnhanced />;
+        return <AddOnsManager />;
       case 'merchandise':
         return <MerchandiseManager />;
       case 'promotions':

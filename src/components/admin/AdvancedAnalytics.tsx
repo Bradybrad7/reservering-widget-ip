@@ -96,7 +96,7 @@ const AdvancedAnalytics: React.FC = () => {
     });
 
     // Arrangement distribution
-    const arrangementCounts: { [key: string]: number } = { BWF: 0, BWFM: 0 };
+    const arrangementCounts: { [key: string]: number } = { standaard: 0, premium: 0 };
     filteredReservations.forEach(r => {
       arrangementCounts[r.arrangement] = (arrangementCounts[r.arrangement] || 0) + 1;
     });
@@ -426,7 +426,7 @@ const AdvancedAnalytics: React.FC = () => {
             {Object.entries(analytics.arrangementCounts).map(([arrangement, count]) => {
               const total = Object.values(analytics.arrangementCounts).reduce((a, b) => a + b, 0);
               const percentage = total > 0 ? (count / total) * 100 : 0;
-              const label = arrangement === 'BWF' ? 'Standaard Arrangement' : 'Premium Arrangement';
+              const label = arrangement === 'standaard' ? 'Standaard Arrangement' : 'Premium Arrangement';
               
               return (
                 <div key={arrangement} className="p-4 bg-slate-900/50 border border-slate-700 rounded-lg">

@@ -96,6 +96,9 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
   const [showPriceOverride, setShowPriceOverride] = useState(importMode); // Auto-show voor imports
   const [arrangementPricePerPerson, setArrangementPricePerPerson] = useState<number | null>(null);
   const [overrideReason, setOverrideReason] = useState('');
+  
+  // 📋 RESERVATION STATUS - Kies status voor deze boeking
+  const [reservationStatus, setReservationStatus] = useState<'confirmed' | 'pending' | 'option'>('confirmed');
 
   // Note: Pre-fill is handled by the hook via prefilledData option
   // Show toast when prefilled
@@ -142,6 +145,7 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
       
       // Add admin-specific metadata before submission
       const adminMetadata: any = {
+        status: reservationStatus, // 📋 Gekozen status door admin
         source: importMode ? 'import' : 'admin',
         skipEmail: importMode, // Geen emails voor geïmporteerde boekingen
         communicationLog: [
@@ -386,6 +390,29 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
                     <OrderSummary />
                   </div>
 
+                  {/* 📋 RESERVATION STATUS - Kies status voor de boeking */}
+                  <div className="mt-6 p-4 bg-neutral-800/50 rounded-xl border border-neutral-600 space-y-3">
+                    <label className="block text-sm font-medium text-neutral-300">
+                      📋 Reserveringsstatus
+                    </label>
+                    <select
+                      value={reservationStatus}
+                      onChange={(e) => setReservationStatus(e.target.value as 'confirmed' | 'pending' | 'option')}
+                      className="w-full px-4 py-3 bg-neutral-700 border border-neutral-500 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold-400/50"
+                    >
+                      <option value="confirmed">✅ Bevestigd - Direct bevestigde boeking</option>
+                      <option value="option">⏳ Optie - Tijdelijke reservering (1 week geldig)</option>
+                      <option value="pending">🔔 In behandeling - Wacht op bevestiging</option>
+                    </select>
+                    <p className="text-xs text-neutral-400">
+                      {reservationStatus === 'option' 
+                        ? 'Optie boekingen zijn 1 week geldig en tellen wel mee voor capaciteit. Geen bevestigingsmail.'
+                        : reservationStatus === 'pending'
+                        ? 'In behandeling boekingen wachten op admin goedkeuring. Klant krijgt een notificatie.'
+                        : 'Bevestigde boekingen krijgen direct een bevestigingsmail (tenzij import mode).'}
+                    </p>
+                  </div>
+
                   {/* 💰 ADMIN PRIJS OVERRIDE - Voor oude boekingen */}
                   <div className="mt-6 space-y-4">
                     {/* Toggle voor prijs override */}
@@ -451,8 +478,8 @@ const ManualBookingFormContent: React.FC<ManualBookingFormProps> = ({
                                 <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                                   <div className="text-xs text-blue-300 mb-1">Geselecteerd arrangement</div>
                                   <div className="text-sm font-medium text-blue-200">
-                                    {booking.formData.arrangement === 'BWF' ? 'Borrel, Show & Buffet' : 
-                                     booking.formData.arrangement === 'BWFM' ? 'Borrel, Show, Buffet & Muziek' : 
+                                    {booking.formData.arrangement === 'standaard' ? 'Standaard Arrangement' : 
+                                     booking.formData.arrangement === 'premium' ? 'Premium Arrangement' : 
                                      booking.formData.arrangement}
                                   </div>
                                 </div>

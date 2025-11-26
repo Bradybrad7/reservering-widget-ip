@@ -23,13 +23,13 @@ import { getAllTextKeys, cn } from '../../utils';
 import { TagConfigService } from '../../services/tagConfigService';
 import type { Pricing, BookingRules, GlobalConfig, WizardConfig, TextCustomization, AdminSection } from '../../types';
 
-interface ConfigManagerEnhancedProps {
+interface ConfigManagerProps {
   activeSection?: AdminSection;
 }
 
 type ConfigSection = 'general' | 'booking' | 'pricing' | 'wizard' | 'texts' | 'mailing' | 'promotions' | 'reminders' | 'vouchers' | 'data' | 'capacity' | 'health' | 'audit' | 'system' | 'tags';
 
-export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ activeSection: initialSection }) => {
+export const ConfigManager: React.FC<ConfigManagerProps> = ({ activeSection: initialSection }) => {
   const [activeTab, setActiveTab] = useState<ConfigSection>(initialSection as ConfigSection || 'general');
   
   const {
@@ -188,7 +188,7 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="flex items-center gap-2 text-sm font-medium text-neutral-300 mb-2">
-                  BWF (Bioscoop, Welkom, Film)
+                  Standaard Arrangement
                   <Tooltip text="Standaard arrangement inclusief bioscoop, welkomstdrankje en film" />
                 </label>
                 <div className="relative">
@@ -196,7 +196,7 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
                   <input
                     type="number"
                     step="0.01"
-                    value={localPricing.byDayType[dayType.key].BWF}
+                    value={localPricing.byDayType[dayType.key].standaard}
                     onChange={(e) => {
                       setLocalPricing({
                         ...localPricing,
@@ -204,7 +204,7 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
                           ...localPricing.byDayType,
                           [dayType.key]: {
                             ...localPricing.byDayType[dayType.key],
-                            BWF: parseFloat(e.target.value)
+                            standaard: parseFloat(e.target.value)
                           }
                         }
                       });
@@ -217,7 +217,7 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
 
               <div>
                 <label className="flex items-center gap-2 text-sm font-medium text-neutral-300 mb-2">
-                  BWFM (Bioscoop, Welkom, Film, Maaltijd)
+                  Premium Arrangement
                   <Tooltip text="Uitgebreid arrangement met bioscoop, welkomstdrankje, film en maaltijd" />
                 </label>
                 <div className="relative">
@@ -225,7 +225,7 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
                   <input
                     type="number"
                     step="0.01"
-                    value={localPricing.byDayType[dayType.key].BWFM}
+                    value={localPricing.byDayType[dayType.key].premium}
                     onChange={(e) => {
                       setLocalPricing({
                         ...localPricing,
@@ -233,7 +233,7 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
                           ...localPricing.byDayType,
                           [dayType.key]: {
                             ...localPricing.byDayType[dayType.key],
-                            BWFM: parseFloat(e.target.value)
+                            premium: parseFloat(e.target.value)
                           }
                         }
                       });
@@ -408,7 +408,7 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
           <div className="space-y-3">
             {[
               { key: 'persons', label: 'Aantal Personen', description: 'Selecteer groepsgrootte' },
-              { key: 'arrangement', label: 'Arrangement', description: 'Kies BWF of BWFM' },
+              { key: 'arrangement', label: 'Arrangement', description: 'Kies standaard of premium' },
               { key: 'addons', label: 'Add-ons', description: 'Extra borrel of after-party' },
               { key: 'merchandise', label: 'Merchandise', description: 'Film-gerelateerde producten' },
               { key: 'extras', label: 'Extras', description: 'Aanvullende opties' }
@@ -494,16 +494,33 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
 
     return (
       <div className="space-y-6">
+        {/* Info Banner */}
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 flex items-start gap-3">
+          <HelpCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-blue-300">
+            <p className="font-semibold mb-1">Basis configuratie voor je boekingssysteem</p>
+            <p className="text-blue-400 mb-2">Deze instellingen worden automatisch gebruikt in:</p>
+            <ul className="text-xs text-blue-400 space-y-1 ml-4 list-disc">
+              <li>📧 E-mails (afzender, handtekening, contactgegevens)</li>
+              <li>🧾 Facturen en PDF's (bedrijfsgegevens, BTW)</li>
+              <li>🌐 Booking widget (valuta, datumnotatie)</li>
+              <li>💰 Prijsweergave (€1.234,56 vs $1,234.56)</li>
+              <li>📅 Datums en tijden (tijdzone conversie)</li>
+            </ul>
+            <p className="text-blue-300 mt-2 text-xs">💡 <strong>Tip:</strong> Gebruik <code className="px-1 py-0.5 bg-blue-500/20 rounded">useFormatCurrency()</code> hook in componenten voor automatische valuta formatting</p>
+          </div>
+        </div>
+
         <CollapsibleGroup
           id="company-info"
-          title="Bedrijfsgegevens"
-          description="Informatie over je organisatie"
+          title="🏢 Bedrijfsgegevens"
+          description="Contactinformatie voor je organisatie (gebruikt in e-mails en facturen)"
         >
           <div className="space-y-4">
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-neutral-300 mb-2">
-                Bedrijfsnaam
-                <Tooltip text="Naam van je organisatie, wordt getoond in de widget" />
+                Bedrijfsnaam *
+                <Tooltip text="Officiële naam van je organisatie - wordt getoond in de widget, e-mails en facturen" />
               </label>
               <input
                 type="text"
@@ -515,14 +532,15 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
                   });
                   setHasChanges(true);
                 }}
-                className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+                placeholder="Theater De Lieve Vrouw"
+                className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent transition-all"
               />
             </div>
 
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-neutral-300 mb-2">
-                Adres
-                <Tooltip text="Fysiek adres van je locatie" />
+                Adres *
+                <Tooltip text="Volledig adres inclusief straat, huisnummer, postcode en plaats" />
               </label>
               <input
                 type="text"
@@ -534,15 +552,16 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
                   });
                   setHasChanges(true);
                 }}
-                className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+                placeholder="Hoogstraat 1, 1234 AB Amsterdam"
+                className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent transition-all"
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="flex items-center gap-2 text-sm font-medium text-neutral-300 mb-2">
-                  E-mail
-                  <Tooltip text="E-mailadres voor klantencontact" />
+                  E-mail *
+                  <Tooltip text="Primair contactadres - wordt gebruikt als afzender in klant-e-mails" />
                 </label>
                 <input
                   type="email"
@@ -554,14 +573,16 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
                     });
                     setHasChanges(true);
                   }}
-                  className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+                  placeholder="info@theater.nl"
+                  className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent transition-all"
                 />
+                <p className="text-xs text-neutral-500 mt-1.5">Gebruikt als "reply-to" in automatische e-mails</p>
               </div>
 
               <div>
                 <label className="flex items-center gap-2 text-sm font-medium text-neutral-300 mb-2">
-                  Telefoonnummer
-                  <Tooltip text="Telefoonnummer voor klantenondersteuning" />
+                  Telefoonnummer *
+                  <Tooltip text="Contactnummer voor klantenservice - getoond in e-mails en bevestigingen" />
                 </label>
                 <input
                   type="tel"
@@ -573,8 +594,10 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
                     });
                     setHasChanges(true);
                   }}
-                  className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+                  placeholder="+31 20 123 4567"
+                  className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent transition-all"
                 />
+                <p className="text-xs text-neutral-500 mt-1.5">Bij voorkeur met landcode</p>
               </div>
             </div>
           </div>
@@ -582,72 +605,140 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
 
         <CollapsibleGroup
           id="regional-settings"
-          title="Regionale Instellingen"
-          description="Valuta, taal en tijdzone configuratie"
+          title="🌍 Regionale Instellingen"
+          description="Valuta, taal en tijdzone (bepaalt hoe datums en bedragen worden weergegeven)"
         >
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="flex items-center gap-2 text-sm font-medium text-neutral-300 mb-2">
                   Valuta
-                  <Tooltip text="Valuta voor prijsweergave" />
+                  <Tooltip text="Valutasymbool voor alle prijzen in het systeem" />
                 </label>
-                <input
-                  type="text"
+                <select
                   value={localConfig.currency}
                   onChange={(e) => {
                     setLocalConfig({ ...localConfig, currency: e.target.value });
                     setHasChanges(true);
                   }}
-                  className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent"
-                />
+                  className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent transition-all"
+                >
+                  <option value="€">€ (Euro)</option>
+                  <option value="$">$ (Dollar)</option>
+                  <option value="£">£ (Pond)</option>
+                  <option value="CHF">CHF (Zwitserse Frank)</option>
+                </select>
               </div>
 
               <div>
                 <label className="flex items-center gap-2 text-sm font-medium text-neutral-300 mb-2">
-                  Locale
-                  <Tooltip text="Taalcode (bijv. nl-NL)" />
+                  Taal & Regio
+                  <Tooltip text="Bepaalt datum- en getalnotatie (bijv. 1.000,00 vs 1,000.00)" />
                 </label>
-                <input
-                  type="text"
+                <select
                   value={localConfig.locale}
                   onChange={(e) => {
                     setLocalConfig({ ...localConfig, locale: e.target.value });
                     setHasChanges(true);
                   }}
-                  className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent"
-                />
+                  className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent transition-all"
+                >
+                  <option value="nl-NL">🇳🇱 Nederlands (Nederland)</option>
+                  <option value="nl-BE">🇧🇪 Nederlands (België)</option>
+                  <option value="en-US">🇺🇸 English (US)</option>
+                  <option value="en-GB">🇬🇧 English (UK)</option>
+                  <option value="de-DE">🇩🇪 Deutsch</option>
+                  <option value="fr-FR">🇫🇷 Français</option>
+                </select>
               </div>
 
               <div>
                 <label className="flex items-center gap-2 text-sm font-medium text-neutral-300 mb-2">
                   Tijdzone
-                  <Tooltip text="Tijdzone (bijv. Europe/Amsterdam)" />
+                  <Tooltip text="Bepaalt hoe tijden worden weergegeven en wanneer events openen/sluiten" />
                 </label>
-                <input
-                  type="text"
+                <select
                   value={localConfig.timeZone}
                   onChange={(e) => {
                     setLocalConfig({ ...localConfig, timeZone: e.target.value });
                     setHasChanges(true);
                   }}
-                  className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+                  className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent transition-all"
+                >
+                  <option value="Europe/Amsterdam">🇳🇱 Europe/Amsterdam (CET)</option>
+                  <option value="Europe/Brussels">🇧🇪 Europe/Brussels (CET)</option>
+                  <option value="Europe/London">🇬🇧 Europe/London (GMT)</option>
+                  <option value="Europe/Paris">🇫🇷 Europe/Paris (CET)</option>
+                  <option value="Europe/Berlin">🇩🇪 Europe/Berlin (CET)</option>
+                  <option value="America/New_York">🇺🇸 America/New York (EST)</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-4 text-sm text-neutral-400">
+              <p className="flex items-center gap-2">
+                <span className="text-gold-400">💡</span>
+                <strong>Voorbeeld:</strong> Met <code className="px-2 py-0.5 bg-neutral-700 rounded text-gold-400">nl-NL</code> wordt 
+                <code className="px-2 py-0.5 bg-neutral-700 rounded mx-1">€1.234,56</code> weergegeven, 
+                met <code className="px-2 py-0.5 bg-neutral-700 rounded mx-1">en-US</code> wordt dit 
+                <code className="px-2 py-0.5 bg-neutral-700 rounded mx-1">$1,234.56</code>
+              </p>
+            </div>
+          </div>
+        </CollapsibleGroup>
+
+        <CollapsibleGroup
+          id="voucher-settings"
+          title="🎁 Voucher Instellingen"
+          description="Verzendkosten en opties voor cadeaubonnen"
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-neutral-300 mb-2">
+                Verzendkosten Fysieke Voucher
+                <Tooltip text="Bedrag dat wordt gerekend voor verzending van fysieke cadeaubonnen" />
+              </label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 text-lg">{localConfig.currency}</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={localConfig.voucherShippingCost || 3.95}
+                  onChange={(e) => {
+                    setLocalConfig({ 
+                      ...localConfig, 
+                      voucherShippingCost: parseFloat(e.target.value) || 0 
+                    });
+                    setHasChanges(true);
+                  }}
+                  className="w-full pl-12 pr-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent transition-all"
                 />
               </div>
+              <p className="text-xs text-neutral-500 mt-1.5">
+                Standaard: €3,95. Digitale vouchers hebben geen verzendkosten.
+              </p>
+            </div>
+
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+              <p className="text-sm text-blue-300 flex items-start gap-2">
+                <span className="text-lg">ℹ️</span>
+                <span>Voucher-specifieke instellingen zoals standaard/premium per event type vind je bij <strong>"Vouchers"</strong> in de configuratie.</span>
+              </p>
             </div>
           </div>
         </CollapsibleGroup>
 
         <CollapsibleGroup
           id="legal"
-          title="Juridische Links"
-          description="Voorwaarden en privacybeleid"
+          title="⚖️ Juridische Links"
+          description="Links naar je algemene voorwaarden en privacybeleid (verplicht voor GDPR)"
         >
           <div className="space-y-4">
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-neutral-300 mb-2">
-                Algemene Voorwaarden URL
-                <Tooltip text="Link naar je algemene voorwaarden" />
+                Algemene Voorwaarden URL *
+                <Tooltip text="Volledige URL naar je algemene voorwaarden - wordt getoond bij het boeken" />
               </label>
               <input
                 type="url"
@@ -656,15 +747,25 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
                   setLocalConfig({ ...localConfig, termsUrl: e.target.value });
                   setHasChanges(true);
                 }}
-                placeholder="https://..."
-                className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+                placeholder="https://jouwtheater.nl/voorwaarden"
+                className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent transition-all"
               />
+              {localConfig.termsUrl && (
+                <a 
+                  href={localConfig.termsUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-xs text-gold-400 hover:text-gold-300 mt-1.5 inline-flex items-center gap-1"
+                >
+                  🔗 Bekijk huidige link
+                </a>
+              )}
             </div>
 
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-neutral-300 mb-2">
-                Privacybeleid URL
-                <Tooltip text="Link naar je privacybeleid" />
+                Privacybeleid URL *
+                <Tooltip text="Volledige URL naar je privacyverklaring - verplicht volgens AVG/GDPR" />
               </label>
               <input
                 type="url"
@@ -673,12 +774,41 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
                   setLocalConfig({ ...localConfig, privacyUrl: e.target.value });
                   setHasChanges(true);
                 }}
-                placeholder="https://..."
-                className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent"
+                placeholder="https://jouwtheater.nl/privacy"
+                className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:ring-2 focus:ring-gold-500 focus:border-transparent transition-all"
               />
+              {localConfig.privacyUrl && (
+                <a 
+                  href={localConfig.privacyUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-xs text-gold-400 hover:text-gold-300 mt-1.5 inline-flex items-center gap-1"
+                >
+                  🔗 Bekijk huidige link
+                </a>
+              )}
+            </div>
+
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+              <p className="text-sm text-yellow-300 flex items-start gap-2">
+                <span className="text-lg">⚠️</span>
+                <span><strong>Belangrijk:</strong> Deze links zijn wettelijk verplicht volgens de AVG/GDPR. Zorg dat beide documenten actueel en toegankelijk zijn.</span>
+              </p>
             </div>
           </div>
         </CollapsibleGroup>
+
+        {/* Deprecated Settings Warning */}
+        <div className="bg-neutral-800/50 border border-neutral-600 rounded-xl p-5">
+          <h3 className="text-sm font-semibold text-neutral-400 mb-2 flex items-center gap-2">
+            <span>🗑️</span> Verwijderde Instellingen
+          </h3>
+          <div className="text-xs text-neutral-500 space-y-1">
+            <p>• <strong>Max Capacity:</strong> Wordt nu per event ingesteld in "Agenda Beheer"</p>
+            <p>• <strong>Event Type Colors:</strong> Worden nu beheerd in "Event Types" configuratie</p>
+            <p>• <strong>Email Settings:</strong> Vind je in de "E-mail" tab</p>
+          </div>
+        </div>
       </div>
     );
   };
@@ -765,12 +895,9 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
         {[
           { id: 'general' as ConfigSection, label: 'Algemeen', icon: Settings },
           { id: 'booking' as ConfigSection, label: 'Booking', icon: Calendar },
-          { id: 'pricing' as ConfigSection, label: 'Prijzen', icon: DollarSign },
           { id: 'wizard' as ConfigSection, label: 'Wizard', icon: Wand2 },
           { id: 'texts' as ConfigSection, label: 'Teksten', icon: FileText },
-          { id: 'tags' as ConfigSection, label: 'Tags', icon: Tag },
-          { id: 'mailing' as ConfigSection, label: 'E-mail', icon: Mail },
-          { id: 'system' as ConfigSection, label: 'Systeem', icon: Server }
+          { id: 'tags' as ConfigSection, label: 'Tags', icon: Tag }
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = currentSection === tab.id;
@@ -825,3 +952,5 @@ export const ConfigManagerEnhanced: React.FC<ConfigManagerEnhancedProps> = ({ ac
     </div>
   );
 };
+
+

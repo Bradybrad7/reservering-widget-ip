@@ -1,14 +1,15 @@
 import { useEffect } from 'react';
 import type { BookingAdminProps } from '../types';
-import { AdminLayoutNew } from './admin/AdminLayoutNew';
+import { AdminLayout } from './admin/AdminLayout';
 import { Dashboard } from './admin/Dashboard';
 import { ReservationsManager } from './admin/ReservationsWorkbench'; // ✨ Reserveringen Beheer
 import { EventWorkshop } from './admin/EventWorkshop';
 import { CalendarManager } from './admin/CalendarManager';
-import { CustomerManagerEnhanced } from './admin/CustomerManagerEnhanced';
+import { CustomerManager } from './admin/CustomerManager';
 import { ProductsManager } from './admin/ProductsManager';
-import { ConfigManagerEnhanced } from './admin/ConfigManagerEnhanced';
+import { ConfigManager } from './admin/ConfigManager';
 import { useAdminStore } from '../store/adminStore';
+import { ErrorBoundary } from './ErrorBoundary';
 
 // ✨ OPERATIONS CONTROL CENTER V3 (Nov 2025)
 import { ReservationsDashboard } from './admin/ReservationsDashboard';
@@ -27,7 +28,7 @@ import { useCustomersStore } from '../store/customersStore';
 import { useConfigStore } from '../store/configStore';
 import { useWaitlistStore } from '../store/waitlistStore';
 
-const BookingAdminNew: React.FC<BookingAdminProps> = () => {
+const BookingAdmin: React.FC<BookingAdminProps> = () => {
   const { activeSection } = useAdminStore();
   
   // ✨ PROACTIEF DATA LADEN - Load alle belangrijke data bij startup
@@ -78,7 +79,7 @@ const BookingAdminNew: React.FC<BookingAdminProps> = () => {
       case 'payments':
         return <PaymentOverview />;
       case 'customers':
-        return <CustomerManagerEnhanced />;
+        return <CustomerManager />;
 
       // Archive - Archived/deleted reservations + expired events
       case 'archive':
@@ -98,18 +99,27 @@ const BookingAdminNew: React.FC<BookingAdminProps> = () => {
 
       // Config - All settings consolidated
       case 'config':
-        return <ConfigManagerEnhanced />;
+        return <ConfigManager />;
 
       default:
-        return <DashboardModernV3 />;
+        return <Dashboard />;
     }
   };
 
   return (
-    <AdminLayoutNew>
-      {renderContent()}
-    </AdminLayoutNew>
+    <ErrorBoundary
+      onError={(error, errorInfo) => {
+        // Log to console in development
+        console.error('Admin Dashboard Error:', error);
+        console.error('Component Stack:', errorInfo.componentStack);
+        // TODO: Send to error tracking service in production
+      }}
+    >
+      <AdminLayout>
+        {renderContent()}
+      </AdminLayout>
+    </ErrorBoundary>
   );
 };
 
-export default BookingAdminNew;
+export default BookingAdmin;

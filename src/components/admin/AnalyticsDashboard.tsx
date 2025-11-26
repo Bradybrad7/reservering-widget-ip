@@ -256,27 +256,27 @@ export const AnalyticsDashboard: React.FC = () => {
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 border border-blue-200">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-blue-900">Basis Winterfeest (BWF)</span>
+              <span className="text-sm font-medium text-blue-900">Standaard Arrangement</span>
               <Award className="w-5 h-5 text-blue-600" />
             </div>
             <p className="text-3xl font-bold text-blue-900">
-              {reservations.filter(r => r.arrangement === 'BWF').length}
+              {reservations.filter(r => r.arrangement === 'standaard').length}
             </p>
             <p className="text-sm text-blue-700 mt-1">
-              {((reservations.filter(r => r.arrangement === 'BWF').length / (reservations.length || 1)) * 100).toFixed(0)}% van totaal
+              {((reservations.filter(r => r.arrangement === 'standaard').length / (reservations.length || 1)) * 100).toFixed(0)}% van totaal
             </p>
           </div>
           
           <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-6 border border-purple-200">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-purple-900">Basis Winterfeest Met (BWFM)</span>
+              <span className="text-sm font-medium text-purple-900">Premium Arrangement</span>
               <Award className="w-5 h-5 text-purple-600" />
             </div>
             <p className="text-3xl font-bold text-purple-900">
-              {reservations.filter(r => r.arrangement === 'BWFM').length}
+              {reservations.filter(r => r.arrangement === 'premium').length}
             </p>
             <p className="text-sm text-purple-700 mt-1">
-              {((reservations.filter(r => r.arrangement === 'BWFM').length / (reservations.length || 1)) * 100).toFixed(0)}% van totaal
+              {((reservations.filter(r => r.arrangement === 'premium').length / (reservations.length || 1)) * 100).toFixed(0)}% van totaal
             </p>
           </div>
         </div>

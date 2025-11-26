@@ -3,7 +3,7 @@ import { Save, X, DollarSign, Users } from 'lucide-react';
 import { useConfigStore } from '../../store/configStore';
 import type { AddOns, AddOn } from '../../types';
 
-export const AddOnsManagerEnhanced: React.FC = () => {
+export const AddOnsManager: React.FC = () => {
   const {
     addOns,
     loadConfig,

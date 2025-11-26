@@ -55,8 +55,8 @@ export const SmartUpsellBanner: React.FC = () => {
       });
     }
 
-    // Recommend afterparty if BWF selected and group > 15
-    if (formData.arrangement === 'BWF' && !formData.afterParty?.enabled && formData.numberOfPersons >= 15) {
+    // Recommend afterparty if standaard selected and group > 15
+    if (formData.arrangement === 'standaard' && !formData.afterParty?.enabled && formData.numberOfPersons >= 15) {
       recs.push({
         id: 'afterparty',
         type: 'addon',
@@ -76,18 +76,18 @@ export const SmartUpsellBanner: React.FC = () => {
     }
 
     // Recommend arrangement upgrade
-    if (formData.arrangement === 'BWF' && formData.numberOfPersons >= 20) {
+    if (formData.arrangement === 'standaard' && formData.numberOfPersons >= 20) {
       recs.push({
         id: 'upgrade',
         type: 'upgrade',
-        title: '⭐ Upgrade naar BWFM?',
+        title: '⭐ Upgrade naar Premium?',
         description: 'Inclusief hapjes voor een complete avond. Slechts €5 extra per persoon',
         price: 5 * formData.numberOfPersons,
         savingsText: 'Populairste keuze!',
         popularity: 90,
         action: () => {
           updateFormData({
-            arrangement: 'BWFM'
+            arrangement: 'premium'
           });
         }
       });

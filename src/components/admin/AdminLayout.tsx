@@ -41,7 +41,7 @@ import { LanguageSelector } from '../ui/LanguageSelector';
 import { optionExpiryService } from '../../services/optionExpiryService';
 import { useNotificationBadges } from '../../hooks/useNotificationBadges';
 
-interface AdminLayoutNewProps {
+interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
@@ -84,24 +84,31 @@ const navigationGroups: NavigationGroup[] = [
     section: 'checkin' as AdminSection
   },
   {
+    id: 'customers',
+    label: 'Klanten',
+    icon: 'Users',
+    order: 6,
+    section: 'customers' as AdminSection
+  },
+  {
     id: 'products',
     label: 'Producten & Prijzen',
     icon: 'Package',
-    order: 6,
+    order: 7,
     section: 'products' as AdminSection
   },
   {
     id: 'reports',
     label: 'Rapportages',
     icon: 'TrendingUp',
-    order: 7,
+    order: 8,
     section: 'reports' as AdminSection
   },
   {
     id: 'config',
     label: 'Configuratie',
     icon: 'Settings',
-    order: 8,
+    order: 9,
     section: 'config' as AdminSection
   }
 ];
@@ -137,7 +144,7 @@ const iconMap: Record<string, React.ElementType> = {
   List
 };
 
-export const AdminLayoutNew: React.FC<AdminLayoutNewProps> = ({ children }) => {
+export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const { activeSection, breadcrumbs, sidebarCollapsed, notificationBadges, setActiveSection, setBreadcrumbs, toggleSidebar } = useAdminStore();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -286,7 +293,7 @@ export const AdminLayoutNew: React.FC<AdminLayoutNewProps> = ({ children }) => {
       {/* Desktop Sidebar */}
       <aside
         className={cn(
-          'hidden lg:block bg-neutral-800 border-r border-neutral-700 transition-all duration-300 flex-shrink-0',
+          'hidden md:block bg-neutral-800 border-r border-neutral-700 transition-all duration-300 flex-shrink-0',
           sidebarCollapsed ? 'w-20' : 'w-64'
         )}
       >

@@ -233,7 +233,7 @@ export const VoucherConfigManager: React.FC = () => {
                       {eventType.name}
                     </h4>
                     <span className="text-sm text-neutral-400">
-                      (BWF: {formatCurrency(eventType.pricing.BWF)} | BWFM: {formatCurrency(eventType.pricing.BWFM)})
+                      (Standaard: {formatCurrency(eventType.pricing.standaard)} | Premium: {formatCurrency(eventType.pricing.premium)})
                     </span>
                   </div>
                 </div>
@@ -263,7 +263,7 @@ export const VoucherConfigManager: React.FC = () => {
                       )}
                     </div>
                     <p className="text-sm text-neutral-400">
-                      {formatCurrency(eventType.pricing.BWF)}
+                      {formatCurrency(eventType.pricing.standaard)}
                     </p>
                     {!voucherSettings.globalBWFEnabled && (
                       <p className="text-xs text-yellow-400 mt-2">
@@ -293,7 +293,7 @@ export const VoucherConfigManager: React.FC = () => {
                       )}
                     </div>
                     <p className="text-sm text-neutral-400">
-                      {formatCurrency(eventType.pricing.BWFM)}
+                      {formatCurrency(eventType.pricing.premium)}
                     </p>
                     {!voucherSettings.globalBWFMEnabled && (
                       <p className="text-xs text-yellow-400 mt-2">
@@ -333,11 +333,11 @@ export const VoucherConfigManager: React.FC = () => {
                       style={{ backgroundColor: eventType.color }}
                     />
                     <span className="font-medium text-white">
-                      {eventType.name} - Standaard (BWF)
+                      {eventType.name} - Standaard
                     </span>
                   </div>
                   <span className="font-bold text-gold-400">
-                    {formatCurrency(eventType.pricing.BWF)}
+                    {formatCurrency(eventType.pricing.standaard)}
                   </span>
                 </div>
               );
@@ -352,11 +352,11 @@ export const VoucherConfigManager: React.FC = () => {
                       style={{ backgroundColor: eventType.color }}
                     />
                     <span className="font-medium text-white">
-                      {eventType.name} - Premium (BWFM)
+                      {eventType.name} - Premium
                     </span>
                   </div>
                   <span className="font-bold text-gold-400">
-                    {formatCurrency(eventType.pricing.BWFM)}
+                    {formatCurrency(eventType.pricing.premium)}
                   </span>
                 </div>
               );

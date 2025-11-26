@@ -36,7 +36,7 @@ export const EventTemplateManager: React.FC = () => {
     startsAt: '20:00',
     endsAt: '22:30',
     capacity: 230,
-    allowedArrangements: ['BWF', 'BWFM'],
+    allowedArrangements: ['standaard', 'premium'],
     notes: ''
   });
 
@@ -54,7 +54,7 @@ export const EventTemplateManager: React.FC = () => {
       startsAt: '20:00',
       endsAt: '22:30',
       capacity: 230,
-      allowedArrangements: ['BWF', 'BWFM'],
+      allowedArrangements: ['standaard', 'premium'],
       notes: ''
     });
     setShowModal(true);
@@ -353,7 +353,7 @@ export const EventTemplateManager: React.FC = () => {
                   Arrangementen *
                 </label>
                 <div className="flex gap-4">
-                  {(['BWF', 'BWFM'] as Arrangement[]).map((arr) => (
+                  {(['standaard', 'premium'] as Arrangement[]).map((arr) => (
                     <label key={arr} className="flex items-center gap-2 text-neutral-300">
                       <input
                         type="checkbox"
@@ -434,3 +434,4 @@ export const EventTemplateManager: React.FC = () => {
     </div>
   );
 };
+

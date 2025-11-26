@@ -68,6 +68,7 @@ export interface UseBookingLogicOptions {
     allowPriceOverride?: boolean;   // Allow manual price adjustments
     importMode?: boolean;            // Importing old reservations
     autoConfirm?: boolean;           // Auto-confirm instead of pending
+    allowOverbooking?: boolean;      // Allow booking even when event is at capacity
   };
   
   // Pre-fill data

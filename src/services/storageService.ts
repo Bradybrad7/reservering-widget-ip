@@ -18,7 +18,12 @@ import type {
   EventTypesConfig,
   TextCustomization,
   VoucherTemplate,
-  IssuedVoucher
+  IssuedVoucher,
+  VoucherSettings,
+  CapacityOverridesMap,
+  WaitlistEntry,
+  EmailTemplate,
+  BackupData
 } from '../types';
 
 import { firestoreService } from './firestoreService';
@@ -211,22 +216,22 @@ class StorageService {
   async getVoucherSettings(): Promise<any> {
     const settings = await firestoreService.config.getVoucherSettings();
     return settings || {
-      globalBWFEnabled: true,
-      globalBWFMEnabled: true,
+      globalStandaardEnabled: true,
+      globalPremiumEnabled: true,
       perEventType: {}
     };
   }
 
-  async saveVoucherSettings(settings: any): Promise<void> {
+  async saveVoucherSettings(settings: VoucherSettings): Promise<void> {
     await firestoreService.config.saveVoucherSettings(settings);
   }
 
-  async getCapacityOverrides(): Promise<any> {
+  async getCapacityOverrides(): Promise<CapacityOverridesMap> {
     const overrides = await firestoreService.config.getCapacityOverrides();
     return overrides || {};
   }
 
-  async saveCapacityOverrides(overrides: any): Promise<void> {
+  async saveCapacityOverrides(overrides: CapacityOverridesMap): Promise<void> {
     await firestoreService.config.saveCapacityOverrides(overrides);
   }
 
@@ -284,7 +289,7 @@ class StorageService {
     };
   }
 
-  async restoreBackup(backup: any): Promise<void> {
+  async restoreBackup(backup: BackupData): Promise<void> {
     // Restore to Firestore
     if (backup.config) await this.saveConfig(backup.config);
     if (backup.pricing) await this.savePricing(backup.pricing);
@@ -430,16 +435,16 @@ class StorageService {
     return entries.filter(e => e.preferredDate === dateString).length;
   }
 
-  async addWaitlistEntry(entry: any): Promise<any> {
+  async addWaitlistEntry(entry: Omit<WaitlistEntry, 'id'>): Promise<WaitlistEntry> {
     const entries = await this.getWaitlistEntries();
     const counter = await this.getNextId('waitlist');
-    const newEntry = { ...entry, id: `waitlist_${counter}` };
+    const newEntry: WaitlistEntry = { ...entry, id: `waitlist_${counter}` };
     entries.push(newEntry);
     await this.set('waitlistEntries', entries);
     return newEntry;
   }
 
-  async updateWaitlistEntry(entryId: string, updates: any): Promise<boolean> {
+  async updateWaitlistEntry(entryId: string, updates: Partial<WaitlistEntry>): Promise<boolean> {
     const entries = await this.getWaitlistEntries();
     const index = entries.findIndex(e => e.id === entryId);
     if (index === -1) return false;
@@ -674,7 +679,7 @@ class StorageService {
     }
   }
 
-  async saveEmailTemplate(template: any): Promise<void> {
+  async saveEmailTemplate(template: EmailTemplate & { id: string }): Promise<void> {
     try {
       const { doc, setDoc } = await import('firebase/firestore');
       const docRef = doc(firestoreService.db, 'email_templates', template.id);

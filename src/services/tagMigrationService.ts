@@ -16,8 +16,8 @@ import type { Reservation } from '../types';
 function generateAutomaticTagsForMigration(reservation: Partial<Reservation>): string[] {
   const automaticTags: string[] = [];
   
-  // 🌟 DELUXE: BWFM arrangement
-  if (reservation.arrangement === 'BWFM') {
+  // 🌟 DELUXE: premium arrangement
+  if (reservation.arrangement === 'premium') {
     automaticTags.push('DELUXE');
   }
   

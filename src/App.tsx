@@ -1,10 +1,10 @@
 // React import not needed with new JSX transform
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import ReservationWidget from './components/ReservationWidget';
-import { VoucherPurchasePageNew, VoucherSuccessPage } from './components/voucher';
+import { VoucherPurchasePage, VoucherSuccessPage } from './components/voucher';
 import { VoucherOrderSuccessPage } from './components/voucher/VoucherOrderSuccessPage';
 import { HostCheckInSimple } from './components/checkin/HostCheckInSimple';
-import BookingAdmin from './components/BookingAdminNew2';
+import BookingAdmin from './components/BookingAdmin';
 import { ToastProvider } from './components/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import type { Reservation } from './types';
@@ -39,8 +39,8 @@ function App() {
               />
               
               {/* Voucher pages */}
-              <Route path="/voucher" element={<VoucherPurchasePageNew />} />
-              <Route path="/vouchers" element={<VoucherPurchasePageNew />} />
+              <Route path="/voucher" element={<VoucherPurchasePage />} />
+              <Route path="/vouchers" element={<VoucherPurchasePage />} />
               <Route path="/voucher/success/:voucherId" element={<VoucherSuccessPage />} />
               <Route path="/voucher-order-success" element={<VoucherOrderSuccessPage />} />
               

@@ -47,7 +47,7 @@ export const customerFormSchema = z.object({
   numberOfPersons: z.number()
     .min(1, 'Minimaal 1 persoon vereist')
     .max(300, 'Maximaal 300 personen mogelijk'),
-  arrangement: z.enum(['BWF', 'BWFM']),
+  arrangement: z.enum(['standaard', 'premium']),
   
   // Add-ons
   preDrink: addOnSchema,
@@ -78,10 +78,10 @@ export const eventSchema = z.object({
   capacity: z.number().min(1).max(500),
   bookingOpensAt: z.date().nullable(),
   bookingClosesAt: z.date().nullable(),
-  allowedArrangements: z.array(z.enum(['BWF', 'BWFM'])),
+  allowedArrangements: z.array(z.enum(['standaard', 'premium'])),
   customPricing: z.object({
-    BWF: z.number().min(0).optional(),
-    BWFM: z.number().min(0).optional()
+    standaard: z.number().min(0).optional(),
+    premium: z.number().min(0).optional()
   }).optional(),
   notes: z.string().optional(),
   isActive: z.boolean()
@@ -91,20 +91,20 @@ export const eventSchema = z.object({
 export const pricingSchema = z.object({
   byDayType: z.object({
     weekday: z.object({
-      BWF: z.number().min(0, 'Prijs moet minimaal €0 zijn'),
-      BWFM: z.number().min(0, 'Prijs moet minimaal €0 zijn')
+      standaard: z.number().min(0, 'Prijs moet minimaal €0 zijn'),
+      premium: z.number().min(0, 'Prijs moet minimaal €0 zijn')
     }),
     weekend: z.object({
-      BWF: z.number().min(0, 'Prijs moet minimaal €0 zijn'),
-      BWFM: z.number().min(0, 'Prijs moet minimaal €0 zijn')
+      standaard: z.number().min(0, 'Prijs moet minimaal €0 zijn'),
+      premium: z.number().min(0, 'Prijs moet minimaal €0 zijn')
     }),
     matinee: z.object({
-      BWF: z.number().min(0, 'Prijs moet minimaal €0 zijn'),
-      BWFM: z.number().min(0, 'Prijs moet minimaal €0 zijn')
+      standaard: z.number().min(0, 'Prijs moet minimaal €0 zijn'),
+      premium: z.number().min(0, 'Prijs moet minimaal €0 zijn')
     }),
     careHeroes: z.object({
-      BWF: z.number().min(0, 'Prijs moet minimaal €0 zijn'),
-      BWFM: z.number().min(0, 'Prijs moet minimaal €0 zijn')
+      standaard: z.number().min(0, 'Prijs moet minimaal €0 zijn'),
+      premium: z.number().min(0, 'Prijs moet minimaal €0 zijn')
     })
   })
 });

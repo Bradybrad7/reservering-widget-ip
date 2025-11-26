@@ -439,7 +439,7 @@ async function reassignTableNumbers(eventId: string): Promise<number> {
  * 🏷️ Generate automatic tags based on reservation data
  * 
  * Automatic tags:
- * - DELUXE: arrangement === 'BWFM'
+ * - DELUXE: arrangement === 'premium'
  * - BORREL: preDrink OR afterParty enabled
  * - MERCHANDISE: has merchandise items
  * 
@@ -456,8 +456,8 @@ function generateAutomaticTags(
     !['DELUXE', 'BORREL', 'MERCHANDISE'].includes(tag)
   );
   
-  // 🌟 DELUXE: BWFM arrangement
-  if (reservation.arrangement === 'BWFM') {
+  // 🌟 DELUXE: premium arrangement
+  if (reservation.arrangement === 'premium') {
     automaticTags.push('DELUXE');
   }
   

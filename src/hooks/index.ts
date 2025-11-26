@@ -10,6 +10,9 @@ export { useDebounce, useDebounceCallback } from './useDebounce';
 export { useBookingLogic, useStepValidation, useFieldValidation } from './useBookingLogic';
 export type { UseBookingLogicOptions, UseBookingLogicReturn } from './useBookingLogic';
 
+// ✨ Config-aware Formatting Hooks (November 2025)
+export { useFormatCurrency, useFormatDate, useFormatShortDate, useCurrency, useTimezone } from './useFormatting';
+
 // Add more performance hooks here as needed
 // export { useVirtualList } from './useVirtualList';
 // export { useIntersectionObserver } from './useIntersectionObserver';

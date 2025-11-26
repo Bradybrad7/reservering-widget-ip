@@ -62,8 +62,8 @@ export const CompleteWaitlistBookingModal: React.FC<CompleteWaitlistBookingModal
   const arrangements = eventTypeConfig?.pricing ? [
     { name: 'Standard', price: eventTypeConfig.pricing.Standard },
     { name: 'Premium', price: eventTypeConfig.pricing.Premium },
-    { name: 'BWF', price: eventTypeConfig.pricing.BWF },
-    { name: 'BWFM', price: eventTypeConfig.pricing.BWFM }
+    { name: 'standaard', price: eventTypeConfig.pricing.standaard },
+    { name: 'premium', price: eventTypeConfig.pricing.premium }
   ] : [];
 
   // Initialize with first arrangement

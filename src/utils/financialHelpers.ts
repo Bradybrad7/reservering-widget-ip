@@ -43,11 +43,23 @@ export const getNetRevenue = (reservation: Reservation): number => {
 };
 
 /**
+ * Get het correcte totaalbedrag van een reservering
+ * Gebruikt ALTIJD pricingSnapshot.finalTotal als die bestaat (inclusief borrels/merchandise)
+ * Dit is de ENIGE functie die je moet gebruiken voor totaalbedrag!
+ */
+export const getTotalAmount = (reservation: Reservation): number => {
+  // Gebruik pricingSnapshot.finalTotal - dit is het correcte bedrag met alle add-ons
+  return reservation.pricingSnapshot?.finalTotal || reservation.totalPrice || 0;
+};
+
+/**
  * Bereken restant bedrag (nog te betalen)
+ * Gebruikt pricingSnapshot.finalTotal als die bestaat (inclusief borrels/merchandise)
  */
 export const getOutstandingBalance = (reservation: Reservation): number => {
   const netRevenue = getNetRevenue(reservation);
-  const outstanding = reservation.totalPrice - netRevenue;
+  const totalPrice = getTotalAmount(reservation);
+  const outstanding = totalPrice - netRevenue;
   return Math.max(0, outstanding); // Nooit negatief
 };
 
@@ -55,7 +67,7 @@ export const getOutstandingBalance = (reservation: Reservation): number => {
  * Check of betaling volledig is
  */
 export const isFullyPaid = (reservation: Reservation): boolean => {
-  return getNetRevenue(reservation) >= reservation.totalPrice;
+  return getNetRevenue(reservation) >= getTotalAmount(reservation);
 };
 
 /**
@@ -116,7 +128,8 @@ export const getPaymentStatus = (reservation: Reservation): PaymentStatus => {
   }
   
   // Volledig betaald
-  if (netRevenue >= reservation.totalPrice) {
+  const totalPrice = getTotalAmount(reservation);
+  if (netRevenue >= totalPrice) {
     return 'paid';
   }
   
@@ -132,6 +145,7 @@ export const getPaymentStatusLabel = (reservation: Reservation): string => {
   const totalPaid = getTotalPaid(reservation);
   const totalRefunded = getTotalRefunded(reservation);
   const netRevenue = totalPaid - totalRefunded;
+  const totalPrice = getTotalAmount(reservation);
   
   switch (status) {
     case 'paid':
@@ -140,7 +154,7 @@ export const getPaymentStatusLabel = (reservation: Reservation): string => {
       if (totalPaid === 0) {
         return 'Niet Betaald';
       }
-      return `Deels Betaald (€${netRevenue.toFixed(2)} van €${reservation.totalPrice.toFixed(2)})`;
+      return `Deels Betaald (€${netRevenue.toFixed(2)} van €${totalPrice.toFixed(2)})`;
     case 'overdue':
       return 'Verlopen';
     case 'refunded':

@@ -6,7 +6,7 @@
 
 export { VoucherPage } from './VoucherPage';
 export { VoucherPurchaseForm } from './VoucherPurchaseForm';
-export { VoucherPurchasePageNew } from './VoucherPurchasePageNew';
+export { VoucherPurchasePage } from './VoucherPurchasePage';
 export { VoucherRedeemFlow } from './VoucherRedeemFlow';
 export { VoucherSuccessPage } from './VoucherSuccessPage';
 export { VoucherTemplateCard } from './VoucherTemplateCard';

@@ -133,19 +133,19 @@ export const EventTypeManager: React.FC = () => {
     }
 
     // 🆕 VALIDATIE: Pricing is verplicht!
-    if (!editingType.pricing || !editingType.pricing.BWF || !editingType.pricing.BWFM) {
+    if (!editingType.pricing || !editingType.pricing.standaard || !editingType.pricing.premium) {
       alert('❌ Prijzen zijn verplicht! Vul zowel BWF als BWFM prijs in.');
       return;
     }
 
     // 🆕 VALIDATIE: Prijzen moeten positief zijn
-    if (editingType.pricing.BWF <= 0 || editingType.pricing.BWFM <= 0) {
+    if (editingType.pricing.standaard <= 0 || editingType.pricing.premium <= 0) {
       alert('❌ Prijzen moeten hoger dan €0 zijn!');
       return;
     }
 
     // 🆕 VALIDATIE: BWFM moet hoger zijn dan BWF (logische check)
-    if (editingType.pricing.BWFM < editingType.pricing.BWF) {
+    if (editingType.pricing.premium < editingType.pricing.standaard) {
       if (!confirm('⚠️ Premium (BWFM) prijs is lager dan Standaard (BWF) prijs. Weet u zeker dat dit correct is?')) {
         return;
       }
@@ -386,12 +386,12 @@ export const EventTypeManager: React.FC = () => {
                       </div>
                       {type.pricing?.BWF && type.pricing?.BWFM && (
                         <div className="text-xs text-gold-300">
-                          (+€{(type.pricing.BWFM - type.pricing.BWF).toFixed(2)} upgrade)
+                          (+€{(type.pricing.premium - type.pricing.standaard).toFixed(2)} upgrade)
                         </div>
                       )}
                     </div>
                   </div>
-                  {(!type.pricing || !type.pricing.BWF || !type.pricing.BWFM) && (
+                  {(!type.pricing || !type.pricing.standaard || !type.pricing.premium) && (
                     <div className="mt-2 text-xs text-red-400 font-semibold">
                       ⚠️ Prijzen niet ingesteld! Klik op bewerken om prijzen toe te voegen.
                     </div>
@@ -727,7 +727,7 @@ export const EventTypeManager: React.FC = () => {
                 {editingType.pricing?.BWF && editingType.pricing?.BWFM && (
                   <div className="mt-3 p-3 bg-gold-500/10 border border-gold-500/30 rounded-lg">
                     <p className="text-xs text-gold-300">
-                      💡 Upgrade naar Premium: <strong>€{(editingType.pricing.BWFM - editingType.pricing.BWF).toFixed(2)}</strong> extra per persoon
+                      💡 Upgrade naar Premium: <strong>€{(editingType.pricing.premium - editingType.pricing.standaard).toFixed(2)}</strong> extra per persoon
                     </p>
                   </div>
                 )}

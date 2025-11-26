@@ -90,10 +90,10 @@ export const EventWeekMonthView: React.FC<EventWeekMonthViewProps> = ({
       const totalPersons = eventReservations.reduce((sum, r) => sum + r.numberOfPersons, 0);
       const totalRevenue = eventReservations.reduce((sum, r) => sum + r.totalPrice, 0);
       const deluxeCount = eventReservations
-        .filter(r => r.arrangement === 'BWFM')
+        .filter(r => r.arrangement === 'premium')
         .reduce((sum, r) => sum + r.numberOfPersons, 0);
       const couvertCount = eventReservations
-        .filter(r => r.arrangement === 'BWF')
+        .filter(r => r.arrangement === 'standaard')
         .reduce((sum, r) => sum + r.numberOfPersons, 0);
 
       return {

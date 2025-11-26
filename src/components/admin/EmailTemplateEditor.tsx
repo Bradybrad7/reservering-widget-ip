@@ -62,14 +62,14 @@ const EXAMPLE_DATA = {
   invoiceNumber: 'INV-2025-042'
 };
 
-interface EmailTemplateEditorEnhancedProps {
+interface EmailTemplateEditorProps {
   subject: string;
   body: string;
   onSubjectChange: (value: string) => void;
   onBodyChange: (value: string) => void;
 }
 
-export const EmailTemplateEditorEnhanced: React.FC<EmailTemplateEditorEnhancedProps> = ({
+export const EmailTemplateEditor: React.FC<EmailTemplateEditorProps> = ({
   subject,
   body,
   onSubjectChange,

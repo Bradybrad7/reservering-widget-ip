@@ -8,15 +8,15 @@
 
 import { BookOpen, DollarSign } from 'lucide-react';
 
-export const ArrangementsManagerNew: React.FC = () => {
+export const ArrangementsManager: React.FC = () => {
   const arrangements = [
     {
-      code: 'BWF',
+      code: 'standaard',
       name: 'Basis Winterfeest',
       description: '3-gangen menu met water en koffie'
     },
     {
-      code: 'BWFM',
+      code: 'premium',
       name: 'Basis Winterfeest Met Drank',
       description: '3-gangen menu met frisdrank, wijnen, bier, water en koffie'
     }

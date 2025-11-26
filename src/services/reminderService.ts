@@ -157,7 +157,7 @@ class ReminderService {
           <li><strong>Deuren open:</strong> ${event.doorsOpen}</li>
           <li><strong>Show begint:</strong> ${event.startsAt}</li>
           <li><strong>Aantal personen:</strong> ${reservation.numberOfPersons}</li>
-          <li><strong>Arrangement:</strong> ${reservation.arrangement === 'BWF' ? 'Borrelen, Wonderland, Feesten' : 'Borrelen, Wonderland, Feesten, Meer borrels'}</li>
+          <li><strong>Arrangement:</strong> ${reservation.arrangement === 'standaard' ? 'Standaard Arrangement' : 'Premium Arrangement'}</li>
         </ul>
       </div>
       

@@ -36,7 +36,7 @@ export const EmailTestComponent: React.FC<EmailTestComponentProps> = ({ onClose 
         status: 'pending' as const,
         eventDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 1 week from now
         eventId: 'test-event',
-        arrangement: 'BWF' as const,
+        arrangement: 'standaard' as const,
         salutation: 'Dhr' as const,
         firstName: 'Test',
         lastName: 'Persoon',
@@ -54,7 +54,7 @@ export const EmailTestComponent: React.FC<EmailTestComponentProps> = ({ onClose 
           basePrice: 39.75,
           pricePerPerson: 39.75,
           numberOfPersons: 2,
-          arrangement: 'BWF' as const,
+          arrangement: 'standaard' as const,
           arrangementTotal: 79.50,
           subtotal: 79.50,
           finalTotal: 79.50,
@@ -84,7 +84,7 @@ export const EmailTestComponent: React.FC<EmailTestComponentProps> = ({ onClose 
         isActive: true,
         bookingOpensAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
         bookingClosesAt: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
-        allowedArrangements: ['BWF', 'BWFM'] as ('BWF' | 'BWFM')[]
+        allowedArrangements: ['standaard', 'premium'] as ('standaard' | 'premium')[]
       };
 
       // Probeer de email te verzenden

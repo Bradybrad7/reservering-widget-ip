@@ -43,11 +43,11 @@ export const FinancialReport: React.FC = () => {
   // Revenue by arrangement type
   const getRevenueByArrangement = () => {
     const bwfRevenue = reservations
-      .filter(r => r.arrangement === 'BWF' && r.status !== 'cancelled')
+      .filter(r => r.arrangement === 'standaard' && r.status !== 'cancelled')
       .reduce((sum, r) => sum + r.totalPrice, 0);
       
     const bwfmRevenue = reservations
-      .filter(r => r.arrangement === 'BWFM' && r.status !== 'cancelled')
+      .filter(r => r.arrangement === 'premium' && r.status !== 'cancelled')
       .reduce((sum, r) => sum + r.totalPrice, 0);
     
     const bwfCount = reservations.filter(r => r.arrangement === 'BWF' && r.status !== 'cancelled').length;

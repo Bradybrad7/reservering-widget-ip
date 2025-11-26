@@ -8,7 +8,7 @@ export type { EmailLog, EmailSettings, EmailTypeToggles, EmailTemplate, EmailTyp
 // EventType is now dynamic and matches event type keys from configuration
 // Common types: 'weekday', 'weekend', 'matinee', 'care_heroes', 'special_event', etc.
 export type EventType = string;
-export type Arrangement = 'Standard' | 'Premium' | 'BWF' | 'BWFM';
+export type Arrangement = 'standaard' | 'premium';
 // DayType is now dynamic and matches event type keys
 export type DayType = string;
 export type Salutation = 'Dhr' | 'Mevr' | '';
@@ -21,7 +21,8 @@ export type ReservationStatus =
   | 'waitlist'      // On waitlist (DEPRECATED - use WaitlistEntry instead)
   | 'checked-in'    // Customer has checked in on event day
   | 'request'       // Over-capacity request
-  | 'option';       // 🆕 Temporary hold (1 week) - minimal info, counts toward capacity
+  | 'option'        // 🆕 Temporary hold (1 week) - minimal info, counts toward capacity
+  | 'no-show';      // 🚫 Customer did not show up (November 2025)
 
 // ✨ Uitgebreid Reservation Tags systeem met configuratie
 export type ReservationTag = 
@@ -204,10 +205,8 @@ export interface Event {
 
 // Pricing structure
 export interface PricingByDayType {
-  Standard: number;
-  Premium: number;
-  BWF: number;        // Legacy - kept for backward compatibility
-  BWFM: number;       // Legacy - kept for backward compatibility
+  standaard: number;
+  premium: number;
 }
 
 export interface Pricing {
@@ -216,19 +215,11 @@ export interface Pricing {
   };
   // ✨ NEW: Control which arrangements are available for voucher purchase
   voucherSettings?: {
-    Standard: {
+    standaard: {
       available: boolean;
       description?: string; // What's included in this arrangement
     };
-    Premium: {
-      available: boolean;
-      description?: string;
-    };
-    BWF?: {  // Legacy - kept for backward compatibility
-      available: boolean;
-      description?: string;
-    };
-    BWFM?: {  // Legacy - kept for backward compatibility
+    premium: {
       available: boolean;
       description?: string;
     };
@@ -237,10 +228,8 @@ export interface Pricing {
   voucherAvailability?: {
     [eventType: string]: { // e.g., 'weekday', 'weekend', 'matinee'
       displayName?: string; // Custom name for voucher display (e.g., "Weekendshow" instead of "weekend")
-      Standard?: boolean; // Is Standard available for this event type?
-      Premium?: boolean; // Is Premium available for this event type?
-      BWF?: boolean; // Legacy - kept for backward compatibility
-      BWFM?: boolean; // Legacy - kept for backward compatibility
+      standaard?: boolean; // Is standaard available for this event type?
+      premium?: boolean; // Is premium available for this event type?
     };
   };
 }
@@ -320,10 +309,8 @@ export interface EventTypeConfig {
   showOnCalendar: boolean; // Whether to display on public calendar
   // 🆕 SIMPEL PRICING SYSTEEM - Vaste prijzen per event type!
   pricing: {
-    Standard: number;
-    Premium: number;
-    BWF: number;        // Legacy - kept for backward compatibility
-    BWFM: number;       // Legacy - kept for backward compatibility
+    standaard: number;
+    premium: number;
   };
 }
 
@@ -909,7 +896,7 @@ export interface NavigationGroup {
 export interface ArrangementProduct {
   id: string;
   name: string;
-  code: Arrangement; // 'BWF' | 'BWFM'
+  code: Arrangement; // 'standaard' | 'premium'
   description: string;
   minPersons?: number;
   maxPersons?: number;
@@ -1004,7 +991,7 @@ export interface IssuedVoucher {
     quantity: number;
     
     // Arrangement-based voucher details (if applicable)
-    arrangement?: Arrangement; // 'BWF' | 'BWFM'
+    arrangement?: Arrangement; // 'standaard' | 'premium'
     arrangementName?: string; // Display name
     eventType?: string; // 'weekday', 'weekend', 'matinee', etc.
     eventTypeName?: string; // Display name
@@ -1096,6 +1083,43 @@ export interface VoucherStatusResponse {
   expiryDate: Date;
   issueDate: Date;
   usageHistory: VoucherUsage[];
+}
+
+// ✨ Voucher Configuration Settings
+export interface VoucherSettings {
+  globalStandaardEnabled: boolean;        // Global toggle for standaard arrangements
+  globalPremiumEnabled: boolean;       // Global toggle for premium arrangements
+  perEventType: {                   // Per-event-type overrides
+    [eventTypeKey: string]: {
+      standaard?: boolean;                // undefined = use global, false = disabled, true = enabled
+      premium?: boolean;
+    };
+  };
+}
+
+// ✨ Capacity Override Configuration
+export interface CapacityOverride {
+  eventId: string;
+  originalCapacity: number;
+  overrideCapacity: number;
+  reason: string;
+  enabled: boolean;
+  createdAt: Date;
+}
+
+// ✨ Capacity Overrides Map (keyed by eventId)
+export type CapacityOverridesMap = Record<string, CapacityOverride>;
+
+// ✨ Backup Data Structure
+export interface BackupData {
+  config?: GlobalConfig;
+  pricing?: Pricing;
+  addOns?: AddOns;
+  bookingRules?: BookingRules;
+  merchandise?: MerchandiseItem[];
+  version: string;
+  exportDate: string;
+  backend: 'firestore' | 'localStorage';
 }
 
 // Export types for external use
