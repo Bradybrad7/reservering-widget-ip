@@ -150,14 +150,23 @@ export const PackageStep: React.FC = () => {
   }, [formData.numberOfPersons, preDrinkData.enabled, preDrinkData.quantity, afterPartyData.enabled, afterPartyData.quantity, updateFormData]);
 
   // Filter arrangements based on what the event allows
-  const availableArrangements = arrangementOptions.filter(opt => 
-    !selectedEvent?.allowedArrangements || 
-    selectedEvent.allowedArrangements.includes(opt.value)
-  );
+  // If no allowedArrangements is set or it's empty, show all arrangements
+  const availableArrangements = arrangementOptions.filter(opt => {
+    if (!selectedEvent?.allowedArrangements || selectedEvent.allowedArrangements.length === 0) {
+      return true; // Show all if not specified
+    }
+    return selectedEvent.allowedArrangements.includes(opt.value);
+  });
+
+  console.log('📦 PackageStep - Available arrangements:', availableArrangements.length, availableArrangements.map(a => a.value));
 
   // Get price from state (already loaded asynchronously)
-  const getPrice = (arrangement: Arrangement): number => {
-    return arrangementPrices[arrangement] || 0;
+  const getPrice = (arrangement: Arrangement): string => {
+    const price = arrangementPrices[arrangement];
+    if (price === 0 || price === null || price === undefined) {
+      return '...'; // Loading indicator
+    }
+    return price.toFixed(2);
   };
 
   const handleArrangementSelect = (arrangement: Arrangement) => {
@@ -341,7 +350,11 @@ export const PackageStep: React.FC = () => {
                       'text-2xl font-bold',
                       selectedArrangement === option.value ? 'text-white' : 'text-gold-400'
                     )}>
-                      €{getPrice(option.value)}
+                      {getPrice(option.value) === '...' ? (
+                        <span className="text-base">Laden...</span>
+                      ) : (
+                        `€${getPrice(option.value)}`
+                      )}
                     </div>
                     <div className={cn(
                       'text-xs font-medium',

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fix Pricing - Inspiration Point</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h1>🔧 Fixing Pricing Configuration...</h1>
+    <pre id="log"></pre>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, doc, setDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        const log = document.getElementById('log');
+        function addLog(message) {
+            log.textContent += message + '\n';
+            console.log(message);
+        }
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDB4B39dTPIE8Sc1Ge7_7qOq-KbLMmTa-g",
+            authDomain: "dinner-theater-booking.firebaseapp.com",
+            projectId: "dinner-theater-booking",
+            storageBucket: "dinner-theater-booking.firebasestorage.app",
+            messagingSenderId: "689047758234",
+            appId: "1:689047758234:web:84e49fb9e80ec67fab6084"
+        };
+
+        const eventTypesConfig = {
+            types: [
+                {
+                    key: 'weekend',
+                    name: 'Weekend Show',
+                    description: 'Show op vrijdag, zaterdag of zondag',
+                    color: '#F59E0B',
+                    defaultTimes: {
+                        doorsOpen: '19:00',
+                        startsAt: '20:00',
+                        endsAt: '22:30'
+                    },
+                    days: ['vrijdag', 'zaterdag', 'zondag'],
+                    enabled: true,
+                    showOnCalendar: false,
+                    pricing: {
+                        standaard: 85,
+                        premium: 95
+                    }
+                },
+                {
+                    key: 'weekday',
+                    name: 'Doordeweekse Show',
+                    description: 'Show op maandag t/m donderdag',
+                    color: '#3B82F6',
+                    defaultTimes: {
+                        doorsOpen: '19:00',
+                        startsAt: '20:00',
+                        endsAt: '22:30'
+                    },
+                    days: ['maandag', 'dinsdag', 'woensdag', 'donderdag'],
+                    enabled: true,
+                    showOnCalendar: false,
+                    pricing: {
+                        standaard: 75,
+                        premium: 90
+                    }
+                },
+                {
+                    key: 'matinee',
+                    name: 'Matinee',
+                    description: 'Middagvoorstelling',
+                    color: '#06B6D4',
+                    defaultTimes: {
+                        doorsOpen: '13:30',
+                        startsAt: '14:00',
+                        endsAt: '18:00'
+                    },
+                    days: ['zondag'],
+                    enabled: true,
+                    showOnCalendar: true,
+                    pricing: {
+                        standaard: 70,
+                        premium: 85
+                    }
+                },
+                {
+                    key: 'care_heroes',
+                    name: 'Zorgzame Helden',
+                    description: 'Speciale voorstelling voor zorgmedewerkers',
+                    color: '#10B981',
+                    defaultTimes: {
+                        doorsOpen: '19:00',
+                        startsAt: '20:00',
+                        endsAt: '22:30'
+                    },
+                    days: ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag'],
+                    enabled: true,
+                    showOnCalendar: true,
+                    pricing: {
+                        standaard: 65,
+                        premium: 80
+                    }
+                },
+                {
+                    key: 'REGULAR',
+                    name: 'Reguliere Show',
+                    description: 'Standaard comedy show',
+                    color: '#F59E0B',
+                    defaultTimes: {
+                        doorsOpen: '19:00',
+                        startsAt: '20:00',
+                        endsAt: '22:30'
+                    },
+                    days: ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'],
+                    enabled: true,
+                    showOnCalendar: false,
+                    pricing: {
+                        standaard: 75,
+                        premium: 90
+                    }
+                }
+            ]
+        };
+
+        async function fixPricing() {
+            try {
+                addLog('🚀 Starting pricing fix...');
+                
+                const app = initializeApp(firebaseConfig);
+                const db = getFirestore(app);
+                
+                addLog('📋 Writing event types configuration to Firestore...');
+                
+                await setDoc(doc(db, 'config', 'eventTypesConfig'), eventTypesConfig);
+                
+                addLog('✅ Configuration saved successfully!');
+                addLog('\n📊 Pricing Summary:');
+                
+                eventTypesConfig.types.forEach(type => {
+                    addLog(`  ${type.name} (${type.key}):`);
+                    addLog(`    - Standaard: €${type.pricing.standaard}`);
+                    addLog(`    - Premium: €${type.pricing.premium}`);
+                });
+                
+                addLog('\n✨ Done! Close this window and refresh your booking page.');
+                
+            } catch (error) {
+                addLog('❌ Error: ' + error.message);
+                addLog('\nPlease check Firebase console manually.');
+            }
+        }
+
+        fixPricing();
+    </script>
+</body>
+</html>

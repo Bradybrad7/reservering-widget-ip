@@ -17,7 +17,7 @@ import type {
   MerchandiseItem 
 } from '../types';
 import { storageService } from './storageService';
-import { defaultAddOns, defaultMerchandise } from '../config/defaults';
+import { defaultAddOns, defaultMerchandise, defaultPricing } from '../config/defaults';
 import { promotionService } from './promotionService';
 
 // 🆕 Store for merchandise items (set by app during initialization)
@@ -46,30 +46,34 @@ export const getPricingForEventType = async (eventTypeKey: string): Promise<{
     const config = await storageService.getEventTypesConfig();
     
     if (!config || !config.types) {
-      console.error('❌ Geen eventTypesConfig gevonden in Firebase!');
-      return null;
+      console.warn('⚠️ Geen eventTypesConfig gevonden in Firebase! Gebruik fallback prijzen.');
+      // Fallback naar default pricing
+      return defaultPricing.byDayType[eventTypeKey] || { standaard: 75, premium: 90 };
     }
 
     // Zoek het juiste event type
     const eventType = config.types.find(t => t.key === eventTypeKey);
     
     if (!eventType) {
-      console.error(`❌ Event type '${eventTypeKey}' niet gevonden in config!`);
-      console.error('📋 Beschikbare types:', config.types.map(t => t.key).join(', '));
-      return null;
+      console.warn(`⚠️ Event type '${eventTypeKey}' niet gevonden in config! Gebruik fallback.`);
+      console.log('📋 Beschikbare types:', config.types.map(t => t.key).join(', '));
+      // Fallback naar default pricing
+      return defaultPricing.byDayType[eventTypeKey] || { standaard: 75, premium: 90 };
     }
 
     // Check of pricing bestaat
     if (!eventType.pricing) {
-      console.error(`❌ Geen pricing ingesteld voor event type '${eventTypeKey}'!`);
-      return null;
+      console.warn(`⚠️ Geen pricing ingesteld voor event type '${eventTypeKey}'! Gebruik fallback.`);
+      // Fallback naar default pricing
+      return defaultPricing.byDayType[eventTypeKey] || { standaard: 75, premium: 90 };
     }
 
     console.log(`💰 Pricing voor '${eventTypeKey}':`, eventType.pricing);
     return eventType.pricing;
   } catch (error) {
     console.error('❌ Fout bij ophalen pricing:', error);
-    return null;
+    // Fallback naar default pricing
+    return defaultPricing.byDayType[eventTypeKey] || { standaard: 75, premium: 90 };
   }
 };
 
@@ -97,19 +101,22 @@ export const getArrangementPrice = async (
   const pricing = await getPricingForEventType(event.type);
   
   if (!pricing) {
-    console.error(`❌ Geen pricing gevonden voor event type '${event.type}'!`);
-    console.error('⚠️ Ga naar Admin → Producten en Prijzen om prijzen in te stellen!');
-    return 0;
+    console.warn(`⚠️ Geen pricing gevonden voor event type '${event.type}'! Gebruik fallback.`);
+    // Fallback to default pricing
+    const fallbackPricing = defaultPricing.byDayType[event.type] || { standaard: 75, premium: 90 };
+    return fallbackPricing[arrangement] || 0;
   }
 
   const price = pricing[arrangement];
   
   if (price === undefined || price === null) {
-    console.error(`❌ Geen prijs voor arrangement '${arrangement}' bij type '${event.type}'!`);
-    return 0;
+    console.warn(`⚠️ Geen prijs voor arrangement '${arrangement}' bij type '${event.type}'! Gebruik fallback.`);
+    // Fallback to default pricing
+    const fallbackPricing = defaultPricing.byDayType[event.type] || { standaard: 75, premium: 90 };
+    return fallbackPricing[arrangement] || 75;
   }
 
-  console.log(`✅ Standaard prijs voor ${event.type} - ${arrangement}: €${price}`);
+  console.log(`✅ Prijs voor ${event.type} - ${arrangement}: €${price}`);
   return price;
 };
 
