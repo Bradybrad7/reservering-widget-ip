@@ -102,7 +102,9 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
 
     try {
       const result = await booking.submitBooking();
-      if (!result.success) {
+      // Only show error if ACTUALLY failed AND no completedReservation exists
+      // This prevents false error messages when booking succeeds but loadEvents fails
+      if (!result.success && !booking.completedReservation) {
         error('Reservering mislukt', result.error || 'Er is een fout opgetreden bij het verzenden van uw reservering. Probeer het opnieuw.');
       }
       // Success is handled in the onComplete callback
@@ -270,132 +272,265 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
               </div>
 
               {/* Complete Overview */}
-              <div className="card-theatre rounded-2xl border border-gold-400/20 p-4 md:p-6 shadow-lifted space-y-6">
-                {/* Event Info */}
+              <div className="space-y-6">
+                {/* Event Info - Prominent */}
                 {booking.selectedEvent && (
-                  <div className="p-5 bg-gradient-to-br from-gold-500/20 to-gold-600/10 border border-gold-400/30 rounded-xl backdrop-blur-sm">
-                    <h3 className="font-bold text-gold-400 mb-3 flex items-center gap-2">
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                      </svg>
-                      Geselecteerde datum
-                    </h3>
-                    <p className="text-neutral-200 font-medium text-lg">
-                      {new Intl.DateTimeFormat('nl-NL', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      }).format(booking.selectedEvent.date)}
-                    </p>
-                    <p className="text-neutral-300 text-sm mt-1">
-                      Aanvang: {formatTime(booking.selectedEvent.startsAt)} • Deuren open: {formatTime(booking.selectedEvent.doorsOpen)}
-                    </p>
+                  <div className="card-theatre rounded-2xl border-2 border-gold-400/40 p-6 md:p-8 shadow-lifted bg-gradient-to-br from-gold-500/20 to-gold-600/10">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0 w-12 h-12 bg-gold-400/20 rounded-xl flex items-center justify-center">
+                        <svg className="w-7 h-7 text-gold-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-sm font-semibold text-gold-400 mb-2 uppercase tracking-wider">Uw voorstelling</h3>
+                        <p className="text-white font-bold text-xl md:text-2xl mb-3">
+                          {new Intl.DateTimeFormat('nl-NL', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          }).format(booking.selectedEvent.date)}
+                        </p>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm">
+                            <svg className="w-4 h-4 text-gold-400" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05A3.989 3.989 0 0115 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.715-5.349L11 6.477V16h2a1 1 0 110 2H7a1 1 0 110-2h2V6.477L6.237 7.582l1.715 5.349a1 1 0 01-.285 1.05A3.989 3.989 0 015 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.738-5.42-1.233-.617a1 1 0 01.894-1.788l1.599.799L9 4.323V3a1 1 0 011-1z" />
+                            </svg>
+                            <span className="text-neutral-300">Deuren open: <strong className="text-white">{formatTime(booking.selectedEvent.doorsOpen)}</strong></span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm">
+                            <svg className="w-4 h-4 text-gold-400" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                            </svg>
+                            <span className="text-neutral-300">Show: <strong className="text-white">{formatTime(booking.selectedEvent.startsAt)} - {formatTime(booking.selectedEvent.endsAt)}</strong></span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
 
-                {/* Company & Contact Info */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 bg-neutral-800/50 rounded-lg border border-neutral-600">
-                    <h3 className="font-bold text-gold-400 mb-3 flex items-center gap-2">
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" />
+                {/* Personal & Contact Info */}
+                <div className="card-theatre rounded-2xl border border-gold-400/20 p-6 md:p-8 shadow-lifted">
+                  <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gold-400/20 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-gold-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                       </svg>
-                      Bedrijfsgegevens
-                    </h3>
-                    <dl className="space-y-2 text-sm">
+                    </div>
+                    Uw gegevens
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      {booking.formData.salutation && (
+                        <div>
+                          <dt className="text-sm text-neutral-400 mb-1">Aanhef</dt>
+                          <dd className="text-white font-medium">{booking.formData.salutation}</dd>
+                        </div>
+                      )}
                       <div>
-                        <dt className="text-neutral-400">Bedrijfsnaam</dt>
-                        <dd className="text-white font-medium">{booking.formData.companyName}</dd>
+                        <dt className="text-sm text-neutral-400 mb-1">Naam</dt>
+                        <dd className="text-white font-semibold text-lg">{booking.formData.firstName} {booking.formData.lastName}</dd>
+                      </div>
+                      {booking.formData.companyName && (
+                        <div>
+                          <dt className="text-sm text-neutral-400 mb-1">Bedrijf</dt>
+                          <dd className="text-white font-medium">{booking.formData.companyName}</dd>
+                        </div>
+                      )}
+                      <div>
+                        <dt className="text-sm text-neutral-400 mb-1">E-mail</dt>
+                        <dd className="text-white font-medium break-all">{booking.formData.email}</dd>
                       </div>
                       <div>
-                        <dt className="text-neutral-400">Contactpersoon</dt>
-                        <dd className="text-white font-medium">{booking.formData.contactPerson}</dd>
+                        <dt className="text-sm text-neutral-400 mb-1">Telefoon</dt>
+                        <dd className="text-white font-medium">{booking.formData.phoneCountryCode || '+31'} {booking.formData.phone}</dd>
                       </div>
-                    </dl>
-                  </div>
-
-                  <div className="p-4 bg-neutral-800/50 rounded-lg border border-neutral-600">
-                    <h3 className="font-bold text-gold-400 mb-3 flex items-center gap-2">
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-                        <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-                      </svg>
-                      Contactgegevens
-                    </h3>
-                    <dl className="space-y-2 text-sm">
-                      <div>
-                        <dt className="text-neutral-400">E-mail</dt>
-                        <dd className="text-white font-medium">{booking.formData.email}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-neutral-400">Telefoon</dt>
-                        <dd className="text-white font-medium">{booking.formData.phone}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-neutral-400">Postcode</dt>
-                        <dd className="text-white font-medium">{booking.formData.postalCode}</dd>
-                      </div>
-                    </dl>
+                    </div>
+                    <div className="space-y-4">
+                      {booking.formData.address && (
+                        <div>
+                          <dt className="text-sm text-neutral-400 mb-1">Adres</dt>
+                          <dd className="text-white font-medium">{booking.formData.address}</dd>
+                        </div>
+                      )}
+                      {booking.formData.postalCode && (
+                        <div>
+                          <dt className="text-sm text-neutral-400 mb-1">Postcode</dt>
+                          <dd className="text-white font-medium">{booking.formData.postalCode}</dd>
+                        </div>
+                      )}
+                      {booking.formData.city && (
+                        <div>
+                          <dt className="text-sm text-neutral-400 mb-1">Plaats</dt>
+                          <dd className="text-white font-medium">{booking.formData.city}</dd>
+                        </div>
+                      )}
+                      {booking.formData.country && (
+                        <div>
+                          <dt className="text-sm text-neutral-400 mb-1">Land</dt>
+                          <dd className="text-white font-medium">{booking.formData.country}</dd>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
                 {/* Reservation Details */}
-                <div className="p-4 bg-neutral-800/50 rounded-lg border border-neutral-600">
-                  <h3 className="font-bold text-gold-400 mb-3 flex items-center gap-2">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
-                    </svg>
-                    Reserveringsdetails
-                  </h3>
-                  <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <dt className="text-neutral-400">Aantal personen</dt>
-                      <dd className="text-white font-medium text-lg">{booking.formData.numberOfPersons}</dd>
+                <div className="card-theatre rounded-2xl border border-gold-400/20 p-6 md:p-8 shadow-lifted">
+                  <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gold-400/20 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-gold-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                        <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+                      </svg>
                     </div>
-                    <div>
-                      <dt className="text-neutral-400">Arrangement</dt>
-                      <dd className="text-white font-medium">{booking.formData.arrangement ? (nl.arrangements as Record<string, string>)[booking.formData.arrangement] || booking.formData.arrangement : '-'}</dd>
+                    Uw reservering
+                  </h2>
+                  
+                  <div className="space-y-6">
+                    {/* Main Details */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-neutral-800/30 rounded-xl p-5 border border-neutral-700/50">
+                        <dt className="text-sm text-neutral-400 mb-2 flex items-center gap-2">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                          </svg>
+                          Aantal personen
+                        </dt>
+                        <dd className="text-white font-bold text-3xl">{booking.formData.numberOfPersons}</dd>
+                      </div>
+                      <div className="bg-neutral-800/30 rounded-xl p-5 border border-neutral-700/50">
+                        <dt className="text-sm text-neutral-400 mb-2 flex items-center gap-2">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+                          </svg>
+                          Arrangement
+                        </dt>
+                        <dd className="text-white font-semibold text-lg">{booking.formData.arrangement ? (nl.arrangements as Record<string, string>)[booking.formData.arrangement] || booking.formData.arrangement : '-'}</dd>
+                      </div>
                     </div>
-                    {booking.formData.preDrink?.enabled && (
-                      <div>
-                        <dt className="text-neutral-400">Voorborrel</dt>
-                        <dd className="text-white font-medium">✓ Ja ({booking.formData.preDrink.quantity} personen)</dd>
+
+                    {/* Extra's & Speciale verzoeken */}
+                    {(booking.formData.preDrink?.enabled || booking.formData.afterParty?.enabled || booking.formData.partyPerson || booking.formData.dietaryRequirements || (booking.formData.merchandise && booking.formData.merchandise.length > 0)) && (
+                      <div className="bg-gold-500/10 border border-gold-400/20 rounded-xl p-5">
+                        <h3 className="text-sm font-semibold text-gold-400 mb-4 uppercase tracking-wide">Extra's & Speciale verzoeken</h3>
+                        <div className="space-y-3">
+                          {booking.formData.preDrink?.enabled && (
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-gold-400/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <svg className="w-4 h-4 text-gold-400" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3z" />
+                                </svg>
+                              </div>
+                              <div>
+                                <p className="text-white font-medium">Voorborrel</p>
+                                <p className="text-sm text-neutral-400">{booking.formData.preDrink.quantity} personen</p>
+                              </div>
+                            </div>
+                          )}
+                          {booking.formData.afterParty?.enabled && (
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-gold-400/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <svg className="w-4 h-4 text-gold-400" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                              <div>
+                                <p className="text-white font-medium">AfterParty</p>
+                                <p className="text-sm text-neutral-400">{booking.formData.afterParty.quantity} personen</p>
+                              </div>
+                            </div>
+                          )}
+                          {booking.formData.partyPerson && (
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-gold-400/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                                🎉
+                              </div>
+                              <div>
+                                <p className="text-white font-medium">Viering - Feestvierder</p>
+                                <p className="text-sm text-neutral-400">{booking.formData.partyPerson}</p>
+                              </div>
+                            </div>
+                          )}
+                          {(() => {
+                            const dietary = booking.formData.dietaryRequirements;
+                            if (!dietary) return null;
+                            
+                            // Dietary requirements is just a string (guests type it in)
+                            const dietaryText = typeof dietary === 'string' ? dietary : (dietary.other || '');
+                            if (!dietaryText) return null;
+                            
+                            return (
+                              <div className="flex items-start gap-3">
+                                <div className="w-8 h-8 bg-gold-400/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                                  <svg className="w-4 h-4 text-gold-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                                    <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm9.707 5.707a1 1 0 00-1.414-1.414L9 12.586l-1.293-1.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                  </svg>
+                                </div>
+                                <div>
+                                  <p className="text-white font-medium">Dieetwensen</p>
+                                  <p className="text-sm text-neutral-400 whitespace-pre-wrap">{dietaryText}</p>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                          {booking.formData.merchandise && booking.formData.merchandise.length > 0 && (
+                            <div className="flex items-start gap-3">
+                              <div className="w-8 h-8 bg-gold-400/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <svg className="w-4 h-4 text-gold-400" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+                                </svg>
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-white font-medium mb-2">Merchandise</p>
+                                <div className="space-y-1">
+                                  {booking.formData.merchandise.map((item, idx) => (
+                                    <p key={idx} className="text-sm text-neutral-400">
+                                      {item.quantity}x {item.name}
+                                    </p>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
-                    {booking.formData.afterParty?.enabled && (
-                      <div>
-                        <dt className="text-neutral-400">AfterParty</dt>
-                        <dd className="text-white font-medium">✓ Ja ({booking.formData.afterParty.quantity} personen)</dd>
+
+                    {/* Comments */}
+                    {booking.formData.comments && (
+                      <div className="bg-neutral-800/30 rounded-xl p-5 border border-neutral-700/50">
+                        <dt className="text-sm font-semibold text-neutral-400 mb-2 flex items-center gap-2">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
+                          </svg>
+                          Opmerkingen
+                        </dt>
+                        <dd className="text-white leading-relaxed">{booking.formData.comments}</dd>
                       </div>
                     )}
-                    {booking.formData.partyPerson && (
-                      <div>
-                        <dt className="text-neutral-400">Feestvierder</dt>
-                        <dd className="text-white font-medium">🎉 {booking.formData.partyPerson}</dd>
-                      </div>
-                    )}
-                  </dl>
-                  {booking.formData.comments && (
-                    <div className="mt-4 pt-4 border-t border-neutral-600">
-                      <dt className="text-neutral-400 mb-1">Opmerkingen</dt>
-                      <dd className="text-white">{booking.formData.comments}</dd>
-                    </div>
-                  )}
+                  </div>
                 </div>
 
-                {/* Price Summary (Mobile visible) */}
+                {/* Price Summary - Prominent */}
                 {booking.priceCalculation && (
-                  <div className="p-5 bg-gradient-to-br from-gold-500/20 to-gold-600/10 border-2 border-gold-400/40 rounded-xl backdrop-blur-sm">
-                    <h3 className="font-bold text-gold-400 mb-3 flex items-center gap-2">
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
-                      </svg>
-                      Totale prijs
-                    </h3>
-                    <p className="text-3xl font-bold text-white">{formatCurrency(booking.priceCalculation.totalPrice)}</p>
-                    <p className="text-sm text-neutral-300 mt-1">Inclusief BTW</p>
+                  <div className="card-theatre rounded-2xl border-2 border-gold-400/50 p-8 shadow-lifted bg-gradient-to-br from-gold-500/20 via-gold-600/10 to-transparent">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 bg-gold-400/30 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <svg className="w-8 h-8 text-gold-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-gold-400 uppercase tracking-wider mb-1">Totale prijs</p>
+                        <p className="text-4xl md:text-5xl font-bold text-white">{formatCurrency(booking.priceCalculation.totalPrice)}</p>
+                        <p className="text-sm text-neutral-400 mt-1">Inclusief BTW</p>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -450,7 +585,7 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button
-                    onClick={goToPreviousStep}
+                    onClick={booking.goToPreviousStep}
                     className="flex-1 px-6 py-4 bg-neutral-700 hover:bg-neutral-600 text-white font-bold rounded-xl transition-all duration-200 border-2 border-neutral-600 hover:border-neutral-500"
                   >
                     ← Wijzigen
@@ -523,10 +658,11 @@ const ReservationWidgetContent: React.FC<ReservationWidgetProps> = ({
   };
 
   return (
-    <div className={cn('w-full max-w-7xl mx-auto p-4 md:p-6', className)}>
+    // ✨ OPTIMIZED: Compacter voor grote schermen met max-w-6xl i.p.v. 7xl
+    <div className={cn('w-full max-w-6xl mx-auto px-3 py-4 sm:px-4 md:px-5 lg:p-6', className)}>
       {/* Step Indicator - ✨ ENHANCED: Sticky positioning for better visibility */}
       {booking.currentStep !== 'success' && (
-        <div className="sticky top-0 z-30 bg-gradient-to-b from-dark-950 via-dark-950/95 to-transparent pb-2 -mx-4 md:-mx-6 px-4 md:px-6 mb-4">
+        <div className="sticky top-0 z-30 bg-gradient-to-b from-dark-950 via-dark-950/95 to-transparent pb-2 -mx-3 sm:-mx-4 md:-mx-6 px-3 sm:px-4 md:px-6 mb-3 md:mb-4">
           <StepIndicator
             currentStep={booking.currentStep}
             selectedEvent={!!booking.selectedEvent}

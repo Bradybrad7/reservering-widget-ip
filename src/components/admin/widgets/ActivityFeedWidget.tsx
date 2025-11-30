@@ -16,7 +16,8 @@ import {
   Trash2,
   UserPlus,
   Calendar,
-  Clock
+  Clock,
+  ArrowRight
 } from 'lucide-react';
 import { cn } from '../../../utils';
 import { useReservationsStore } from '../../../store/reservationsStore';
@@ -130,115 +131,53 @@ export const ActivityFeedWidget: React.FC = () => {
   }, [reservations, events]);
 
   return (
-    <div className="bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg overflow-hidden">
+    <div className="bg-slate-900 rounded-xl border border-slate-800 p-6 flex flex-col h-full">
       {/* Header */}
-      <div className="px-6 py-4 bg-gradient-to-r from-cyan-50 via-sky-50 to-blue-50 dark:from-cyan-950/30 dark:via-sky-950/30 dark:to-blue-950/30 border-b-2 border-slate-200 dark:border-slate-800">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-xl shadow-lg">
-            <Activity className="w-6 h-6 text-white" strokeWidth={2.5} />
-          </div>
-          <div>
-            <h3 className="text-lg font-black text-slate-900 dark:text-white">
-              Recente Activiteit
-            </h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">
-              Laatste acties in het systeem
-            </p>
-          </div>
-        </div>
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold text-white mb-1">Recente Activiteit</h2>
+        <p className="text-sm text-slate-400">Laatste updates en acties</p>
       </div>
 
-      {/* Activity List */}
-      <div className="max-h-[500px] overflow-y-auto">
+      {/* Activity List - Timeline */}
+      <div className="flex-1 overflow-y-auto space-y-6">
         {activityItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 px-6">
-            <div className="p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl mb-4">
-              <Activity className="w-12 h-12 text-slate-400" />
-            </div>
-            <p className="text-sm text-slate-600 dark:text-slate-400 text-center">
-              Nog geen recente activiteit
-            </p>
+          <div className="text-center py-8">
+            <Activity className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+            <p className="text-sm text-slate-400">Nog geen recente activiteit</p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-200 dark:divide-slate-800">
-            {activityItems.map(item => {
-              const colorMap: Record<string, { bg: string; iconBg: string; text: string }> = {
-                blue: { 
-                  bg: 'bg-blue-50 dark:bg-blue-950/20', 
-                  iconBg: 'bg-blue-500',
-                  text: 'text-blue-600 dark:text-blue-400'
-                },
-                green: { 
-                  bg: 'bg-green-50 dark:bg-green-950/20', 
-                  iconBg: 'bg-green-500',
-                  text: 'text-green-600 dark:text-green-400'
-                },
-                purple: { 
-                  bg: 'bg-purple-50 dark:bg-purple-950/20', 
-                  iconBg: 'bg-purple-500',
-                  text: 'text-purple-600 dark:text-purple-400'
-                },
-                orange: { 
-                  bg: 'bg-orange-50 dark:bg-orange-950/20', 
-                  iconBg: 'bg-orange-500',
-                  text: 'text-orange-600 dark:text-orange-400'
-                },
-                red: { 
-                  bg: 'bg-red-50 dark:bg-red-950/20', 
-                  iconBg: 'bg-red-500',
-                  text: 'text-red-600 dark:text-red-400'
-                }
-              };
-
-              const colors = colorMap[item.color];
-              const Icon = item.icon;
-
-              return (
-                <div
-                  key={item.id}
-                  className="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group"
-                >
-                  <div className="flex items-start gap-3">
-                    {/* Icon */}
-                    <div className={cn(
-                      'flex-shrink-0 p-2 rounded-lg',
-                      colors.iconBg,
-                      'group-hover:scale-110 transition-transform'
-                    )}>
-                      <Icon className="w-4 h-4 text-white" />
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                          {item.title}
-                        </h4>
-                        <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">
-                          <Clock className="w-3 h-3" />
-                          <span className="font-medium">
-                            {formatDistanceToNow(item.timestamp, { addSuffix: true, locale: nl })}
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 truncate">
-                        {item.subtitle}
-                      </p>
-                    </div>
+          activityItems.map(item => {
+            const Icon = item.icon;
+            const iconColor = item.color === 'green' ? 'text-emerald-400' : item.color === 'blue' ? 'text-primary' : item.color === 'purple' ? 'text-purple-400' : 'text-orange-400';
+            
+            return (
+              <div key={item.id} className="flex gap-3">
+                <div className="flex flex-col items-center">
+                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Icon className={cn('w-4 h-4', iconColor)} />
+                  </div>
+                  <div className="w-px h-full bg-slate-800 mt-2"></div>
+                </div>
+                <div className="flex-1 pb-6">
+                  <div className="text-sm font-medium text-white mb-0.5">{item.title}</div>
+                  <div className="text-xs text-slate-400 mb-2">{item.subtitle}</div>
+                  <div className="text-xs text-slate-500">
+                    {formatDistanceToNow(item.timestamp, { addSuffix: true, locale: nl })}
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })
         )}
       </div>
 
-      {/* Footer */}
+      {/* View All Link */}
       {activityItems.length > 0 && (
-        <div className="px-6 py-3 border-t-2 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
-          <button className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors">
-            Bekijk alle activiteit →
-          </button>
+        <div className="mt-6 pt-6 border-t border-slate-800">
+          <a href="#" className="text-sm text-primary hover:text-primary-hover font-medium flex items-center gap-2">
+            Bekijk alle activiteit
+            <ArrowRight className="w-4 h-4" />
+          </a>
         </div>
       )}
     </div>

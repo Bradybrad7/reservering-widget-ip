@@ -103,22 +103,23 @@ export const ContactStep: React.FC = () => {
     validatePhone(formData.phone);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    // ✨ OPTIMIZED: Compacter voor alle schermen
+    <div className="space-y-4 sm:space-y-5">
+      {/* Header - Compacter */}
       <div className="text-center">
-        <div className="flex justify-center mb-4">
-          <IconContainer icon={User} size="xl" variant="gold" />
+        <div className="flex justify-center mb-3">
+          <IconContainer icon={User} size="lg" variant="gold" className="sm:w-11 sm:h-11 lg:w-12 lg:h-12" />
         </div>
-        <h2 className="text-3xl font-bold text-white mb-3">
+        <h2 className="text-2xl sm:text-2xl lg:text-3xl font-bold text-white mb-2">
           Uw Contactgegevens
         </h2>
-        <p className="text-dark-200 text-lg">
+        <p className="text-dark-200 text-sm sm:text-base lg:text-base px-2">
           Nog maar een paar stappen! Vul uw gegevens in zodat we uw reservering kunnen bevestigen.
         </p>
       </div>
 
-      {/* Form Fields */}
-      <div className="space-y-4">
+      {/* Form Fields - ✨ MOBILE: Betere spacing */}
+      <div className="space-y-3 sm:space-y-4">
         {/* Aanhef */}
         <div>
           <label htmlFor="salutation" className="block text-sm font-semibold text-white mb-2">
@@ -132,7 +133,6 @@ export const ContactStep: React.FC = () => {
             className={cn(
               'w-full px-4 py-3 bg-dark-800/50 border-2 rounded-xl text-white transition-all duration-200 shadow-inner',
               'focus:outline-none focus:ring-2 focus:ring-gold-400/50',
-              '[&>option]:bg-dark-900 [&>option]:text-white',
               formErrors.salutation
                 ? 'border-red-500 focus:border-red-400'
                 : 'border-white/10 focus:border-gold-500'
@@ -141,10 +141,11 @@ export const ContactStep: React.FC = () => {
             aria-required="true"
             aria-invalid={!!formErrors.salutation}
             aria-describedby={formErrors.salutation ? "salutation-error" : undefined}
+            style={{ colorScheme: 'dark' }}
           >
-            <option value="">-- Selecteer --</option>
-            <option value="Dhr">Dhr (De heer)</option>
-            <option value="Mevr">Mevr (Mevrouw)</option>
+            <option value="" style={{ backgroundColor: '#1a1a1a', color: '#ffffff' }}>-- Selecteer --</option>
+            <option value="Dhr" style={{ backgroundColor: '#1a1a1a', color: '#ffffff' }}>Dhr (De heer)</option>
+            <option value="Mevr" style={{ backgroundColor: '#1a1a1a', color: '#ffffff' }}>Mevr (Mevrouw)</option>
           </select>
           {formErrors.salutation && (
             <p id="salutation-error" className="mt-2 text-sm text-red-400 flex items-center gap-1">
@@ -154,8 +155,8 @@ export const ContactStep: React.FC = () => {
           )}
         </div>
 
-        {/* Naam Fields */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Naam Fields - ✨ MOBILE: Stack op mobiel, side-by-side op tablet+ */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           {/* Voornaam */}
           <div>
             <label htmlFor="firstName" className="block text-sm font-semibold text-white mb-2">
@@ -170,8 +171,10 @@ export const ContactStep: React.FC = () => {
                 value={formData.firstName || ''}
                 onChange={(e) => handleFieldChange('firstName', e.target.value)}
                 className={cn(
-                  'w-full pl-11 pr-4 py-3 bg-dark-800/50 border-2 rounded-xl text-white placeholder-dark-500 transition-all duration-200 shadow-inner',
+                  // ✨ MOBILE OPTIMIZED: Grotere touch targets en betere padding
+                  'w-full pl-11 pr-4 py-3 sm:py-3.5 bg-dark-800/50 border-2 rounded-xl text-base sm:text-sm text-white placeholder-dark-500 transition-all duration-200 shadow-inner',
                   'focus:outline-none focus:ring-2 focus:ring-gold-400/50',
+                  'autofill:bg-dark-800/50 autofill:text-white autofill:shadow-inner',
                   formErrors.firstName
                     ? 'border-red-500 focus:border-red-400'
                     : 'border-white/10 focus:border-gold-500'
@@ -180,6 +183,7 @@ export const ContactStep: React.FC = () => {
                 required
                 aria-required="true"
                 aria-invalid={!!formErrors.firstName}
+                autoComplete="given-name"
               />
             </div>
             {formErrors.firstName && (
@@ -206,6 +210,7 @@ export const ContactStep: React.FC = () => {
                 className={cn(
                   'w-full pl-11 pr-4 py-3 bg-dark-800/50 border-2 rounded-xl text-white placeholder-dark-500 transition-all duration-200 shadow-inner',
                   'focus:outline-none focus:ring-2 focus:ring-gold-400/50',
+                  'autofill:bg-dark-800/50 autofill:text-white autofill:shadow-inner',
                   formErrors.lastName
                     ? 'border-red-500 focus:border-red-400'
                     : 'border-white/10 focus:border-gold-500'
@@ -214,6 +219,7 @@ export const ContactStep: React.FC = () => {
                 required
                 aria-required="true"
                 aria-invalid={!!formErrors.lastName}
+                autoComplete="family-name"
               />
             </div>
             {formErrors.lastName && (
@@ -238,8 +244,9 @@ export const ContactStep: React.FC = () => {
               name="companyName"
               value={formData.companyName || ''}
               onChange={(e) => handleFieldChange('companyName', e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-dark-800/50 border-2 border-white/10 rounded-xl text-white placeholder-dark-500 focus:border-gold-500 focus:ring-2 focus:ring-gold-400/50 focus:outline-none transition-all duration-200 shadow-inner"
+              className="w-full pl-11 pr-4 py-3 bg-dark-800/50 border-2 border-white/10 rounded-xl text-white placeholder-dark-500 focus:border-gold-500 focus:ring-2 focus:ring-gold-400/50 focus:outline-none transition-all duration-200 shadow-inner autofill:bg-dark-800/50 autofill:text-white autofill:shadow-inner"
               placeholder="Bedrijfsnaam B.V."
+              autoComplete="organization"
             />
           </div>
         </div>
@@ -260,6 +267,7 @@ export const ContactStep: React.FC = () => {
               className={cn(
                 'w-full pl-11 pr-4 py-3 bg-dark-800/50 border-2 rounded-xl text-white placeholder-dark-500 transition-all duration-200 shadow-inner',
                 'focus:outline-none focus:ring-2 focus:ring-gold-400/50',
+                'autofill:bg-dark-800/50 autofill:text-white autofill:shadow-inner',
                 formErrors.email
                   ? 'border-red-500 focus:border-red-400'
                   : 'border-white/10 focus:border-gold-500'
@@ -313,11 +321,13 @@ export const ContactStep: React.FC = () => {
                 placeholder="6 12345678"
                 className={cn(
                   'w-full pl-10 pr-4 py-3 bg-neutral-800 border rounded-lg text-white placeholder-neutral-500 transition-colors',
+                  'autofill:bg-neutral-800 autofill:text-white',
                   formErrors.phone
                     ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20'
                     : 'border-neutral-700 focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20'
                 )}
                 required
+                autoComplete="tel"
               />
             </div>
           </div>
@@ -339,7 +349,7 @@ export const ContactStep: React.FC = () => {
               placeholder="+49"
               value={formData.customCountryCode || ''}
               onChange={(e) => handleFieldChange('customCountryCode', e.target.value)}
-              className="w-full px-4 py-3 bg-dark-800/50 border-2 border-white/10 rounded-xl text-white placeholder-dark-500 focus:border-gold-500 focus:ring-2 focus:ring-gold-400/50 focus:outline-none transition-all duration-200 shadow-inner"
+              className="w-full px-4 py-3 bg-dark-800/50 border-2 border-white/10 rounded-xl text-white placeholder-dark-500 focus:border-gold-500 focus:ring-2 focus:ring-gold-400/50 focus:outline-none transition-all duration-200 shadow-inner autofill:bg-dark-800/50 autofill:text-white autofill:shadow-inner"
               required
             />
           </div>
@@ -355,13 +365,13 @@ export const ContactStep: React.FC = () => {
         </p>
       </div>
 
-      {/* Navigation */}
-      <div className="flex gap-3 pt-6">
+      {/* Navigation Buttons - ✨ MOBILE OPTIMIZED: Stack op hele kleine schermen */}
+      <div className="flex flex-col xs:flex-row gap-3 sm:gap-4 pt-2">
         <Button
           type="button"
           onClick={goToPreviousStep}
           variant="secondary"
-          className="flex-1"
+          className="flex-1 bg-transparent border-2 border-gold-500/50 text-gold-400 hover:bg-gold-500/10 hover:border-gold-500 min-h-[48px] text-base font-semibold"
         >
           Vorige
         </Button>
@@ -369,7 +379,7 @@ export const ContactStep: React.FC = () => {
           type="button"
           onClick={handleContinue}
           variant="primary"
-          className="flex-1"
+          className="flex-1 bg-gold-gradient shadow-gold-glow hover:shadow-gold text-white font-bold min-h-[48px] text-base"
           disabled={!isFormValid}
         >
           Volgende

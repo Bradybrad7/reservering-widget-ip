@@ -162,8 +162,8 @@ export const MobileSummaryBar = memo<MobileSummaryBarProps>(({
           </div>
         </div>
 
-        {/* Safe Area for devices with bottom notches */}
-        <div className="h-safe-area-inset-bottom bg-dark-900" />
+        {/* Safe Area for devices with bottom notches - ✨ IMPROVED: Better support */}
+        <div className="bg-dark-900" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} />
       </div>
     </>
   );

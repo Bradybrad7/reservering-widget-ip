@@ -20,7 +20,7 @@ import {
 } from '../templates/emailContentGenerators';
 import type { Reservation, Event } from '../types';
 import { db } from '../firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc, updateDoc, Timestamp } from 'firebase/firestore';
 
 /**
  * Email Configuration
@@ -219,7 +219,102 @@ export const emailService = {
     // ✨ Get show info for email
     const show = await this._getShowByEvent(event);
     const content = await generatePendingEmailContent(reservation, event, show);
+    
+    // ✅ Send admin notification in parallel
+    this.sendAdminNotification(reservation, event).catch(err => {
+      console.warn('⚠️ Admin notification failed (non-critical):', err?.message);
+    });
+    
     return this._sendEmail(reservation, event, content, 'pending', previewMode);
+  },
+
+  /**
+   * Verzend admin notificatie bij nieuwe boeking
+   */
+  async sendAdminNotification(
+    reservation: Reservation,
+    event: Event
+  ): Promise<boolean> {
+    try {
+      // ✅ Check if admin notifications are enabled
+      const { useConfigStore } = await import('../store/configStore');
+      const config = useConfigStore.getState().config;
+      const emailSettings = config?.emailSettings;
+      
+      // Check global email toggle
+      if (emailSettings?.enabled === false) {
+        console.log('⏸️ [ADMIN EMAIL] Skipped - Global email toggle is OFF');
+        return false;
+      }
+      
+      // Check admin notification specific toggle
+      if (emailSettings?.enabledTypes?.admin === false) {
+        console.log('⏸️ [ADMIN EMAIL] Skipped - Admin notifications are disabled');
+        return false;
+      }
+      
+      console.log('✅ [ADMIN EMAIL] Email settings check passed - sending notification');
+      
+      // Format date like "09-11-2025"
+      const formattedDate = new Date(event.date).toLocaleDateString('nl-NL', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric' 
+      });
+      
+      // Format full name
+      const fullName = `${reservation.firstName || ''} ${reservation.lastName || ''}`.trim();
+      
+      // Subject matches your example format
+      const subject = `Nieuwe voorlopige boeking - ${formattedDate} - ${reservation.numberOfPersons} ${reservation.numberOfPersons === 1 ? 'persoon' : 'personen'} - ${fullName}`;
+      
+      // Generate HTML using new template
+      const { generateAdminNotificationHTML } = await import('../templates/adminEmailTemplate');
+      const html = generateAdminNotificationHTML(reservation, event, config);
+
+      // ✅ Log admin email to Firestore
+      const emailLog: ModernEmailLog = {
+        id: `admin-${reservation.id}-${Date.now()}`,
+        reservationId: reservation.id!,
+        to: EMAIL_CONFIG.contactEmail, // info@inspiration-point.nl
+        type: 'admin_notification',
+        subject,
+        status: 'pending',
+        createdAt: serverTimestamp() as Timestamp,
+        attempts: 0,
+      };
+
+      const db = getFirestore();
+      const emailRef = doc(db, 'emailLogs', emailLog.id);
+      await setDoc(emailRef, emailLog);
+      console.log('📧 Admin email log created:', emailLog.id);
+
+      // ✅ Send via SMTP
+      const success = await sendViaFirebaseSMTP(
+        EMAIL_CONFIG.contactEmail, // info@inspiration-point.nl
+        subject,
+        html
+      );
+
+      // ✅ Update log with result
+      await updateDoc(emailRef, {
+        status: success ? 'sent' : 'failed',
+        sentAt: success ? serverTimestamp() : null,
+        error: success ? null : 'SMTP send failed',
+        attempts: 1,
+      });
+
+      if (success) {
+        console.log('✅ Admin notification sent successfully to', EMAIL_CONFIG.contactEmail);
+      } else {
+        console.error('❌ Admin notification failed to send');
+      }
+
+      return success;
+    } catch (error) {
+      console.error('❌ Error sending admin notification:', error);
+      return false;
+    }
   },
 
   /**
@@ -243,96 +338,184 @@ export const emailService = {
       emailType: 'confirmed',
       sentAt: new Date(),
       status: previewMode ? 'preview' : 'sent',
+      id: '',
+      type: 'confirmed',
+      createdAt: new Date() as unknown as Timestamp,
+      attempts: 1
     };
-
-    try {
-      if (!previewMode) {
-        const success = await sendViaFirebaseSMTP(emailLog.to, emailLog.subject, html);
-        if (!success) {
-          throw new Error('Failed to send email via SMTP');
-        }
-        
-        // Log naar Firestore (optional)
-        try {
-          await addDoc(collection(db, 'emailLogs'), {
-            ...emailLog,
-            sentAt: serverTimestamp(),
-          });
-        } catch (logError) {
-          console.warn('⚠️ Failed to log to Firestore (email was sent):', logError);
-        }
-        
-        console.log(`✅ Payment confirmation email sent to ${emailLog.to}`);
-      }
-      return emailLog;
-    } catch (error) {
-      console.error('❌ Failed to send payment confirmation:', error);
-      emailLog.status = 'failed';
-      emailLog.error = error instanceof Error ? error.message : 'Unknown error';
-      throw error;
+    
+    if (!previewMode) {
+      await sendViaFirebaseSMTP(
+        reservation.email,
+        emailLog.subject,
+        html
+      );
     }
+    
+    return emailLog;
   },
 
   /**
-   * Verzend boeking goedkeuring (pending → confirmed)
+   * Verzend annulatie bevestiging
    */
-  async sendBookingConfirmed(
+  async sendCancellationConfirmation(
     reservation: Reservation,
     event: Event,
     previewMode = false
   ): Promise<ModernEmailLog> {
-    const { generateBookingConfirmedEmailContent } = await import('../templates/emailContentGenerators');
-    // Don't fetch show - avoid permission errors, email works without logo
-    const content = await generateBookingConfirmedEmailContent(reservation, event, undefined);
+    const { generateCancellationEmailContent } = await import('../templates/emailContentGenerators');
+    const content = await generateCancellationEmailContent(reservation, event, undefined);
     const html = generateEmailHTML(content, EMAIL_CONFIG.logoUrl);
     
     const emailLog: ModernEmailLog = {
       reservationId: reservation.id,
       eventId: event.id,
       to: reservation.email,
-      subject: `✅ Boeking goedgekeurd - ${event.type} op ${new Date(event.date).toLocaleDateString('nl-NL')}`,
-      emailType: 'confirmed',
+      subject: `Annulatie bevestiging - ${event.type} op ${new Date(event.date).toLocaleDateString('nl-NL')}`,
+      emailType: 'cancelled',
       sentAt: new Date(),
       status: previewMode ? 'preview' : 'sent',
+      id: '',
+      type: 'cancelled',
+      createdAt: new Date() as unknown as Timestamp,
+      attempts: 1
     };
-
-    try {
-      if (!previewMode) {
-        const success = await sendViaFirebaseSMTP(emailLog.to, emailLog.subject, html);
-        if (!success) {
-          throw new Error('Failed to send email via SMTP');
-        }
-        
-        // Log naar Firestore (optional)
-        try {
-          await addDoc(collection(db, 'emailLogs'), {
-            ...emailLog,
-            sentAt: serverTimestamp(),
-          });
-        } catch (logError) {
-          console.warn('⚠️ Failed to log to Firestore (email was sent):', logError);
-        }
-        
-        console.log(`✅ Booking confirmed email sent to ${emailLog.to}`);
-      }
-      return emailLog;
-    } catch (error) {
-      console.error('❌ Failed to send booking confirmed:', error);
-      emailLog.status = 'failed';
-      emailLog.error = error instanceof Error ? error.message : 'Unknown error';
-      throw error;
+    
+    if (!previewMode) {
+      await sendViaFirebaseSMTP(
+        reservation.email,
+        emailLog.subject,
+        html
+      );
     }
+    
+    return emailLog;
   },
 
   /**
-   * Private: Verzend email met logging
+   * Verzend betaling herinnering
+   */
+  async sendPaymentReminder(
+    reservation: Reservation,
+    event: Event,
+    daysUntilPaymentDue: number,
+    previewMode = false
+  ): Promise<ModernEmailLog> {
+    const { generatePaymentReminderEmailContent } = await import('../templates/emailContentGenerators');
+    const content = await generatePaymentReminderEmailContent(reservation, event, daysUntilPaymentDue, undefined);
+    const html = generateEmailHTML(content, EMAIL_CONFIG.logoUrl);
+    
+    const emailLog: ModernEmailLog = {
+      reservationId: reservation.id,
+      eventId: event.id,
+      to: reservation.email,
+      subject: `💳 Betaling herinnering - ${event.type} op ${new Date(event.date).toLocaleDateString('nl-NL')}`,
+      emailType: 'reminder',
+      sentAt: new Date(),
+      status: previewMode ? 'preview' : 'sent',
+      id: '',
+      type: 'reminder',
+      createdAt: new Date() as unknown as Timestamp,
+      attempts: 1
+    };
+    
+    if (!previewMode) {
+      await sendViaFirebaseSMTP(
+        reservation.email,
+        emailLog.subject,
+        html
+      );
+    }
+    
+    return emailLog;
+  },
+
+  /**
+   * Verstuur reminder email (generiek)
+   */
+  async sendReminder(
+    reservation: Reservation,
+    event: Event,
+    previewMode = false
+  ): Promise<ModernEmailLog> {
+    const { generateReminderEmailContent } = await import('../templates/emailContentGenerators');
+    const content = await generateReminderEmailContent(reservation, event, undefined);
+    const html = generateEmailHTML(content, EMAIL_CONFIG.logoUrl);
+    
+    const emailLog: ModernEmailLog = {
+      reservationId: reservation.id,
+      eventId: event.id,
+      to: reservation.email,
+      subject: `📅 Herinnering - ${event.type} op ${new Date(event.date).toLocaleDateString('nl-NL')}`,
+      emailType: 'reminder',
+      sentAt: new Date(),
+      status: previewMode ? 'preview' : 'sent',
+      id: '',
+      type: 'reminder',
+      createdAt: new Date() as unknown as Timestamp,
+      attempts: 1
+    };
+    
+    if (!previewMode) {
+      await sendViaFirebaseSMTP(
+        reservation.email,
+        emailLog.subject,
+        html
+      );
+    }
+    
+    return emailLog;
+  },
+
+  /**
+   * Verstuur custom email
+   */
+  async sendCustomEmail(
+    to: string,
+    subject: string,
+    body: string,
+    previewMode = false
+  ): Promise<ModernEmailLog> {
+    // Create a minimal content structure for custom emails
+    const content: EmailContentBlock = {
+      spotlightTitle: subject,
+      greeting: '',
+      introText: body,
+      reservationDetails: [],
+    };
+    
+    const html = generateEmailHTML(content, EMAIL_CONFIG.logoUrl);
+    
+    const emailLog: ModernEmailLog = {
+      reservationId: '',
+      eventId: '',
+      to,
+      subject,
+      emailType: 'custom',
+      sentAt: new Date(),
+      status: previewMode ? 'preview' : 'sent',
+      id: '',
+      type: 'custom',
+      createdAt: new Date() as unknown as Timestamp,
+      attempts: 1
+    };
+    
+    if (!previewMode) {
+      await sendViaFirebaseSMTP(to, subject, html);
+    }
+    
+    return emailLog;
+  },
+
+  /**
+   * Private helper: Send email with common logic
    */
   async _sendEmail(
     reservation: Reservation,
     event: Event,
     content: EmailContentBlock,
-    emailType: 'confirmed' | 'option' | 'pending' | 'waitlist' | 'custom',
-    previewMode: boolean
+    emailType: 'confirmed' | 'option' | 'pending',
+    previewMode = false
   ): Promise<ModernEmailLog> {
     const html = generateEmailHTML(content, EMAIL_CONFIG.logoUrl);
     
@@ -348,90 +531,92 @@ export const emailService = {
 
     try {
       if (!previewMode) {
-        // ⚠️ TODO: Email provider integration
-        await addDoc(collection(db, 'emailLogs'), {
-          ...emailLog,
-          sentAt: serverTimestamp(),
-        });
-        console.log(`✅ [MODERN] ${emailType} email sent to ${emailLog.to}`);
+        // Verzend via Firebase SMTP (Outlook)
+        const success = await sendViaFirebaseSMTP(emailLog.to, emailLog.subject, html);
+        
+        if (!success) {
+          throw new Error('Failed to send email via SMTP');
+        }
+        
+        // Log naar Firestore (optional - don't fail if logging fails)
+        try {
+          await addDoc(collection(db, 'emailLogs'), {
+            ...emailLog,
+            sentAt: serverTimestamp(),
+          });
+        } catch (logError) {
+          console.warn('⚠️ [EMAIL] Failed to log to Firestore (email was sent):', logError);
+        }
+        
+        console.log(`✅ [EMAIL] Email sent to ${emailLog.to} (${emailLog.emailType})`);
+      } else {
+        console.log(`🔍 [EMAIL] PREVIEW MODE`);
+        console.log('   To:', emailLog.to);
+        console.log('   Subject:', emailLog.subject);
+        console.log('   HTML Length:', html.length);
       }
+
       return emailLog;
     } catch (error) {
-      emailLog.status = 'failed';
-      emailLog.error = error instanceof Error ? error.message : 'Unknown error';
+      console.error('❌ [EMAIL] Failed to send email:', error);
+      
+      const errorLog: ModernEmailLog = {
+        ...emailLog,
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+
+      // Try to log error (optional)
+      try {
+        await addDoc(collection(db, 'emailLogs'), {
+          ...errorLog,
+          sentAt: serverTimestamp(),
+        });
+      } catch (logError) {
+        console.warn('⚠️ [EMAIL] Could not log error to Firestore:', logError);
+      }
+
       throw error;
     }
   },
 
   /**
-   * Private: Get show by event
+   * Private helper: Generate email subject based on type
    */
-  async _getShowByEvent(event: Event) {
-    try {
-      const { storageService } = await import('./storageService');
-      const shows = await storageService.getShows();
-      return shows.find(show => show.id === event.showId);
-    } catch (error) {
-      console.warn('Could not load show info:', error);
-      return undefined;
+  _generateSubject(status: string, event: Event): string {
+    const dateStr = new Date(event.date).toLocaleDateString('nl-NL', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+    
+    switch (status) {
+      case 'confirmed':
+        return `✅ Bevestiging - ${event.type} op ${dateStr}`;
+      case 'option':
+        return `📋 Optie - ${event.type} op ${dateStr}`;
+      case 'pending':
+        return `⏳ Aanvraag ontvangen - ${event.type} op ${dateStr}`;
+      case 'cancelled':
+        return `❌ Annulatie - ${event.type} op ${dateStr}`;
+      case 'rejected':
+        return `❌ Reservering afgewezen - ${event.type} op ${dateStr}`;
+      default:
+        return `Reservering - ${event.type} op ${dateStr}`;
     }
   },
 
   /**
-   * Private: Genereer email subject
+   * Private helper: Get show info for event
    */
-  _generateSubject(status: string, event: Event): string {
-    const eventName = event.type.replace('_', ' ');
-    const date = new Date(event.date).toLocaleDateString('nl-NL');
-
-    switch (status) {
-      case 'confirmed':
-        return `✅ Bevestiging - ${eventName} op ${date}`;
-      case 'option':
-        return `⏰ Optie vastgelegd - ${eventName} op ${date}`;
-      case 'pending':
-        return `⏳ Aanvraag ontvangen - ${eventName} op ${date}`;
-      case 'rejected':
-        return `❌ Afwijzing - ${eventName} op ${date}`;
-      case 'waitlist':
-        return `📋 Wachtlijst - ${eventName} op ${date}`;
-      default:
-        return `Inspiration Point - ${eventName}`;
+  async _getShowByEvent(event: Event) {
+    try {
+      const { useConfigStore } = await import('../store/configStore');
+      const config = useConfigStore.getState().config;
+      return config?.shows?.find(show => show.id === event.showId);
+    } catch (error) {
+      console.warn('⚠️ [EMAIL] Could not fetch show info:', error);
+      return undefined;
     }
   },
-};
-
-/**
- * ⚠️ TODO: Email Provider Integration
- * 
- * Kies één van deze opties:
- * 
- * 1. EmailJS (Eenvoudig, client-side)
- *    - npm install @emailjs/browser
- *    - Gratis tier beschikbaar
- *    - Setup in 5 minuten
- * 
- * 2. Firebase Cloud Functions + Nodemailer (Aanbevolen)
- *    - Secure (geen API keys in frontend)
- *    - Betere rate limiting
- *    - Professional deployment
- * 
- * 3. SendGrid / Mailgun / Postmark (Enterprise)
- *    - Beste deliverability
- *    - Email tracking & analytics
- *    - Webhooks voor bounces
- * 
- * Integratie voorbeeld (EmailJS):
- * ```typescript
- * import emailjs from '@emailjs/browser';
- * 
- * emailjs.send(
- *   'service_id',
- *   'template_id',
- *   {
- *     to_email: reservation.email,
- *     html_content: html,
- *   }
- * );
- * ```
- */
+}; 

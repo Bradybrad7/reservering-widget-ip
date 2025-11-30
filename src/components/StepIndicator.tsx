@@ -62,12 +62,12 @@ export const StepIndicator = memo<StepIndicatorProps>(({
   const currentStepIndex = steps.findIndex(step => step.key === currentStep);
 
   return (
-    <div className={cn('mb-6 animate-fade-in', className)}>
+    <div className={cn('mb-8 animate-fade-in', className)}>
       <nav
         aria-label="Reserveringsproces"
-        className="card-theatre rounded-3xl shadow-lifted border border-gold-400/20 p-4 md:p-6"
+        className="bg-dark-900/20 backdrop-blur-sm rounded-2xl border border-gold-400/10 p-3"
       >
-        <ol className="flex items-center justify-between max-w-3xl mx-auto">
+        <ol className="flex items-center justify-between max-w-2xl mx-auto">
           {steps.map((step, index) => {
             const Icon = step.icon;
             const isCurrentStep = currentStep === step.key;
@@ -77,35 +77,29 @@ export const StepIndicator = memo<StepIndicatorProps>(({
 
             return (
               <React.Fragment key={step.key}>
-                <li className="flex flex-col items-center space-y-1.5 transition-smooth group flex-shrink-0">
-                  {/* Step Circle */}
+                <li className="flex flex-col items-center space-y-1 transition-smooth group flex-shrink-0">
+                  {/* Step Circle - SMALLER */}
                   <div
                     className={cn(
-                      'w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center font-bold transition-all duration-300 relative',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-dark-950',
+                      'w-7 h-7 md:w-8 md:h-8 rounded-xl flex items-center justify-center font-bold transition-all duration-300 relative',
                       {
-                        // Current step - VERSTERKT: solide gouden cirkel met extra glow
-                        'bg-gold-gradient shadow-gold-glow scale-115 ring-4 ring-gold-400/40 border-2 border-gold-300': isCurrentStep,
-                        // Completed steps - solid gold met check icon
-                        'bg-gradient-to-br from-green-500 to-green-600 shadow-lg shadow-green-500/20': isCompleted && !isCurrentStep,
+                        // Current step - subtle glow
+                        'bg-gold-gradient shadow-gold scale-105 ring-2 ring-gold-400/30': isCurrentStep,
+                        // Completed steps
+                        'bg-green-500/80': isCompleted && !isCurrentStep,
                         // Past steps
-                        'bg-gradient-to-br from-gold-600/80 to-gold-700/80': isPast && !isCompleted,
-                        // Upcoming steps - muted
-                        'bg-dark-800/50 border-2 border-dark-700 group-hover:bg-dark-800 group-hover:border-dark-600': isUpcoming
+                        'bg-gold-600/60': isPast && !isCompleted,
+                        // Upcoming steps - VERY muted
+                        'bg-dark-800/30 border border-dark-700/50': isUpcoming
                       }
                     )}
                     role="img"
                     aria-label={`${step.label}${isCurrentStep ? ' - Huidige stap' : ''}${isCompleted ? ' - Voltooid' : ''}`}
                   >
-                    {/* Animated glow for current step */}
-                    {isCurrentStep && (
-                      <div className="absolute inset-0 rounded-2xl bg-gold-400 opacity-30 animate-pulse-gold" />
-                    )}
-
                     {/* Icon or checkmark */}
                     {isCompleted && !isCurrentStep ? (
                       <svg
-                        className="w-5 h-5 md:w-6 md:h-6 relative z-10 text-white"
+                        className="w-3.5 h-3.5 md:w-4 md:h-4 relative z-10 text-white"
                         fill="currentColor"
                         viewBox="0 0 20 20"
                         aria-hidden="true"
@@ -118,24 +112,24 @@ export const StepIndicator = memo<StepIndicatorProps>(({
                       </svg>
                     ) : (
                       <Icon
-                        className={cn('w-5 h-5 md:w-6 md:h-6 relative z-10', {
+                        className={cn('w-3.5 h-3.5 md:w-4 md:h-4 relative z-10', {
                           'text-white': isCurrentStep || isCompleted || isPast,
-                          'text-dark-500': isUpcoming
+                          'text-dark-600': isUpcoming
                         })}
                         aria-hidden="true"
                       />
                     )}
                   </div>
 
-                  {/* Step Label */}
+                  {/* Step Label - SMALLER and MORE SUBTLE */}
                   <span
                     className={cn(
-                      'text-xs font-bold transition-all duration-300 text-center whitespace-nowrap',
+                      'text-[10px] md:text-xs font-medium transition-all duration-300 text-center whitespace-nowrap',
                       {
-                        'text-gold-300 scale-110 text-shadow-gold drop-shadow-lg': isCurrentStep,
-                        'text-green-400': isCompleted && !isCurrentStep,
-                        'text-dark-200': isPast && !isCompleted,
-                        'text-dark-500 group-hover:text-dark-400': isUpcoming
+                        'text-gold-300': isCurrentStep,
+                        'text-green-400/70': isCompleted && !isCurrentStep,
+                        'text-dark-300/70': isPast && !isCompleted,
+                        'text-dark-600': isUpcoming
                       }
                     )}
                   >
@@ -143,18 +137,18 @@ export const StepIndicator = memo<StepIndicatorProps>(({
                   </span>
                 </li>
 
-                {/* Progress Bar */}
+                {/* Progress Bar - THINNER */}
                 {index < steps.length - 1 && (
                   <div
-                    className="flex-1 mx-1.5 md:mx-3 min-w-[30px] md:min-w-[50px]"
+                    className="flex-1 mx-1 md:mx-2 min-w-[20px] md:min-w-[40px]"
                     aria-hidden="true"
                   >
-                    <div className="h-1 bg-dark-800/50 rounded-full overflow-hidden shadow-inner-dark">
+                    <div className="h-0.5 bg-dark-800/30 rounded-full overflow-hidden">
                       <div
                         className={cn(
-                          'h-full bg-gold-gradient transition-all duration-500 ease-out rounded-full',
+                          'h-full bg-gold-gradient/60 transition-all duration-500 ease-out rounded-full',
                           {
-                            'w-full shadow-gold': steps[index + 1].completed || currentStep === steps[index + 1].key,
+                            'w-full': steps[index + 1].completed || currentStep === steps[index + 1].key,
                             'w-0': !steps[index + 1].completed && currentStep !== steps[index + 1].key
                           }
                         )}

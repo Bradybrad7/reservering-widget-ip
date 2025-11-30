@@ -113,16 +113,16 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
 
   if (!selectedEvent) {
     return (
-      <div className={cn('card-theatre p-4 rounded-2xl animate-fade-in', className)}>
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-10 h-10 bg-gold-gradient rounded-xl flex items-center justify-center shadow-gold">
-            <Calculator className="w-5 h-5 text-text-primary" />
+      <div className={cn('bg-dark-900/40 backdrop-blur-sm p-5 rounded-2xl animate-fade-in', className)}>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-8 h-8 bg-gold-gradient/80 rounded-lg flex items-center justify-center">
+            <Calculator className="w-4 h-4 text-white" />
           </div>
-          <h2 className="text-xl font-bold text-text-primary font-display">{nl.summary.title}</h2>
+          <h2 className="text-lg font-bold text-neutral-100 font-display">{nl.summary.title}</h2>
         </div>
-        <div className="text-center py-6 bg-surface/30 rounded-xl border-2 border-dashed border-border-default">
-          <p className="text-text-secondary font-semibold mb-1">Nog geen datum geselecteerd</p>
-          <p className="text-sm text-text-muted">Kies eerst een datum in de kalender</p>
+        <div className="text-center py-8 rounded-xl">
+          <p className="text-dark-300 text-sm mb-1">Nog geen datum geselecteerd</p>
+          <p className="text-xs text-dark-500">Kies eerst een datum</p>
         </div>
       </div>
     );
@@ -450,17 +450,18 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
   };
 
   return (
-    <div className={cn('card-theatre p-6 rounded-2xl sticky top-6 animate-fade-in', className)}>
-      {/* Header - Dark Mode */}
-      <div className="flex items-center space-x-3 mb-6">
-        <div className="w-10 h-10 bg-gold-gradient rounded-xl flex items-center justify-center shadow-gold">
-          <Calculator className="w-5 h-5 text-white" />
+    // ✨ TABLET OPTIMIZED: Compacter op tablet, normale padding op desktop
+    <div className={cn('card-theatre p-4 md:p-5 lg:p-6 rounded-2xl sticky top-6 animate-fade-in', className)}>
+      {/* Header - Dark Mode - ✨ TABLET: Kleinere heading */}
+      <div className="flex items-center space-x-2 md:space-x-3 mb-4 md:mb-6">
+        <div className="w-8 h-8 md:w-10 md:h-10 bg-gold-gradient rounded-xl flex items-center justify-center shadow-gold">
+          <Calculator className="w-4 h-4 md:w-5 md:h-5 text-white" />
         </div>
-        <h2 className="text-xl font-bold text-neutral-100 text-shadow">{nl.summary.title}</h2>
+        <h2 className="text-lg md:text-xl font-bold text-neutral-100 text-shadow">{nl.summary.title}</h2>
       </div>
 
-      {/* Event Info */}
-      <div className="mb-6">
+      {/* Event Info - ✨ TABLET: Compacter */}
+      <div className="mb-4 md:mb-6">
         {renderEventInfo()}
       </div>
 
@@ -576,8 +577,9 @@ const OrderSummary: React.FC<OrderSummaryProps> = memo(({ className, onReserve }
       </div>
 
       {/* Price Breakdown - Only show in normal booking mode, not in waitlist mode */}
+      {/* ✨ TABLET: Compacter spacing */}
       {!isWaitlistActive && (
-        <div className="mb-6 pt-4 border-t border-gold-500/30">
+        <div className="mb-4 md:mb-6 pt-3 md:pt-4 border-t border-gold-500/30">
           {renderPriceBreakdown()}
         </div>
       )}

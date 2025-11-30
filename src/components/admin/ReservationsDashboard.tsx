@@ -199,6 +199,9 @@ export const ReservationsDashboard: React.FC = () => {
   const [selectedReservationIds, setSelectedReservationIds] = useState<Set<string>>(new Set());
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
+  
+  // Expanded rows state for compact view
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [dateFilter, setDateFilter] = useState<DateFilter>({ type: 'all' });
   const [mainTab, setMainTab] = useState<MainTab>('reserveringen');
@@ -1212,17 +1215,9 @@ export const ReservationsDashboard: React.FC = () => {
         preDrink: selectedReservation.preDrink || { enabled: false, quantity: 0 },
         afterParty: selectedReservation.afterParty || { enabled: false, quantity: 0 },
         merchandise: selectedReservation.merchandise || [],
-        dietaryRequirements: selectedReservation.dietaryRequirements || {
-          vegetarian: false,
-          vegetarianCount: 0,
-          vegan: false,
-          veganCount: 0,
-          glutenFree: false,
-          glutenFreeCount: 0,
-          lactoseFree: false,
-          lactoseFreeCount: 0,
-          other: ''
-        },
+        dietaryRequirements: typeof selectedReservation.dietaryRequirements === 'string' 
+          ? selectedReservation.dietaryRequirements 
+          : (selectedReservation.dietaryRequirements?.other || ''),
         partyPerson: selectedReservation.partyPerson || '',
         celebrationOccasion: selectedReservation.celebrationOccasion || '',
         celebrationDetails: selectedReservation.celebrationDetails || '',
@@ -2088,9 +2083,9 @@ export const ReservationsDashboard: React.FC = () => {
         <>
           {console.log('✅ Rendering detail modal for:', selectedReservation.id)}
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+            <div className="bg-slate-900 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 border border-slate-800">
               {/* Modal Header */}
-              <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30">
+              <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-slate-800">
                 <div>
                   <h2 className="text-2xl font-black text-slate-900 dark:text-white">
                     Reservering Details
@@ -2111,7 +2106,7 @@ export const ReservationsDashboard: React.FC = () => {
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Edit Mode Banner */}
               {isEditMode && (
-                <div className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 rounded-xl p-4 text-white shadow-lg border-2 border-blue-300 dark:border-blue-700">
+                <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
                       <FileEdit className="w-6 h-6" />
@@ -2126,7 +2121,7 @@ export const ReservationsDashboard: React.FC = () => {
 
               {/* Tag Badges - Prominent at Top */}
               {selectedReservation.tags && selectedReservation.tags.length > 0 && (
-                <div className="bg-gradient-to-r from-purple-50 via-pink-50 to-blue-50 dark:from-purple-950/30 dark:via-pink-950/30 dark:to-blue-950/30 rounded-xl p-6 border-2 border-purple-200 dark:border-purple-800">
+                <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
                   <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wide mb-3 flex items-center gap-2">
                     🏷️ Tags & Categorieën
                   </h3>
@@ -2142,7 +2137,7 @@ export const ReservationsDashboard: React.FC = () => {
 
               {/* Status Banner */}
               <div className={cn(
-                "p-4 rounded-xl border-2",
+                "p-4 rounded-lg border",
                 selectedReservation.status === 'confirmed' 
                   ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
                   : selectedReservation.status === 'pending'
@@ -2182,7 +2177,7 @@ export const ReservationsDashboard: React.FC = () => {
 
               {/* Event Date Selection - EDITABLE */}
               {isEditMode && editData && (
-                <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 rounded-xl p-6 border-2 border-purple-200 dark:border-purple-800">
+                <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
                   <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2 mb-4">
                     <Calendar className="w-5 h-5" />
                     Event / Datum Wijzigen
@@ -2202,7 +2197,7 @@ export const ReservationsDashboard: React.FC = () => {
                             eventId: newEventId
                           });
                         }}
-                        className="w-full px-4 py-3 bg-white dark:bg-slate-900 border-2 border-purple-300 dark:border-purple-700 rounded-lg text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-purple-500"
+                        className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-primary"
                       >
                         {events
                           .filter(e => e.isActive)
@@ -2261,24 +2256,24 @@ export const ReservationsDashboard: React.FC = () => {
                           </p>
                           <div className="grid grid-cols-2 gap-3">
                             <div className={cn(
-                              "p-3 rounded-lg border-2",
+                              "p-3 rounded-lg border",
                               editData.arrangement === 'Standard' 
-                                ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700"
-                                : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                                ? "bg-primary/10 border-primary"
+                                : "bg-slate-800 border-slate-700"
                             )}>
-                              <p className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Standard</p>
-                              <p className="text-xl font-black text-slate-900 dark:text-white">€{standardPrice}</p>
-                              <p className="text-xs text-slate-500 dark:text-slate-400">per persoon</p>
+                              <p className="text-xs text-slate-400 mb-1">Standard</p>
+                              <p className="text-xl font-bold text-white">€{standardPrice}</p>
+                              <p className="text-xs text-slate-400">per persoon</p>
                             </div>
                             <div className={cn(
-                              "p-3 rounded-lg border-2",
+                              "p-3 rounded-lg border",
                               editData.arrangement === 'Premium' 
-                                ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700"
-                                : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                                ? "bg-primary/10 border-primary"
+                                : "bg-slate-800 border-slate-700"
                             )}>
-                              <p className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Premium</p>
-                              <p className="text-xl font-black text-slate-900 dark:text-white">€{premiumPrice}</p>
-                              <p className="text-xs text-slate-500 dark:text-slate-400">per persoon</p>
+                              <p className="text-xs text-slate-400 mb-1">Premium</p>
+                              <p className="text-xl font-bold text-white">€{premiumPrice}</p>
+                              <p className="text-xs text-slate-400">per persoon</p>
                             </div>
                           </div>
                           <div className="mt-3 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
@@ -2294,7 +2289,7 @@ export const ReservationsDashboard: React.FC = () => {
               )}
 
               {/* Booking Details - EDITABLE */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl p-6 border-2 border-blue-200 dark:border-blue-800 space-y-4">
+              <div className="bg-slate-800 rounded-lg p-6 border border-slate-700 space-y-4">
                 <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2 mb-4">
                   <Package className="w-5 h-5" />
                   Boeking Details {isEditMode && <span className="text-sm text-blue-600 dark:text-blue-400">(Bewerken)</span>}
@@ -2443,7 +2438,7 @@ export const ReservationsDashboard: React.FC = () => {
               </div>
 
               {/* Company & Contact */}
-              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6 space-y-4">
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-6 space-y-4">
                 <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <Users className="w-5 h-5" />
                   Bedrijf & Contact
@@ -2482,7 +2477,7 @@ export const ReservationsDashboard: React.FC = () => {
               </div>
 
               {/* Event Details */}
-              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6 space-y-4">
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-6 space-y-4">
                 <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <Calendar className="w-5 h-5" />
                   Event Details
@@ -2518,7 +2513,7 @@ export const ReservationsDashboard: React.FC = () => {
                 const badge = getPaymentStatusBadge(paymentSummary);
                 
                 return (
-                  <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl p-6 border-2 border-emerald-200 dark:border-emerald-700">
+                  <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2677,7 +2672,7 @@ export const ReservationsDashboard: React.FC = () => {
               })()}
 
               {/* Add-ons / Borrels */}
-              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6 space-y-4">
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-6 space-y-4">
                 <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <Package className="w-5 h-5" />
                   Extra's (Borrels)
@@ -2686,7 +2681,7 @@ export const ReservationsDashboard: React.FC = () => {
                 {isEditMode && editData ? (
                   <div className="space-y-4">
                     {/* Borrel vooraf */}
-                    <div className="p-4 bg-white dark:bg-slate-900 rounded-lg border-2 border-slate-200 dark:border-slate-700">
+                    <div className="p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-700 dark:border-slate-700">
                       <label className="flex items-start gap-3 cursor-pointer group">
                         <input
                           type="checkbox"
@@ -2732,7 +2727,7 @@ export const ReservationsDashboard: React.FC = () => {
                     </div>
 
                     {/* Nafeest */}
-                    <div className="p-4 bg-white dark:bg-slate-900 rounded-lg border-2 border-slate-200 dark:border-slate-700">
+                    <div className="p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-700 dark:border-slate-700">
                       <label className="flex items-start gap-3 cursor-pointer group">
                         <input
                           type="checkbox"
@@ -2832,7 +2827,7 @@ export const ReservationsDashboard: React.FC = () => {
 
               {/* Merchandise */}
               {(isEditMode || (selectedReservation.merchandise && selectedReservation.merchandise.length > 0)) && (
-                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6 space-y-3">
+                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-6 space-y-3">
                   <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                     <Package className="w-5 h-5" />
                     Merchandise
@@ -2845,7 +2840,7 @@ export const ReservationsDashboard: React.FC = () => {
                             const productDetails = getMerchandiseItemDetails(item.itemId || item.id, item.name);
                             const uniqueKey = `merch-edit-${item.itemId || item.id || item.name || 'item'}-${index}-${Date.now()}`;
                             return (
-                              <div key={uniqueKey} className="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-lg border-2 border-blue-200 dark:border-blue-700">
+                              <div key={uniqueKey} className="flex items-center gap-3 p-3 bg-slate-900 rounded-lg border border-slate-700">
                                 {/* Product Image */}
                                 {productDetails?.imageUrl && (
                                   <div className="flex-shrink-0 w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-hidden">
@@ -2988,7 +2983,7 @@ export const ReservationsDashboard: React.FC = () => {
                             const uniqueKey = `merch-view-${item.itemId || item.id || item.name || 'item'}-${index}`;
                             
                             return (
-                              <div key={uniqueKey} className="flex items-center gap-3 p-4 bg-white dark:bg-slate-900 rounded-lg border-2 border-slate-200 dark:border-slate-700 hover:border-purple-300 dark:hover:border-purple-700 transition-colors">
+                              <div key={uniqueKey} className="flex items-center gap-3 p-4 bg-slate-900 rounded-lg border border-slate-700 hover:border-primary transition-colors">
                                 {/* Product Image */}
                                 {productDetails?.imageUrl ? (
                                   <div className="flex-shrink-0 w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-hidden">
@@ -3055,7 +3050,7 @@ export const ReservationsDashboard: React.FC = () => {
               )}
 
               {/* Special Requests - EDITABLE */}
-              <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 rounded-xl p-6 border-2 border-amber-200 dark:border-amber-800 space-y-4">
+              <div className="bg-slate-800 rounded-lg p-6 border border-slate-700 space-y-4">
                 <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <AlertCircle className="w-5 h-5" />
                   Bijzonderheden {isEditMode && <span className="text-sm text-amber-600 dark:text-amber-400">(Bewerken)</span>}
@@ -3115,98 +3110,37 @@ export const ReservationsDashboard: React.FC = () => {
                     🍽️ Dieetwensen & Allergieën
                   </label>
                   {isEditMode && editData ? (
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <label className="flex items-center gap-2 p-3 bg-white dark:bg-slate-900 rounded-lg border border-amber-300 dark:border-amber-700">
-                          <input
-                            type="checkbox"
-                            checked={editData.dietaryRequirements.vegetarian}
-                            onChange={(e) => setEditData({
-                              ...editData,
-                              dietaryRequirements: {
-                                ...editData.dietaryRequirements,
-                                vegetarian: e.target.checked
-                              }
-                            })}
-                            className="w-4 h-4"
-                          />
-                          <span className="text-sm font-bold">🥗 Vegetarisch</span>
-                        </label>
-                        <label className="flex items-center gap-2 p-3 bg-white dark:bg-slate-900 rounded-lg border border-amber-300 dark:border-amber-700">
-                          <input
-                            type="checkbox"
-                            checked={editData.dietaryRequirements.vegan}
-                            onChange={(e) => setEditData({
-                              ...editData,
-                              dietaryRequirements: {
-                                ...editData.dietaryRequirements,
-                                vegan: e.target.checked
-                              }
-                            })}
-                            className="w-4 h-4"
-                          />
-                          <span className="text-sm font-bold">🌱 Veganistisch</span>
-                        </label>
-                        <label className="flex items-center gap-2 p-3 bg-white dark:bg-slate-900 rounded-lg border border-amber-300 dark:border-amber-700">
-                          <input
-                            type="checkbox"
-                            checked={editData.dietaryRequirements.glutenFree}
-                            onChange={(e) => setEditData({
-                              ...editData,
-                              dietaryRequirements: {
-                                ...editData.dietaryRequirements,
-                                glutenFree: e.target.checked
-                              }
-                            })}
-                            className="w-4 h-4"
-                          />
-                          <span className="text-sm font-bold">🌾 Glutenvrij</span>
-                        </label>
-                        <label className="flex items-center gap-2 p-3 bg-white dark:bg-slate-900 rounded-lg border border-amber-300 dark:border-amber-700">
-                          <input
-                            type="checkbox"
-                            checked={editData.dietaryRequirements.lactoseFree}
-                            onChange={(e) => setEditData({
-                              ...editData,
-                              dietaryRequirements: {
-                                ...editData.dietaryRequirements,
-                                lactoseFree: e.target.checked
-                              }
-                            })}
-                            className="w-4 h-4"
-                          />
-                          <span className="text-sm font-bold">🥛 Lactosevrij</span>
-                        </label>
-                      </div>
-                      <textarea
-                        value={editData.dietaryRequirements.other || ''}
-                        onChange={(e) => setEditData({
-                          ...editData,
-                          dietaryRequirements: {
-                            ...editData.dietaryRequirements,
-                            other: e.target.value
-                          }
-                        })}
-                        placeholder="Andere dieetwensen of allergieën..."
-                        rows={2}
-                        className="w-full px-4 py-2 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500"
-                      />
-                    </div>
+                    <textarea
+                      value={typeof editData.dietaryRequirements === 'string' ? editData.dietaryRequirements : (editData.dietaryRequirements?.other || '')}
+                      onChange={(e) => setEditData({
+                        ...editData,
+                        dietaryRequirements: e.target.value
+                      })}
+                      placeholder="Bijv. 2x vegetarisch, 1x notenallergie, 1x glutenvrij"
+                      rows={3}
+                      className="w-full px-4 py-2 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500"
+                    />
                   ) : (
                     <div>
                       {selectedReservation.dietaryRequirements ? (
-                        <div className="space-y-1 text-sm text-slate-900 dark:text-white">
-                          {selectedReservation.dietaryRequirements.vegetarian && <p>• 🥗 Vegetarisch</p>}
-                          {selectedReservation.dietaryRequirements.vegan && <p>• 🌱 Veganistisch</p>}
-                          {selectedReservation.dietaryRequirements.glutenFree && <p>• 🌾 Glutenvrij</p>}
-                          {selectedReservation.dietaryRequirements.lactoseFree && <p>• 🥛 Lactosevrij</p>}
-                          {selectedReservation.dietaryRequirements.other && <p>• ⚠️ {selectedReservation.dietaryRequirements.other}</p>}
-                          {!selectedReservation.dietaryRequirements.vegetarian && 
-                           !selectedReservation.dietaryRequirements.vegan &&
-                           !selectedReservation.dietaryRequirements.glutenFree &&
-                           !selectedReservation.dietaryRequirements.lactoseFree &&
-                           !selectedReservation.dietaryRequirements.other && (
-                            <p className="text-slate-500 dark:text-slate-400 italic">Geen bijzondere dieetwensen</p>
+                        <div className="text-sm text-slate-900 dark:text-white">
+                          {typeof selectedReservation.dietaryRequirements === 'string' ? (
+                            <p className="whitespace-pre-wrap">{selectedReservation.dietaryRequirements}</p>
+                          ) : (
+                            <div className="space-y-1">
+                              {selectedReservation.dietaryRequirements.vegetarian && <p>• 🥗 Vegetarisch</p>}
+                              {selectedReservation.dietaryRequirements.vegan && <p>• 🌱 Veganistisch</p>}
+                              {selectedReservation.dietaryRequirements.glutenFree && <p>• 🌾 Glutenvrij</p>}
+                              {selectedReservation.dietaryRequirements.lactoseFree && <p>• 🥛 Lactosevrij</p>}
+                              {selectedReservation.dietaryRequirements.other && <p>• ⚠️ {selectedReservation.dietaryRequirements.other}</p>}
+                              {!selectedReservation.dietaryRequirements.vegetarian && 
+                               !selectedReservation.dietaryRequirements.vegan &&
+                               !selectedReservation.dietaryRequirements.glutenFree &&
+                               !selectedReservation.dietaryRequirements.lactoseFree &&
+                               !selectedReservation.dietaryRequirements.other && (
+                                <p className="text-slate-500 dark:text-slate-400 italic">Geen bijzondere dieetwensen</p>
+                              )}
+                            </div>
                           )}
                         </div>
                       ) : (
@@ -3243,10 +3177,10 @@ export const ReservationsDashboard: React.FC = () => {
 
               {/* Financial Details */}
               <div className={cn(
-                "rounded-xl p-6 border-2 transition-all",
+                "rounded-lg p-6 border-2 transition-all",
                 isEditMode 
-                  ? "bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-300 dark:border-blue-700"
-                  : "bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200 dark:border-green-800"
+                  ? "bg-slate-800"
+                  : "bg-slate-800"
               )}>
                 <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2 mb-4">
                   <Euro className="w-5 h-5" />
@@ -3386,7 +3320,7 @@ export const ReservationsDashboard: React.FC = () => {
 
               {/* Admin Notes */}
               {selectedReservation.notes && (
-                <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-xl p-6 border-2 border-yellow-200 dark:border-yellow-800">
+                <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
                   <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2 mb-2">
                     <AlertCircle className="w-5 h-5 text-yellow-600" />
                     Admin Notities
@@ -3396,7 +3330,7 @@ export const ReservationsDashboard: React.FC = () => {
               )}
 
               {/* Metadata */}
-              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6 space-y-2 text-xs text-slate-600 dark:text-slate-400">
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-6 space-y-2 text-xs text-slate-600 dark:text-slate-400">
                 <p><strong>Aangemaakt:</strong> {format(selectedReservation.createdAt instanceof Date ? selectedReservation.createdAt : parseISO(selectedReservation.createdAt as any), 'dd MMM yyyy HH:mm', { locale: nl })}</p>
                 <p><strong>Laatst gewijzigd:</strong> {format(selectedReservation.updatedAt instanceof Date ? selectedReservation.updatedAt : parseISO(selectedReservation.updatedAt as any), 'dd MMM yyyy HH:mm', { locale: nl })}</p>
                 {selectedReservation.checkedInAt && (
@@ -3626,19 +3560,19 @@ export const ReservationsDashboard: React.FC = () => {
       {/* ====================================================================== */}
       {/* HEADER */}
       {/* ====================================================================== */}
-      <header className="flex-shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+      <header className="flex-shrink-0 border-b border-slate-800">
         <div className="px-6 py-4">
           {/* Top Row */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-xl shadow-lg">
-                <LayoutDashboard className="w-6 h-6 text-white" strokeWidth={2.5} />
+              <div className="p-3 bg-primary/10 rounded-lg">
+                <LayoutDashboard className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <h1 className="text-2xl font-black text-slate-900 dark:text-white">
+                <h1 className="text-2xl font-bold text-white">
                   Reserveringen
                 </h1>
-                <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                <p className="text-sm text-slate-400">
                   Beheer alle reserveringen en opties
                 </p>
               </div>
@@ -3647,7 +3581,7 @@ export const ReservationsDashboard: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowManualBooking(true)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold text-sm transition-all shadow-lg hover:shadow-xl"
+                className="flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary/80 text-white rounded-lg text-sm transition-all"
               >
                 <FileEdit className="w-4 h-4" />
                 <span>Nieuwe Reservering</span>
@@ -3659,7 +3593,7 @@ export const ReservationsDashboard: React.FC = () => {
                   console.log('🔍 [DEBUG] Stats:', stats);
                   alert(`Totaal: ${reservations.length} reserveringen\nPending: ${stats.pending}\nConfirmed: ${stats.confirmed}\n\nCheck console voor details`);
                 }}
-                className="flex items-center gap-2 px-4 py-2.5 bg-purple-100 dark:bg-purple-900/30 hover:bg-purple-200 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 rounded-xl font-bold text-sm transition-colors"
+                className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg border border-slate-800 text-sm transition-colors"
               >
                 <AlertCircle className="w-4 h-4" />
                 <span className="hidden sm:inline">Debug</span>
@@ -3671,7 +3605,7 @@ export const ReservationsDashboard: React.FC = () => {
                   loadEvents();
                 }}
                 disabled={isLoadingReservations}
-                className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <RefreshCw className={cn("w-4 h-4", isLoadingReservations && "animate-spin")} />
                 <span className="hidden sm:inline">Ververs</span>
@@ -3682,20 +3616,20 @@ export const ReservationsDashboard: React.FC = () => {
 
 
           {/* Main Tabs */}
-          <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-700 pb-2">
+          <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
             <button
               onClick={() => setMainTab('reserveringen')}
               className={cn(
-                'flex items-center gap-2 px-6 py-3 rounded-t-lg font-black text-sm transition-all',
+                'flex items-center gap-2 px-6 py-3 rounded-t-lg text-sm transition-all',
                 mainTab === 'reserveringen'
-                  ? 'bg-blue-500 text-white shadow-lg'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  ? 'bg-primary text-white'
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               )}
             >
               <Calendar className="w-5 h-5" />
               Reserveringen
               {(stats.pending + stats.confirmed) > 0 && (
-                <span className="px-2 py-0.5 bg-white/20 text-white rounded-full text-xs font-black">
+                <span className="px-2 py-0.5 bg-white/20 text-white rounded-full text-xs">
                   {stats.pending + stats.confirmed}
                 </span>
               )}
@@ -3704,10 +3638,10 @@ export const ReservationsDashboard: React.FC = () => {
             <button
               onClick={() => setMainTab('betalingen')}
               className={cn(
-                'flex items-center gap-2 px-6 py-3 rounded-t-lg font-black text-sm transition-all',
+                'flex items-center gap-2 px-6 py-3 rounded-t-lg text-sm transition-all',
                 mainTab === 'betalingen'
-                  ? 'bg-emerald-500 text-white shadow-lg'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  ? 'bg-primary text-white'
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               )}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3717,7 +3651,7 @@ export const ReservationsDashboard: React.FC = () => {
               {(() => {
                 const overdueCount = activeReservations.filter(r => calculatePaymentSummary(r).isOverdue).length;
                 return overdueCount > 0 && (
-                  <span className="px-2 py-0.5 bg-red-500 text-white rounded-full text-xs font-black animate-pulse">
+                  <span className="px-2 py-0.5 bg-red-500 text-white rounded-full text-xs animate-pulse">
                     {overdueCount}
                   </span>
                 );
@@ -3727,10 +3661,10 @@ export const ReservationsDashboard: React.FC = () => {
             <button
               onClick={() => setMainTab('opties')}
               className={cn(
-                'flex items-center gap-2 px-6 py-3 rounded-t-lg font-black text-sm transition-all',
+                'flex items-center gap-2 px-6 py-3 rounded-t-lg text-sm transition-all',
                 mainTab === 'opties'
-                  ? 'bg-orange-500 text-white shadow-lg'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  ? 'bg-primary text-white'
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               )}
             >
               <Clock className="w-5 h-5" />
@@ -3738,7 +3672,7 @@ export const ReservationsDashboard: React.FC = () => {
               {(() => {
                 const expiringCount = activeReservations.filter(r => isExpiringSoon(r) || isExpired(r)).length;
                 return expiringCount > 0 && (
-                  <span className="px-2 py-0.5 bg-white/20 text-white rounded-full text-xs font-black">
+                  <span className="px-2 py-0.5 bg-white/20 text-white rounded-full text-xs">
                     {expiringCount}
                   </span>
                 );
@@ -3748,10 +3682,10 @@ export const ReservationsDashboard: React.FC = () => {
             <button
               onClick={() => setMainTab('archief')}
               className={cn(
-                'flex items-center gap-2 px-6 py-3 rounded-t-lg font-black text-sm transition-all',
+                'flex items-center gap-2 px-6 py-3 rounded-t-lg text-sm transition-all',
                 mainTab === 'archief'
-                  ? 'bg-slate-600 text-white shadow-lg'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  ? 'bg-primary text-white'
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               )}
             >
               <Archive className="w-5 h-5" />
@@ -3759,7 +3693,7 @@ export const ReservationsDashboard: React.FC = () => {
               {(() => {
                 const archivedCount = reservations.filter(r => r.status === 'rejected' || r.status === 'cancelled').length;
                 return archivedCount > 0 && (
-                  <span className="px-2 py-0.5 bg-white/20 text-white rounded-full text-xs font-black">
+                  <span className="px-2 py-0.5 bg-white/20 text-white rounded-full text-xs">
                     {archivedCount}
                   </span>
                 );
@@ -3862,59 +3796,39 @@ export const ReservationsDashboard: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {quickStats.map((stat, index) => {
                   const Icon = stat.icon;
-                  const colorMap: Record<string, string> = {
-                    blue: 'from-blue-500 to-blue-600',
-                    orange: 'from-orange-500 to-orange-600',
-                    green: 'from-green-500 to-green-600',
-                    red: 'from-red-500 to-red-600'
-                  };
 
                   return (
                     <button
                       key={index}
                       onClick={stat.onClick}
-                      className="group relative overflow-hidden bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 hover:shadow-2xl hover:scale-105 transition-all duration-300 text-left"
+                      className="group bg-slate-900 rounded-lg border border-slate-800 p-6 hover:bg-slate-800 transition-all text-left"
                     >
-                      {/* Background gradient */}
-                      <div className={cn(
-                        'absolute top-0 right-0 w-32 h-32 bg-gradient-to-br opacity-10 group-hover:opacity-20 transition-opacity rounded-full -mr-16 -mt-16',
-                        colorMap[stat.color]
-                      )} />
-
-                      <div className="relative">
-                        <div className="flex items-start justify-between mb-4">
-                          <div className={cn(
-                            'p-3 bg-gradient-to-br rounded-xl shadow-lg',
-                            colorMap[stat.color]
-                          )}>
-                            <Icon className="w-6 h-6 text-white" strokeWidth={2.5} />
-                          </div>
-                          {stat.value > 0 && (
-                            <div className={cn(
-                              'px-3 py-1 bg-gradient-to-br rounded-lg text-white font-black text-xs',
-                              colorMap[stat.color]
-                            )}>
-                              {stat.value}
-                            </div>
-                          )}
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="p-3 bg-primary/10 rounded-lg">
+                          <Icon className="w-6 h-6 text-primary" />
                         </div>
-
-                        <div className="space-y-1">
-                          <h3 className="text-sm font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wide">
-                            {stat.label}
-                          </h3>
-                          <p className="text-3xl font-black text-slate-900 dark:text-white">
+                        {stat.value > 0 && (
+                          <div className="px-3 py-1 bg-primary/10 rounded border border-slate-800 text-primary text-xs font-medium">
                             {stat.value}
-                          </p>
-                          {stat.trend && (
-                            <p className="text-xs text-slate-500 dark:text-slate-500 font-medium">
-                              {stat.trend}
-                            </p>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
 
-                      <ChevronRight className="absolute bottom-4 right-4 w-5 h-5 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 group-hover:translate-x-1 transition-all" />
+                      <div className="space-y-1">
+                        <h3 className="text-sm text-slate-400 uppercase tracking-wide">
+                          {stat.label}
+                        </h3>
+                        <p className="text-3xl font-bold text-white">
+                          {stat.value}
+                        </p>
+                        {stat.trend && (
+                          <p className="text-xs text-slate-500">
+                            {stat.trend}
+                          </p>
+                        )}
+                      </div>
+
+                      <ChevronRight className="absolute bottom-4 right-4 w-5 h-5 text-slate-600 group-hover:text-slate-400 group-hover:translate-x-1 transition-all" />
                     </button>
                   );
                 })}
@@ -3934,30 +3848,30 @@ export const ReservationsDashboard: React.FC = () => {
                   }, { overdue: 0, unpaid: 0, partial: 0, totalOutstanding: 0 });
 
                   return (
-                    <div className="bg-gradient-to-br from-red-500 to-orange-500 rounded-xl p-6 text-white shadow-2xl">
+                    <div className="bg-slate-900 rounded-lg p-6 border border-slate-800">
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-black">💰 Betalingen</h3>
-                        <div className="text-xs font-bold bg-white/20 px-2 py-1 rounded">
+                        <h3 className="text-lg font-bold text-white">💰 Betalingen</h3>
+                        <div className="text-xs bg-slate-800 px-2 py-1 rounded text-white border border-slate-700">
                           {paymentStats.overdue + paymentStats.unpaid + paymentStats.partial} openstaand
                         </div>
                       </div>
                       <div className="grid grid-cols-3 gap-3 mb-3">
-                        <div className="bg-white/10 rounded-lg p-3">
-                          <p className="text-2xl font-black">{paymentStats.overdue}</p>
-                          <p className="text-xs font-bold text-white/80">Te Laat</p>
+                        <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
+                          <p className="text-2xl font-bold text-white">{paymentStats.overdue}</p>
+                          <p className="text-xs text-red-400">Te Laat</p>
                         </div>
-                        <div className="bg-white/10 rounded-lg p-3">
-                          <p className="text-2xl font-black">{paymentStats.unpaid}</p>
-                          <p className="text-xs font-bold text-white/80">Onbetaald</p>
+                        <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
+                          <p className="text-2xl font-bold text-white">{paymentStats.unpaid}</p>
+                          <p className="text-xs text-amber-400">Onbetaald</p>
                         </div>
-                        <div className="bg-white/10 rounded-lg p-3">
-                          <p className="text-2xl font-black">{paymentStats.partial}</p>
-                          <p className="text-xs font-bold text-white/80">Deelbetaling</p>
+                        <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
+                          <p className="text-2xl font-bold text-white">{paymentStats.partial}</p>
+                          <p className="text-xs text-slate-400">Deelbetaling</p>
                         </div>
                       </div>
-                      <div className="bg-white/20 rounded-lg p-3">
-                        <p className="text-sm font-bold text-white/80 mb-1">Totaal Openstaand</p>
-                        <p className="text-3xl font-black">€{paymentStats.totalOutstanding.toFixed(2)}</p>
+                      <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
+                        <p className="text-sm text-slate-400 mb-1">Totaal Openstaand</p>
+                        <p className="text-3xl font-bold text-white">€{paymentStats.totalOutstanding.toFixed(2)}</p>
                       </div>
                     </div>
                   );
@@ -3972,7 +3886,7 @@ export const ReservationsDashboard: React.FC = () => {
                   }, { expiring: 0, expired: 0 });
 
                   return (
-                    <div className="bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl p-6 text-white shadow-2xl">
+                    <div className="bg-slate-900 rounded-lg p-6 border border-slate-800">
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-black">⏰ Opties</h3>
                         <div className="text-xs font-bold bg-white/20 px-2 py-1 rounded">
@@ -3997,75 +3911,75 @@ export const ReservationsDashboard: React.FC = () => {
               </div>
 
               {/* Revenue Card */}
-              <div className="bg-gradient-to-br from-emerald-500 via-green-500 to-teal-500 rounded-xl p-6 text-white shadow-2xl">
+              <div className="bg-slate-900 rounded-lg p-6 border border-slate-800">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-bold text-white/80 uppercase tracking-wide mb-2">
+                    <p className="text-sm text-slate-400 uppercase tracking-wide mb-2">
                       Omzet Vandaag
                     </p>
-                    <p className="text-4xl font-black mb-1">
+                    <p className="text-4xl font-bold text-white mb-1">
                       €{stats.revenue.toFixed(2)}
                     </p>
-                    <p className="text-sm text-white/70 font-medium">
+                    <p className="text-sm text-slate-400">
                       Betaalde reserveringen vandaag
                     </p>
                   </div>
-                  <div className="p-4 bg-white/20 rounded-xl backdrop-blur-sm">
-                    <TrendingUp className="w-8 h-8" strokeWidth={2.5} />
+                  <div className="p-4 bg-primary/10 rounded-lg">
+                    <TrendingUp className="w-8 h-8 text-primary" />
                   </div>
                 </div>
               </div>
 
               {/* ✨ NEW: Advanced Analytics */}
-              <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
-                <h3 className="text-lg font-black text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+              <div className="bg-slate-900 rounded-lg border border-slate-800 p-6">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                   📊 Geavanceerde Analytics
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Conversion Rate */}
-                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+                  <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-bold text-slate-600 dark:text-slate-400">Conversie Rate</span>
-                      <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-                        <TrendingUp className="w-5 h-5 text-white" />
+                      <span className="text-sm text-slate-400">Conversie Rate</span>
+                      <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                        <TrendingUp className="w-5 h-5 text-primary" />
                       </div>
                     </div>
-                    <p className="text-3xl font-black text-blue-700 dark:text-blue-300 mb-1">
+                    <p className="text-3xl font-bold text-white mb-1">
                       {stats.conversionRate}%
                     </p>
-                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                    <p className="text-xs text-slate-400">
                       Opties → Bevestigd
                     </p>
                   </div>
 
                   {/* Average Group Size */}
-                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
+                  <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-bold text-slate-600 dark:text-slate-400">Gem. Groepsgrootte</span>
-                      <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
-                        <Users className="w-5 h-5 text-white" />
+                      <span className="text-sm text-slate-400">Gem. Groepsgrootte</span>
+                      <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                        <Users className="w-5 h-5 text-primary" />
                       </div>
                     </div>
-                    <p className="text-3xl font-black text-purple-700 dark:text-purple-300 mb-1">
+                    <p className="text-3xl font-bold text-white mb-1">
                       {stats.avgGroupSize}
                     </p>
-                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                    <p className="text-xs text-slate-400">
                       Gasten per boeking
                     </p>
                   </div>
 
                   {/* Cancellation Rate */}
-                  <div className="bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 rounded-xl p-4 border border-red-200 dark:border-red-800">
+                  <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-bold text-slate-600 dark:text-slate-400">Annulering Rate</span>
-                      <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center">
-                        <XCircle className="w-5 h-5 text-white" />
+                      <span className="text-sm text-slate-400">Annulering Rate</span>
+                      <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                        <XCircle className="w-5 h-5 text-primary" />
                       </div>
                     </div>
-                    <p className="text-3xl font-black text-red-700 dark:text-red-300 mb-1">
+                    <p className="text-3xl font-bold text-white mb-1">
                       {stats.cancellationRate}%
                     </p>
-                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                    <p className="text-xs text-slate-400">
                       Van alle boekingen
                     </p>
                   </div>
@@ -4101,7 +4015,7 @@ export const ReservationsDashboard: React.FC = () => {
 
               {/* Upcoming Shows */}
               {upcomingBookings.length > 0 && (
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
                   <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -4211,7 +4125,7 @@ export const ReservationsDashboard: React.FC = () => {
                 });
                 
                 return requestReservations.length === 0 ? (
-                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12 text-center">
+                  <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-12 text-center">
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full mb-4">
                       <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
                     </div>
@@ -4226,7 +4140,7 @@ export const ReservationsDashboard: React.FC = () => {
                     </p>
                   </div>
                 ) : (
-                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-200 dark:divide-slate-800">
+                  <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 divide-y divide-slate-200 dark:divide-slate-800">
                     {requestReservations.map((reservation) => {
                       const event = activeEvents.find(e => e.id === reservation.eventId);
                       
@@ -4441,7 +4355,7 @@ export const ReservationsDashboard: React.FC = () => {
                 });
 
                 return confirmedReservations.length === 0 ? (
-                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12 text-center">
+                  <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-12 text-center">
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full mb-4">
                       <Package className="w-8 h-8 text-slate-400" />
                     </div>
@@ -4453,7 +4367,7 @@ export const ReservationsDashboard: React.FC = () => {
                     </p>
                   </div>
                 ) : (
-                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-200 dark:divide-slate-800">
+                  <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 divide-y divide-slate-200 dark:divide-slate-800">
                     {confirmedReservations.map((reservation) => {
                       const event = activeEvents.find(e => e.id === reservation.eventId);
                       const eventDate = event ? (event.date instanceof Date ? event.date : parseISO(event.date as any)) : null;
@@ -4638,7 +4552,7 @@ export const ReservationsDashboard: React.FC = () => {
               </div>
 
               {/* ✨ NEW: Advanced Filters */}
-              <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4">
+              <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-4">
                 <div className="flex items-center gap-4 flex-wrap">
                   {/* Date Range */}
                   <div className="flex items-center gap-2">
@@ -4727,7 +4641,7 @@ export const ReservationsDashboard: React.FC = () => {
 
               {/* Bulk Actions Toolbar */}
               {selectedReservationIds.size > 0 && (
-                <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-slate-700-200 dark:border-blue-800 rounded-lg p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <h3 className="font-black text-blue-900 dark:text-blue-100">
@@ -4848,7 +4762,7 @@ export const ReservationsDashboard: React.FC = () => {
                 });
 
                 return filteredReservations.length === 0 ? (
-                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12 text-center">
+                  <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-12 text-center">
                     <Search className="w-12 h-12 text-slate-400 mx-auto mb-4" />
                     <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2">
                       {searchQuery ? 'Geen resultaten' : 'Geen reserveringen'}
@@ -4870,7 +4784,7 @@ export const ReservationsDashboard: React.FC = () => {
                         <div 
                           key={reservation.id}
                           className={cn(
-                            "bg-white dark:bg-slate-900 rounded-xl border-2 border-slate-200 dark:border-slate-800 p-6 hover:shadow-lg transition-all cursor-pointer",
+                            "bg-white dark:bg-slate-900 rounded-lg border border-slate-700 dark:border-slate-800 p-6 hover:shadow-lg transition-all cursor-pointer",
                             selectedReservationIds.has(reservation.id) && "border-blue-500 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20"
                           )}
                           onClick={() => setSelectedReservationId(reservation.id)}
@@ -4951,186 +4865,272 @@ export const ReservationsDashboard: React.FC = () => {
                     })}
                   </div>
                 ) : (
-                  /* ✨ LIST VIEW (Original Table) */
-                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
-                          <tr>
-                            <th className="px-4 py-3 text-center w-12">
+                  /* ✨ COMPACT LIST VIEW with Expandable Rows */
+                  <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
+                    {/* Header with Select All */}
+                    <div className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center gap-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedReservationIds.size === filteredReservations.length && filteredReservations.length > 0}
+                        onChange={() => toggleSelectAll(filteredReservations)}
+                        className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase">
+                        {selectedReservationIds.size > 0 
+                          ? `${selectedReservationIds.size} geselecteerd` 
+                          : `${filteredReservations.length} reserveringen`}
+                      </span>
+                    </div>
+
+                    {/* Compact Reservations List */}
+                    <div className="divide-y divide-slate-200 dark:divide-slate-800">
+                      {filteredReservations.map((reservation) => {
+                        const event = activeEvents.find(e => e.id === reservation.eventId);
+                        const eventDate = event ? (event.date instanceof Date ? event.date : parseISO(event.date as any)) : null;
+                        const paymentSummary = calculatePaymentSummary(reservation);
+                        const badge = getPaymentStatusBadge(paymentSummary);
+                        const isExpanded = expandedRows.has(reservation.id!);
+
+                        return (
+                          <div key={reservation.id} className={cn(
+                            "transition-all",
+                            selectedReservationIds.has(reservation.id!) && "bg-blue-50 dark:bg-blue-900/10"
+                          )}>
+                            {/* Compact Row - Always Visible */}
+                            <div 
+                              className={cn(
+                                "px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer flex items-center gap-3",
+                                isExpanded && "bg-slate-50 dark:bg-slate-800/30"
+                              )}
+                              onClick={() => {
+                                setExpandedRows(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(reservation.id!)) {
+                                    next.delete(reservation.id!);
+                                  } else {
+                                    next.add(reservation.id!);
+                                  }
+                                  return next;
+                                });
+                              }}
+                            >
+                              {/* Checkbox */}
                               <input
                                 type="checkbox"
-                                checked={selectedReservationIds.size === filteredReservations.length && filteredReservations.length > 0}
-                                onChange={() => toggleSelectAll(filteredReservations)}
-                                className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                                checked={selectedReservationIds.has(reservation.id!)}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  toggleSelectReservation(reservation.id!);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-2 focus:ring-blue-500 flex-shrink-0"
                               />
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-300 uppercase">Status</th>
-                            <th className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-300 uppercase">Naam</th>
-                            <th className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-300 uppercase">Event</th>
-                            <th className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-300 uppercase">Gasten</th>
-                            <th className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-300 uppercase">Merch</th>
-                            <th className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-300 uppercase">Prijs</th>
-                            <th className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-300 uppercase">Betaling</th>
-                            <th className="px-4 py-3 text-left text-xs font-black text-slate-700 dark:text-slate-300 uppercase">Tags</th>
-                            <th className="px-4 py-3 text-right text-xs font-black text-slate-700 dark:text-slate-300 uppercase">Acties</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                          {filteredReservations.map((reservation) => {
-                            const event = activeEvents.find(e => e.id === reservation.eventId);
-                            const eventDate = event ? (event.date instanceof Date ? event.date : parseISO(event.date as any)) : null;
 
-                            return (
-                              <tr key={reservation.id} className={cn(
-                                "hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors",
-                                selectedReservationIds.has(reservation.id) && "bg-blue-50 dark:bg-blue-900/20"
-                              )}>
-                                <td className="px-4 py-4 text-center">
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedReservationIds.has(reservation.id)}
-                                    onChange={() => toggleSelectReservation(reservation.id)}
-                                    className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-2 focus:ring-blue-500"
-                                  />
-                                </td>
-                                <td className="px-4 py-4">
+                              {/* Expand Icon */}
+                              <ChevronRight className={cn(
+                                "w-5 h-5 text-slate-400 transition-transform flex-shrink-0",
+                                isExpanded && "transform rotate-90"
+                              )} />
+
+                              {/* Main Info */}
+                              <div className="flex-1 min-w-0 grid grid-cols-12 gap-3 items-center">
+                                {/* Status */}
+                                <div className="col-span-2">
                                   <span className={cn(
-                                    "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-black uppercase rounded-lg border-2 shadow-sm",
-                                    reservation.status === 'confirmed' && "bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700",
-                                    reservation.status === 'pending' && "bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/30 dark:to-amber-900/30 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-700",
-                                    reservation.status === 'cancelled' && "bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/30 dark:to-rose-900/30 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700"
+                                    "inline-flex items-center gap-1 px-2 py-1 text-xs font-black uppercase rounded-lg border whitespace-nowrap",
+                                    reservation.status === 'confirmed' && "bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300",
+                                    reservation.status === 'pending' && "bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-300",
+                                    reservation.status === 'cancelled' && "bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-300",
+                                    reservation.status === 'option' && "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300",
+                                    reservation.status === 'checked-in' && "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-300"
                                   )}>
-                                    {reservation.status === 'confirmed' && (
-                                      <>
-                                        <CheckCircle2 className="w-3.5 h-3.5" />
-                                        <span>Bevestigd</span>
-                                      </>
-                                    )}
-                                    {reservation.status === 'pending' && (
-                                      <>
-                                        <Clock className="w-3.5 h-3.5" />
-                                        <span>In Afwachting</span>
-                                      </>
-                                    )}
-                                    {reservation.status === 'cancelled' && (
-                                      <>
-                                        <XCircle className="w-3.5 h-3.5" />
-                                        <span>Geannuleerd</span>
-                                      </>
-                                    )}
+                                    {reservation.status === 'confirmed' && '✓'}
+                                    {reservation.status === 'pending' && '⏰'}
+                                    {reservation.status === 'cancelled' && '❌'}
+                                    {reservation.status === 'option' && '💭'}
+                                    {reservation.status === 'checked-in' && '✅'}
                                   </span>
-                                </td>
-                                <td className="px-4 py-4">
-                                  <div className="font-bold text-slate-900 dark:text-white">{reservation.firstName} {reservation.lastName}</div>
+                                </div>
+
+                                {/* Name */}
+                                <div className="col-span-3 truncate">
+                                  <div className="font-bold text-slate-900 dark:text-white truncate">
+                                    {reservation.firstName} {reservation.lastName}
+                                  </div>
                                   {reservation.companyName && (
-                                    <div className="text-xs text-slate-600 dark:text-slate-400 font-medium">{reservation.companyName}</div>
-                                  )}
-                                  <div className="text-xs text-slate-500 dark:text-slate-400">{reservation.email}</div>
-                                </td>
-                                <td className="px-4 py-4">
-                                  {eventDate && (
-                                    <div className="text-sm text-slate-900 dark:text-white">
-                                      {format(eventDate, 'dd MMM yyyy', { locale: nl })}
+                                    <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                                      {reservation.companyName}
                                     </div>
                                   )}
-                                </td>
-                                <td className="px-4 py-4">
-                                  <div className="flex items-center gap-1 text-slate-900 dark:text-white">
-                                    <Users className="w-4 h-4" />
-                                    <span className="font-bold">{reservation.numberOfPersons}</span>
-                                  </div>
-                                </td>
-                                <td className="px-4 py-4">
-                                  {reservation.merchandise && reservation.merchandise.length > 0 ? (
-                                    <div className="flex items-center gap-1">
-                                      <Package className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                                      <span className="text-sm font-bold text-purple-700 dark:text-purple-300">
-                                        {reservation.merchandise.length}x
-                                      </span>
-                                    </div>
-                                  ) : (
-                                    <span className="text-xs text-slate-400">-</span>
-                                  )}
-                                </td>
-                                <td className="px-4 py-4">
-                                  <div className="font-bold text-slate-900 dark:text-white">
-                                    €{getTotalAmount(reservation)?.toFixed(2)}
-                                  </div>
-                                </td>
-                                <td className="px-4 py-4">
-                                  {(() => {
-                                    const summary = calculatePaymentSummary(reservation);
-                                    const badge = getPaymentStatusBadge(summary);
-                                    return (
-                                      <div className="flex flex-col gap-1">
-                                        <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-black uppercase rounded border ${badge.color}`}>
-                                          <span>{badge.icon}</span>
-                                          <span>{badge.label}</span>
-                                        </span>
-                                        {summary.balance > 0 && (
-                                          <span className="text-xs text-slate-600 dark:text-slate-400">
-                                            €{summary.balance.toFixed(2)} openstaand
-                                          </span>
-                                        )}
-                                        {summary.isOverdue && (
-                                          <span className="text-xs text-red-600 dark:text-red-400 font-bold">
-                                            ⚠️ Te laat!
-                                          </span>
-                                        )}
-                                      </div>
-                                    );
-                                  })()}
-                                </td>
-                                <td className="px-4 py-4">
-                                  <div className="flex flex-wrap gap-1">
-                                    {reservation.tags?.slice(0, 2).map((tag) => (
-                                      <TagBadge key={tag} tag={tag} />
-                                    ))}
-                                    {reservation.tags && reservation.tags.length > 2 && (
-                                      <span className="text-xs text-slate-500">+{reservation.tags.length - 2}</span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="px-4 py-4">
-                                  <div className="flex justify-end gap-2">
-                                    {(() => {
-                                      const summary = calculatePaymentSummary(reservation);
-                                      const isPaid = summary.status === 'paid' || summary.status === 'overpaid';
-                                      return (
-                                        <button
-                                          onClick={() => {
-                                            setSelectedReservationId(reservation.id);
-                                            if (!isPaid) {
-                                              setTimeout(() => setShowPaymentModal(true), 100);
-                                            }
-                                          }}
-                                          className={cn(
-                                            "p-2 rounded-lg transition-all font-bold",
-                                            isPaid 
-                                              ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50" 
-                                              : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
-                                          )}
-                                          title={isPaid ? "Volledig Betaald" : "Betaling Registreren"}
-                                        >
-                                          💰
-                                        </button>
-                                      );
-                                    })()}
+                                </div>
+
+                                {/* Event Date */}
+                                <div className="col-span-2 text-sm text-slate-700 dark:text-slate-300 truncate">
+                                  {eventDate && format(eventDate, 'dd MMM yyyy', { locale: nl })}
+                                </div>
+
+                                {/* Guests */}
+                                <div className="col-span-1 flex items-center gap-1 text-slate-700 dark:text-slate-300">
+                                  <Users className="w-4 h-4" />
+                                  <span className="font-bold">{reservation.numberOfPersons}</span>
+                                </div>
+
+                                {/* Price */}
+                                <div className="col-span-2 font-bold text-slate-900 dark:text-white">
+                                  €{getTotalAmount(reservation)?.toFixed(2)}
+                                </div>
+
+                                {/* Payment Badge */}
+                                <div className="col-span-2 flex justify-end">
+                                  <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-black uppercase rounded border ${badge.color}`}>
+                                    {badge.icon}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Action Buttons */}
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                {(() => {
+                                  const isPaid = paymentSummary.status === 'paid' || paymentSummary.status === 'overpaid';
+                                  return (
                                     <button
-                                      onClick={() => setSelectedReservationId(reservation.id)}
-                                      className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                                      title="Details"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedReservationId(reservation.id!);
+                                        if (!isPaid) {
+                                          setTimeout(() => setShowPaymentModal(true), 100);
+                                        }
+                                      }}
+                                      className={cn(
+                                        "p-2 rounded-lg transition-all",
+                                        isPaid 
+                                          ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200" 
+                                          : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200"
+                                      )}
+                                      title={isPaid ? "Volledig Betaald" : "Betaling Registreren"}
                                     >
-                                      <Eye className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                                      💰
                                     </button>
+                                  );
+                                })()}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedReservationId(reservation.id!);
+                                  }}
+                                  className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                                  title="Details"
+                                >
+                                  <Eye className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Expanded Details */}
+                            {isExpanded && (
+                              <div className="px-4 pb-4 pt-2 bg-slate-50 dark:bg-slate-800/30 border-t border-slate-200 dark:border-slate-700">
+                                <div className="grid grid-cols-3 gap-4 text-sm">
+                                  {/* Contact Info */}
+                                  <div className="space-y-2">
+                                    <h4 className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase">Contact</h4>
+                                    <div className="space-y-1">
+                                      <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                                        <Mail className="w-4 h-4 text-slate-400" />
+                                        <span className="truncate">{reservation.email}</span>
+                                      </div>
+                                      {reservation.phone && (
+                                        <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                                          <Phone className="w-4 h-4 text-slate-400" />
+                                          <span>{reservation.phone}</span>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+
+                                  {/* Booking Details */}
+                                  <div className="space-y-2">
+                                    <h4 className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase">Boeking</h4>
+                                    <div className="space-y-1">
+                                      <div className="text-slate-700 dark:text-slate-300">
+                                        <span className="font-medium">Arrangement:</span> {reservation.arrangement}
+                                      </div>
+                                      {reservation.merchandise && reservation.merchandise.length > 0 && (
+                                        <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                                          <Package className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                                          <span className="font-bold text-purple-700 dark:text-purple-300">
+                                            {reservation.merchandise.length}x merchandise
+                                          </span>
+                                        </div>
+                                      )}
+                                      {reservation.preDrink?.enabled && (
+                                        <div className="text-slate-700 dark:text-slate-300">
+                                          ✓ Pre-drink ({reservation.preDrink.quantity}x)
+                                        </div>
+                                      )}
+                                      {reservation.afterParty?.enabled && (
+                                        <div className="text-slate-700 dark:text-slate-300">
+                                          ✓ After-party ({reservation.afterParty.quantity}x)
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Payment Info */}
+                                  <div className="space-y-2">
+                                    <h4 className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase">Betaling</h4>
+                                    <div className="space-y-1">
+                                      <div className="text-slate-700 dark:text-slate-300">
+                                        <span className="font-medium">Totaal:</span> €{paymentSummary.total.toFixed(2)}
+                                      </div>
+                                      <div className="text-slate-700 dark:text-slate-300">
+                                        <span className="font-medium">Betaald:</span> €{paymentSummary.paid.toFixed(2)}
+                                      </div>
+                                      {paymentSummary.balance > 0 && (
+                                        <div className="text-red-700 dark:text-red-400 font-bold">
+                                          <span className="font-medium">Openstaand:</span> €{paymentSummary.balance.toFixed(2)}
+                                        </div>
+                                      )}
+                                      {paymentSummary.isOverdue && (
+                                        <div className="text-red-600 dark:text-red-400 font-bold flex items-center gap-1">
+                                          <AlertCircle className="w-4 h-4" />
+                                          Te laat!
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Tags */}
+                                {reservation.tags && reservation.tags.length > 0 && (
+                                  <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                                    <div className="flex flex-wrap gap-2">
+                                      {reservation.tags.map((tag) => (
+                                        <TagBadge key={tag} tag={tag} />
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Dietary Requirements */}
+                                {reservation.dietaryRequirements && typeof reservation.dietaryRequirements === 'string' && reservation.dietaryRequirements.trim() && (
+                                  <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                                    <h4 className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase mb-1">Dieetwensen</h4>
+                                    <p className="text-sm text-slate-700 dark:text-slate-300">{reservation.dietaryRequirements}</p>
+                                  </div>
+                                )}
+
+                                {/* Special Occasions */}
+                                {reservation.specialOccasion && (
+                                  <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                                    <h4 className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase mb-1">Speciale Gelegenheid</h4>
+                                    <p className="text-sm text-slate-700 dark:text-slate-300">{reservation.specialOccasion}</p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -5168,7 +5168,7 @@ export const ReservationsDashboard: React.FC = () => {
                 const totalGuests = todayReservations.reduce((sum, r) => sum + r.numberOfPersons, 0);
 
                 return todayReservations.length === 0 ? (
-                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12 text-center">
+                  <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-12 text-center">
                     <Calendar className="w-12 h-12 text-slate-400 mx-auto mb-4" />
                     <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2">
                       Geen voorstellingen vandaag
@@ -5180,15 +5180,15 @@ export const ReservationsDashboard: React.FC = () => {
                 ) : (
                   <>
                     <div className="grid grid-cols-3 gap-4 mb-6">
-                      <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white">
+                      <div className="bg-slate-800">
                         <div className="text-sm font-bold opacity-80 mb-1">Totaal Reserveringen</div>
                         <div className="text-3xl font-black">{todayReservations.length}</div>
                       </div>
-                      <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white">
+                      <div className="bg-slate-800">
                         <div className="text-sm font-bold opacity-80 mb-1">Totaal Gasten</div>
                         <div className="text-3xl font-black">{totalGuests}</div>
                       </div>
-                      <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white">
+                      <div className="bg-slate-800">
                         <div className="text-sm font-bold opacity-80 mb-1">Bevestigd</div>
                         <div className="text-3xl font-black">
                           {todayReservations.filter(r => r.status === 'confirmed').length}
@@ -5204,7 +5204,7 @@ export const ReservationsDashboard: React.FC = () => {
                         return (
                           <div 
                             key={reservation.id}
-                            className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 hover:shadow-lg transition-shadow"
+                            className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-5 hover:shadow-lg transition-shadow"
                           >
                             <div className="flex items-center justify-between">
                               <div className="flex-1">
@@ -5325,7 +5325,7 @@ export const ReservationsDashboard: React.FC = () => {
                         <div
                           key={day.toISOString()}
                           className={cn(
-                            "bg-white dark:bg-slate-900 rounded-xl border p-4 min-h-[200px]",
+                            "bg-white dark:bg-slate-900 rounded-lg border p-4 min-h-[200px]",
                             isToday 
                               ? "border-blue-500 dark:border-blue-400 shadow-lg"
                               : "border-slate-200 dark:border-slate-800"
@@ -5455,26 +5455,26 @@ export const ReservationsDashboard: React.FC = () => {
                 return (
                   <>
                     <div className="grid grid-cols-4 gap-4 mb-6">
-                      <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white">
+                      <div className="bg-slate-800">
                         <div className="text-sm font-bold opacity-80 mb-1">Totaal Reserveringen</div>
                         <div className="text-3xl font-black">{monthReservations.length}</div>
                       </div>
-                      <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white">
+                      <div className="bg-slate-800">
                         <div className="text-sm font-bold opacity-80 mb-1">Totaal Gasten</div>
                         <div className="text-3xl font-black">{totalGuests}</div>
                       </div>
-                      <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white">
+                      <div className="bg-slate-800">
                         <div className="text-sm font-bold opacity-80 mb-1">Omzet</div>
                         <div className="text-2xl font-black">€{totalRevenue.toFixed(0)}</div>
                       </div>
-                      <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-4 text-white">
+                      <div className="bg-slate-800">
                         <div className="text-sm font-bold opacity-80 mb-1">Events</div>
                         <div className="text-3xl font-black">{Object.keys(weekGroups).length}</div>
                       </div>
                     </div>
 
                     {Object.keys(weekGroups).length === 0 ? (
-                      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12 text-center">
+                      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-12 text-center">
                         <Calendar className="w-12 h-12 text-slate-400 mx-auto mb-4" />
                         <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2">
                           Geen reserveringen deze maand
@@ -5488,7 +5488,7 @@ export const ReservationsDashboard: React.FC = () => {
                             const weekGuests = reservations.reduce((sum, r) => sum + r.numberOfPersons, 0);
                             
                             return (
-                              <div key={weekId} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                              <div key={weekId} className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
                                 <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
                                   <div className="flex items-center justify-between">
                                     <h3 className="text-lg font-black text-slate-900 dark:text-white">
@@ -5572,7 +5572,7 @@ export const ReservationsDashboard: React.FC = () => {
             <div className="space-y-6">
               {betalingenTab === 'overview' && (
                 <div className="space-y-6">
-                  <div className="bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl p-8 text-white">
+                  <div className="bg-slate-800">
                     <h2 className="text-2xl font-black mb-4">💰 Betalingen Overzicht</h2>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                       {(() => {
@@ -5620,7 +5620,7 @@ export const ReservationsDashboard: React.FC = () => {
                   </div>
 
                   {/* Recent Payments List */}
-                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                  <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
                     <div className="p-6 border-b border-slate-200 dark:border-slate-800">
                       <h3 className="text-lg font-black">Recente Betalingen</h3>
                     </div>
@@ -5708,7 +5708,7 @@ export const ReservationsDashboard: React.FC = () => {
                                   '🟡 Deelbetalingen';
 
                     return filtered.length === 0 ? (
-                      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12 text-center">
+                      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-12 text-center">
                         <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full mb-4">
                           <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
                         </div>
@@ -5717,11 +5717,11 @@ export const ReservationsDashboard: React.FC = () => {
                       </div>
                     ) : (
                       <>
-                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-6">
                           <h2 className="text-2xl font-black mb-2">{title}</h2>
                           <p className="text-slate-600 dark:text-slate-400">{filtered.length} reserveringen</p>
                         </div>
-                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-200 dark:divide-slate-800">
+                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 divide-y divide-slate-200 dark:divide-slate-800">
                           {filtered.map(reservation => {
                             const summary = calculatePaymentSummary(reservation);
                             const badge = getPaymentStatusBadge(summary);
@@ -5792,7 +5792,7 @@ export const ReservationsDashboard: React.FC = () => {
               {betalingenTab === 'history' && (
                 <div className="space-y-6">
                   {/* Export Options */}
-                  <div className="bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl p-8 text-white">
+                  <div className="bg-slate-800">
                     <h2 className="text-2xl font-black mb-4">📊 Rapporten & Export</h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <button
@@ -5855,19 +5855,19 @@ export const ReservationsDashboard: React.FC = () => {
 
                       return (
                         <>
-                          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+                          <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-6">
                             <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Totaal Betalingen</p>
                             <p className="text-3xl font-black text-slate-900 dark:text-white">{totalPayments}</p>
                           </div>
-                          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+                          <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-6">
                             <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Totaal Ontvangen</p>
                             <p className="text-3xl font-black text-green-600 dark:text-green-400">€{totalPaid.toFixed(2)}</p>
                           </div>
-                          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+                          <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-6">
                             <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Totaal Restituties</p>
                             <p className="text-3xl font-black text-red-600 dark:text-red-400">{totalRefunds}</p>
                           </div>
-                          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+                          <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-6">
                             <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Netto Omzet</p>
                             <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400">€{(totalPaid - totalRefunded).toFixed(2)}</p>
                           </div>
@@ -5877,7 +5877,7 @@ export const ReservationsDashboard: React.FC = () => {
                   </div>
 
                   {/* Monthly Summary */}
-                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+                  <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-6">
                     <h3 className="text-xl font-black mb-4">📅 Maandelijks Overzicht</h3>
                     <div className="space-y-4">
                       {(() => {
@@ -5941,7 +5941,7 @@ export const ReservationsDashboard: React.FC = () => {
             <div className="space-y-6">
               {optiesTab === 'overview' && (
                 <div className="space-y-6">
-                  <div className="bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl p-8 text-white">
+                  <div className="bg-slate-800">
                     <h2 className="text-2xl font-black mb-4">⏰ Opties Overzicht</h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {(() => {
@@ -5978,7 +5978,7 @@ export const ReservationsDashboard: React.FC = () => {
                   </div>
 
                   {/* All Options List */}
-                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-200 dark:divide-slate-800">
+                  <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 divide-y divide-slate-200 dark:divide-slate-800">
                     {activeReservations
                       .filter(r => r.status === 'option')
                       .sort((a, b) => {
@@ -6097,7 +6097,7 @@ export const ReservationsDashboard: React.FC = () => {
                                   '📋 Alle Opties';
 
                     return filtered.length === 0 ? (
-                      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12 text-center">
+                      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-12 text-center">
                         <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full mb-4">
                           <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
                         </div>
@@ -6110,11 +6110,11 @@ export const ReservationsDashboard: React.FC = () => {
                       </div>
                     ) : (
                       <>
-                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-6">
                           <h2 className="text-2xl font-black mb-2">{title}</h2>
                           <p className="text-slate-600 dark:text-slate-400">{filtered.length} opties</p>
                         </div>
-                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-200 dark:divide-slate-800">
+                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 divide-y divide-slate-200 dark:divide-slate-800">
                           {filtered.map(reservation => (
                             <div key={reservation.id} className="p-6 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
                               onClick={() => setSelectedReservationId(reservation.id)}>
@@ -6196,7 +6196,7 @@ export const ReservationsDashboard: React.FC = () => {
           {/* ================================================================== */}
           {mainTab === 'archief' && (
             <div className="space-y-6">
-              <div className="bg-gradient-to-br from-slate-600 to-slate-700 rounded-xl p-8 text-white">
+              <div className="bg-slate-800">
                 <h2 className="text-2xl font-black mb-4">🗄️ Archief</h2>
                 <p className="text-white/80">
                   Afgewezen opties en geannuleerde reserveringen. Deze blijven beschikbaar voor audit en rapportage.
@@ -6226,7 +6226,7 @@ export const ReservationsDashboard: React.FC = () => {
               </div>
 
               {/* Archived Reservations List */}
-              <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-200 dark:divide-slate-800">
+              <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 divide-y divide-slate-200 dark:divide-slate-800">
                 {reservations
                   .filter(r => r.status === 'rejected' || r.status === 'cancelled')
                   .sort((a, b) => {
@@ -6366,9 +6366,9 @@ export const ReservationsDashboard: React.FC = () => {
 
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-xl shadow-2xl">
+            <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-lg shadow-lg">
               {/* Header */}
-              <div className="bg-gradient-to-r from-emerald-500 to-teal-500 p-4 rounded-t-xl sticky top-0 z-10">
+              <div className="bg-slate-800">
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-black text-white flex items-center gap-2">
                     <Plus className="w-6 h-6" />
@@ -6413,7 +6413,7 @@ export const ReservationsDashboard: React.FC = () => {
                       step="0.01"
                       value={paymentAmount}
                       onChange={(e) => setPaymentAmount(e.target.value)}
-                      className="w-full pl-8 pr-4 py-3 border-2 border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-lg"
+                      className="w-full pl-8 pr-4 py-3 border border-slate-700 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-lg"
                       placeholder="0.00"
                     />
                   </div>
@@ -6434,7 +6434,7 @@ export const ReservationsDashboard: React.FC = () => {
                   <select
                     value={paymentCategory}
                     onChange={(e) => setPaymentCategory(e.target.value as any)}
-                    className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold"
+                    className="w-full px-4 py-3 border border-slate-700 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold"
                   >
                     <option value="full">💯 Volledig (Arrangement + Merchandise)</option>
                     <option value="arrangement">🍽️ Alleen Arrangement</option>
@@ -6451,7 +6451,7 @@ export const ReservationsDashboard: React.FC = () => {
                   <select
                     value={paymentMethod}
                     onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold"
+                    className="w-full px-4 py-3 border border-slate-700 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold"
                   >
                     <option value="iDEAL">iDEAL</option>
                     <option value="Bankoverschrijving">Bankoverschrijving</option>
@@ -6472,7 +6472,7 @@ export const ReservationsDashboard: React.FC = () => {
                     type="text"
                     value={paymentReference}
                     onChange={(e) => setPaymentReference(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                    className="w-full px-4 py-3 border border-slate-700 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                     placeholder="Bijv. transactienummer, factuurnummer..."
                   />
                 </div>
@@ -6486,7 +6486,7 @@ export const ReservationsDashboard: React.FC = () => {
                     value={paymentNote}
                     onChange={(e) => setPaymentNote(e.target.value)}
                     rows={3}
-                    className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                    className="w-full px-4 py-3 border border-slate-700 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                     placeholder="Extra informatie over de betaling..."
                   />
                 </div>
@@ -6496,7 +6496,7 @@ export const ReservationsDashboard: React.FC = () => {
               <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-b-xl flex items-center justify-between sticky bottom-0 border-t border-slate-200 dark:border-slate-700">
                 <button
                   onClick={() => setShowPaymentModal(false)}
-                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  className="px-4 py-2 border border-slate-700 dark:border-slate-600 rounded-lg font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                 >
                   Annuleren
                 </button>
@@ -6533,9 +6533,9 @@ export const ReservationsDashboard: React.FC = () => {
 
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-xl shadow-2xl">
+            <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-lg shadow-lg">
               {/* Header */}
-              <div className="bg-gradient-to-r from-red-500 to-orange-500 p-4 rounded-t-xl sticky top-0 z-10">
+              <div className="bg-slate-800">
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-black text-white flex items-center gap-2">
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -6583,7 +6583,7 @@ export const ReservationsDashboard: React.FC = () => {
                       value={refundAmount}
                       onChange={(e) => setRefundAmount(e.target.value)}
                       max={paymentSummary.totalPaid}
-                      className="w-full pl-8 pr-4 py-3 border-2 border-red-200 dark:border-red-700 rounded-lg focus:ring-2 focus:ring-red-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-lg"
+                      className="w-full pl-8 pr-4 py-3 border border-slate-700-200 dark:border-red-700 rounded-lg focus:ring-2 focus:ring-red-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-lg"
                       placeholder="0.00"
                     />
                   </div>
@@ -6603,7 +6603,7 @@ export const ReservationsDashboard: React.FC = () => {
                   <select
                     value={refundReason}
                     onChange={(e) => setRefundReason(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-red-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold"
+                    className="w-full px-4 py-3 border border-slate-700 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-red-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold"
                   >
                     <option value="Annulering">Annulering door klant</option>
                     <option value="Annulering door bedrijf">Annulering door bedrijf</option>
@@ -6623,7 +6623,7 @@ export const ReservationsDashboard: React.FC = () => {
                   <select
                     value={refundMethod}
                     onChange={(e) => setRefundMethod(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-red-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold"
+                    className="w-full px-4 py-3 border border-slate-700 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-red-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold"
                   >
                     <option value="Bankoverschrijving">Bankoverschrijving</option>
                     <option value="Contant">Contant</option>
@@ -6642,7 +6642,7 @@ export const ReservationsDashboard: React.FC = () => {
                     value={refundNote}
                     onChange={(e) => setRefundNote(e.target.value)}
                     rows={3}
-                    className="w-full px-4 py-3 border-2 border-red-200 dark:border-red-700 rounded-lg focus:ring-2 focus:ring-red-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                    className="w-full px-4 py-3 border border-slate-700-200 dark:border-red-700 rounded-lg focus:ring-2 focus:ring-red-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                     placeholder="Gedetailleerde uitleg van de restitutie (verplicht voor audit trail)..."
                   />
                 </div>
@@ -6667,7 +6667,7 @@ export const ReservationsDashboard: React.FC = () => {
               <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-b-xl flex items-center justify-between sticky bottom-0 border-t border-slate-200 dark:border-slate-700">
                 <button
                   onClick={() => setShowRefundModal(false)}
-                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  className="px-4 py-2 border border-slate-700 dark:border-slate-600 rounded-lg font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                 >
                   Annuleren
                 </button>
@@ -6712,9 +6712,9 @@ export const ReservationsDashboard: React.FC = () => {
 
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-xl shadow-2xl">
+            <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-lg shadow-lg">
               {/* Header */}
-              <div className="bg-gradient-to-r from-green-500 to-emerald-500 p-4 rounded-t-xl sticky top-0 z-10">
+              <div className="bg-slate-800">
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-black text-white flex items-center gap-2">
                     <CheckCircle2 className="w-6 h-6" />
@@ -6731,7 +6731,7 @@ export const ReservationsDashboard: React.FC = () => {
               {/* Body */}
               <div className="p-6 space-y-6">
                 {/* Option Info */}
-                <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-slate-700-200 dark:border-blue-800 rounded-lg p-4">
                   <h3 className="font-black text-blue-900 dark:text-blue-100 mb-3 flex items-center gap-2">
                     <Clock className="w-5 h-5" />
                     Optie Informatie
@@ -6774,7 +6774,7 @@ export const ReservationsDashboard: React.FC = () => {
                   <select
                     value={approvalArrangement}
                     onChange={(e) => setApprovalArrangement(e.target.value as Arrangement)}
-                    className="w-full px-4 py-3 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white font-medium focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-700 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white font-medium focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
                   >
                     <option value="BWF">BWF - Basis Without Food (€{(eventPricing.BWF || 0).toFixed(2)})</option>
                     <option value="BWFM">BWFM - Basis With Food & Merch (€{(eventPricing.BWFM || 0).toFixed(2)})</option>
@@ -6849,7 +6849,7 @@ export const ReservationsDashboard: React.FC = () => {
                     onChange={(e) => setApprovalDietaryNeeds(e.target.value)}
                     placeholder="Vegetarisch, veganistisch, allergieën, etc."
                     rows={2}
-                    className="w-full px-4 py-3 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white resize-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-700 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white resize-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
                   />
                 </div>
 
@@ -6863,12 +6863,12 @@ export const ReservationsDashboard: React.FC = () => {
                     onChange={(e) => setApprovalNotes(e.target.value)}
                     placeholder="Interne notities over deze goedkeuring..."
                     rows={2}
-                    className="w-full px-4 py-3 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white resize-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-700 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white resize-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
                   />
                 </div>
 
                 {/* Price Summary */}
-                <div className="bg-gradient-to-br from-emerald-500 to-green-500 rounded-xl p-6 text-white">
+                <div className="bg-slate-800">
                   <h3 className="font-black text-lg mb-4">💰 Prijs Overzicht</h3>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
@@ -6907,7 +6907,7 @@ export const ReservationsDashboard: React.FC = () => {
               <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-b-xl flex items-center justify-between sticky bottom-0 border-t border-slate-200 dark:border-slate-700">
                 <button
                   onClick={() => setShowOptionApprovalModal(false)}
-                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  className="px-4 py-2 border border-slate-700 dark:border-slate-600 rounded-lg font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                 >
                   Annuleren
                 </button>
@@ -6945,12 +6945,12 @@ export const ReservationsDashboard: React.FC = () => {
         
         return (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-lg w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
               {/* Header */}
-              <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-6 text-white">
+              <div className="bg-slate-800">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                    <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
                       <span className="text-2xl">🔗</span>
                     </div>
                     <div>
@@ -6979,7 +6979,7 @@ export const ReservationsDashboard: React.FC = () => {
                   <select
                     value={mergePrimaryId}
                     onChange={(e) => setMergePrimaryId(e.target.value)}
-                    className="w-full px-4 py-3 bg-purple-50 dark:bg-purple-900/20 border-2 border-purple-300 dark:border-purple-700 rounded-lg text-slate-900 dark:text-white font-semibold"
+                    className="w-full px-4 py-3 bg-purple-50 dark:bg-purple-900/20 border border-slate-700-300 dark:border-purple-700 rounded-lg text-slate-900 dark:text-white font-semibold"
                   >
                     {selectedReservations.map(r => (
                       <option key={r.id} value={r.id}>
@@ -6999,7 +6999,7 @@ export const ReservationsDashboard: React.FC = () => {
                     <div
                       key={r.id}
                       className={cn(
-                        "p-4 rounded-xl border-2 transition-all",
+                        "p-4 rounded-lg border-2 transition-all",
                         r.id === mergePrimaryId
                           ? "bg-purple-50 dark:bg-purple-900/20 border-purple-500"
                           : "bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-600"
@@ -7043,7 +7043,7 @@ export const ReservationsDashboard: React.FC = () => {
                 </div>
 
                 {/* Merge Summary */}
-                <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl p-6 text-white">
+                <div className="bg-slate-800">
                   <h3 className="font-black text-lg mb-4">📊 Resultaat Na Samenvoegen</h3>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
@@ -7068,7 +7068,7 @@ export const ReservationsDashboard: React.FC = () => {
                 </div>
 
                 {/* Warning */}
-                <div className="bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-300 dark:border-orange-700 rounded-xl p-4">
+                <div className="bg-orange-50 dark:bg-orange-900/20 border border-slate-700-300 dark:border-orange-700 rounded-lg p-4">
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 w-6 h-6 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold">
                       ⚠️
@@ -7092,14 +7092,14 @@ export const ReservationsDashboard: React.FC = () => {
                 <button
                   onClick={() => setShowMergeModal(false)}
                   disabled={isProcessingMerge}
-                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 border border-slate-700 dark:border-slate-600 rounded-lg font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
                 >
                   Annuleren
                 </button>
                 <button
                   onClick={handleMergeReservations}
                   disabled={isProcessingMerge || !mergePrimaryId}
-                  className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:from-slate-300 disabled:to-slate-300 text-white rounded-lg font-bold text-sm transition-all flex items-center gap-2 shadow-lg"
+                  className="px-6 py-2 bg-slate-800"
                 >
                   {isProcessingMerge ? (
                     <>
@@ -7120,6 +7120,8 @@ export const ReservationsDashboard: React.FC = () => {
     </div>
   );
 };
+
+
 
 
 

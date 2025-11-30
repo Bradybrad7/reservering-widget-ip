@@ -40,7 +40,9 @@ export const defaultPricing: Pricing = {
     'weekday': { standaard: 70, premium: 85 },      // Doordeweeks (zo–do)
     'weekend': { standaard: 80, premium: 95 },      // Weekend (vr–za)
     'matinee': { standaard: 70, premium: 85 },      // Matinee voorstellingen
-    'care_heroes': { standaard: 65, premium: 80 }   // Zorgzame Helden korting
+    'care_heroes': { standaard: 65, premium: 80 },  // Zorgzame Helden korting
+    'week': { standaard: 70, premium: 85 },         // Week (doordeweeks)
+    'zondag': { standaard: 75, premium: 90 }        // Zondag
   }
 };
 

@@ -98,15 +98,15 @@ export const generateEmailHTML = (content: EmailContentBlock, logoUrl?: string):
   <!-- 🎭 OUTER CONTAINER TABLE -->
   <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: ${COLORS.bodyBackground};">
     <tr>
-      <td align="center" style="padding: 40px 20px;">
+      <td align="center" style="padding: 40px 10px;">
         
         <!-- 📦 MAIN CONTAINER (700px max width) -->
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="700" style="max-width: 700px; width: 100%;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 700px;">
           
           <!-- 🎪 1. PODIUM HEADER (Logo) -->
           <tr>
-            <td align="center" style="padding: 30px 0;">
-              <img src="${logo}" alt="Inspiration Point" width="450" style="display: block; width: 450px; max-width: 100%; height: auto; border: 0;" />
+            <td align="center" style="padding: 30px 20px;">
+              <img src="${logo}" alt="Inspiration Point" style="display: block; width: 100%; max-width: 450px; height: auto; border: 0;" />
             </td>
           </tr>
           
@@ -126,10 +126,10 @@ export const generateEmailHTML = (content: EmailContentBlock, logoUrl?: string):
           
           <!-- 🎴 3. WHITE CARD CONTENT BLOCK -->
           <tr>
-            <td>
+            <td style="padding: 0 10px;">
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: ${COLORS.cardBackground}; border-radius: 8px;">
                 <tr>
-                  <td style="padding: 40px;">
+                  <td style="padding: 30px 20px;">
                     
                     <!-- GREETING -->
                     <p style="margin: 0 0 20px 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: ${COLORS.textPrimary}; line-height: 1.6;">
@@ -168,14 +168,14 @@ export const generateEmailHTML = (content: EmailContentBlock, logoUrl?: string):
                     <!-- 📋 RESERVATION DETAILS TABLE (Compacter met kader) -->
                     <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 30px; background-color: #1a1a1a; border: 2px solid ${COLORS.gold}; border-radius: 8px;">
                       <tr>
-                        <td style="padding: 25px;">
+                        <td style="padding: 20px 15px;">
                           <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
                             ${content.reservationDetails.map(detail => `
                             <tr>
-                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: ${COLORS.textMuted}; padding: 6px 0; vertical-align: top; width: 40%;">
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: ${COLORS.textMuted}; padding: 6px 5px; vertical-align: top; width: 45%;">
                                 ${detail.label}
                               </td>
-                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: ${detail.highlight ? COLORS.gold : COLORS.textPrimary}; font-weight: ${detail.highlight ? 'bold' : '600'}; padding: 6px 0; vertical-align: top; text-align: right;">
+                              <td style="font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: ${detail.highlight ? COLORS.gold : COLORS.textPrimary}; font-weight: ${detail.highlight ? 'bold' : '600'}; padding: 6px 5px; vertical-align: top; text-align: right; word-break: break-word;">
                                 ${detail.value}
                               </td>
                             </tr>
@@ -229,18 +229,24 @@ export const generateEmailHTML = (content: EmailContentBlock, logoUrl?: string):
           <!-- 🎬 FOOTER -->
           <tr>
             <td align="center" style="padding: 30px 20px 40px 20px;">
-              <p style="margin: 0 0 10px 0; font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: ${COLORS.textMuted}; line-height: 1.6;">
-                <strong>Inspiration Point</strong><br />
-                Maastrichterweg 13 - 17<br />
-                5554 GE Valkenswaard<br />
-                <a href="tel:+31402110679" style="color: ${COLORS.textMuted}; text-decoration: none;">Telefoon: 040-2110679</a><br />
-                <a href="tel:+31402126049" style="color: ${COLORS.textMuted}; text-decoration: none;">Fax: 040-2126049</a><br />
-                <a href="mailto:info@inspiration-point.nl" style="color: ${COLORS.textMuted}; text-decoration: none;">Email: info@inspiration-point.nl</a>
-              </p>
-              <p style="margin: 15px 0 0 0; font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: ${COLORS.textMuted};">
-                <a href="https://inspiration-point.nl/privacy" style="color: ${COLORS.textMuted}; text-decoration: underline;">Privacy Policy</a> | 
-                <a href="https://inspiration-point.nl" style="color: ${COLORS.textMuted}; text-decoration: underline;">Website</a>
-              </p>
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td align="center">
+                    <p style="margin: 0 0 10px 0; font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: ${COLORS.textMuted}; line-height: 1.6;">
+                      <strong>Inspiration Point</strong><br />
+                      Maastrichterweg 13 - 17<br />
+                      5554 GE Valkenswaard<br />
+                      <a href="tel:+31402110679" style="color: ${COLORS.textMuted}; text-decoration: none;">Telefoon: 040-2110679</a><br />
+                      <a href="tel:+31402126049" style="color: ${COLORS.textMuted}; text-decoration: none;">Fax: 040-2126049</a><br />
+                      <a href="mailto:info@inspiration-point.nl" style="color: ${COLORS.textMuted}; text-decoration: none;">Email: info@inspiration-point.nl</a>
+                    </p>
+                    <p style="margin: 15px 0 0 0; font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: ${COLORS.textMuted};">
+                      <a href="https://inspiration-point.nl/privacy" style="color: ${COLORS.textMuted}; text-decoration: underline;">Privacy Policy</a> | 
+                      <a href="https://inspiration-point.nl" style="color: ${COLORS.textMuted}; text-decoration: underline;">Website</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           

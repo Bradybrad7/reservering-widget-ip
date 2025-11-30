@@ -105,5 +105,12 @@ service cloud.firestore {
       allow read: if true;
       allow write: if true; // TODO: Add authentication - admin only
     }
+    
+    // Email Logs - System can write, admin can read
+    match /emailLogs/{logId} {
+      allow read: if true; // Admin can read email logs
+      allow create: if true; // System can create email logs
+      allow update, delete: if true; // Admin can update/delete logs
+    }
   }
 }

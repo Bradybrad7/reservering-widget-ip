@@ -330,27 +330,23 @@ export const ReservationsCommandCenterRevamped: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/30 dark:from-slate-950 dark:via-blue-950/20 dark:to-purple-950/20">
+    <div className="flex flex-col h-full">
       {/* Global Quick Stats */}
       <GlobalQuickStats />
       
-      {/* Modern Header */}
-      <div className="flex-shrink-0 p-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b-2 border-slate-200 dark:border-slate-700 shadow-lg">
+      {/* Header */}
+      <div className="flex-shrink-0 p-6 border-b border-slate-800">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
-            {/* Animated gradient icon */}
-            <div className="relative group">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 rounded-xl blur-md opacity-75 group-hover:opacity-100 transition-opacity"></div>
-              <div className="relative p-3 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 rounded-xl shadow-lg">
-                <Users className="w-7 h-7 text-white" strokeWidth={2.5} />
-              </div>
+            <div className="p-3 bg-primary/10 rounded-lg">
+              <Users className="w-6 h-6 text-primary" />
             </div>
             
             <div>
-              <h2 className="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <h2 className="text-2xl font-bold text-white">
                 Reserveringen Beheer
               </h2>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5 font-medium">
+              <p className="text-sm text-slate-400 mt-0.5">
                 Overzicht en beheer van alle reserveringen
               </p>
             </div>
@@ -364,10 +360,10 @@ export const ReservationsCommandCenterRevamped: React.FC = () => {
                 if (enableBulkMode) deselectAll();
               }}
               className={cn(
-                'flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all hover:shadow-lg font-bold text-sm border-2',
+                'flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all text-sm border',
                 enableBulkMode
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600'
-                  : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                  ? 'bg-primary/10 text-primary border-primary'
+                  : 'bg-slate-900 hover:bg-slate-800 text-white border-slate-800'
               )}
             >
               <CheckCircle className="w-4 h-4" />
@@ -378,7 +374,7 @@ export const ReservationsCommandCenterRevamped: React.FC = () => {
             
             <button
               onClick={handleExport}
-              className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl transition-all hover:shadow-lg font-bold text-sm border-2 border-slate-200 dark:border-slate-700"
+              className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-all text-sm border border-slate-800"
             >
               <Download className="w-4 h-4" />
               <span className="hidden md:inline">Export</span>
@@ -386,127 +382,126 @@ export const ReservationsCommandCenterRevamped: React.FC = () => {
             
             <button
               onClick={handleImport}
-              className="relative group flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl font-bold text-sm transition-all shadow-lg hover:shadow-xl hover:scale-105"
+              className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm transition-all border border-slate-800"
             >
-              <div className="absolute inset-0 bg-blue-400 rounded-xl blur-xl opacity-50 group-hover:opacity-75 -z-10"></div>
               <Upload className="w-4 h-4" />
               <span className="hidden md:inline">Importeer & Voltooi</span>
             </button>
           </div>
         </div>
 
-        {/* Modern Quick Stats Cards */}
+        {/* Quick Stats Cards */}
         {!isLoading && (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
             {/* Total Reservations */}
-            <div className="group relative bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-4 border-2 border-blue-200/50 dark:border-blue-700/50 hover:border-blue-400 dark:hover:border-blue-500 transition-all hover:shadow-lg hover:scale-105">
-              <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 text-xs font-bold mb-2">
+            <div className="bg-slate-900 rounded-lg p-4 border border-slate-800">
+              <div className="flex items-center gap-2 text-slate-400 text-xs mb-2">
                 <Users className="w-4 h-4" />
                 TOTAAL
               </div>
-              <div className="text-3xl font-black text-blue-900 dark:text-blue-100">
+              <div className="text-3xl font-bold text-white">
                 {quickStats.totalReservations}
               </div>
-              <div className="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">
+              <div className="text-xs text-slate-400 mt-2">
                 reserveringen
               </div>
             </div>
 
             {/* Confirmed */}
-            <div className="group relative bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-4 border-2 border-green-200/50 dark:border-green-700/50 hover:border-green-400 dark:hover:border-green-500 transition-all hover:shadow-lg hover:scale-105">
-              <div className="flex items-center gap-2 text-green-700 dark:text-green-400 text-xs font-bold mb-2">
+            <div className="bg-slate-900 rounded-lg p-4 border border-slate-800">
+              <div className="flex items-center gap-2 text-slate-400 text-xs mb-2">
                 <CheckCircle className="w-4 h-4" />
                 BEVESTIGD
               </div>
-              <div className="text-3xl font-black text-green-900 dark:text-green-100">
+              <div className="text-3xl font-bold text-white">
                 {quickStats.confirmedReservations}
               </div>
-              <div className="text-xs text-green-600 dark:text-green-400 mt-2 font-medium">
+              <div className="text-xs text-emerald-400 mt-2">
                 actief
               </div>
             </div>
 
             {/* Pending */}
-            <div className="group relative bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 rounded-xl p-4 border-2 border-amber-200/50 dark:border-amber-700/50 hover:border-amber-400 dark:hover:border-amber-500 transition-all hover:shadow-lg hover:scale-105">
-              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-xs font-bold mb-2">
+            <div className="bg-slate-900 rounded-lg p-4 border border-slate-800">
+              <div className="flex items-center gap-2 text-slate-400 text-xs mb-2">
                 <Clock className="w-4 h-4" />
                 PENDING
               </div>
-              <div className="text-3xl font-black text-amber-900 dark:text-amber-100">
+              <div className="text-3xl font-bold text-white">
                 {quickStats.pendingReservations}
               </div>
-              <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 mt-2 font-bold">
+              <div className="flex items-center gap-1 text-xs text-amber-400 mt-2">
                 <AlertTriangle className="w-3 h-3" />
                 actie vereist
               </div>
             </div>
 
             {/* Total Guests */}
-            <div className="group relative bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-4 border-2 border-purple-200/50 dark:border-purple-700/50 hover:border-purple-400 dark:hover:border-purple-500 transition-all hover:shadow-lg hover:scale-105">
-              <div className="flex items-center gap-2 text-purple-700 dark:text-purple-400 text-xs font-bold mb-2">
+            <div className="bg-slate-900 rounded-lg p-4 border border-slate-800">
+              <div className="flex items-center gap-2 text-slate-400 text-xs mb-2">
                 <Users className="w-4 h-4" />
                 GASTEN
               </div>
-              <div className="text-3xl font-black text-purple-900 dark:text-purple-100">
+              <div className="text-3xl font-bold text-white">
                 {quickStats.totalGuests}
               </div>
-              <div className="text-xs text-purple-600 dark:text-purple-400 mt-2 font-medium">
+              <div className="text-xs text-slate-400 mt-2">
                 personen
               </div>
             </div>
 
             {/* Total Revenue */}
-            <div className="group relative bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 rounded-xl p-4 border-2 border-emerald-200/50 dark:border-emerald-700/50 hover:border-emerald-400 dark:hover:border-emerald-500 transition-all hover:shadow-lg hover:scale-105">
-              <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-xs font-bold mb-2">
+            <div className="bg-slate-900 rounded-lg p-4 border border-slate-800">
+              <div className="flex items-center gap-2 text-slate-400 text-xs mb-2">
                 <TrendingUp className="w-4 h-4" />
                 OMZET
               </div>
-              <div className="text-2xl font-black text-emerald-900 dark:text-emerald-100">
+              <div className="text-2xl font-bold text-white">
                 €{quickStats.totalRevenue.toLocaleString('nl-NL')}
               </div>
-              <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-2 font-medium">
+              <div className="text-xs text-slate-400 mt-2">
                 totaal
               </div>
             </div>
 
             {/* Paid Revenue */}
-            <div className="group relative bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/20 dark:to-teal-800/20 rounded-xl p-4 border-2 border-teal-200/50 dark:border-teal-700/50 hover:border-teal-400 dark:hover:border-teal-500 transition-all hover:shadow-lg hover:scale-105">
-              <div className="flex items-center gap-2 text-teal-700 dark:text-teal-400 text-xs font-bold mb-2">
+            <div className="bg-slate-900 rounded-lg p-4 border border-slate-800">
+              <div className="flex items-center gap-2 text-slate-400 text-xs mb-2">
                 <CheckCircle className="w-4 h-4" />
                 BETAALD
               </div>
-              <div className="text-2xl font-black text-teal-900 dark:text-teal-100">
+              <div className="text-2xl font-bold text-white">
                 €{quickStats.paidRevenue.toLocaleString('nl-NL')}
               </div>
-              <div className="text-xs text-teal-600 dark:text-teal-400 mt-2 font-medium">
+              <div className="text-xs text-emerald-400 mt-2">
                 ontvangen
               </div>
             </div>
 
             {/* Unpaid Revenue */}
-            <div className="group relative bg-gradient-to-br from-rose-50 to-rose-100 dark:from-rose-900/20 dark:to-rose-800/20 rounded-xl p-4 border-2 border-rose-200/50 dark:border-rose-700/50 hover:border-rose-400 dark:hover:border-rose-500 transition-all hover:shadow-lg hover:scale-105">
-              <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400 text-xs font-bold mb-2">
+            <div className="bg-slate-900 rounded-lg p-4 border border-slate-800">
+              <div className="flex items-center gap-2 text-slate-400 text-xs mb-2">
                 <XCircle className="w-4 h-4" />
                 OPENSTAAND
               </div>
-              <div className="text-2xl font-black text-rose-900 dark:text-rose-100">
+              <div className="text-2xl font-bold text-white">
                 €{quickStats.unpaidRevenue.toLocaleString('nl-NL')}
               </div>
-              <div className="text-xs text-rose-600 dark:text-rose-400 mt-2 font-medium">
+              <div className="text-xs text-red-400 mt-2">
                 te betalen
               </div>
             </div>
 
             {/* Upcoming Events */}
-            <div className="group relative bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 rounded-xl p-4 border-2 border-indigo-200/50 dark:border-indigo-700/50 hover:border-indigo-400 dark:hover:border-indigo-500 transition-all hover:shadow-lg hover:scale-105">
-              <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-400 text-xs font-bold mb-2">
+            <div className="bg-slate-900 rounded-lg p-4 border border-slate-800">
+              <div className="flex items-center gap-2 text-slate-400 text-xs mb-2">
                 <Calendar className="w-4 h-4" />
                 BINNENKORT
               </div>
-              <div className="text-3xl font-black text-indigo-900 dark:text-indigo-100">
+              <div className="text-3xl font-bold text-white">
                 {quickStats.upcomingEvents}
               </div>
-              <div className="text-xs text-indigo-600 dark:text-indigo-400 mt-2 font-medium">
+              <div className="text-xs text-slate-400 mt-2">
                 deze week
               </div>
             </div>
@@ -515,7 +510,7 @@ export const ReservationsCommandCenterRevamped: React.FC = () => {
       </div>
 
       {/* Filters Bar */}
-      <div className="flex-shrink-0 p-4 bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700">
+      <div className="flex-shrink-0 p-4 border-b border-slate-800">
         <div className="flex flex-col md:flex-row gap-3">
           {/* Search */}
           <div className="flex-1 relative">
@@ -525,7 +520,7 @@ export const ReservationsCommandCenterRevamped: React.FC = () => {
               placeholder="Zoek op naam, email of bevestigingsnummer..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-sm focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium"
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
             />
           </div>
 
@@ -535,7 +530,7 @@ export const ReservationsCommandCenterRevamped: React.FC = () => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="px-4 py-2.5 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white text-sm focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 transition-all font-bold min-w-[140px]"
+              className="px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all min-w-[140px]"
             >
               <option value="all">Alle statussen</option>
               <option value="pending">Pending</option>
@@ -548,7 +543,7 @@ export const ReservationsCommandCenterRevamped: React.FC = () => {
             <select
               value={paymentFilter}
               onChange={(e) => setPaymentFilter(e.target.value as PaymentFilter)}
-              className="px-4 py-2.5 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white text-sm focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 transition-all font-bold min-w-[140px]"
+              className="px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all min-w-[140px]"
             >
               <option value="all">Alle betalingen</option>
               <option value="paid">Betaald</option>
@@ -560,7 +555,7 @@ export const ReservationsCommandCenterRevamped: React.FC = () => {
             <select
               value={eventFilter}
               onChange={(e) => setEventFilter(e.target.value)}
-              className="px-4 py-2.5 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white text-sm focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 transition-all font-bold min-w-[180px]"
+              className="px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all min-w-[180px]"
             >
               <option value="all">Alle evenementen</option>
               {events.map(event => (
@@ -571,37 +566,31 @@ export const ReservationsCommandCenterRevamped: React.FC = () => {
             </select>
 
             {/* View Mode Toggle */}
-            <div className="flex bg-slate-200 dark:bg-slate-700 rounded-lg p-1">
+            <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800">
               <button
                 onClick={() => setViewMode('list')}
                 className={cn(
-                  'relative flex items-center justify-center gap-2 px-3 py-1.5 rounded-md transition-all font-bold text-sm',
+                  'flex items-center justify-center gap-2 px-3 py-1.5 rounded-md transition-all text-sm',
                   viewMode === 'list'
-                    ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg scale-105'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-slate-600'
+                    ? 'bg-slate-800 text-white'
+                    : 'text-slate-400 hover:text-white'
                 )}
                 title="Lijst weergave"
               >
-                {viewMode === 'list' && (
-                  <div className="absolute inset-0 bg-blue-400 rounded-md blur-lg opacity-50 -z-10"></div>
-                )}
-                <List className="w-4 h-4" strokeWidth={2.5} />
+                <List className="w-4 h-4" />
               </button>
               
               <button
                 onClick={() => setViewMode('grid')}
                 className={cn(
-                  'relative flex items-center justify-center gap-2 px-3 py-1.5 rounded-md transition-all font-bold text-sm',
+                  'flex items-center justify-center gap-2 px-3 py-1.5 rounded-md transition-all text-sm',
                   viewMode === 'grid'
-                    ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg scale-105'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-slate-600'
+                    ? 'bg-slate-800 text-white'
+                    : 'text-slate-400 hover:text-white'
                 )}
                 title="Grid weergave"
               >
-                {viewMode === 'grid' && (
-                  <div className="absolute inset-0 bg-blue-400 rounded-md blur-lg opacity-50 -z-10"></div>
-                )}
-                <LayoutGrid className="w-4 h-4" strokeWidth={2.5} />
+                <LayoutGrid className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -610,14 +599,14 @@ export const ReservationsCommandCenterRevamped: React.FC = () => {
         {/* Active Filters Badge */}
         {(searchQuery || statusFilter !== 'all' || paymentFilter !== 'all' || eventFilter !== 'all' || selectedEventContext) && (
           <div className="flex items-center gap-2 mt-3 text-sm">
-            <Filter className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-            <span className="text-slate-600 dark:text-slate-400 font-medium">
+            <Filter className="w-4 h-4 text-primary" />
+            <span className="text-slate-400">
               Actieve filters: {filteredReservations.length} van {reservations.length} resultaten
             </span>
             {selectedEventContext && typeof selectedEventContext === 'object' && (
               <button
                 onClick={clearEventContext}
-                className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-lg text-xs font-bold hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+                className="px-2 py-1 bg-primary/10 text-primary rounded text-xs border border-slate-800 hover:bg-primary/20 transition-colors"
               >
                 Event: {(selectedEventContext as any).eventName || 'Geselecteerd'} ✕
               </button>

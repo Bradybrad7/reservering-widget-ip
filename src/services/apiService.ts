@@ -553,86 +553,87 @@ export const apiService = {
       // ✨ SEND EMAIL NOTIFICATIONS - ALWAYS FORCE SEND (unless skipEmail is true for imports)
       const shouldSkipEmail = (reservationData as any).skipEmail === true;
       
-      if (shouldSkipEmail) {
-        console.log('📧 [API] Skipping email notifications - imported/existing reservation');
-      } else {
-        try {
-          console.log('📧 [API] FORCE SENDING email notifications for new reservation...');
-          console.log('📧 [API] Environment check:', {
-            isDev: import.meta.env.DEV,
-            forceEmail: import.meta.env.VITE_FORCE_EMAIL_IN_DEV,
-            emailFrom: import.meta.env.VITE_EMAIL_FROM
-          });
-        
-        const events = await storageService.getEvents();
-        console.log('📧 [API] Found events:', events.length);
-        
-        let event = events.find(e => e.id === eventId);
-        console.log('📧 [API] Found matching event:', event ? event.id : 'NOT FOUND');
-        
-        // ✨ FORCE EMAIL SENDING - Create mock event if not found
-        if (!event) {
-          console.log('📧 [API] Event not found - creating mock event for email sending...');
-          event = {
-            id: eventId,
-            date: reservation.eventDate || new Date(),
-            startsAt: '19:30',
-            endsAt: '22:30',
-            doorsOpen: '19:00',
-            type: 'REGULAR' as const,
-            showId: 'mock-show',
-            capacity: 100,
-            isActive: true,
-            bookingOpensAt: new Date(),
-            bookingClosesAt: new Date(),
-            allowedArrangements: ['standaard', 'premium'] as const
-          };
-          console.log('📧 [API] Created mock event for email:', event.id);
-        }
-        
-        // ✨ IMPROVED: Send different emails based on reservation status
-        console.log('📧 [API] Preparing email notification...');
-        console.log('📧 [API] Reservation:', { id: reservation.id, email: reservation.email, status: reservation.status });
-        console.log('📧 [API] Event:', { id: event.id, date: event.date });
-        
-        // Choose email type based on initial status
-        let emailResult;
-        if (reservation.status === 'pending') {
-          // NEW BOOKING - Send "Request Received" email (pending approval)
-          console.log('📧 [API] Sending REQUEST RECEIVED email (pending status)...');
-          const { emailService } = await import('./emailService');
-          emailResult = await emailService.sendPending(reservation, event);
-        } else if (reservation.status === 'confirmed') {
-          // DIRECTLY CONFIRMED - Send confirmation email (rare, usually manual bookings)
-          console.log('📧 [API] Sending CONFIRMATION email (directly confirmed)...');
-          emailResult = await emailService.sendReservationConfirmation(reservation, event);
-        } else if (reservation.status === 'option') {
-          // OPTION - Send option email
-          console.log('📧 [API] Sending OPTION email...');
-          const { emailService } = await import('./emailService');
-          emailResult = await emailService.sendOption(reservation, event);
-        } else {
-          // Fallback to confirmation email
-          console.log('📧 [API] Sending default confirmation email...');
-          emailResult = await emailService.sendReservationConfirmation(reservation, event);
-        }
-        
-        console.log('📧 [API] Email result:', emailResult);
-        
-          if (emailResult.success) {
-            console.log('✅ [API] Email notifications sent successfully');
-          } else {
-            console.error('⚠️ [API] Email notifications failed:', emailResult.error);
-          }
-        } catch (error) {
-          console.error('❌ [API] Email notification error:', error);
-          if (error instanceof Error) {
-            console.error('❌ [API] Error stack:', error.stack);
-          }
-          // Don't fail the reservation if email fails
-        } finally {
-          console.log('📧 [API] Email notification attempt completed');
-        }
+      if (!shouldSkipEmail) {
+        // Send email in background, NEVER block or fail reservation on email errors
+        // Using setTimeout to truly detach from the main promise chain
+        setTimeout(() => {
+          (async () => {
+            try {
+              console.log('📧 [API] FORCE SENDING email notifications for new reservation (background)...');
+              console.log('📧 [API] Environment check:', {
+                isDev: import.meta.env.DEV,
+                forceEmail: import.meta.env.VITE_FORCE_EMAIL_IN_DEV,
+                emailFrom: import.meta.env.VITE_EMAIL_FROM
+              });
+            
+              const events = await storageService.getEvents();
+              console.log('📧 [API] Found events:', events.length);
+              
+              let event = events.find(e => e.id === eventId);
+              console.log('📧 [API] Found matching event:', event ? event.id : 'NOT FOUND');
+              
+              // ✨ FORCE EMAIL SENDING - Create mock event if not found
+              if (!event) {
+                console.log('📧 [API] Event not found - creating mock event for email sending...');
+                event = {
+                  id: eventId,
+                  date: reservation.eventDate || new Date(),
+                  startsAt: '19:30',
+                  endsAt: '22:30',
+                  doorsOpen: '19:00',
+                  type: 'REGULAR' as const,
+                  showId: 'mock-show',
+                  capacity: 100,
+                  isActive: true,
+                  bookingOpensAt: new Date(),
+                  bookingClosesAt: new Date(),
+                  allowedArrangements: ['standaard', 'premium'] as const
+                };
+                console.log('📧 [API] Created mock event for email:', event.id);
+              }
+              
+              // ✨ IMPROVED: Send different emails based on reservation status
+              console.log('📧 [API] Preparing email notification...');
+              console.log('📧 [API] Reservation:', { id: reservation.id, email: reservation.email, status: reservation.status });
+              console.log('📧 [API] Event:', { id: event.id, date: event.date });
+              
+              // Choose email type based on initial status
+              // Always import emailService dynamically to avoid circular dependencies
+              const { emailService } = await import('./emailService');
+              let emailResult;
+              if (reservation.status === 'pending') {
+                // NEW BOOKING - Send "Request Received" email (pending approval)
+                console.log('📧 [API] Sending REQUEST RECEIVED email (pending status)...');
+                emailResult = await emailService.sendPending(reservation, event);
+              } else if (reservation.status === 'confirmed') {
+                // DIRECTLY CONFIRMED - Send confirmation email (rare, usually manual bookings)
+                console.log('📧 [API] Sending CONFIRMATION email (directly confirmed)...');
+                emailResult = await emailService.sendReservationConfirmation(reservation, event);
+              } else if (reservation.status === 'option') {
+                // OPTION - Send option email
+                console.log('📧 [API] Sending OPTION email...');
+                emailResult = await emailService.sendOption(reservation, event);
+              } else {
+                // Fallback to confirmation email
+                console.log('📧 [API] Sending default confirmation email...');
+                emailResult = await emailService.sendReservationConfirmation(reservation, event);
+              }
+              
+              console.log('📧 [API] Email result:', emailResult);
+              
+              if (emailResult.success) {
+                console.log('✅ [API] Email notifications sent successfully');
+              } else {
+                console.warn('⚠️ [API] Email notifications failed (non-critical):', emailResult.error);
+              }
+            } catch (err) {
+              console.warn('⚠️ [API] Background email failed (non-critical):', err?.message || err);
+              // Don't fail the reservation if email fails - this is expected in development
+              // Email will be handled by Firebase Functions in production
+            }
+          })();
+        }, 0);
+        console.log('📧 [API] Email notification queued in background (non-blocking)');
       }
 
       // ✨ FIXED: Capacity IS updated immediately when reservation is placed

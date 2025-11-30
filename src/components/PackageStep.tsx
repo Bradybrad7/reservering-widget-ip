@@ -149,13 +149,19 @@ export const PackageStep: React.FC = () => {
     }
   }, [formData.numberOfPersons, preDrinkData.enabled, preDrinkData.quantity, afterPartyData.enabled, afterPartyData.quantity, updateFormData]);
 
-  // Filter arrangements based on what the event allows
-  // If no allowedArrangements is set or it's empty, show all arrangements
+  // ✨ Get the specific event type config from the loaded configurations
+  const eventTypeConfig =
+    selectedEvent && eventTypesConfig
+      ? eventTypesConfig[selectedEvent.eventType]
+      : null;
+
+  // Filter arrangements based on what the event's TYPE allows
+  // If no allowedArrangements is set on the event type, show all arrangements
   const availableArrangements = arrangementOptions.filter(opt => {
-    if (!selectedEvent?.allowedArrangements || selectedEvent.allowedArrangements.length === 0) {
-      return true; // Show all if not specified
+    if (!eventTypeConfig?.allowedArrangements || eventTypeConfig.allowedArrangements.length === 0) {
+      return true; // Show all if not specified on the event type
     }
-    return selectedEvent.allowedArrangements.includes(opt.value);
+    return eventTypeConfig.allowedArrangements.includes(opt.value);
   });
 
   console.log('📦 PackageStep - Available arrangements:', availableArrangements.length, availableArrangements.map(a => a.value));
@@ -240,23 +246,23 @@ export const PackageStep: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-4 lg:space-y-5">
+      {/* Header - Compacter */}
       <div className="text-center space-y-2">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gold-500/20 border-2 border-gold-400/50 mb-3">
-          <Package className="w-7 h-7 text-gold-400" />
+        <div className="inline-flex items-center justify-center w-12 h-12 lg:w-13 lg:h-13 rounded-full bg-gold-500/20 border-2 border-gold-400/50 mb-2">
+          <Package className="w-6 h-6 lg:w-7 lg:h-7 text-gold-400" />
         </div>
-        <h2 className="text-2xl md:text-3xl font-bold text-neutral-100 text-shadow">
+        <h2 className="text-2xl lg:text-3xl font-bold text-neutral-100 text-shadow">
           Kies uw Pakket & Opties
         </h2>
-        <p className="text-dark-200 text-base md:text-lg">
+        <p className="text-dark-200 text-sm lg:text-base">
           Selecteer uw arrangement en eventuele borrels
         </p>
       </div>
 
-      {/* Event Info */}
+      {/* Event Info - Compacter */}
       {selectedEvent && (
-        <div className="p-4 bg-gradient-to-br from-gold-500/20 to-gold-600/10 border border-gold-400/30 rounded-xl backdrop-blur-sm">
+        <div className="p-3 lg:p-4 bg-gradient-to-br from-gold-500/20 to-gold-600/10 border border-gold-400/30 rounded-xl backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-3 mb-1">
@@ -284,22 +290,22 @@ export const PackageStep: React.FC = () => {
         </div>
       )}
 
-      {/* SECTIE 1: ARRANGEMENT */}
-      <div className="space-y-4">
-        <h3 className="text-xl font-bold text-neutral-100 flex items-center gap-2">
+      {/* SECTIE 1: ARRANGEMENT - Compacter */}
+      <div className="space-y-3">
+        <h3 className="text-lg lg:text-xl font-bold text-neutral-100 flex items-center gap-2">
           <Package className="w-5 h-5 text-gold-400" />
           Uw Arrangement
         </h3>
 
-        {/* Arrangement Cards */}
-        <div className="grid md:grid-cols-2 gap-4">
+        {/* Arrangement Cards - Compacter grid */}
+        <div className="grid md:grid-cols-2 gap-3 lg:gap-4">
           {availableArrangements.map((option) => (
             <button
               key={option.value}
               type="button"
               onClick={() => handleArrangementSelect(option.value)}
               className={cn(
-                'text-left p-6 rounded-2xl transition-all duration-300',
+                'text-left p-4 lg:p-5 rounded-xl lg:rounded-2xl transition-all duration-300',
                 'hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-gold-400/50',
                 'relative overflow-hidden group',
                 selectedArrangement === option.value
@@ -430,86 +436,95 @@ export const PackageStep: React.FC = () => {
               <div
                 key={option.key}
                 className={cn(
-                  'card-theatre rounded-2xl border-2 p-5 transition-all duration-300',
+                  'card-theatre rounded-2xl border-2 transition-all duration-300',
                   isEnabled
                     ? `bg-gradient-to-br ${option.color} ${option.borderColor} shadow-lifted`
                     : 'bg-neutral-800/50 border-dark-700'
                 )}
               >
-                <div className="flex items-start gap-4">
-                  {/* Icon */}
-                  <div className={cn(
-                    'w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0',
-                    isEnabled ? option.bgColor : 'bg-dark-800'
-                  )}>
-                    <Icon className={cn('w-6 h-6', isEnabled ? option.iconColor : 'text-dark-400')} />
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-4 mb-2">
-                      <div>
-                        <h4 className="text-lg font-bold text-neutral-100 mb-1">
-                          {option.title}
-                        </h4>
-                        <p className="text-sm text-dark-200">
-                          {option.description}
-                        </p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-lg font-bold text-gold-400">
-                          €{option.pricePerPerson.toFixed(2)}
-                        </p>
-                        <p className="text-xs text-dark-300">per persoon</p>
-                      </div>
+                {/* Header met Icon en Prijs */}
+                <div className="p-4 flex items-center justify-between border-b border-neutral-700/50">
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      'w-12 h-12 rounded-xl flex items-center justify-center',
+                      isEnabled ? option.bgColor : 'bg-dark-800'
+                    )}>
+                      <Icon className={cn('w-6 h-6', isEnabled ? option.iconColor : 'text-dark-400')} />
                     </div>
+                    <div>
+                      <h4 className="text-xl font-bold text-neutral-100">
+                        {option.title}
+                      </h4>
+                      <p className="text-sm text-dark-300">
+                        {option.description}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-gold-400">
+                      €{option.pricePerPerson.toFixed(2)}
+                    </p>
+                    <p className="text-xs text-dark-300">per persoon</p>
+                  </div>
+                </div>
 
-                    {/* Toggle Button */}
-                    {!canEnable && (
-                      <div className="mb-3 p-3 bg-orange-500/20 border border-orange-400/30 rounded-lg">
-                        <p className="text-sm text-orange-300">
-                          Alleen beschikbaar vanaf {option.minPersons} personen
-                        </p>
-                      </div>
-                    )}
-
-                    {canEnable && (
+                {/* Action Button - PROMINENT */}
+                <div className="p-4">
+                  {!canEnable ? (
+                    <div className="p-4 bg-orange-500/20 border border-orange-400/30 rounded-xl text-center">
+                      <p className="text-sm font-medium text-orange-300">
+                        Alleen beschikbaar vanaf {option.minPersons} personen
+                      </p>
+                    </div>
+                  ) : (
+                    <>
                       <button
                         type="button"
                         onClick={() => handleToggle(option.key, !isEnabled)}
                         className={cn(
-                          'w-full px-4 py-2.5 rounded-xl font-medium transition-all duration-300',
-                          'focus:outline-none focus:ring-2 focus:ring-gold-400/50 text-sm',
+                          'w-full px-4 py-3 rounded-xl font-bold transition-all duration-300',
+                          'focus:outline-none focus:ring-2 focus:ring-gold-400/50',
+                          'shadow-gold-glow hover:shadow-gold transform hover:scale-105 active:scale-95',
                           isEnabled
-                            ? 'bg-gradient-to-r from-red-500/80 to-red-600/80 hover:from-red-500 hover:to-red-600 text-white'
-                            : 'bg-gradient-to-r from-gold-500/80 to-gold-600/80 hover:from-gold-500 hover:to-gold-600 text-white'
+                            ? 'bg-gold-gradient text-white'
+                            : 'bg-gold-gradient text-white'
                         )}
                       >
-                        {isEnabled ? '✕ Verwijderen' : '+ Toevoegen'}
+                        {isEnabled ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <span>✓</span>
+                            <span>Toegevoegd</span>
+                          </span>
+                        ) : (
+                          <span className="flex items-center justify-center gap-2">
+                            <span>+</span>
+                            <span>Toevoegen</span>
+                          </span>
+                        )}
                       </button>
-                    )}
 
-                    {/* Quantity Info */}
-                    {isEnabled && (
-                      <div className="mt-3 p-3 bg-neutral-900/50 rounded-xl border border-dark-700">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-dark-200">
-                            {quantity} {quantity === 1 ? 'persoon' : 'personen'}
-                          </span>
-                          <span className="font-bold text-gold-400">
-                            €{(quantity * option.pricePerPerson).toFixed(2)}
-                          </span>
+                      {/* Quantity Info */}
+                      {isEnabled && (
+                        <div className="mt-4 p-4 bg-neutral-900/70 rounded-xl border-2 border-gold-400/30">
+                          <div className="flex items-center justify-between">
+                            <span className="text-base font-medium text-neutral-200">
+                              {quantity} {quantity === 1 ? 'persoon' : 'personen'}
+                            </span>
+                            <span className="text-xl font-bold text-gold-400">
+                              €{(quantity * option.pricePerPerson).toFixed(2)}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </>
+                  )}
 
-                    {/* Error Message */}
-                    {error && (
-                      <div className="mt-3 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
-                        <p className="text-sm text-red-300">{error}</p>
-                      </div>
-                    )}
-                  </div>
+                  {/* Error Message */}
+                  {error && (
+                    <div className="mt-3 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+                      <p className="text-sm text-red-300">{error}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             );

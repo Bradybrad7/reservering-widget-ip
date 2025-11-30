@@ -150,55 +150,47 @@ export const CustomerManager: React.FC = () => {
 
   if (isLoadingCustomers && customers.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-800">
+      <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <div className="relative">
-            <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-neutral-700 border-t-gold-500 mb-6"></div>
-            <div className="absolute inset-0 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 animate-ping rounded-full h-16 w-16 border-2 border-gold-500/30"></div>
-          </div>
-          <p className="text-lg font-semibold text-neutral-300 mb-2">Klanten laden...</p>
-          <p className="text-sm text-neutral-500">Even geduld, we halen alles op</p>
+          <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-slate-800 border-t-primary mb-6"></div>
+          <p className="text-lg font-semibold text-white mb-2">Klanten laden...</p>
+          <p className="text-sm text-slate-400">Even geduld</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-800">
+    <div className="flex flex-col h-full">
       {selectedCustomer ? (
         // Customer Detail View
         <div className="flex flex-col h-full">
-          {/* Enhanced Header with Back Button */}
-          <div className="bg-neutral-800/80 backdrop-blur-sm border-b border-neutral-700 shadow-xl">
+          {/* Header with Back Button */}
+          <div className="border-b border-slate-800">
             <div className="px-8 py-6">
               <div className="flex items-center gap-5">
-                {/* Back button met moderne styling */}
+                {/* Back button */}
                 <button
                   onClick={() => selectCustomer(null)}
-                  className="p-3 bg-gradient-to-br from-neutral-700 to-neutral-800 text-white rounded-xl hover:from-neutral-600 hover:to-neutral-700 transition-all duration-200 shadow-lg hover:scale-105 group"
+                  className="p-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-all group"
                   title="Terug naar overzicht"
                 >
-                  <ArrowLeft className="w-6 h-6 group-hover:-translate-x-1 transition-transform duration-200" />
+                  <ArrowLeft className="w-6 h-6 group-hover:-translate-x-1 transition-transform" />
                 </button>
 
-                {/* Customer info met level badge */}
+                {/* Customer info */}
                 <div className="flex-1">
                   <div className="flex items-center gap-3">
-                    <h2 className="text-3xl font-bold bg-gradient-to-r from-white via-blue-200 to-blue-400 bg-clip-text text-transparent">
+                    <h2 className="text-2xl font-bold text-white">
                       {selectedCustomer.companyName}
                     </h2>
                     {/* Customer Level Badge */}
-                    <div className={cn(
-                      'px-4 py-2 rounded-xl font-bold text-sm shadow-lg flex items-center gap-2',
-                      getCustomerLevel(selectedCustomer.totalSpent).level === 'Gold' && 'bg-gradient-to-br from-gold-500 to-gold-600 text-white shadow-gold-500/30',
-                      getCustomerLevel(selectedCustomer.totalSpent).level === 'Silver' && 'bg-gradient-to-br from-neutral-400 to-neutral-500 text-white shadow-neutral-400/30',
-                      getCustomerLevel(selectedCustomer.totalSpent).level === 'Bronze' && 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-orange-500/30'
-                    )}>
-                      <span className="text-lg">{getCustomerLevel(selectedCustomer.totalSpent).icon}</span>
+                    <div className="px-3 py-1 rounded border border-slate-800 text-primary text-sm font-medium flex items-center gap-2">
+                      <span>{getCustomerLevel(selectedCustomer.totalSpent).icon}</span>
                       <span>{getCustomerLevel(selectedCustomer.totalSpent).level}</span>
                     </div>
                   </div>
-                  <p className="text-neutral-400 mt-2 flex items-center gap-2">
+                  <p className="text-slate-400 mt-2 flex items-center gap-2">
                     <Users className="w-4 h-4" />
                     {selectedCustomer.contactPerson} • {selectedCustomer.email}
                   </p>
@@ -212,40 +204,40 @@ export const CustomerManager: React.FC = () => {
             <div className="max-w-7xl mx-auto space-y-6">
               {/* Customer Stats Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-gradient-to-br from-gold-500/20 to-gold-600/10 border border-gold-500/30 rounded-lg p-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
               <div className="flex items-center gap-3 mb-2">
-                <DollarSign className="w-8 h-8 text-gold-400" />
-                <div className="text-sm text-neutral-400">Totaal Besteed</div>
+                <DollarSign className="w-8 h-8 text-primary" />
+                <div className="text-sm text-slate-400">Totaal Besteed</div>
               </div>
               <div className="text-2xl font-bold text-white">
                 {formatCurrency(selectedCustomer.totalSpent)}
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-blue-500/30 rounded-lg p-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
               <div className="flex items-center gap-3 mb-2">
-                <Calendar className="w-8 h-8 text-blue-400" />
-                <div className="text-sm text-neutral-400">Totaal Boekingen</div>
+                <Calendar className="w-8 h-8 text-primary" />
+                <div className="text-sm text-slate-400">Totaal Boekingen</div>
               </div>
               <div className="text-2xl font-bold text-white">
                 {selectedCustomer.totalBookings}
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-purple-500/20 to-purple-600/10 border border-purple-500/30 rounded-lg p-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
               <div className="flex items-center gap-3 mb-2">
-                <Users className="w-8 h-8 text-purple-400" />
-                <div className="text-sm text-neutral-400">Gem. Groepsgrootte</div>
+                <Users className="w-8 h-8 text-primary" />
+                <div className="text-sm text-slate-400">Gem. Groepsgrootte</div>
               </div>
               <div className="text-2xl font-bold text-white">
                 {selectedCustomer.averageGroupSize}
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-green-500/20 to-green-600/10 border border-green-500/30 rounded-lg p-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
               <div className="flex items-center gap-3 mb-2">
-                <TrendingUp className="w-8 h-8 text-green-400" />
-                <div className="text-sm text-neutral-400">Laatste Boeking</div>
+                <TrendingUp className="w-8 h-8 text-primary" />
+                <div className="text-sm text-slate-400">Laatste Boeking</div>
               </div>
               <div className="text-lg font-bold text-white">
                 {formatDate(selectedCustomer.lastBooking)}
@@ -256,14 +248,14 @@ export const CustomerManager: React.FC = () => {
           {/* Contact Info & Tags */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Contact Information */}
-            <div className="bg-neutral-800/50 rounded-lg p-6">
+            <div className="bg-slate-900 rounded-lg p-6 border border-slate-800">
               <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                 <Building2 className="w-5 h-5" />
                 Contactinformatie
               </h3>
               <div className="space-y-3">
-                <div className="flex items-center gap-3 text-neutral-300">
-                  <Mail className="w-5 h-5 text-neutral-500" />
+                <div className="flex items-center gap-3 text-slate-300">
+                  <Mail className="w-5 h-5 text-slate-500" />
                   <div>
                     <div className="text-xs text-neutral-500">Email</div>
                     <div>{selectedCustomer.email}</div>
@@ -305,7 +297,7 @@ export const CustomerManager: React.FC = () => {
                     ]);
                     // Context is al gezet door handleSelectCustomer via setCustomerContext
                   }}
-                  className="w-full px-4 py-3 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-400 hover:text-blue-300 transition-all flex items-center justify-center gap-2 group"
+                  className="w-full px-4 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-white transition-all flex items-center justify-center gap-2 group"
                 >
                   <List className="w-5 h-5 group-hover:scale-110 transition-transform" />
                   <span className="font-medium">Bekijk Reserveringen ({selectedCustomer.totalBookings})</span>
@@ -314,7 +306,7 @@ export const CustomerManager: React.FC = () => {
             </div>
 
             {/* Tags */}
-            <div className="bg-neutral-800/50 rounded-lg p-6">
+            <div className="bg-slate-900 rounded-lg p-6 border border-slate-800">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                   <Tag className="w-5 h-5" />
@@ -322,7 +314,7 @@ export const CustomerManager: React.FC = () => {
                 </h3>
                 <button
                   onClick={() => setEditingTags(!editingTags)}
-                  className="text-sm text-gold-400 hover:text-gold-300"
+                  className="text-sm text-primary hover:text-primary/80"
                 >
                   {editingTags ? 'Annuleren' : 'Bewerken'}
                 </button>
@@ -334,7 +326,7 @@ export const CustomerManager: React.FC = () => {
                     {tags.map(tag => (
                       <span
                         key={tag}
-                        className="inline-flex items-center gap-1 px-3 py-1 bg-gold-500/20 text-gold-400 rounded-full text-sm"
+                        className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm border border-slate-800"
                       >
                         {tag}
                         <button onClick={() => removeTag(tag)} className="hover:text-gold-300">

@@ -78,8 +78,8 @@ export function FinancialOverview({ reservation, onAddTransaction }: FinancialOv
       {/* Financial Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Totaalprijs */}
-        <div className="bg-neutral-800/50 rounded-xl p-4 border border-neutral-700/50">
-          <div className="flex items-center gap-2 text-neutral-400 text-sm mb-2">
+        <div className="bg-slate-900 rounded-lg p-4 border border-slate-800">
+          <div className="flex items-center gap-2 text-slate-400 text-sm mb-2">
             <DollarSign className="w-4 h-4" />
             <span>Totaalprijs</span>
           </div>
@@ -89,20 +89,20 @@ export function FinancialOverview({ reservation, onAddTransaction }: FinancialOv
         </div>
 
         {/* Totaal Betaald */}
-        <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/30">
-          <div className="flex items-center gap-2 text-green-400 text-sm mb-2">
+        <div className="bg-slate-900 rounded-lg p-4 border border-slate-800">
+          <div className="flex items-center gap-2 text-slate-400 text-sm mb-2">
             <TrendingUp className="w-4 h-4" />
             <span>Totaal Betaald</span>
           </div>
-          <p className="text-2xl font-bold text-green-400">
+          <p className="text-2xl font-bold text-emerald-400">
             {financial.totalPaidFormatted}
           </p>
         </div>
 
         {/* Totaal Gerestitueerd */}
         {financial.totalRefunded < 0 && (
-          <div className="bg-red-500/10 rounded-xl p-4 border border-red-500/30">
-            <div className="flex items-center gap-2 text-red-400 text-sm mb-2">
+          <div className="bg-slate-900 rounded-lg p-4 border border-slate-800">
+            <div className="flex items-center gap-2 text-slate-400 text-sm mb-2">
               <TrendingDown className="w-4 h-4" />
               <span>Gerestitueerd</span>
             </div>
@@ -114,8 +114,8 @@ export function FinancialOverview({ reservation, onAddTransaction }: FinancialOv
 
         {/* Nog te Betalen / Tegoed */}
         {financial.amountDue > 0 ? (
-          <div className="bg-amber-500/10 rounded-xl p-4 border border-amber-500/30">
-            <div className="flex items-center gap-2 text-amber-400 text-sm mb-2">
+          <div className="bg-slate-900 rounded-lg p-4 border border-slate-800">
+            <div className="flex items-center gap-2 text-slate-400 text-sm mb-2">
               <AlertCircle className="w-4 h-4" />
               <span>Nog te Betalen</span>
             </div>
@@ -124,22 +124,22 @@ export function FinancialOverview({ reservation, onAddTransaction }: FinancialOv
             </p>
           </div>
         ) : financial.credit > 0 ? (
-          <div className="bg-blue-500/10 rounded-xl p-4 border border-blue-500/30">
-            <div className="flex items-center gap-2 text-blue-400 text-sm mb-2">
+          <div className="bg-slate-900 rounded-lg p-4 border border-slate-800">
+            <div className="flex items-center gap-2 text-slate-400 text-sm mb-2">
               <CreditCard className="w-4 h-4" />
               <span>Tegoed Klant</span>
             </div>
-            <p className="text-2xl font-bold text-blue-400">
+            <p className="text-2xl font-bold text-primary">
               {financial.creditFormatted}
             </p>
           </div>
         ) : (
-          <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/30">
-            <div className="flex items-center gap-2 text-green-400 text-sm mb-2">
+          <div className="bg-slate-900 rounded-lg p-4 border border-slate-800">
+            <div className="flex items-center gap-2 text-slate-400 text-sm mb-2">
               <CreditCard className="w-4 h-4" />
               <span>Status</span>
             </div>
-            <p className="text-lg font-bold text-green-400">
+            <p className="text-lg font-bold text-emerald-400">
               Volledig betaald ✓
             </p>
           </div>
@@ -150,7 +150,7 @@ export function FinancialOverview({ reservation, onAddTransaction }: FinancialOv
       <div className="flex flex-wrap gap-3">
         <button
           onClick={() => setShowAddPayment(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg border border-slate-800 transition-colors"
         >
           <Plus className="w-4 h-4" />
           Registreer (Deel)Betaling
@@ -159,7 +159,7 @@ export function FinancialOverview({ reservation, onAddTransaction }: FinancialOv
         <button
           onClick={() => setShowAddRefund(true)}
           disabled={financial.totalPaid === 0}
-          className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg border border-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <TrendingDown className="w-4 h-4" />
           Registreer Restitutie
@@ -168,7 +168,7 @@ export function FinancialOverview({ reservation, onAddTransaction }: FinancialOv
         {financial.transactions.length > 0 && (
           <button
             onClick={handleDownloadTransactions}
-            className="flex items-center gap-2 px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg font-medium transition-colors ml-auto"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg border border-slate-800 transition-colors ml-auto"
           >
             <Download className="w-4 h-4" />
             Download Transacties
@@ -178,22 +178,22 @@ export function FinancialOverview({ reservation, onAddTransaction }: FinancialOv
 
       {/* Payment Due Date */}
       {reservation.paymentDueDate && financial.amountDue > 0 && (
-        <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-start gap-3">
+        <div className="p-4 bg-slate-900 border border-slate-800 rounded-lg flex items-start gap-3">
           <Calendar className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="font-medium text-amber-300 mb-1">Betaaltermijn</p>
-            <p className="text-sm text-amber-200">
-              Verwachte betaling uiterlijk: <span className="font-bold">{formatDate(reservation.paymentDueDate)}</span>
+            <p className="font-medium text-white mb-1">Betaaltermijn</p>
+            <p className="text-sm text-slate-400">
+              Verwachte betaling uiterlijk: <span className="font-semibold text-white">{formatDate(reservation.paymentDueDate)}</span>
             </p>
           </div>
         </div>
       )}
 
       {/* Transaction History */}
-      <div className="bg-neutral-800/50 rounded-xl border border-neutral-700/50">
-        <div className="p-4 border-b border-neutral-700/50">
-          <h4 className="font-bold text-white flex items-center gap-2">
-            <DollarSign className="w-5 h-5 text-gold-400" />
+      <div className="bg-slate-900 rounded-lg border border-slate-800">
+        <div className="p-4 border-b border-slate-800">
+          <h4 className="font-semibold text-white flex items-center gap-2">
+            <DollarSign className="w-5 h-5 text-primary" />
             Transactie Historie
           </h4>
         </div>

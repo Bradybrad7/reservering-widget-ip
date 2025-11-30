@@ -226,15 +226,23 @@ export const ReservationDetailsModal: React.FC<ReservationDetailsModalProps> = (
           )}
 
           {/* Dietary Requirements */}
-          {reservation.dietaryRequirements && (
-            <div className="bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-200 dark:border-orange-800 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Package className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                <h3 className="font-black text-orange-900 dark:text-orange-100">Dieetwensen</h3>
+          {reservation.dietaryRequirements && (() => {
+            const dietary = reservation.dietaryRequirements;
+            // Dietary requirements is now just a string
+            const dietaryText = typeof dietary === 'string' ? dietary : (dietary.other || '');
+            
+            if (!dietaryText) return null;
+            
+            return (
+              <div className="bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-200 dark:border-orange-800 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Package className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                  <h3 className="font-black text-orange-900 dark:text-orange-100">Dieetwensen</h3>
+                </div>
+                <p className="text-sm text-orange-800 dark:text-orange-200 whitespace-pre-wrap">{dietaryText}</p>
               </div>
-              <p className="text-sm text-orange-800 dark:text-orange-200 whitespace-pre-wrap">{typeof reservation.dietaryRequirements === 'string' ? reservation.dietaryRequirements : JSON.stringify(reservation.dietaryRequirements)}</p>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Comments */}
           {reservation.comments && (

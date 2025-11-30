@@ -20,6 +20,8 @@ import {
 } from '../utils/eventColors';
 import { filterActiveEvents } from '../utils/eventArchiving';
 import { nl } from '../config/defaults';
+import { getArrangementPrice } from '../services/priceService';
+import { formatCurrency } from '../utils';
 
 interface CalendarProps {
   onDateSelect?: (event: Event) => void;
@@ -48,6 +50,12 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
   
   // ✨ NEW: Finding next available event
   const [isSearchingNext, setIsSearchingNext] = useState(false);
+  
+  // ✨ NEW: Cache arrangement prices for tooltip
+  const [arrangementPrices, setArrangementPrices] = useState<Record<string, { standaard: number; premium: number }>>({});
+  
+  // ✨ NEW: Mobile tooltip state - show info on tap
+  const [mobileTooltipEventId, setMobileTooltipEventId] = useState<string | null>(null);
 
   // ✨ NEW: Filter out archived events for customer view
   // Events are automatically archived when date has passed or inactive
@@ -110,6 +118,40 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
     loadAllAvailability();
   }, [activeEvents, currentMonth, eventAvailability, loadEventAvailability]);
 
+  // ✨ NEW: Load arrangement prices for visible events (for tooltip)
+  useEffect(() => {
+    const loadPricesForVisibleEvents = async () => {
+      const visibleEvents = activeEvents.filter(event => 
+        isInCurrentMonth(event.date, currentMonth)
+      );
+      
+      const newPrices: Record<string, { standaard: number; premium: number }> = {};
+      
+      for (const event of visibleEvents) {
+        if (!arrangementPrices[event.id] && event.allowedArrangements.length > 0) {
+          try {
+            const prices = await Promise.all([
+              getArrangementPrice(event, 'standaard'),
+              getArrangementPrice(event, 'premium')
+            ]);
+            newPrices[event.id] = {
+              standaard: prices[0],
+              premium: prices[1]
+            };
+          } catch (error) {
+            console.warn(`⚠️ Could not load prices for event ${event.id}`, error);
+          }
+        }
+      }
+      
+      if (Object.keys(newPrices).length > 0) {
+        setArrangementPrices(prev => ({ ...prev, ...newPrices }));
+      }
+    };
+    
+    loadPricesForVisibleEvents();
+  }, [activeEvents, currentMonth]);
+
   // ✨ KEEP: Hover-based loading for additional performance (optional)
   // This is now backup - main loading happens in useEffect above
   const [hoverTimers, setHoverTimers] = useState<Record<string, NodeJS.Timeout>>({});
@@ -151,6 +193,22 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
       Object.values(hoverTimers).forEach(timer => clearTimeout(timer));
     };
   }, [hoverTimers]);
+
+  // Close mobile tooltip when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (mobileTooltipEventId) {
+        // Check if click is outside calendar
+        const target = e.target as HTMLElement;
+        if (!target.closest('.calendar-grid')) {
+          setMobileTooltipEventId(null);
+        }
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [mobileTooltipEventId]);
 
   const navigateMonth = useCallback((direction: 'prev' | 'next') => {
     const newMonth = new Date(currentMonth);
@@ -210,11 +268,24 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
 
   const handleDateClick = useCallback((_date: Date, event?: Event) => {
     if (event && event.isActive) {
-      // Direct selection - availability check is handled in selectEvent
-      selectEvent(event);
-      onDateSelect?.(event);
+      // Check if mobile tooltip is already showing for this event
+      if (mobileTooltipEventId === event.id) {
+        // Second tap - select the event
+        selectEvent(event);
+        onDateSelect?.(event);
+        setMobileTooltipEventId(null);
+      } else {
+        // First tap - show tooltip on mobile, direct select on desktop
+        const isMobile = window.innerWidth < 768;
+        if (isMobile) {
+          setMobileTooltipEventId(event.id);
+        } else {
+          selectEvent(event);
+          onDateSelect?.(event);
+        }
+      }
     }
-  }, [selectEvent, onDateSelect]);
+  }, [selectEvent, onDateSelect, mobileTooltipEventId]);
 
   const handleKeyDown = useCallback((
     e: React.KeyboardEvent, 
@@ -252,25 +323,26 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
     const availability = event ? eventAvailability[event.id] : null;
 
     return cn(
-      'min-h-[70px] w-full p-2 text-left rounded-lg border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500/60 group',
+      // ✨ COMPACT: Veel kleinere cellen voor compactere weergave
+      'min-h-[60px] md:min-h-[50px] lg:min-h-[55px] w-full p-1.5 md:p-2 text-left rounded-md md:rounded-lg border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500/60 group relative',
       {
-        // Active event with dynamic color
-        'hover:shadow-md hover:scale-[1.02] cursor-pointer backdrop-blur-sm': 
+        // Active event with hover effects
+        'hover:shadow-lg hover:scale-[1.03] cursor-pointer hover:z-10 active:scale-[0.98]': 
           isCurrentMonth && event && event.isActive,
         // Not current month
-        'bg-base/30 border-neutral-900 text-text-disabled opacity-50': 
+        'bg-base/30 border-neutral-800 text-text-disabled opacity-40': 
           !isCurrentMonth,
-        // Today indicator - ✨ NEW: with pulse animation
-        'ring-2 ring-primary-500/40 pulse-slow': 
+        // Today indicator
+        'ring-2 ring-primary-500/50': 
           isDateToday && isCurrentMonth && !isSelected,
-        // Selected event - ✨ ENHANCED: gold glow with fade-in animation
-        'bg-gold-gradient border-primary-500 text-text-primary font-bold shadow-gold-glow scale-105 -translate-y-1 fade-in-glow': 
+        // Selected event
+        'ring-2 ring-primary-400 shadow-gold-glow scale-105 z-20': 
           isSelected,
         // Empty date
-        'bg-elevated/20 border-border-subtle': 
+        'bg-elevated/10 border-border-subtle': 
           isCurrentMonth && !event,
         // Disabled/closed
-        'opacity-40 cursor-not-allowed hover:scale-100 hover:translate-y-0 bg-base/40': 
+        'opacity-30 cursor-not-allowed hover:scale-100 bg-base/30 grayscale': 
           event && (!event.isActive || availability?.bookingStatus === 'closed')
       }
     );
@@ -389,12 +461,13 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
   };
 
   const renderWeekHeaders = () => (
-    <div className="grid grid-cols-7 gap-2 mb-2">
+    <div className="grid grid-cols-7 gap-1.5 md:gap-2 mb-2 md:mb-3">
       {['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'].map((day, index) => (
         <div 
           key={day} 
           className={cn(
-            "text-center text-xs font-bold py-1.5 rounded-lg backdrop-blur-sm",
+            // ✨ MOBILE OPTIMIZED: Grotere tekst en padding
+            "text-center text-sm md:text-xs font-bold py-2 md:py-1.5 rounded-lg md:rounded-xl backdrop-blur-sm",
             {
               'text-primary-500 bg-primary-500/15 border border-primary-500/30': index >= 5, // Weekend - Goud
               'text-text-secondary bg-surface/30 border border-border-subtle': index < 5    // Weekdays
@@ -410,7 +483,8 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
   const renderCalendarGrid = () => {
     // Use memoized values for better performance
     return (
-      <div className="grid grid-cols-7 gap-1.5">
+      // ✨ COMPACT: Strakke spacing voor compacte weergave
+      <div className="grid grid-cols-7 gap-1 calendar-grid">
         {calendarDays.map((date, index) => {
           const event = eventsMap.get(date.toDateString());
           const availability = event ? eventAvailability[event.id] : null;
@@ -431,19 +505,41 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
           // Get event type color from config
           const eventColor = event ? getEventTypeColor(event.type, eventTypesConfig || undefined) : null;
           
-          // Determine background color based on booking status
+          // Determine background color - gebruik DIRECTE kleuren van config
           let bgColor = undefined;
           let borderColor = undefined;
           
           if (event && isCurrentMonth && !isSelected) {
             if (isFull || isRequestOnly) {
-              bgColor = 'rgba(185, 28, 28, 0.25)'; // Red for full/request
-              borderColor = '#991b1b'; // Dark red border
+              bgColor = '#7f1d1d'; // Dark red for full/request
+              borderColor = '#991b1b';
             } else {
-              bgColor = eventColor ? hexToRgba(eventColor, 0.15) : undefined;
-              borderColor = eventColor || undefined;
+              // Direct event color zonder transparantie
+              bgColor = eventColor ? hexToRgba(eventColor, 0.6) : '#1e293b';
+              borderColor = eventColor || '#475569';
             }
           }
+          
+          // Tooltip info voor hover
+          const show = shows.find(s => s.id === event?.showId);
+          const dateKey = date.toISOString().split('T')[0];
+          const waitlistCount = waitlistCounts[dateKey] || 0;
+          const prices = event ? arrangementPrices[event.id] : undefined;
+          
+          const tooltipContent = event && isCurrentMonth ? (
+            `${show?.name || 'Show'} - ${getEventTypeName(event.type, eventTypesConfig)}\n` +
+            `Deuren open: ${formatTime(event.doorsOpen)}\n` +
+            (prices ? (
+              `💰 Standaard: ${formatCurrency(prices.standaard)} | Premium: ${formatCurrency(prices.premium)}\n`
+            ) : '') +
+            (availability ? (
+              availability.bookingStatus === 'full' ? `🔴 VOL - Wachtlijst${waitlistCount > 0 ? ` (${waitlistCount})` : ''}` :
+              availability.bookingStatus === 'request' ? '🟠 Op aanvraag' :
+              isAlmostFull ? `🔥 Bijna vol - Nog ${availability.remainingCapacity} plaatsen` :
+              waitlistCount > 0 ? `👥 ${waitlistCount} geïnteresseerd` :
+              '🟢 Beschikbaar'
+            ) : '')
+          ) : undefined;
           
           return (
             <button
@@ -460,132 +556,119 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
                   ? `${formatDate(date)} - ${getEventTypeName(event.type, eventTypesConfig)} - ${availability?.isAvailable ? 'Beschikbaar' : 'Niet beschikbaar'}`
                   : formatDate(date)
               }
+              title={tooltipContent}
             >
-              {/* Dag nummer */}
+              {/* Dag nummer - compact */}
               <div className={cn("text-xs font-bold mb-0.5", {
-                'text-dark-400': !event || !isCurrentMonth,
-                'text-neutral-200': event && isCurrentMonth && !isSelected,
-                'text-text-primary': isSelected
+                'text-neutral-600': !event || !isCurrentMonth,
+                'text-white': event && isCurrentMonth && !isSelected,
+                'text-primary-400': isSelected
               })}>
                 {date.getDate()}
               </div>
               
               {event && isCurrentMonth && (
-                <div className="space-y-0.5">
-                  {/* Show naam */}
-                  {(() => {
-                    const show = shows.find(s => s.id === event.showId);
-                    return show ? (
-                      <div 
-                        className={cn("text-[11px] font-bold truncate leading-tight", {
-                          'text-gold-400': !isSelected,
-                          'text-text-primary': isSelected
-                        })}
-                      >
-                        {show.name}
-                      </div>
-                    ) : null;
-                  })()}
-                  
-                  {/* Event type label - alleen voor speciale evenementen die op kalender getoond moeten worden */}
-                  {(() => {
-                    // Check if event type should be shown on calendar
-                    const eventTypeConfig = eventTypesConfig?.types.find(t => t.key === event.type);
-                    const shouldShowType = event.type !== 'REGULAR' && (eventTypeConfig?.showOnCalendar ?? true);
-                    
-                    if (!shouldShowType) return null;
-                    
-                    return (
-                      <div className="flex items-center gap-1">
-                        {eventColor && (
-                          <div 
-                            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: eventColor }}
-                          />
+                <>
+                  <div className="flex items-center justify-center gap-1 flex-wrap">
+                    {/* Status indicator dots - compact */}
+                    {availability && (
+                      <div className="flex items-center gap-0.5">
+                        {availability.bookingStatus === 'full' && (
+                          <div className="w-2 h-2 rounded-full bg-red-500" title="Vol - Wachtlijst" />
                         )}
-                        <div 
-                          className={cn("text-[10px] font-semibold truncate leading-tight", {
-                            'text-neutral-300': !isSelected,
-                            'text-neutral-800': isSelected
-                          })}
-                          style={!isSelected && eventColor ? { color: eventColor } : undefined}
-                        >
-                          {getEventTypeName(event.type, eventTypesConfig)}
-                        </div>
+                        {availability.bookingStatus === 'request' && (
+                          <div className="w-2 h-2 rounded-full bg-orange-500" title="Op aanvraag" />
+                        )}
+                        {isAlmostFull && availability.bookingStatus === 'open' && (
+                          <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" title="Bijna vol" />
+                        )}
+                        {availability.bookingStatus === 'open' && !isAlmostFull && (
+                          <div className="w-2 h-2 rounded-full bg-green-500" title="Beschikbaar" />
+                        )}
                       </div>
-                    );
-                  })()}
-                  
-                  {/* Tijd - DEUREN OPEN (niet show tijd!) */}
-                  <div className={cn("text-[10px] leading-tight font-medium", {
-                    'text-dark-300': !isSelected,
-                    'text-neutral-800': isSelected
-                  })}>
-                    {formatTime(event.doorsOpen)}
+                    )}
+                    
+                    {/* Tijd - ultra compact */}
+                    <div className={cn("text-[10px] font-semibold leading-none", {
+                      'text-white/90': !isSelected,
+                      'text-primary-300': isSelected
+                    })}>
+                      {formatTime(event.doorsOpen)}
+                    </div>
                   </div>
                   
-                  {/* ✅ Status labels - ALLEEN gebaseerd op bookingStatus, GEEN capaciteitsdata */}
-                  {availability && (
-                    (() => {
-                      // Check waitlist count
-                      const dateKey = date.toISOString().split('T')[0];
-                      const waitlistCount = waitlistCounts[dateKey] || 0;
+                  {/* Mobile tooltip - show on tap */}
+                  {mobileTooltipEventId === event.id && (
+                    <div 
+                      className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-30 w-64 p-3 bg-neutral-900/98 backdrop-blur-lg rounded-lg shadow-2xl border border-primary-500/50 animate-fade-in"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {/* Arrow */}
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
+                        <div className="border-8 border-transparent border-t-primary-500/50" />
+                      </div>
                       
-                      if (availability.bookingStatus === 'full') {
-                        return (
-                          <div className={cn(
-                            "text-[9px] font-black uppercase tracking-tight leading-tight px-1 py-0.5 rounded mt-0.5",
-                            {
-                              'bg-red-900/80 text-white': !isSelected,
-                              'bg-red-600 text-white': isSelected
-                            }
-                          )}>
-                            VOL - WACHTLIJST {waitlistCount > 0 && `(${waitlistCount})`}
+                      <div className="space-y-2 text-xs">
+                        {/* Show naam */}
+                        <div className="font-bold text-primary-400 text-sm">
+                          {show?.name || 'Show'}
+                        </div>
+                        
+                        {/* Event type */}
+                        <div className="text-neutral-300">
+                          {getEventTypeName(event.type, eventTypesConfig)}
+                        </div>
+                        
+                        {/* Tijd */}
+                        <div className="flex items-center gap-1 text-neutral-300">
+                          <span>🕐</span>
+                          <span>Deuren open: {formatTime(event.doorsOpen)}</span>
+                        </div>
+                        
+                        {/* Prijzen */}
+                        {prices && (
+                          <div className="border-t border-neutral-700 pt-2 space-y-1">
+                            <div className="flex justify-between items-center">
+                              <span className="text-neutral-400">Standaard:</span>
+                              <span className="font-bold text-primary-400">{formatCurrency(prices.standaard)}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-neutral-400">Premium:</span>
+                              <span className="font-bold text-primary-400">{formatCurrency(prices.premium)}</span>
+                            </div>
                           </div>
-                        );
-                      } else if (availability.bookingStatus === 'request') {
-                        return (
-                          <div className={cn(
-                            "text-[9px] font-bold tracking-tight leading-tight px-1 py-0.5 rounded mt-0.5",
-                            {
-                              'bg-orange-900/60 text-orange-200': !isSelected,
-                              'bg-orange-500 text-white': isSelected
-                            }
-                          )}>
-                            OP AANVRAAG
+                        )}
+                        
+                        {/* Status */}
+                        {availability && (
+                          <div className={cn("text-center py-1.5 px-2 rounded font-bold text-xs", {
+                            'bg-red-900/80 text-white': availability.bookingStatus === 'full',
+                            'bg-orange-900/80 text-orange-200': availability.bookingStatus === 'request',
+                            'bg-yellow-900/80 text-yellow-200': isAlmostFull && availability.bookingStatus === 'open',
+                            'bg-green-900/80 text-green-200': availability.bookingStatus === 'open' && !isAlmostFull
+                          })}>
+                            {availability.bookingStatus === 'full' ? (
+                              `🔴 VOL - Wachtlijst${waitlistCount > 0 ? ` (${waitlistCount})` : ''}`
+                            ) : availability.bookingStatus === 'request' ? (
+                              '🟠 Op aanvraag'
+                            ) : isAlmostFull ? (
+                              `🔥 Bijna vol - Nog ${availability.remainingCapacity} plaatsen`
+                            ) : waitlistCount > 0 ? (
+                              `👥 ${waitlistCount} geïnteresseerd`
+                            ) : (
+                              '🟢 Beschikbaar'
+                            )}
                           </div>
-                        );
-                      } else if (isAlmostFull && availability.remainingCapacity !== undefined) {
-                        // ✨ NEW: "Bijna vol" indicator
-                        return (
-                          <div className={cn(
-                            "text-[9px] font-bold tracking-tight leading-tight px-1 py-0.5 rounded mt-0.5 flex items-center gap-0.5",
-                            {
-                              'bg-orange-900/60 text-orange-200 border border-orange-500/40': !isSelected,
-                              'bg-orange-500 text-white': isSelected
-                            }
-                          )}>
-                            🔥 NOG {availability.remainingCapacity}
-                          </div>
-                        );
-                      } else if (waitlistCount > 0) {
-                        // Toon interesse (waitlist count) zonder capaciteitsdata
-                        return (
-                          <div className={cn(
-                            "text-[9px] font-bold tracking-tight leading-tight px-1 py-0.5 rounded mt-0.5",
-                            {
-                              'bg-blue-900/60 text-blue-200': !isSelected,
-                              'bg-blue-500 text-white': isSelected
-                            }
-                          )}>
-                            {waitlistCount} geïnteresseerd
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()
+                        )}
+                        
+                        {/* Tap again hint */}
+                        <div className="text-center text-[10px] text-neutral-500 pt-1 border-t border-neutral-800">
+                          Tap nogmaals om te boeken
+                        </div>
+                      </div>
+                    </div>
                   )}
-                </div>
+                </>
               )}
             </button>
           );
@@ -600,12 +683,12 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
 
   return (
     <>
-      <div className="card-theatre p-4 md:p-6 rounded-2xl animate-fade-in shadow-lifted">
-        <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-5">
-          <div className="w-8 h-8 md:w-10 md:h-10 bg-gold-gradient rounded-xl flex items-center justify-center shadow-gold">
-            <span className="text-xl md:text-2xl">📅</span>
+      <div className="card-theatre p-4 md:p-5 lg:p-6 rounded-2xl animate-fade-in shadow-lifted">
+        <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
+          <div className="w-8 h-8 md:w-9 md:h-9 lg:w-10 lg:h-10 bg-gold-gradient rounded-xl flex items-center justify-center shadow-gold">
+            <span className="text-lg md:text-xl lg:text-2xl">📅</span>
           </div>
-          <h2 className="text-xl md:text-2xl font-bold text-neutral-100 text-shadow">
+          <h2 className="text-xl md:text-xl lg:text-2xl font-bold text-neutral-100 text-shadow">
             Kies een datum
           </h2>
         </div>

@@ -197,23 +197,20 @@ const CheckInManager: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800">
-      {/* Enhanced Header */}
-      <div className="bg-slate-800/80 backdrop-blur-sm border-b border-slate-700 shadow-xl">
+      {/* Header */}
+      <div className="border-b border-slate-800">
         <div className="px-8 py-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-5">
-              {/* Decoratief icoon */}
-              <div className="relative p-4 bg-gradient-to-br from-amber-500 via-orange-600 to-yellow-600 rounded-2xl shadow-2xl">
-                <UserCheck className="w-8 h-8 text-white relative z-10" />
-                <div className="absolute inset-0 bg-amber-400 rounded-2xl blur-lg opacity-50 animate-pulse"></div>
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-primary/10 rounded-lg">
+                <UserCheck className="w-6 h-6 text-primary" />
               </div>
               
               <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-amber-200 to-amber-400 bg-clip-text text-transparent">
+                <h1 className="text-2xl font-bold text-white">
                   Check-in Systeem
                 </h1>
-                <p className="text-slate-400 mt-1.5 flex items-center gap-2">
-                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                <p className="text-slate-400 mt-1">
                   Registreer aanwezige gasten voor de show
                 </p>
               </div>
@@ -222,7 +219,7 @@ const CheckInManager: React.FC = () => {
             {/* Quick Stats */}
             {selectedEventId && (
               <div className="hidden lg:flex items-center gap-4">
-                <div className="px-5 py-3 bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl border border-slate-700 shadow-lg">
+                <div className="px-5 py-3 bg-slate-900 rounded-lg border border-slate-800">
                   <div className="text-2xl font-bold text-emerald-400">
                     {stats.checkedIn}
                   </div>
@@ -241,17 +238,17 @@ const CheckInManager: React.FC = () => {
         <div className="max-w-7xl mx-auto space-y-6">
 
       {/* Event Selection & QR Scanner Button */}
-      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6 shadow-xl">
+      <div className="bg-slate-900 border border-slate-800 rounded-lg p-6">
         <div className="flex flex-col md:flex-row items-start md:items-end gap-4">
           <div className="flex-1 w-full">
-            <label className="flex items-center gap-2 text-sm font-semibold text-slate-300 mb-3">
-              <CalendarIcon className="w-4 h-4 text-amber-400" />
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-400 mb-3">
+              <CalendarIcon className="w-4 h-4" />
               Selecteer Event
             </label>
             <select
               value={selectedEventId}
               onChange={(e) => setSelectedEventId(e.target.value)}
-              className="w-full bg-slate-900/70 border-2 border-slate-700 hover:border-amber-500/50 rounded-xl px-4 py-4 text-slate-100 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all text-lg font-medium shadow-lg"
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-primary focus:border-primary transition-all"
             >
               <option value="">-- Kies een event --</option>
               {upcomingEvents.map(event => (
@@ -269,9 +266,9 @@ const CheckInManager: React.FC = () => {
           
           <button
             onClick={() => setShowQRScanner(true)}
-            className="w-full md:w-auto px-8 py-4 bg-gradient-to-br from-amber-500 via-amber-600 to-orange-600 hover:from-amber-600 hover:via-amber-700 hover:to-orange-700 text-white font-bold rounded-xl transition-all duration-200 shadow-2xl shadow-amber-500/30 hover:shadow-amber-500/50 hover:scale-105 flex items-center justify-center gap-3"
+            className="w-full md:w-auto px-6 py-3 bg-primary hover:bg-primary/80 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2"
           >
-            <QrCode className="w-6 h-6" />
+            <QrCode className="w-5 h-5" />
             <span>Scan QR Code</span>
           </button>
         </div>
@@ -281,63 +278,63 @@ const CheckInManager: React.FC = () => {
         <>
           {/* Statistics Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border border-emerald-500/20 rounded-lg p-6">
+            <div className="bg-slate-900 border border-slate-800 rounded-lg p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-emerald-400 text-sm font-medium mb-1">Ingecheckt</p>
-                  <p className="text-3xl font-bold text-slate-100">
+                  <p className="text-slate-400 text-sm mb-1">Ingecheckt</p>
+                  <p className="text-3xl font-bold text-white">
                     {stats.checkedIn}<span className="text-lg text-slate-400">/{stats.total}</span>
                   </p>
                 </div>
-                <CheckCircle2 className="w-10 h-10 text-emerald-400 opacity-50" />
+                <CheckCircle2 className="w-8 h-8 text-emerald-400" />
               </div>
-              <div className="mt-2 text-xs text-emerald-400/70">
+              <div className="mt-2 text-xs text-slate-400">
                 {stats.checkedInGuests} van {stats.totalGuests} gasten
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-lg p-6">
+            <div className="bg-slate-900 border border-slate-800 rounded-lg p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-amber-400 text-sm font-medium mb-1">Verwacht</p>
-                  <p className="text-3xl font-bold text-slate-100">{stats.pending}</p>
+                  <p className="text-slate-400 text-sm mb-1">Verwacht</p>
+                  <p className="text-3xl font-bold text-white">{stats.pending}</p>
                 </div>
-                <Clock className="w-10 h-10 text-amber-400 opacity-50" />
+                <Clock className="w-8 h-8 text-amber-400" />
               </div>
-              <div className="mt-2 text-xs text-amber-400/70">
+              <div className="mt-2 text-xs text-slate-400">
                 {stats.totalGuests - stats.checkedInGuests} gasten nog verwacht
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 rounded-lg p-6">
+            <div className="bg-slate-900 border border-slate-800 rounded-lg p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-blue-400 text-sm font-medium mb-1">Totaal Gasten</p>
-                  <p className="text-3xl font-bold text-slate-100">{stats.totalGuests}</p>
+                  <p className="text-slate-400 text-sm mb-1">Totaal Gasten</p>
+                  <p className="text-3xl font-bold text-white">{stats.totalGuests}</p>
                 </div>
-                <Users className="w-10 h-10 text-blue-400 opacity-50" />
+                <Users className="w-8 h-8 text-primary" />
               </div>
-              <div className="mt-2 text-xs text-blue-400/70">
+              <div className="mt-2 text-xs text-slate-400">
                 Bezettingsgraad: {selectedEvent ? Math.round((stats.totalGuests / selectedEvent.capacity) * 100) : 0}%
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border border-purple-500/20 rounded-lg p-6">
+            <div className="bg-slate-900 border border-slate-800 rounded-lg p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-purple-400 text-sm font-medium mb-1">Reserveringen</p>
-                  <p className="text-3xl font-bold text-slate-100">{stats.total}</p>
+                  <p className="text-slate-400 text-sm mb-1">Reserveringen</p>
+                  <p className="text-3xl font-bold text-white">{stats.total}</p>
                 </div>
-                <CalendarIcon className="w-10 h-10 text-purple-400 opacity-50" />
+                <CalendarIcon className="w-8 h-8 text-primary" />
               </div>
-              <div className="mt-2 text-xs text-purple-400/70">
+              <div className="mt-2 text-xs text-slate-400">
                 Gemiddeld {stats.total > 0 ? (stats.totalGuests / stats.total).toFixed(1) : 0} gasten/reservering
               </div>
             </div>
           </div>
 
           {/* Search and Filter */}
-          <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -346,7 +343,7 @@ const CheckInManager: React.FC = () => {
                   placeholder="Zoek op naam, bedrijf, email of reserveringsnummer..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-900/50 border border-slate-700 rounded-lg pl-10 pr-4 py-3 text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-10 pr-4 py-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                 />
               </div>
               

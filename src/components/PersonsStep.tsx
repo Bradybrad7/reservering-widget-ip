@@ -82,70 +82,32 @@ export const PersonsStep: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="text-center space-y-2">
-        <div className="flex justify-center mb-4">
-          <IconContainer icon={Users} size="xl" variant="gold" />
-        </div>
-        <h2 className="text-3xl font-bold text-neutral-100 text-shadow">
-          Aantal Personen
+    <div className="space-y-8">
+      {/* Main Question - BIG and CLEAR */}
+      <div className="text-center space-y-4 py-6">
+        <h2 className="text-3xl lg:text-4xl font-bold text-neutral-100 text-shadow leading-tight">
+          Met hoeveel personen kom je?
         </h2>
-        <p className="text-dark-200 text-lg">
-          Voor hoeveel personen wilt u reserveren?
-        </p>
-      </div>
-
-      {/* Event Info */}
-      {selectedEvent && (
-        <div className="p-5 bg-gradient-to-br from-gold-500/20 to-gold-600/10 border border-gold-400/30 rounded-xl backdrop-blur-sm shadow-lg">
-          <div className="flex items-center gap-3 mb-2">
-            <svg className="w-5 h-5 text-gold-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-            </svg>
-            <h3 className="font-bold text-gold-400">Geselecteerde datum</h3>
-          </div>
-          <p className="text-neutral-200 font-medium">
-            {new Intl.DateTimeFormat('nl-NL', {
+        {selectedEvent && (
+          <p className="text-dark-300 text-sm opacity-70">
+            Geselecteerd: {new Intl.DateTimeFormat('nl-NL', {
               weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
+              day: 'numeric',
+              month: 'long'
             }).format(selectedEvent.date)}
           </p>
-          {availability && (
-            <div className="mt-3 flex items-center gap-2">
-              {/* ✅ ALLEEN bookingStatus tonen - GEEN capaciteitsdata */}
-              {availability.bookingStatus === 'open' ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
-                  <Badge variant="success" size="sm">Beschikbaar</Badge>
-                </div>
-              ) : availability.bookingStatus === 'request' ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></div>
-                  <Badge variant="warning" size="sm">Op aanvraag</Badge>
-                </div>
-              ) : availability.bookingStatus === 'full' ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse"></div>
-                  <Badge variant="error" size="sm">Wachtlijst</Badge>
-                </div>
-              ) : null}
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Main Card */}
-      <div className="card-theatre rounded-2xl border border-gold-400/20 p-8 shadow-lifted">
+      {/* Number Input - NO BORDERS */}
+      <div className="space-y-6">
         {/* Number Input */}
-        <div className="space-y-3">
-          <label className="block text-lg font-bold text-neutral-100 mb-4 text-center">
+        <div className="space-y-2">
+          <label className="block text-sm font-semibold text-neutral-100 mb-2 text-center">
             Voer het aantal personen in
           </label>
           <div className="flex justify-center">
-            <div className="relative w-full max-w-md">
+            <div className="relative w-full max-w-xs">
               <input
                 type="number"
                 min="1"
@@ -153,9 +115,10 @@ export const PersonsStep: React.FC = () => {
                 value={localPersons}
                 onChange={(e) => handlePersonsChange(parseInt(e.target.value) || 1)}
                 onFocus={(e) => e.target.select()}
+                onWheel={(e) => e.currentTarget.blur()}
                 placeholder="Bijv. 50"
                 className={cn(
-                  'w-full px-8 py-6 text-center text-4xl font-bold rounded-2xl',
+                  'w-full px-6 py-4 text-center text-3xl font-bold rounded-xl',
                   'bg-neutral-800/50 border-2 transition-all duration-300',
                   'focus:outline-none focus:ring-2 focus:ring-gold-400/50',
                   error
@@ -166,59 +129,56 @@ export const PersonsStep: React.FC = () => {
                 )}
               />
               {!error && localPersons >= 1 && localPersons <= maxReasonable && (
-                <div className="absolute right-6 top-1/2 -translate-y-1/2">
-                  <Check className={cn("w-8 h-8", warning ? "text-orange-400" : "text-green-400")} />
+                <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                  <Check className={cn("w-6 h-6", warning ? "text-orange-400" : "text-green-400")} />
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="mt-4 p-4 bg-red-500/20 border border-red-500/50 rounded-xl flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-            <p className="text-red-300 text-sm">{error}</p>
-          </div>
-        )}
-
-        {/* Warning for Over Capacity */}
-        {warning && !error && (
-          <div className="mt-4 p-4 bg-orange-500/20 border border-orange-400/50 rounded-xl flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-orange-200 text-sm font-medium mb-1">Aanvraag vereist</p>
-              <p className="text-orange-300/90 text-sm">{warning}</p>
+        {/* Messages - Subtle, no boxes */}
+        <div className="text-center space-y-2 min-h-[60px]">
+          {error && (
+            <div className="flex items-center justify-center gap-2 text-red-400 animate-fade-in">
+              <AlertCircle className="w-4 h-4" />
+              <p className="text-sm font-medium">{error}</p>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Info Box */}
-        {!error && !warning && (
-          <div className="mt-6 p-4 bg-blue-500/20 border border-blue-400/30 rounded-xl shadow-lg">
-            <div className="flex items-start gap-3">
-              <Info className="w-5 h-5 text-blue-300 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-blue-200">
-                U kunt later nog toevoegingen zoals borrels en merchandise selecteren.
-              </p>
+          {warning && !error && (
+            <div className="space-y-1 animate-fade-in">
+              <div className="flex items-center justify-center gap-2 text-orange-400">
+                <AlertCircle className="w-4 h-4" />
+                <p className="text-sm font-semibold">Aanvraag vereist</p>
+              </div>
+              <p className="text-xs text-orange-300/70">{warning}</p>
             </div>
-          </div>
-        )}
+          )}
+
+          {!error && !warning && (
+            <p className="text-xs text-dark-400 opacity-60 animate-fade-in">
+              Je kunt later nog borrels en merchandise toevoegen
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Navigation Buttons */}
-      <div className="flex gap-4">
+      <div className="flex gap-3">
         <Button
+          type="button"
           onClick={goToPreviousStep}
           variant="secondary"
-          className="flex-1"
+          className="flex-1 bg-transparent border-2 border-gold-500/50 text-gold-400 hover:bg-gold-500/10 hover:border-gold-500"
         >
           Vorige
         </Button>
         <Button
+          type="button"
           onClick={handleContinue}
           variant="primary"
-          className="flex-1"
+          className="flex-1 bg-gold-gradient shadow-gold-glow hover:shadow-gold text-white font-bold"
           disabled={!!error || localPersons < 1}
         >
           {warning ? 'Doorgaan met aanvraag' : 'Volgende'}

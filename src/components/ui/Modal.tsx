@@ -37,12 +37,12 @@ const Modal: React.FC<ModalProps> = ({
   closeOnOverlayClick = true,
   showCloseButton = true,
 }) => {
-  // Size styles
+  // Size styles - ✨ MOBILE OPTIMIZED: Responsive max widths
   const sizeStyles = {
-    sm: 'max-w-md',
-    md: 'max-w-2xl',
-    lg: 'max-w-4xl',
-    xl: 'max-w-6xl',
+    sm: 'max-w-[95vw] sm:max-w-md',
+    md: 'max-w-[95vw] sm:max-w-lg lg:max-w-2xl',
+    lg: 'max-w-[95vw] sm:max-w-2xl lg:max-w-4xl',
+    xl: 'max-w-[95vw] sm:max-w-3xl lg:max-w-6xl',
     full: 'max-w-[95vw]',
   };
 
@@ -77,26 +77,27 @@ const Modal: React.FC<ModalProps> = ({
   };
 
   return (
+    // ✨ MOBILE OPTIMIZED: Padding en alignment aangepast voor mobiel
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4
                  bg-overlay-modal backdrop-blur-sm
                  animate-fade-in"
       onClick={handleOverlayClick}
     >
       <div
         className={`
-          bg-bg-modal border-2 border-primary-500/20 rounded-2xl
+          bg-bg-modal border-2 border-primary-500/20 rounded-xl sm:rounded-2xl
           ${sizeStyles[size]} w-full
           shadow-modal animate-scale-in
-          max-h-[90vh] overflow-hidden
+          max-h-[92vh] sm:max-h-[90vh] overflow-hidden
           flex flex-col
         `}
       >
-        {/* Header */}
+        {/* Header - ✨ MOBILE OPTIMIZED: Compacter op mobiel */}
         {(title || showCloseButton) && (
-          <div className="border-b border-border-default px-6 py-4 flex items-center justify-between flex-shrink-0 bg-bg-elevated/50">
+          <div className="border-b border-border-default px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between flex-shrink-0 bg-bg-elevated/50">
             {title && (
-              <h2 className="text-text-primary font-bold text-2xl font-display">
+              <h2 className="text-text-primary font-bold text-xl sm:text-2xl font-display pr-2">
                 {title}
               </h2>
             )}
@@ -104,10 +105,10 @@ const Modal: React.FC<ModalProps> = ({
               <button
                 onClick={onClose}
                 className="text-text-muted hover:text-primary-500
-                         transition-colors p-1 rounded-lg hover:bg-bg-hover"
+                         transition-colors p-2 rounded-lg hover:bg-bg-hover flex-shrink-0"
                 aria-label="Close modal"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -115,14 +116,14 @@ const Modal: React.FC<ModalProps> = ({
           </div>
         )}
 
-        {/* Content */}
-        <div className="px-6 py-6 overflow-y-auto flex-1">
+        {/* Content - ✨ MOBILE OPTIMIZED: Compacter padding */}
+        <div className="px-4 sm:px-6 py-4 sm:py-6 overflow-y-auto flex-1">
           {children}
         </div>
 
-        {/* Footer */}
+        {/* Footer - ✨ MOBILE OPTIMIZED: Stack buttons op mobiel */}
         {footer && (
-          <div className="border-t border-border-default px-6 py-4 flex justify-end gap-3 flex-shrink-0">
+          <div className="border-t border-border-default px-4 sm:px-6 py-3 sm:py-4 flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 flex-shrink-0">
             {footer}
           </div>
         )}

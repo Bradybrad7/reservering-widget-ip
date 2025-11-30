@@ -43,16 +43,16 @@ export const StepLayout = memo<StepLayoutProps>(({
         </button>
       )}
 
-      {/* Main Grid Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Main Content Area - Full width on mobile, 2/3 on desktop */}
-        <div className="lg:col-span-2 pb-32 md:pb-0">
+      {/* Main Grid Layout - ✨ OPTIMIZED: Betere verdeling voor desktop */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4 lg:gap-5">
+        {/* Main Content Area - Optimale verdeling per schermgrootte */}
+        <div className="md:col-span-7 lg:col-span-8 pb-32 md:pb-0">
           {children}
         </div>
 
-        {/* Sidebar - Hidden on mobile (md and below), shown on desktop */}
+        {/* Sidebar - Zichtbaar vanaf tablet */}
         {sidebar && (
-          <div className="hidden md:block lg:col-span-1">
+          <div className="hidden md:block md:col-span-5 lg:col-span-4">
             {sidebar}
           </div>
         )}

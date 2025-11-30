@@ -180,20 +180,20 @@ export const EventMasterList: React.FC<EventMasterListProps> = ({
     };
   }, [events, allReservations, allWaitlistEntries]);
 
-  // Helper voor status badge kleur - Modern gradients
+  // Helper voor status badge kleur
   const getStatusBadgeClass = (color: string) => {
-    const baseClasses = 'px-2 py-1 rounded-lg text-[10px] font-bold border-2';
+    const baseClasses = 'px-2 py-1 rounded text-[10px] font-medium border border-slate-800';
     switch (color) {
       case 'green':
-        return `${baseClasses} bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 text-green-700 dark:text-green-400 border-green-300 dark:border-green-600`;
+        return `${baseClasses} text-emerald-400`;
       case 'red':
-        return `${baseClasses} bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/30 dark:to-rose-900/30 text-red-700 dark:text-red-400 border-red-300 dark:border-red-600`;
+        return `${baseClasses} text-red-400`;
       case 'orange':
-        return `${baseClasses} bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/30 dark:to-amber-900/30 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-600`;
+        return `${baseClasses} text-amber-400`;
       case 'gray':
-        return `${baseClasses} bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 text-slate-700 dark:text-slate-400 border-slate-300 dark:border-slate-600`;
+        return `${baseClasses} text-slate-400`;
       default:
-        return `${baseClasses} bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-600`;
+        return `${baseClasses} text-primary`;
     }
   };
 

@@ -103,158 +103,86 @@ export const EventCapacityWidget: React.FC = () => {
   };
 
   return (
-    <div className="bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+    <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden flex flex-col h-full">
       {/* Header */}
-      <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 border-b-2 border-slate-200 dark:border-slate-800">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-500/20 rounded-lg">
-              <Calendar className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div>
-              <h3 className="text-base font-black text-slate-900 dark:text-white">
-                Event Capaciteit
-              </h3>
-              <p className="text-xs text-slate-600 dark:text-slate-400">
-                Komende 2 weken
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setActiveSection('agenda')}
-            className="flex items-center gap-1 text-xs font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
-          >
-            Agenda
-            <ArrowRight className="w-3 h-3" />
-          </button>
+      <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between flex-shrink-0">
+        <div>
+          <h2 className="text-lg font-semibold text-white">Aankomende Evenementen</h2>
+          <p className="text-sm text-slate-400 mt-0.5">Overzicht van alle geplande shows</p>
         </div>
-
-        {/* Stats Bar */}
-        <div className="flex items-center gap-3 text-xs">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
-            <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-            <span className="font-bold text-slate-900 dark:text-white">{upcomingEvents.length}</span>
-            <span className="text-slate-600 dark:text-slate-400">events</span>
-          </div>
-          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
-            <TrendingUp className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-            <span className="font-bold text-slate-900 dark:text-white">{stats.avgUtilization}%</span>
-            <span className="text-slate-600 dark:text-slate-400">bezetting</span>
-          </div>
-          {stats.full > 0 && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-800">
-              <AlertCircle className="w-3 h-3 text-red-600 dark:text-red-400" />
-              <span className="font-bold text-red-900 dark:text-red-400">{stats.full}</span>
-              <span className="text-red-700 dark:text-red-500">vol</span>
-            </div>
-          )}
+        <div className="flex items-center gap-2">
+          <button className="px-3 py-1.5 text-sm text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition">
+            Filter
+          </button>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="p-4 max-h-[600px] overflow-y-auto">
-        {upcomingEvents.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 mx-auto mb-4 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center">
-              <Calendar className="w-8 h-8 text-slate-400 dark:text-slate-600" />
-            </div>
-            <p className="text-sm font-bold text-slate-900 dark:text-white mb-1">
-              Geen events gepland
-            </p>
-            <p className="text-xs text-slate-600 dark:text-slate-400">
-              Plan events via de Agenda sectie
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {upcomingEvents.map((event, index) => {
-              const config = getStatusConfig(event.status);
-              const StatusIcon = config.icon;
+      {/* Table */}
+      <div className="flex-1 overflow-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="text-left border-b border-slate-800">
+              <th className="px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Datum</th>
+              <th className="px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Event</th>
+              <th className="px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Capaciteit</th>
+              <th className="px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800">
+            {upcomingEvents.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="px-6 py-12 text-center">
+                  <Calendar className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                  <p className="text-sm text-slate-400">Geen events gepland</p>
+                </td>
+              </tr>
+            ) : (
+              upcomingEvents.map((event) => {
+                const getStatusBadge = () => {
+                  if (event.status === 'full') {
+                    return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400">Uitverkocht</span>;
+                  }
+                  if (event.status === 'high') {
+                    return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-500/10 text-orange-400">Bijna vol</span>;
+                  }
+                  return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400">Beschikbaar</span>;
+                };
 
-              return (
-                <div
-                  key={event.id}
-                  className={cn(
-                    'p-4 rounded-xl border-2 transition-all hover:shadow-lg cursor-pointer animate-in slide-in-from-bottom-2',
-                    config.bgColor,
-                    config.borderColor
-                  )}
-                  style={{ animationDelay: `${index * 50}ms` }}
-                  onClick={() => setActiveSection('agenda')}
-                >
-                  {/* Event Header */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-bold text-slate-900 dark:text-white truncate">
-                          {event.showId}
-                        </h4>
-                        <span className="text-xs text-slate-600 dark:text-slate-400">
-                          {event.type}
-                        </span>
+                return (
+                  <tr key={event.id} className="hover:bg-slate-800/50 transition cursor-pointer" onClick={() => setActiveSection('calendar')}>
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-medium text-white">
+                        {new Date(event.date).toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' })}
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-                        <span>
-                          {new Date(event.date).toLocaleDateString('nl-NL', {
-                            weekday: 'short',
-                            day: 'numeric',
-                            month: 'short'
-                          })}
-                        </span>
-                        <span className="text-slate-400">•</span>
-                        <span className={cn(
-                          'font-medium',
-                          event.daysUntil <= 3 ? 'text-purple-600 dark:text-purple-400' : ''
-                        )}>
-                          {event.daysUntil === 0 && 'Vandaag'}
-                          {event.daysUntil === 1 && 'Morgen'}
-                          {event.daysUntil > 1 && `Over ${event.daysUntil} dagen`}
-                        </span>
+                      <div className="text-xs text-slate-400">
+                        {event.daysUntil === 0 ? 'Vandaag' : event.daysUntil === 1 ? 'Morgen' : `${event.daysUntil}d`}
                       </div>
-                    </div>
-                    <div className={cn(
-                      'flex items-center gap-1 px-2 py-1 rounded-lg',
-                      config.bgColor
-                    )}>
-                      <StatusIcon className={cn('w-4 h-4', config.textColor)} />
-                    </div>
-                  </div>
-
-                  {/* Capacity Bar */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-600 dark:text-slate-400">
-                        {event.totalBooked} / {event.capacity} personen
-                      </span>
-                      <span className={cn('font-bold', config.textColor)}>
-                        {event.utilizationPercent}%
-                      </span>
-                    </div>
-                    <div className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                      <div
-                        className={cn('h-full transition-all duration-500', config.color)}
-                        style={{ width: `${Math.min(event.utilizationPercent, 100)}%` }}
-                      />
-                    </div>
-                    {event.availableSpots > 0 && event.status !== 'full' && (
-                      <p className="text-xs text-slate-600 dark:text-slate-400">
-                        <span className="font-bold text-slate-900 dark:text-white">
-                          {event.availableSpots}
-                        </span>
-                        {' '}plaatsen beschikbaar
-                      </p>
-                    )}
-                    {event.status === 'full' && (
-                      <p className="text-xs font-bold text-red-600 dark:text-red-400">
-                        Event is volgeboekt
-                      </p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-medium text-white">{event.showId}</div>
+                      <div className="text-xs text-slate-400">{event.type}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-xs text-slate-400 mb-1">{event.totalBooked} / {event.capacity}</div>
+                      <div className="w-full bg-slate-800 rounded-full h-1 overflow-hidden">
+                        <div 
+                          className={cn(
+                            "h-full transition-all",
+                            event.status === 'full' ? 'bg-red-500' : event.status === 'high' ? 'bg-primary' : 'bg-blue-500'
+                          )}
+                          style={{ width: `${Math.min(event.utilizationPercent, 100)}%` }}
+                        />
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {getStatusBadge()}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );

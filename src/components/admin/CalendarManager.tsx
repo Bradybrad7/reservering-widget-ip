@@ -547,21 +547,19 @@ export const CalendarManager: React.FC = () => {
   }, []);
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950">
-      {/* ====================================================================== */}
+    <div className="h-full flex flex-col">
       {/* COMPACT HEADER */}
-      {/* ====================================================================== */}
-      <header className="flex-shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-4">
+      <header className="flex-shrink-0 border-b border-slate-800 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-lg shadow-lg">
-              <Calendar className="w-5 h-5 text-white" strokeWidth={2.5} />
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Calendar className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-black text-slate-900 dark:text-white">
+              <h1 className="text-xl font-bold text-white">
                 Kalender Manager
               </h1>
-              <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+              <p className="text-xs text-slate-400">
                 {activeEvents.length} events • {activeEvents.reduce((sum, e) => sum + e.capacity, 0)} totaal capaciteit
               </p>
             </div>
@@ -569,15 +567,15 @@ export const CalendarManager: React.FC = () => {
 
           <div className="flex items-center gap-2">
             {/* View Toggle */}
-            <div className="flex items-center bg-slate-200 dark:bg-slate-800 rounded-lg p-0.5">
+            <div className="flex items-center bg-slate-900 rounded-lg p-0.5 border border-slate-800">
               <button
                 onClick={() => setViewMode('calendar')}
                 title="Kalender weergave (Ctrl+1)"
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md font-bold text-xs transition-all",
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs transition-all",
                   viewMode === 'calendar'
-                    ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    ? "bg-slate-800 text-white"
+                    : "text-slate-400 hover:text-white"
                 )}
               >
                 <Calendar className="w-3 h-3" />
@@ -587,10 +585,10 @@ export const CalendarManager: React.FC = () => {
                 onClick={() => setViewMode('list')}
                 title="Lijst weergave (Ctrl+2)"
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md font-bold text-xs transition-all",
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs transition-all",
                   viewMode === 'list'
-                    ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    ? "bg-slate-800 text-white"
+                    : "text-slate-400 hover:text-white"
                 )}
               >
                 <ListIcon className="w-3 h-3" />
@@ -600,10 +598,10 @@ export const CalendarManager: React.FC = () => {
                 onClick={() => setViewMode('timeline')}
                 title="Timeline weergave (Ctrl+3)"
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md font-bold text-xs transition-all",
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs transition-all",
                   viewMode === 'timeline'
-                    ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    ? "bg-slate-800 text-white"
+                    : "text-slate-400 hover:text-white"
                 )}
               >
                 <Layers className="w-3 h-3" />
@@ -613,10 +611,10 @@ export const CalendarManager: React.FC = () => {
                 onClick={() => setViewMode('heatmap')}
                 title="Heatmap weergave (Ctrl+4)"
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md font-bold text-xs transition-all",
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs transition-all",
                   viewMode === 'heatmap'
-                    ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    ? "bg-slate-800 text-white"
+                    : "text-slate-400 hover:text-white"
                 )}
               >
                 <Flame className="w-3 h-3" />
@@ -628,7 +626,7 @@ export const CalendarManager: React.FC = () => {
             <button
               onClick={handleExportCSV}
               title="Exporteer naar CSV (Ctrl+E)"
-              className="flex items-center gap-2 px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold text-xs transition-all shadow-sm"
+              className="flex items-center gap-2 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs transition-all border border-slate-800"
             >
               <Download className="w-3 h-3" />
               <span>Export</span>
@@ -638,7 +636,7 @@ export const CalendarManager: React.FC = () => {
             <button
               onClick={() => setViewMode('heatmap')}
               title="Statistieken & Grafieken"
-              className="flex items-center gap-2 px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-bold text-xs transition-all shadow-sm"
+              className="flex items-center gap-2 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs transition-all border border-slate-800"
             >
               <BarChart3 className="w-3 h-3" />
               <span>Stats</span>
@@ -649,13 +647,13 @@ export const CalendarManager: React.FC = () => {
               onClick={handleToggleMultiSelect}
               title="Multi-select modus (M)"
               className={cn(
-                "flex items-center gap-2 px-3 py-2 rounded-lg font-bold text-xs transition-all",
+                "flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all border",
                 isMultiSelectMode
-                  ? "bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-lg"
-                  : "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300"
+                  ? "bg-primary/10 text-primary border-primary"
+                  : "bg-slate-900 text-slate-400 border-slate-800 hover:text-white"
               )}
             >
-              <CheckCircle className={cn("w-3 h-3", isMultiSelectMode && "animate-pulse")} />
+              <CheckCircle className="w-3 h-3" />
               <span>{isMultiSelectMode ? 'Multi AAN' : 'Multi'}</span>
             </button>
 
@@ -663,10 +661,10 @@ export const CalendarManager: React.FC = () => {
             <button
               onClick={handleToggleAutoWaitlist}
               className={cn(
-                "flex items-center gap-2 px-3 py-2 rounded-lg font-bold text-xs transition-all",
+                "flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all border",
                 bookingRules?.enableWaitlist
-                  ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg"
-                  : "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                  : "bg-slate-900 text-slate-400 border-slate-800"
               )}
             >
               <Zap className={cn("w-3 h-3", bookingRules?.enableWaitlist && "animate-pulse")} />

@@ -148,6 +148,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const { activeSection, breadcrumbs, sidebarCollapsed, notificationBadges, setActiveSection, setBreadcrumbs, toggleSidebar } = useAdminStore();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
 
   // ✨ Update notification badges automatically
@@ -217,26 +218,18 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         onClick={() => handleNavigate(group.section, '', group.label)}
         title={tooltipText}
         className={cn(
-          'w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all rounded-lg group relative',
+          'w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-all rounded-lg group relative',
           isActive
-            ? 'bg-gradient-to-r from-gold-500 to-gold-600 text-white shadow-lg shadow-gold-500/20'
-            : 'text-neutral-300 hover:bg-neutral-700/70 hover:text-gold-400 hover:scale-105'
+            ? 'bg-slate-800 text-white'
+            : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
         )}
       >
-        {Icon && <Icon className={cn(
-          "w-5 h-5 flex-shrink-0 transition-transform",
-          isActive && "scale-110"
-        )} />}
+        {Icon && <Icon className="w-5 h-5 flex-shrink-0" />}
         {!sidebarCollapsed && (
           <>
             <span className="truncate flex-1 text-left">{group.label}</span>
             {badgeCount > 0 && (
-              <span className={cn(
-                'px-2 py-0.5 text-xs font-bold rounded-full flex-shrink-0 animate-pulse',
-                isActive 
-                  ? 'bg-white text-gold-600' 
-                  : 'bg-gold-500 text-black shadow-lg shadow-gold-500/50'
-              )}>
+              <span className="ml-auto bg-primary text-slate-900 text-xs font-semibold px-2 py-0.5 rounded-full">
                 {badgeCount}
               </span>
             )}
@@ -249,39 +242,48 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const sidebarContent = (
     <div className="flex flex-col h-full">
       {/* Sidebar Header */}
-      <div className="flex items-center justify-between p-4 border-b border-neutral-700">
+      <div className="h-16 flex items-center px-6 border-b border-slate-800">
         {!sidebarCollapsed && (
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            🎭 <span>Inspiration Point</span>
-          </h2>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+              <span className="text-slate-900 text-lg">🎭</span>
+            </div>
+            <span className="font-semibold text-lg text-white">Inspiration Point</span>
+          </div>
         )}
         <button
           onClick={toggleSidebar}
-          className="p-2 text-neutral-400 hover:text-gold-400 hover:bg-neutral-700 rounded-lg transition-colors hidden lg:block"
+          className="ml-auto p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors hidden lg:block"
           title={sidebarCollapsed ? 'Uitklappen' : 'Inklappen'}
         >
           {sidebarCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
         </button>
         <button
           onClick={() => setMobileSidebarOpen(false)}
-          className="p-2 text-neutral-400 hover:text-gold-400 hover:bg-neutral-700 rounded-lg transition-colors lg:hidden"
+          className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors lg:hidden"
         >
           <X className="w-5 h-5" />
         </button>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-thin scrollbar-thumb-neutral-700 scrollbar-track-transparent">
+      <nav className="flex-1 overflow-y-auto px-3 py-6 space-y-1">
         {navigationGroups
           .sort((a, b) => a.order - b.order)
           .map(group => renderNavItem(group))}
       </nav>
 
-      {/* Sidebar Footer */}
+      {/* Sidebar Footer - User Profile */}
       {!sidebarCollapsed && (
-        <div className="p-4 border-t border-neutral-700">
-          <div className="text-xs text-neutral-500 text-center">
-            Admin Panel v2.0
+        <div className="p-4 border-t border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center font-semibold text-slate-900">
+              AD
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium truncate text-white">Admin User</div>
+              <div className="text-xs text-slate-400 truncate">admin@inspiration-point.nl</div>
+            </div>
           </div>
         </div>
       )}
@@ -289,112 +291,95 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   );
 
   return (
-    <div className="min-h-screen bg-theatre flex">
+    <div className="min-h-screen bg-dark flex">
       {/* Desktop Sidebar */}
       <aside
         className={cn(
-          'hidden md:block bg-neutral-800 border-r border-neutral-700 transition-all duration-300 flex-shrink-0',
+          'hidden md:block bg-slate-900 border-r border-slate-800 transition-all duration-300 flex-shrink-0',
           sidebarCollapsed ? 'w-20' : 'w-64'
         )}
       >
         {sidebarContent}
       </aside>
 
-      {/* Mobile Sidebar Overlay */}
+      {/* Mobile Sidebar Overlay - ✨ IMPROVED: Better backdrop */}
       {mobileSidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden animate-fade-in"
           onClick={() => setMobileSidebarOpen(false)}
+          aria-hidden="true"
         />
       )}
 
-      {/* Mobile Sidebar */}
+      {/* Mobile Sidebar - ✨ MOBILE OPTIMIZED: Betere animatie en touch support */}
       <aside
         className={cn(
-          'fixed left-0 top-0 bottom-0 w-64 bg-neutral-800 border-r border-neutral-700 z-50 transform transition-transform duration-300 lg:hidden',
+          'fixed left-0 top-0 bottom-0 w-72 sm:w-80 bg-neutral-800 border-r-2 border-gold-500/30 z-50 transform transition-transform duration-300 lg:hidden overflow-y-auto',
           mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
+        style={{ 
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          paddingTop: 'env(safe-area-inset-top, 0px)'
+        }}
       >
+        {/* Close button for mobile */}
+        <div className="flex items-center justify-between p-4 border-b border-neutral-700">
+          <h2 className="text-lg font-bold text-gold-400">Menu</h2>
+          <button
+            onClick={() => setMobileSidebarOpen(false)}
+            className="p-2 text-neutral-400 hover:text-gold-400 hover:bg-neutral-700 rounded-lg transition-colors"
+            aria-label="Sluit menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
         {sidebarContent}
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Header */}
-        <header className="bg-gradient-to-r from-dark-900 to-dark-800 border-b-4 border-gold-500 flex-shrink-0">
-          <div className="px-4 md:px-6 py-4 md:py-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                {/* Mobile Menu Button */}
-                <button
-                  onClick={() => setMobileSidebarOpen(true)}
-                  className="p-2 text-gold-400 hover:bg-neutral-700 rounded-lg lg:hidden"
-                >
-                  <Menu className="w-6 h-6" />
-                </button>
+        <header className="h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-6 flex-shrink-0">
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setMobileSidebarOpen(true)}
+            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg lg:hidden transition-colors"
+            aria-label="Open menu"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
 
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-bold text-white">
-                    Admin Panel
-                  </h1>
-                  <p className="text-gold-300 mt-1 text-sm md:text-base">
-                    Reserveringsbeheer & Evenementen
-                  </p>
-                </div>
-              </div>
-
-              {/* Search and Actions */}
-              <div className="hidden md:flex items-center gap-3">
-                {/* Command Palette Trigger */}
-                <button
-                  onClick={() => setCommandPaletteOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 rounded-lg transition-colors border border-neutral-700 hover:border-gold-500"
-                >
-                  <Search className="w-4 h-4" />
-                  <span className="text-sm">Zoek of voer commando uit...</span>
-                  <kbd className="ml-2 px-2 py-0.5 bg-neutral-900 border border-neutral-600 rounded text-xs">
-                    ⌘K
-                  </kbd>
-                </button>
-
-                {/* Language Selector */}
-                <LanguageSelector />
-
-                {/* User Info */}
-                <div className="text-right text-sm text-neutral-400 pl-3 border-l border-neutral-700">
-                  <div className="font-medium text-white">Admin</div>
-                  <div>Laatste login: Vandaag</div>
-                </div>
-              </div>
+          {/* Search Bar */}
+          <div className="flex-1 max-w-md ml-4 lg:ml-0">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input 
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setCommandPaletteOpen(true)}
+                placeholder="Zoek reserveringen, klanten..." 
+                className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              />
             </div>
+          </div>
 
-            {/* Breadcrumbs */}
-            {breadcrumbs.length > 1 && (
-              <nav className="flex items-center gap-2 mt-3 text-sm text-neutral-400">
-                {breadcrumbs.map((crumb, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    {index > 0 && <ChevronRight className="w-4 h-4" />}
-                    <button
-                      onClick={() => setActiveSection(crumb.section)}
-                      className={cn(
-                        'hover:text-gold-400 transition-colors',
-                        index === breadcrumbs.length - 1 && 'text-gold-400 font-medium'
-                      )}
-                    >
-                      {crumb.label}
-                    </button>
-                  </div>
-                ))}
-              </nav>
-            )}
+          {/* Actions */}
+          <div className="flex items-center gap-3 ml-6">
+            <button className="relative p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition">
+              <Bell className="w-5 h-5" />
+              {(notificationBadges.reservations + notificationBadges.payments + notificationBadges.waitlist) > 0 && (
+                <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full"></span>
+              )}
+            </button>
+            
+            <LanguageSelector />
           </div>
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 overflow-auto">
-          <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6">
-            {children}
-          </div>
+        <main className="flex-1 overflow-y-auto p-6 bg-dark">
+          {children}
         </main>
       </div>
 

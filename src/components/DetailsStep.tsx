@@ -43,14 +43,11 @@ export const DetailsStep: React.FC = () => {
     updateFormData({ [field]: value });
   };
 
-  // Handle vereenvoudigde dieetwensen
-  const dietaryText = formData.dietaryRequirements?.other || '';
+  // Handle vereenvoudigde dieetwensen - gewoon een string
+  const dietaryText = typeof formData.dietaryRequirements === 'string' ? formData.dietaryRequirements : (formData.dietaryRequirements?.other || '');
   const handleDietaryChange = (value: string) => {
     updateFormData({
-      dietaryRequirements: {
-        ...formData.dietaryRequirements,
-        other: value
-      }
+      dietaryRequirements: value
     });
   };
 
@@ -514,7 +511,7 @@ export const DetailsStep: React.FC = () => {
           type="button"
           onClick={goToPreviousStep}
           variant="secondary"
-          className="flex-1"
+          className="flex-1 bg-transparent border-2 border-gold-500/50 text-gold-400 hover:bg-gold-500/10 hover:border-gold-500"
         >
           Vorige
         </Button>
@@ -522,7 +519,7 @@ export const DetailsStep: React.FC = () => {
           type="button"
           onClick={handleContinue}
           variant="primary"
-          className="flex-1"
+          className="flex-1 bg-gold-gradient shadow-gold-glow hover:shadow-gold text-white font-bold"
           disabled={!isFormValid}
         >
           Volgende

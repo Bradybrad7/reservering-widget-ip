@@ -143,12 +143,13 @@ const defaultWizardConfig: WizardConfig = {
     { key: 'calendar', label: 'Datum', enabled: true, order: 1, required: true },
     { key: 'persons', label: 'Personen', enabled: true, order: 2, required: true },
     { key: 'package', label: 'Pakket & Opties', enabled: true, order: 3, required: true },
-    { key: 'contact', label: 'Contactgegevens', enabled: true, order: 4, required: true },
-    { key: 'details', label: 'Extra Details', enabled: true, order: 5, required: true },
-    { key: 'summary', label: 'Bevestigen', enabled: true, order: 6, required: true },
-    { key: 'success', label: 'Voltooid', enabled: true, order: 7, required: true },
-    { key: 'waitlistPrompt', label: 'Wachtlijst', enabled: true, order: 8, required: false },
-    { key: 'waitlistSuccess', label: 'Wachtlijst Bevestigd', enabled: true, order: 9, required: false }
+    { key: 'merchandise', label: 'Merchandise', enabled: true, order: 4, required: false },
+    { key: 'contact', label: 'Contactgegevens', enabled: true, order: 5, required: true },
+    { key: 'details', label: 'Extra Details', enabled: true, order: 6, required: true },
+    { key: 'summary', label: 'Bevestigen', enabled: true, order: 7, required: true },
+    { key: 'success', label: 'Voltooid', enabled: true, order: 8, required: true },
+    { key: 'waitlistPrompt', label: 'Wachtlijst', enabled: true, order: 9, required: false },
+    { key: 'waitlistSuccess', label: 'Wachtlijst Bevestigd', enabled: true, order: 10, required: false }
   ]
 };
 
@@ -490,10 +491,14 @@ export const useReservationStore = create<ReservationStore>()(
 
     setCurrentStep: (step) => {
       set({ currentStep: step });
+      // Scroll naar boven bij stap wijziging
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     },
 
     goToNextStep: () => {
       const { currentStep, wizardConfig, formData, isFormValid, selectedEvent } = get();
+      // Scroll naar boven bij nieuwe stap
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       
       console.log('🚀 goToNextStep from:', currentStep, 'selectedEvent:', selectedEvent?.id);
       
@@ -614,6 +619,8 @@ export const useReservationStore = create<ReservationStore>()(
     goToPreviousStep: () => {
       const { currentStep, wizardConfig, selectedEvent } = get();
       console.log('⬅️ goToPreviousStep from:', currentStep, 'selectedEvent:', selectedEvent?.id);
+      // Scroll naar boven bij vorige stap
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       
       // ✨ CHECK: Is waitlist active?
       const isWaitlist = selectedEvent?.waitlistActive === true;
@@ -711,7 +718,13 @@ export const useReservationStore = create<ReservationStore>()(
           // This prevents the frontend from downloading all admin reservations (security + performance issue)
           
           // ✨ IMPORTANT: Reload events to get updated capacity and waitlist status
-          await get().loadEvents();
+          // 🔧 FIX: Don't let loadEvents failure break the successful reservation
+          try {
+            await get().loadEvents();
+          } catch (loadError) {
+            console.warn('⚠️ Failed to reload events after reservation, but reservation was successful:', loadError);
+            // Continue anyway - the reservation was successful
+          }
           
           set({ 
             completedReservation: response.data,

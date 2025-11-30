@@ -47,48 +47,48 @@ export const ReservationMasterList: React.FC<ReservationMasterListProps> = ({
 
   // Status badge helper
   const getStatusBadgeClass = (status: Reservation['status']) => {
-    const baseClasses = 'px-2 py-1 rounded-lg text-[10px] font-bold border-2';
+    const baseClasses = 'px-2 py-1 rounded text-[10px] font-medium border border-slate-800';
     switch (status) {
       case 'confirmed':
-        return `${baseClasses} bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 text-green-700 dark:text-green-400 border-green-300 dark:border-green-600`;
+        return `${baseClasses} text-emerald-400`;
       case 'pending':
-        return `${baseClasses} bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/30 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-600`;
+        return `${baseClasses} text-amber-400`;
       case 'cancelled':
-        return `${baseClasses} bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/30 dark:to-rose-900/30 text-red-700 dark:text-red-400 border-red-300 dark:border-red-600`;
+        return `${baseClasses} text-red-400`;
       case 'checked-in':
-        return `${baseClasses} bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-600`;
+        return `${baseClasses} text-primary`;
       default:
-        return `${baseClasses} bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 text-slate-700 dark:text-slate-400 border-slate-300 dark:border-slate-600`;
+        return `${baseClasses} text-slate-400`;
     }
   };
 
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex-shrink-0 p-4 border-b-2 border-slate-200 dark:border-slate-700 bg-gradient-to-r from-blue-50/50 via-indigo-50/50 to-purple-50/50 dark:from-blue-950/20 dark:via-indigo-950/20 dark:to-purple-950/20">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-              <Users className="w-4 h-4 text-white" />
+      <div className="flex-shrink-0 p-4 border-b border-slate-800">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-bold text-white flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Users className="w-4 h-4 text-primary" />
             </div>
             Reserveringen
           </h3>
-          <div className="text-sm font-bold text-slate-600 dark:text-slate-400">
+          <div className="text-sm text-slate-400">
             {reservations.length} items
           </div>
         </div>
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950/50">
+      <div className="flex-1 overflow-y-auto">
         {reservations.length === 0 ? (
           <div className="flex items-center justify-center h-full p-8">
             <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-lg bg-slate-900 flex items-center justify-center">
                 <Users className="w-8 h-8 text-slate-400" />
               </div>
-              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Geen reserveringen</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Pas je filters aan</p>
+              <p className="text-sm text-white">Geen reserveringen</p>
+              <p className="text-xs text-slate-400 mt-1">Pas je filters aan</p>
             </div>
           </div>
         ) : (
@@ -103,10 +103,10 @@ export const ReservationMasterList: React.FC<ReservationMasterListProps> = ({
                   key={reservation.id}
                   onClick={() => onSelectReservation(reservation.id)}
                   className={cn(
-                    'group rounded-xl border-2 transition-all duration-200 cursor-pointer',
+                    'group rounded-lg border transition-all cursor-pointer',
                     isSelected
-                      ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-400 dark:border-blue-500 shadow-lg shadow-blue-500/20'
-                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md'
+                      ? 'bg-slate-900 border-primary'
+                      : 'bg-slate-900 border-slate-800 hover:bg-slate-800/50'
                   )}
                 >
                   <div className="p-3">
@@ -123,10 +123,10 @@ export const ReservationMasterList: React.FC<ReservationMasterListProps> = ({
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                        <h4 className="font-semibold text-sm text-white truncate">
                           {reservation.firstName} {reservation.lastName}
                         </h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1">
+                        <p className="text-xs text-slate-400 truncate flex items-center gap-1">
                           <Mail className="w-3 h-3" />
                           {reservation.email}
                         </p>
@@ -138,7 +138,7 @@ export const ReservationMasterList: React.FC<ReservationMasterListProps> = ({
 
                     {/* Event Info */}
                     {event && (
-                      <div className="text-xs text-slate-600 dark:text-slate-400 mb-2 flex items-center gap-1 font-medium">
+                      <div className="text-xs text-slate-400 mb-2 flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
                         {new Date(event.date).toLocaleDateString('nl-NL', { 
                           day: '2-digit', 
@@ -151,16 +151,16 @@ export const ReservationMasterList: React.FC<ReservationMasterListProps> = ({
                     {/* Stats Row */}
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-3">
-                        <span className="text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                        <span className="text-slate-400 flex items-center gap-1">
                           <Users className="w-3 h-3" />
                           {reservation.numberOfPersons}
                         </span>
                         {reservation.paymentStatus && (
                           <span className={cn(
-                            "flex items-center gap-1 font-bold",
+                            "flex items-center gap-1 font-medium",
                             reservation.paymentStatus === 'paid' 
-                              ? "text-green-600 dark:text-green-400" 
-                              : "text-amber-600 dark:text-amber-400"
+                              ? "text-emerald-400" 
+                              : "text-amber-400"
                           )}>
                             {reservation.paymentStatus === 'paid' ? (
                               <CheckCircle className="w-3 h-3" />
@@ -171,7 +171,7 @@ export const ReservationMasterList: React.FC<ReservationMasterListProps> = ({
                           </span>
                         )}
                       </div>
-                      <span className="font-bold text-slate-900 dark:text-white">
+                      <span className="font-semibold text-white">
                         €{(reservation.totalPrice || 0).toLocaleString('nl-NL')}
                       </span>
                     </div>

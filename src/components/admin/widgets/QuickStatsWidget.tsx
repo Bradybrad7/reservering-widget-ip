@@ -136,55 +136,37 @@ export const QuickStatsWidget: React.FC = () => {
   }, [reservations, events, customers]);
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+    <>
       {stats.map((stat, index) => {
         const Icon = stat.icon;
         
         return (
           <div
             key={stat.label}
-            className={cn(
-              'p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 shadow-lg hover:shadow-xl transition-all animate-in slide-in-from-bottom-2',
-              stat.bgColor
-            )}
-            style={{ animationDelay: `${index * 50}ms` }}
+            className="bg-slate-900 rounded-xl p-5 border border-slate-800 hover:bg-slate-800/50 transition-all"
           >
-            <div className="flex items-start justify-between mb-3">
-              <div className={cn('p-2 bg-white/50 dark:bg-slate-900/50 rounded-lg', stat.color)}>
-                <Icon className="w-5 h-5" />
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                <Icon className="w-5 h-5 text-primary" />
               </div>
-              {stat.trend && (
-                <div className={cn(
-                  'flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold',
-                  stat.trend.isPositive
-                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                    : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-                )}>
-                  <TrendingUp className={cn(
-                    'w-3 h-3',
-                    !stat.trend.isPositive && 'rotate-180'
-                  )} />
-                  {stat.trend.value > 0 ? '+' : ''}{stat.trend.value}
-                </div>
-              )}
             </div>
-
-            <div className="space-y-1">
-              <div className={cn('text-3xl font-black', stat.color)}>
-                {stat.value}
+            <div className="text-slate-400 text-sm font-medium mb-1">{stat.label}</div>
+            <div className="text-3xl font-bold text-white">{stat.value}</div>
+            {stat.trend && stat.trend.value !== 0 && (
+              <div className={cn(
+                'text-xs mt-2 flex items-center gap-1',
+                stat.trend.isPositive ? 'text-emerald-400' : 'text-red-400'
+              )}>
+                <TrendingUp className={cn('w-3 h-3', !stat.trend.isPositive && 'rotate-180')} />
+                {stat.trend.value > 0 ? '+' : ''}{stat.trend.value} sinds gisteren
               </div>
-              <div className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                {stat.label}
-              </div>
-              {stat.sublabel && (
-                <div className="text-xs text-slate-600 dark:text-slate-400">
-                  {stat.sublabel}
-                </div>
-              )}
-            </div>
+            )}
+            {stat.sublabel && !stat.trend && (
+              <div className="text-xs text-slate-400 mt-2">{stat.sublabel}</div>
+            )}
           </div>
         );
       })}
-    </div>
+    </>
   );
 };
