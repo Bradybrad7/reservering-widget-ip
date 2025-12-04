@@ -45,7 +45,7 @@ export const EventTypeManager: React.FC = () => {
     setEditingType({ 
       ...type,
       days: type.days || [], // Fallback to empty array if undefined
-      pricing: type.pricing || { BWF: 0, BWFM: 0 } // Fallback to zero pricing
+      pricing: type.pricing || { standaard: 0, premium: 0 } // Fallback to zero pricing
     });
     setIsNewType(false);
     setShowModal(true);
@@ -67,8 +67,8 @@ export const EventTypeManager: React.FC = () => {
       showOnCalendar: true, // Default to showing on calendar
       // 🆕 ALTIJD PRICING INITIALISEREN!
       pricing: {
-        BWF: 0,
-        BWFM: 0
+        standaard: 0,
+        premium: 0
       }
     };
     setEditingType(newType);
@@ -133,20 +133,20 @@ export const EventTypeManager: React.FC = () => {
     }
 
     // 🆕 VALIDATIE: Pricing is verplicht!
-    if (!editingType.pricing || !editingType.pricing.BWF || !editingType.pricing.BWFM) {
-      alert('❌ Prijzen zijn verplicht! Vul zowel BWF als BWFM prijs in.');
+    if (!editingType.pricing || !editingType.pricing.standaard || !editingType.pricing.premium) {
+      alert('❌ Prijzen zijn verplicht! Vul zowel Standaard als Premium prijs in.');
       return;
     }
 
     // 🆕 VALIDATIE: Prijzen moeten positief zijn
-    if (editingType.pricing.BWF <= 0 || editingType.pricing.BWFM <= 0) {
+    if (editingType.pricing.standaard <= 0 || editingType.pricing.premium <= 0) {
       alert('❌ Prijzen moeten hoger dan €0 zijn!');
       return;
     }
 
-    // 🆕 VALIDATIE: BWFM moet hoger zijn dan BWF (logische check)
-    if (editingType.pricing.BWFM < editingType.pricing.BWF) {
-      if (!confirm('⚠️ Premium (BWFM) prijs is lager dan Standaard (BWF) prijs. Weet u zeker dat dit correct is?')) {
+    // 🆕 VALIDATIE: Premium moet hoger zijn dan Standaard (logische check)
+    if (editingType.pricing.premium < editingType.pricing.standaard) {
+      if (!confirm('⚠️ Premium prijs is lager dan Standaard prijs. Weet u zeker dat dit correct is?')) {
         return;
       }
     }
@@ -293,7 +293,7 @@ export const EventTypeManager: React.FC = () => {
             <strong>Event Types</strong> bepalen welk soort voorstelling het is (bijv. Reguliere Show, Zorgzame Helden, Matinee).
           </p>
           <p>
-            <strong>💰 NIEUW PRIJSSYSTEEM:</strong> Elk event type heeft nu zijn eigen vaste prijzen (BWF & BWFM).
+            <strong>💰 NIEUW PRIJSSYSTEEM:</strong> Elk event type heeft nu zijn eigen vaste prijzen (Standaard & Premium).
             Deze prijzen worden automatisch gebruikt voor alle evenementen van dat type.
           </p>
           <p>
@@ -377,25 +377,33 @@ export const EventTypeManager: React.FC = () => {
                     <div className="text-xs text-gold-300 font-semibold">💰 PRIJZEN:</div>
                     <div className="flex gap-4">
                       <div>
-                        <span className="text-xs text-neutral-400">BWF:</span>
-                        <span className="ml-1 text-white font-bold">€{type.pricing?.BWF || 0}</span>
+                        <span className="text-xs text-neutral-400">Standaard:</span>
+                        <span className="ml-1 text-white font-bold">€{(type.pricing?.standaard || type.pricing?.BWF || 0).toFixed(2)}</span>
                       </div>
                       <div>
-                        <span className="text-xs text-neutral-400">BWFM:</span>
-                        <span className="ml-1 text-white font-bold">€{type.pricing?.BWFM || 0}</span>
+                        <span className="text-xs text-neutral-400">Premium:</span>
+                        <span className="ml-1 text-white font-bold">€{(type.pricing?.premium || type.pricing?.BWFM || 0).toFixed(2)}</span>
                       </div>
-                      {type.pricing?.BWF && type.pricing?.BWFM && type.pricing.BWF > 0 && type.pricing.BWFM > 0 && (
-                        <div className="text-xs text-gold-300">
-                          (+€{(type.pricing.BWFM - type.pricing.BWF).toFixed(2)} upgrade)
-                        </div>
-                      )}
+                      {(() => {
+                        const standaardPrice = type.pricing?.standaard || type.pricing?.BWF || 0;
+                        const premiumPrice = type.pricing?.premium || type.pricing?.BWFM || 0;
+                        return standaardPrice > 0 && premiumPrice > 0 && (
+                          <div className="text-xs text-gold-300">
+                            (+€{(premiumPrice - standaardPrice).toFixed(2)} upgrade)
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
-                  {(!type.pricing || !type.pricing.BWF || !type.pricing.BWFM || type.pricing.BWF === 0 || type.pricing.BWFM === 0) && (
-                    <div className="mt-2 text-xs text-red-400 font-semibold">
-                      ⚠️ Prijzen niet ingesteld! Klik op bewerken om prijzen toe te voegen.
-                    </div>
-                  )}
+                  {(() => {
+                    const standaardPrice = type.pricing?.standaard || type.pricing?.BWF || 0;
+                    const premiumPrice = type.pricing?.premium || type.pricing?.BWFM || 0;
+                    return (standaardPrice === 0 || premiumPrice === 0) && (
+                      <div className="mt-2 text-xs text-red-400 font-semibold">
+                        ⚠️ Prijzen niet ingesteld! Klik op bewerken om prijzen toe te voegen.
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -667,19 +675,19 @@ export const EventTypeManager: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-neutral-300 mb-2">
-                      BWF (Standaard) *
+                      Standaard Arrangement *
                     </label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">€</span>
                       <input
                         type="number"
-                        value={editingType.pricing?.BWF || 0}
+                        value={editingType.pricing?.standaard || 0}
                         onChange={(e) => setEditingType({
                           ...editingType,
                           pricing: {
                             ...editingType.pricing,
-                            BWF: parseFloat(e.target.value) || 0,
-                            BWFM: editingType.pricing?.BWFM || 0
+                            standaard: parseFloat(e.target.value) || 0,
+                            premium: editingType.pricing?.premium || 0
                           }
                         })}
                         min={0}
@@ -696,18 +704,18 @@ export const EventTypeManager: React.FC = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-neutral-300 mb-2">
-                      BWFM (Premium) *
+                      Premium Arrangement *
                     </label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">€</span>
                       <input
                         type="number"
-                        value={editingType.pricing?.BWFM || 0}
+                        value={editingType.pricing?.premium || 0}
                         onChange={(e) => setEditingType({
                           ...editingType,
                           pricing: {
-                            BWF: editingType.pricing?.BWF || 0,
-                            BWFM: parseFloat(e.target.value) || 0
+                            standaard: editingType.pricing?.standaard || 0,
+                            premium: parseFloat(e.target.value) || 0
                           }
                         })}
                         min={0}
@@ -724,10 +732,10 @@ export const EventTypeManager: React.FC = () => {
                 </div>
 
                 {/* Preview van prijs verschil */}
-                {editingType.pricing?.BWF && editingType.pricing?.BWFM && (
+                {editingType.pricing?.standaard && editingType.pricing?.premium && (
                   <div className="mt-3 p-3 bg-gold-500/10 border border-gold-500/30 rounded-lg">
                     <p className="text-xs text-gold-300">
-                      💡 Upgrade naar Premium: <strong>€{(editingType.pricing.BWFM - editingType.pricing.BWF).toFixed(2)}</strong> extra per persoon
+                      💡 Upgrade naar Premium: <strong>€{(editingType.pricing.premium - editingType.pricing.standaard).toFixed(2)}</strong> extra per persoon
                     </p>
                   </div>
                 )}

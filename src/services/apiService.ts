@@ -255,6 +255,11 @@ export const apiService = {
       // ✨ CRITICAL FIX: Calculate remaining capacity for filtered events
       const reservations = await storageService.getReservations();
       const eventsWithCapacity = events.map(event => {
+        // Use existing remainingCapacity if available, otherwise calculate
+        if (event.remainingCapacity !== undefined && event.remainingCapacity !== null) {
+          return event;
+        }
+        
         const confirmedReservations = reservations.filter(
           r => r.eventId === event.id && 
                r.status !== 'cancelled' && 
@@ -319,7 +324,21 @@ export const apiService = {
     }
 
     const { available, reason } = isEventAvailable(event);
-    const remainingCapacity = event.remainingCapacity || 0;
+    
+    // ✨ FIX: Calculate remaining capacity if not set
+    let remainingCapacity = event.remainingCapacity;
+    if (remainingCapacity === undefined || remainingCapacity === null) {
+      // Calculate from reservations
+      const reservations = await storageService.getReservations();
+      const confirmedReservations = reservations.filter(
+        r => r.eventId === eventId && 
+             r.status !== 'cancelled' && 
+             r.status !== 'rejected'
+      );
+      const bookedPersons = confirmedReservations.reduce((total, r) => total + r.numberOfPersons, 0);
+      remainingCapacity = event.capacity - bookedPersons;
+      console.log(`📊 Calculated remainingCapacity for ${eventId.substring(0, 8)}: ${remainingCapacity} (capacity: ${event.capacity}, booked: ${bookedPersons})`);
+    }
 
     let bookingStatus: Availability['bookingStatus'] = 'open';
     
@@ -2939,6 +2958,37 @@ export const apiService = {
     } catch (error) {
       console.error(`❌ [AUTO-WAITLIST] Error checking waitlist status for event ${eventId}:`, error);
     }
+  },
+  
+  // 🔥 REAL-TIME LISTENERS (November 2025)
+  // Subscribe to events with automatic updates
+  subscribeToEvents(callback: (events: AdminEvent[]) => void): () => void {
+    console.log('🔥 Setting up Firebase onSnapshot listener for events...');
+    
+    const unsubscribe = storageService.subscribeToEvents((events) => {
+      // Transform to AdminEvent format with revenue and remaining capacity
+      const adminEvents: AdminEvent[] = events.map(event => ({
+        ...event,
+        reservations: [],
+        revenue: 0,
+        remainingCapacity: event.remainingCapacity || event.capacity
+      }));
+      
+      callback(adminEvents);
+    });
+    
+    return unsubscribe;
+  },
+  
+  // Subscribe to reservations with automatic updates
+  subscribeToReservations(callback: (reservations: Reservation[]) => void): () => void {
+    console.log('🔥 Setting up Firebase onSnapshot listener for reservations...');
+    
+    const unsubscribe = storageService.subscribeToReservations((reservations) => {
+      callback(reservations);
+    });
+    
+    return unsubscribe;
   }
 };
 

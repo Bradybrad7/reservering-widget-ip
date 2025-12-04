@@ -13,16 +13,26 @@ export const getEventTypeColor = (
     return typeConfig.color;
   }
 
-  // Fallback to default colors
-  const defaultColors: Record<EventType, string> = {
-    REGULAR: '#F59E0B', // Gold
-    MATINEE: '#3B82F6', // Blue
-    CARE_HEROES: '#10B981', // Green
-    REQUEST: '#8B5CF6', // Purple
-    UNAVAILABLE: '#6B7280' // Gray
+  // Fallback to default colors for common types
+  const defaultColors: Record<string, string> = {
+    // Old enum types
+    REGULAR: '#F59E0B',
+    MATINEE: '#3B82F6',
+    CARE_HEROES: '#10B981',
+    REQUEST: '#8B5CF6',
+    UNAVAILABLE: '#6B7280',
+    // New string-based types (match Firebase config defaults)
+    weekend: '#d4af37',
+    weekday: '#3b82f6',
+    matinee: '#f59e0b',
+    special: '#ec4899',
+    week: '#3b82f6',
+    zondag: '#f59e0b',
+    care_heroes: '#10B981',
+    zorgzamehelden: '#ec4899'
   };
 
-  return defaultColors[eventType] || '#F59E0B';
+  return defaultColors[eventType] || '#d4af37'; // Default to gold
 };
 
 /**
@@ -70,18 +80,28 @@ export const getEventTypeName = (
     return typeConfig.name;
   }
 
-  // Fallback to default names
-  const defaultNames: Record<EventType, string> = {
+  // Fallback to default names for common types
+  const defaultNames: Record<string, string> = {
+    // Old enum types
     REGULAR: 'Regulier',
     MATINEE: 'Matinee',
     CARE_HEROES: 'Zorghelden',
     REQUEST: 'Op Aanvraag',
-    UNAVAILABLE: 'Niet Beschikbaar'
+    UNAVAILABLE: 'Niet Beschikbaar',
+    // New string-based types (match Firebase config)
+    weekend: 'Weekend Show',
+    weekday: 'Doordeweeks',
+    matinee: 'Matinee',
+    special: 'Speciale Voorstelling',
+    week: 'Doordeweeks',
+    zondag: 'Zondag',
+    care_heroes: 'Zorghelden',
+    zorgzamehelden: 'Zorgzame Helden'
   };
 
   // Check if it's a known default type
   if (eventType in defaultNames) {
-    return defaultNames[eventType as keyof typeof defaultNames];
+    return defaultNames[eventType];
   }
 
   // Handle custom types: CUSTOM_1761217338750 → "Custom Event"

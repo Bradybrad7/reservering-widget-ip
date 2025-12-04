@@ -4,15 +4,16 @@ import { AdminLayout } from './admin/AdminLayout';
 import { Dashboard } from './admin/Dashboard';
 import { ReservationsManager } from './admin/ReservationsWorkbench'; // ✨ Reserveringen Beheer
 import { EventWorkshop } from './admin/EventWorkshop';
-import { CalendarManager } from './admin/CalendarManager';
+import { CalendarCommandCenter } from './admin/calendar/CalendarCommandCenter';
 import { CustomerManager } from './admin/CustomerManager';
 import { ProductsManager } from './admin/ProductsManager';
 import { ConfigManager } from './admin/ConfigManager';
 import { useAdminStore } from '../store/adminStore';
 import { ErrorBoundary } from './ErrorBoundary';
 
-// ✨ OPERATIONS CONTROL CENTER V3 (Nov 2025)
+// ✨ OPERATIONS CONTROL CENTER V4 (Nov 30, 2025) - PRO COMMAND CENTER
 import { ReservationsDashboard } from './admin/ReservationsDashboard';
+import { ReservationsCommandCenter } from './admin/ReservationsCommandCenter';
 
 // ✨ Nieuwe features
 import AdvancedAnalytics from './admin/AdvancedAnalytics';
@@ -59,19 +60,20 @@ const BookingAdmin: React.FC<BookingAdminProps> = () => {
       case 'dashboard':
         return <Dashboard />;
 
-      // ✨ RESERVERINGEN DASHBOARD (Nov 2025)
-      // Complete reserveringen beheer met filtering, capaciteit management en volledige bewerking
+      // ✨ RESERVERINGEN COMMAND CENTER (Nov 30, 2025)
+      // Pro-level command center: Multiple views (List/Kanban/Timeline/Calendar),
+      // Saved filters, Bulk actions, Focus widget, Inline editing, Detail panel
       case 'operations':
-        return <ReservationsDashboard />;
+        return <ReservationsCommandCenter />;
 
       // Calendar Management - Kalender sync met boekingspagina + bulk toevoegen
       case 'calendar':
-        return <CalendarManager />;
+        return <CalendarCommandCenter />;
 
       // DEPRECATED: Legacy individual sections (backward compatibility)
       // These are now unified in the Operations Control Center
       case 'events':
-        return <CalendarManager />; // Redirect to CalendarManager
+        return <CalendarCommandCenter />; // Redirect to CalendarCommandCenter
       case 'reservations':
         return <ReservationsManager />;
       case 'waitlist':

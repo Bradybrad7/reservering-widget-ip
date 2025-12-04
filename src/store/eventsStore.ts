@@ -29,6 +29,10 @@ interface EventsState {
     hasNext: boolean;
     hasPrevious: boolean;
   } | null;
+  
+  // 🔥 REAL-TIME: Listener management (November 2025)
+  unsubscribeEvents: (() => void) | null;
+  isRealtimeActive: boolean;
 }
 
 // Events Actions
@@ -44,6 +48,10 @@ interface EventsActions {
   selectEvent: (event: AdminEvent | null) => void;
   bulkCreateEvents: (events: Omit<Event, 'id'>[]) => Promise<boolean>;
   duplicateEvent: (eventId: string, newDate: Date) => Promise<boolean>;
+  
+  // 🔥 REAL-TIME: Listener management (November 2025)
+  setupRealtimeListener: () => void;
+  stopRealtimeListener: () => void;
   
   // Templates
   loadEventTemplates: () => Promise<void>;
@@ -71,6 +79,8 @@ export const useEventsStore = create<EventsState & EventsActions>()(
     shows: [],
     isLoadingShows: false,
     pagination: null,
+    unsubscribeEvents: null,
+    isRealtimeActive: false,
 
     // Actions
     loadEvents: async () => {
@@ -128,26 +138,58 @@ export const useEventsStore = create<EventsState & EventsActions>()(
     },
 
     createEvent: async (event: Omit<Event, 'id'>) => {
-      set({ isLoadingEvents: true });
+      // 🚀 OPTIMISTIC UPDATE: Create temporary event immediately for instant UI
+      const tempId = `temp-${Date.now()}`;
+      const optimisticEvent: AdminEvent = {
+        ...event,
+        id: tempId,
+        reservations: [],
+        revenue: 0,
+        remainingCapacity: event.capacity
+      } as AdminEvent;
+      
+      set(state => ({
+        events: [...state.events, optimisticEvent]
+      }));
+      
+      // Then sync with backend
       const response = await apiService.createEvent(event);
       if (response.success) {
+        // Replace temp with real event from server
         await get().loadEvents();
         return true;
+      } else {
+        // Rollback optimistic update on failure
+        set(state => ({
+          events: state.events.filter(e => e.id !== tempId)
+        }));
+        return false;
       }
-      set({ isLoadingEvents: false });
-      return false;
     },
 
     updateEvent: async (eventId: string, updates: Partial<Event>) => {
       try {
         console.log('🔄 Updating event:', eventId, updates);
+        
+        // 🚀 OPTIMISTIC UPDATE: Update local state immediately
+        const oldEvents = get().events;
+        set(state => ({
+          events: state.events.map(e => 
+            e.id === eventId ? { ...e, ...updates } as AdminEvent : e
+          )
+        }));
+        
         const response = await apiService.updateEvent(eventId, updates);
         console.log('✅ Update response:', response);
+        
         if (response.success) {
-          await get().loadEvents();
+          // Success - real-time listener will sync actual data
           return true;
         }
+        
+        // Rollback on failure
         console.error('❌ Update failed:', response.error);
+        set({ events: oldEvents });
         return false;
       } catch (error) {
         console.error('❌ Update error:', error);
@@ -157,19 +199,44 @@ export const useEventsStore = create<EventsState & EventsActions>()(
 
     deleteEvent: async (eventId: string) => {
       try {
-        console.log('🗑️ Deleting event:', eventId);
+        console.log('🗑️ [eventsStore] Deleting event:', eventId);
+        
+        if (!eventId || eventId.trim() === '') {
+          console.error('❌ Invalid eventId:', eventId);
+          return false;
+        }
+        
+        // 🚀 OPTIMISTIC UPDATE: Remove from UI immediately
+        const oldEvents = get().events;
+        set(state => ({
+          events: state.events.filter(e => e.id !== eventId)
+        }));
+        
+        // Delete from Firestore
         const response = await apiService.deleteEvent(eventId);
         console.log('✅ Delete response:', response);
+        
         if (response.success) {
+          // Wait a bit for Firestore to propagate
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Ensure it's still deleted (in case real-time listener restored it)
           set(state => ({
             events: state.events.filter(e => e.id !== eventId)
           }));
+          
           return true;
         }
+        
+        // Rollback on failure
         console.error('❌ Delete failed:', response.error);
+        set({ events: oldEvents });
         return false;
       } catch (error) {
         console.error('❌ Delete error:', error);
+        // Rollback
+        const oldEvents = get().events;
+        set({ events: oldEvents });
         return false;
       }
     },
@@ -340,6 +407,54 @@ export const useEventsStore = create<EventsState & EventsActions>()(
         return true;
       }
       return false;
+    },
+    
+    // 🔥 REAL-TIME LISTENERS (November 2025)
+    setupRealtimeListener: () => {
+      const { unsubscribeEvents, isRealtimeActive } = get();
+      
+      // Don't setup if already active
+      if (isRealtimeActive) {
+        console.log('🔥 Real-time listener already active');
+        return;
+      }
+      
+      console.log('🔥 Setting up real-time event listener...');
+      
+      // Use apiService to get real-time updates
+      const unsubscribe = apiService.subscribeToEvents?.((updatedEvents: AdminEvent[]) => {
+        console.log('🔥 Real-time update received:', updatedEvents.length, 'events');
+        
+        // Only update if we have data
+        if (updatedEvents && updatedEvents.length >= 0) {
+          set({ 
+            events: updatedEvents,
+            isRealtimeActive: true
+          });
+        }
+      });
+      
+      if (unsubscribe) {
+        set({ 
+          unsubscribeEvents: unsubscribe,
+          isRealtimeActive: true
+        });
+        console.log('✅ Real-time listener active');
+      } else {
+        console.warn('⚠️ Real-time listener not available in apiService');
+      }
+    },
+    
+    stopRealtimeListener: () => {
+      const { unsubscribeEvents } = get();
+      if (unsubscribeEvents) {
+        console.log('🔥 Stopping real-time listener...');
+        unsubscribeEvents();
+        set({ 
+          unsubscribeEvents: null,
+          isRealtimeActive: false
+        });
+      }
     }
   }))
 );

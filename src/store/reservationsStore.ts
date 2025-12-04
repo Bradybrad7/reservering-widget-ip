@@ -34,6 +34,10 @@ interface ReservationsState {
     hasPrevious: boolean;
   } | null;
   
+  // 🔥 REAL-TIME: Listener management (November 2025)
+  unsubscribeReservations: (() => void) | null;
+  isRealtimeActive: boolean;
+  
   // Filters
   filters: {
     eventType: EventType | 'all';
@@ -98,6 +102,10 @@ interface ReservationsActions {
   
   // Computed
   getFilteredReservations: () => Reservation[];
+  
+  // 🔥 REAL-TIME: Listener management (November 2025)
+  setupRealtimeListener: () => void;
+  stopRealtimeListener: () => void;
 }
 
 // Reservations Store
@@ -108,6 +116,8 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
     selectedReservation: null,
     isLoadingReservations: false,
     pagination: null,
+    unsubscribeReservations: null,
+    isRealtimeActive: false,
     filters: {
       eventType: 'all',
       dateRange: {
@@ -258,6 +268,14 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
         return false;
       }
       
+      // 🚀 OPTIMISTIC UPDATE: Update UI immediately
+      const oldReservations = get().reservations;
+      set(state => ({
+        reservations: state.reservations.map(r =>
+          r.id === reservationId ? { ...r, ...updates, updatedAt: new Date() } : r
+        )
+      }));
+      
       // ✅ VALIDATION: Check if state combination is valid
       if (updates.status || updates.paymentStatus) {
         const validation = validateReservationUpdate(
@@ -295,18 +313,10 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
       storeLogger.debug('API response', response);
       
       if (response.success) {
-        console.log('✅ [STORE] API call successful, updating Zustand state...');
+        console.log('✅ [STORE] API call successful (state already updated optimistically)');
         
         // ✨ Invalidate cache on update
         cacheReservations.invalidate();
-        
-        // Update state
-        set(state => ({
-          reservations: state.reservations.map(r =>
-            r.id === reservationId ? { ...r, ...updates, updatedAt: new Date() } : r
-          )
-        }));
-        console.log('✅ [STORE] Zustand state updated');
         
         // ✅ IMPROVED: Audit logging with communication log service (no infinite loop risk!)
         if (original) {
@@ -324,6 +334,10 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
         
         return true;
       }
+      
+      // Rollback optimistic update on failure
+      console.error('❌ [STORE] API call failed, rolling back...');
+      set({ reservations: oldReservations });
       return false;
     },
 
@@ -616,13 +630,16 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
           eventId: reservation.eventId
         });
         
+        // 🚀 OPTIMISTIC UPDATE: Remove from UI immediately
+        const oldReservations = get().reservations;
+        set(state => ({
+          reservations: state.reservations.filter(r => r.id !== reservationId)
+        }));
+        
         const response = await apiService.deleteReservation(reservationId);
         
         if (response.success) {
-          console.log('✅ [STORE] Delete successful, updating local state');
-          set(state => ({
-            reservations: state.reservations.filter(r => r.id !== reservationId)
-          }));
+          console.log('✅ [STORE] Delete successful');
           
           // ⚡ AUTOMATION: Emit capacity freed event via EventBus
           console.log(`🔔 [AUTOMATION] Reservation ${reservationId} deleted, emitting capacity freed event...`);
@@ -637,6 +654,8 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
           return true;
         } else {
           console.error('❌ [STORE] Delete failed:', response.error);
+          // Rollback optimistic update
+          set({ reservations: oldReservations });
           return false;
         }
       } catch (error) {
@@ -1142,6 +1161,60 @@ export const useReservationsStore = create<ReservationsState & ReservationsActio
       } catch (error) {
         console.error('Error adding refund:', error);
         return false;
+      }
+    },
+    
+    // 🔥 REAL-TIME LISTENERS (November 2025)
+    setupRealtimeListener: () => {
+      const { unsubscribeReservations, isRealtimeActive } = get();
+      
+      // Don't setup if already active
+      if (isRealtimeActive) {
+        console.log('🔥 Real-time listener already active');
+        return;
+      }
+      
+      console.log('🔥 Setting up real-time reservation listener...');
+      
+      // Use apiService to get real-time updates
+      const unsubscribe = apiService.subscribeToReservations?.((updatedReservations: Reservation[]) => {
+        console.log('🔥 Real-time update received:', updatedReservations.length, 'reservations');
+        
+        // Filter valid IDs
+        const validReservations = updatedReservations.filter(r => {
+          const isValid = /^res-\d{1,6}$/.test(r.id);
+          if (!isValid) {
+            console.warn('⚠️ Filtering out invalid reservation ID:', r.id);
+          }
+          return isValid;
+        });
+        
+        set({ 
+          reservations: validReservations,
+          isRealtimeActive: true
+        });
+      });
+      
+      if (unsubscribe) {
+        set({ 
+          unsubscribeReservations: unsubscribe,
+          isRealtimeActive: true
+        });
+        console.log('✅ Real-time listener active');
+      } else {
+        console.warn('⚠️ Real-time listener not available in apiService');
+      }
+    },
+    
+    stopRealtimeListener: () => {
+      const { unsubscribeReservations } = get();
+      if (unsubscribeReservations) {
+        console.log('🔥 Stopping real-time listener...');
+        unsubscribeReservations();
+        set({ 
+          unsubscribeReservations: null,
+          isRealtimeActive: false
+        });
       }
     }
   }))

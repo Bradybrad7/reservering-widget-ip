@@ -209,6 +209,7 @@ class EventsService {
     const docRef = doc(db, COLLECTIONS.EVENTS, id);
     await setDoc(docRef, {
       ...event,
+      id, // ✨ CRITICAL: Store ID in document itself for EventsListView
       date: Timestamp.fromDate(new Date(event.date)),
       bookingOpensAt: event.bookingOpensAt ? Timestamp.fromDate(new Date(event.bookingOpensAt)) : null,
       bookingClosesAt: event.bookingClosesAt ? Timestamp.fromDate(new Date(event.bookingClosesAt)) : null,

@@ -40,6 +40,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useReservationStore } from '../store/reservationStore';
 import { useEventsStore } from '../store/eventsStore';
 import { useReservationsStore } from '../store/reservationsStore';
+import { useConfigStore } from '../store/configStore';
 import { apiService } from '../services/apiService';
 import type { 
   Reservation, 
@@ -304,8 +305,15 @@ export const useBookingLogic = (options: UseBookingLogicOptions): UseBookingLogi
   // INITIALIZE
   // ========================================
   useEffect(() => {
-    // Load events on mount
+    // 🔥 Setup real-time listener for events
+    eventsStore.setupRealtimeListener();
+    
+    // Load events and config on mount
     eventsStore.loadEvents();
+    
+    // 🔥 Load eventTypesConfig for pricing
+    const configStore = useConfigStore.getState();
+    configStore.loadConfig();
     
     // Apply prefilled data
     if (prefilledData) {
@@ -320,6 +328,11 @@ export const useBookingLogic = (options: UseBookingLogicOptions): UseBookingLogi
     
     // Draft loading not implemented in current store
     // TODO: Add draft functionality to reservationStore
+    
+    // Cleanup real-time listener on unmount
+    return () => {
+      eventsStore.stopRealtimeListener();
+    };
   }, []); // Only on mount
   
   // ========================================

@@ -30,18 +30,17 @@ interface CalendarProps {
 
 const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
   const {
-    events,
     selectedEvent,
     currentMonth,
     eventAvailability,
     isLoading,
-    loadEventsForMonth,
     selectEvent,
     setCurrentMonth,
     loadEventAvailability
   } = useReservationStore();
 
-  const { shows, loadShows } = useEventsStore();
+  // ✨ FIX: Use eventsStore directly for real-time sync with admin calendar
+  const { events: allEvents, loadEvents, shows, loadShows } = useEventsStore();
   const { eventTypesConfig, loadConfig } = useConfigStore();
   
   // ✨ NEW: Waitlist support
@@ -60,21 +59,16 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
   // ✨ NEW: Filter out archived events for customer view
   // Events are automatically archived when date has passed or inactive
   const activeEvents = useMemo(() => {
-    return filterActiveEvents(events);
-  }, [events]);
+    return filterActiveEvents(allEvents);
+  }, [allEvents]);
 
-  // 🔧 FIX: Load shows and config only once on mount (not on every render)
+  // 🔧 FIX: Load shows, config and events only once on mount
   useEffect(() => {
     loadShows();
     loadConfig();
+    loadEvents(); // ✨ NEW: Load all events once, real-time listener will keep them updated
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array = run only once on mount
-
-  // 🔧 FIX: Load events only when month changes (not when loadEventsForMonth function reference changes)
-  useEffect(() => {
-    loadEventsForMonth(currentMonth.getFullYear(), currentMonth.getMonth());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentMonth]); // Only re-run when currentMonth changes
 
   // ✨ NEW: Load waitlist status for current month
   useEffect(() => {
@@ -234,10 +228,7 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
         const year = searchMonth.getFullYear();
         const month = searchMonth.getMonth();
         
-        // Load events for this month
-        await loadEventsForMonth(year, month);
-        
-        // Check if there are any active events in this month
+        // Check if there are any active events in this month (events already loaded via real-time)
         const monthEvents = activeEvents.filter(event => {
           const eventDate = new Date(event.date);
           return eventDate.getFullYear() === year && 
@@ -264,7 +255,7 @@ const Calendar: React.FC<CalendarProps> = memo(({ onDateSelect }) => {
     } finally {
       setIsSearchingNext(false);
     }
-  }, [currentMonth, setCurrentMonth, loadEventsForMonth, activeEvents]);
+  }, [currentMonth, setCurrentMonth, activeEvents]);
 
   const handleDateClick = useCallback((_date: Date, event?: Event) => {
     if (event && event.isActive) {
